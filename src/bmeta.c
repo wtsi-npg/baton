@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 
+#include "config.h"
+
 #include "zlog.h"
 
 #include "rodsClient.h"
@@ -9,7 +11,10 @@
 
 #include "baton.h"
 
-static int verbose_flag;
+static char *LOG_CONF_FILE = ZLOG_CONF;
+
+static int help_flag;
+static int version_flag;
 
 int main(int argc, char *argv[]) {
 
@@ -32,18 +37,20 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"verbose", no_argument, &verbose_flag, 1},
-            {"brief",   no_argument, &verbose_flag, 0},
+            {"help",    no_argument, &help_flag,    1},
+            {"version", no_argument, &version_flag, 1},
             // Indexed options
-            {"add",   no_argument,       0, 'd'},
-            {"attr",  required_argument, 0, 'a'},
-            {"units", optional_argument, 0, 'u'},
-            {"value", required_argument, 0, 'v'},
+            {"add",     no_argument,       NULL, 'd'},
+            {"attr",    required_argument, NULL, 'a'},
+            {"logconf", required_argument, NULL, 'l'},
+            {"units",   required_argument, NULL, 'u'},
+            {"value",   required_argument, NULL, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long(argc, argv, "ak:u:v:", long_options, &option_index);
+        int c = getopt_long_only(argc, argv, "a:l:u:v:",
+                                 long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -71,12 +78,20 @@ int main(int argc, char *argv[]) {
                 break;
 
             default:
-                abort();
+                // Ignore
+                break;
         }
     }
 
-    // if (verbose_flag)
-    //     puts("verbose flag is set");
+    if (help_flag) {
+        puts("Print usage help here\n");
+        exit(0);
+    }
+
+    if (version_flag) {
+        printf("%s\n", VERSION);
+        exit(0);
+    }
 
     switch (operation) {
         case META_ADD:
@@ -98,11 +113,15 @@ int main(int argc, char *argv[]) {
         goto args_error;
     }
 
-    if (zlog_init("/Users/keith/dev/work/jrods.git/bmeta_zlog.conf")) {
+    if (zlog_init(LOG_CONF_FILE)) {
         fprintf(stderr, "Logging configuration failed\n");
     }
 
-    if (optind < argc) {
+    if (optind >= argc) {
+        fprintf(stderr, "Expected one or more iRODS paths as arguments\n");
+        goto args_error;
+    }
+    else {
         conn = rods_login(&env);
 
         while (optind < argc) {
@@ -110,7 +129,7 @@ int main(int argc, char *argv[]) {
             status = resolve_rods_path(conn, &env, &rods_path, path);
 
             if (status < 0) {
-                if (exit_status == 0) exit_status = 5;
+                exit_status = 5;
                 logmsg(ERROR, BMETA_CAT, "Failed to resolve path '%s'", path);
                 goto error;
             }
@@ -118,7 +137,7 @@ int main(int argc, char *argv[]) {
             status = modify_metadata(conn, &rods_path, operation,
                                      attr_name, attr_value, attr_unit);
             if (status < 0) {
-                if (exit_status == 0) exit_status = 5;
+                exit_status = 5;
                 err_name = rodsErrorName(status, &err_subname);
                 logmsg(ERROR, BMETA_CAT,
                        "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
@@ -127,18 +146,20 @@ int main(int argc, char *argv[]) {
                        status, err_name, err_subname);
             }
         }
+
+        rcDisconnect(conn);
     }
 
-    rcDisconnect(conn);
+    zlog_fini();
     exit(exit_status);
 
 args_error:
-    conn = NULL;
     exit_status = 4;
 
 error:
     if (conn != NULL)
         rcDisconnect(conn);
 
+    zlog_fini();
     exit(exit_status);
 }

@@ -5,7 +5,7 @@
 #include "rodsPath.h"
 
 #define BATON_CAT "baton"
-#define BMETA_CAT "baton.bmeta"
+#define BMETA_CAT "baton_bmeta"
 
 typedef enum {
     FATAL,
@@ -48,13 +48,3 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
 
 int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
                     char *attr_name, char *attr_value, char *attr_unit);
-
-
-int printRodsPath(rodsPath_t *path);
-
-int isLeaf(collEnt_t *collEnt);
-
-int zombat(rcComm_t *conn, rodsPath_t *srcPath);
-
-int listPath(rcComm_t *conn, rodsPath_t *srcPath,
-             int (*callback) (rodsPath_t *));
