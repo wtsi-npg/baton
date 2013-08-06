@@ -1,0 +1,15 @@
+
+baton |bəˈtän|
+
+  noun, A short stick or staff or something resembling one.
+
+Client programs and API for use with iRODS (Integrated Rule-Oriented
+Data System).
+
+
+Dependencies:
+
+iRODS   http://www.irods.org
+
+Jansson https://github.com/akheron/jansson.git
+zlog    https://github.com/HardySimpson/zlog.git
