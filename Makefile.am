@@ -1,5 +1,5 @@
-SUBDIRS=src
+SUBDIRS=src tests
 ACLOCAL_AMFLAGS=-I m4
 
 etcdir = $(sysconfdir)
-etc_DATA = bmeta_zlog.conf
+etc_DATA = metamod_zlog.conf
