@@ -1,5 +1,5 @@
-SUBDIRS=src
-ACLOCAL_AMFLAGS=-I m4
+SUBDIRS= src . tests
+ACLOCAL_AMFLAGS=-I m4 -I /usr/local/share/aclocal
 
 etcdir = $(sysconfdir)
-etc_DATA = bmeta_zlog.conf
+etc_DATA = metamod_zlog.conf
