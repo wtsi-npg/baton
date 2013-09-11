@@ -182,6 +182,8 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
 genQueryInp_t* make_query_input(int max_rows, int num_columns,
                                 const int columns[]);
 
+void free_query_input(genQueryInp_t *query_input);
+
 genQueryInp_t* add_query_conds(genQueryInp_t *query_input, int num_conds,
                                const query_cond conds[]);
 
