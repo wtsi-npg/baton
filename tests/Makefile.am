@@ -1,8 +1,8 @@
 
 TESTS = check_baton
 
-noinst_PROGRAMS = check_baton
-# check_PROGRAMS = check_baton
+# noinst_PROGRAMS = check_baton
+check_PROGRAMS = check_baton
 
 check_baton_SOURCES = check_baton.c $(top_builddir)/src/baton.h
 
