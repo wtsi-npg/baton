@@ -176,7 +176,7 @@ int query_metadata(char *attr_name, char *attr_value) {
         goto error;
     }
 
-    // query_obj_and_print(conn, attr_name, attr_value);
+    query_obj_and_print(conn, attr_name, attr_value);
     query_col_and_print(conn, attr_name, attr_value);
 
     rcDisconnect(conn);
