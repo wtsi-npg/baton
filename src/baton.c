@@ -17,14 +17,14 @@
  * @file baton.c
  */
 
-#include "zlog.h"
-#include <jansson.h>
+#include <assert.h>
 
+#include <jansson.h>
+#include "zlog.h"
 #include "rodsType.h"
 #include "rodsErrorTable.h"
 #include "rodsClient.h"
 #include "miscUtil.h"
-
 #include "baton.h"
 
 void logmsg(log_level level, const char* category, const char *format, ...) {
@@ -33,7 +33,7 @@ void logmsg(log_level level, const char* category, const char *format, ...) {
 
     zlog_category_t *cat = zlog_get_category(category);
     if (cat == NULL) {
-        fprintf(stderr, "Failed to get zlog category '%s'", category);
+        fprintf(stderr, "Failed to get zlog category '%s'\n", category);
         goto error;
     }
 
@@ -74,14 +74,48 @@ error:
     return;
 }
 
-void log_rods_errstack(log_level level, const char* category, rError_t *err) {
+void log_rods_errstack(log_level level, const char* category, rError_t *error) {
     rErrMsg_t *errmsg;
 
-    int len = err->len;
+    int len = error->len;
     for (int i = 0; i < len; i++) {
-	    errmsg = err->errMsg[i];
+	    errmsg = error->errMsg[i];
         logmsg(level, category, "Level %d: %s", i, errmsg->msg);
     }
+}
+
+void log_json_error(log_level level, const char* category,
+                    json_error_t *error) {
+    logmsg(level, category, "JSON error: %s, line %d, column %d, position %d",
+           error->text, error->line, error->column, error->position);
+}
+
+int is_irods_available() {
+    rodsEnv env;
+    int status;
+    rErrMsg_t errmsg;
+
+    status = getRodsEnv(&env);
+    if (status < 0) {
+        logmsg(ERROR, BATON_CAT, "Failed to load your iRODS environment");
+        goto error;
+    }
+
+    rcComm_t *conn = rcConnect(env.rodsHost, env.rodsPort, env.rodsUserName,
+                               env.rodsZone, RECONN_TIMEOUT, &errmsg);
+    int available;
+    if (conn == NULL) {
+        available = 0;
+    }
+    else {
+        available = 1;
+        rcDisconnect(conn);
+    }
+
+    return available;
+
+error:
+    return status;
 }
 
 rcComm_t *rods_login(rodsEnv *env) {
@@ -111,19 +145,19 @@ rcComm_t *rods_login(rodsEnv *env) {
     return conn;
 
 error:
-    if (conn != NULL)
+    if (conn != NULL) {
         rcDisconnect(conn);
+    }
 
     return NULL;
 }
-
 
 int init_rods_path(rodsPath_t *rodspath, char *inpath) {
     if (rodspath == NULL) {
         return USER__NULL_INPUT_ERR;
     }
 
-    memset(rodspath, 0, sizeof(rodsPath_t));
+    memset(rodspath, 0, sizeof (rodsPath_t));
     char *dest = rstrcpy(rodspath->inPath, inpath, MAX_NAME_LEN);
     if (dest == NULL) {
         return -1;
@@ -216,8 +250,9 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
     modAVUMetadataInp_t anon_args;
     map_mod_args(&anon_args, &named_args);
     status = rcModAVUMetadata(conn, &anon_args);
-    if (status < 0)
+    if (status < 0) {
         goto rods_error;
+    }
 
     return status;
 
@@ -228,15 +263,177 @@ rods_error:
            attr_name, attr_value, rods_path->outPath,
            status, err_name, err_subname);
 
-    if (conn->rError)
+    if (conn->rError) {
         log_rods_errstack(ERROR, BATON_CAT, conn->rError);
+    }
 
 error:
     return status;
 }
 
-void log_json_error(log_level level, const char* category,
-                    json_error_t *error) {
-    logmsg(level, category, "JSON error: %s, line %d, column %d, position %d",
-           error->text, error->line, error->column, error->position);
+genQueryInp_t* make_query_input(int max_rows, int num_columns,
+                                const int columns[]) {
+    genQueryInp_t *query_input = calloc(1, sizeof (genQueryInp_t));
+    assert(query_input != NULL);
+
+    int *cols_to_select = calloc(num_columns, sizeof (int));
+    for (int i = 0; i < num_columns; i++) {
+        cols_to_select[i] = columns[i];
+    }
+
+    int *special_select_ops = calloc(num_columns, sizeof (int));
+    special_select_ops[0] = 0;
+
+    query_input->selectInp.inx = cols_to_select;
+    query_input->selectInp.value = special_select_ops;
+    query_input->selectInp.len = num_columns;
+
+    query_input->maxRows = max_rows;
+    query_input->continueInx = 0;
+    query_input->condInput.len = 0;
+
+    int *query_cond_indices = calloc(MAX_NUM_CONDITIONALS, sizeof (int));
+    char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));;
+
+    query_input->sqlCondInp.inx = query_cond_indices;
+    query_input->sqlCondInp.value = query_cond_values;
+    query_input->sqlCondInp.len = 0;
+
+    return query_input;
+}
+
+void free_query_input(genQueryInp_t *query_input) {
+    assert(query_input != NULL);
+
+    // Free any strings allocated as query clause values
+    for (int i = 0; i < query_input->sqlCondInp.len; i++) {
+        free(query_input->sqlCondInp.value[i]);
+    }
+
+    free(query_input->selectInp.inx);
+    free(query_input->selectInp.value);
+    free(query_input->sqlCondInp.inx);
+    free(query_input->sqlCondInp.value);
+    free(query_input);
+}
+
+genQueryInp_t* add_query_conds(genQueryInp_t *query_input, int num_conds,
+                               const query_cond conds[]) {
+    for (int i = 0; i < num_conds; i++) {
+        char *op = conds[i].operator;
+        char *name = conds[i].value;
+
+        int expr_size = strlen(name) + strlen(op) + 3 + 1;
+        char *expr = calloc(expr_size, sizeof (char));
+        snprintf(expr, expr_size, "%s '%s'", op, name);
+
+        logmsg(DEBUG, BATON_CAT, "Added conditional %d of %d: %s %d %s => %s",
+               i, num_conds, name, strlen(name), op, expr);
+
+        int current_index = query_input->sqlCondInp.len;
+        query_input->sqlCondInp.inx[current_index] = conds[i].column;
+        query_input->sqlCondInp.value[current_index] = expr;
+        query_input->sqlCondInp.len++;
+    }
+
+    return query_input;
+}
+
+json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
+                 genQueryOut_t *query_output, const char* labels[]) {
+    int status;
+    char *err_name;
+    char *err_subname;
+    int chunk_num = 0;
+
+    json_t* results = json_array();
+    assert(results != NULL);
+
+    while (chunk_num == 0 || query_output->continueInx > 0) {
+        status = rcGenQuery(conn, query_input, &query_output);
+
+        if (status == CAT_NO_ROWS_FOUND) {
+            logmsg(DEBUG, BATON_CAT, "Query returned no results");
+            break;
+        }
+        else if (status != 0) {
+            goto error;
+        }
+        else {
+            query_input->continueInx = query_output->continueInx;
+
+            json_t* chunk = make_json_objects(query_output, labels);
+            if (chunk == NULL) {
+                goto error;
+            }
+
+            logmsg(DEBUG, BATON_CAT, "Fetched chunk %d of %d results",
+                   chunk_num, json_array_size(chunk));
+            chunk_num++;
+
+            status = json_array_extend(results, chunk);
+            if (status != 0) {
+                goto error;
+            }
+        }
+    }
+
+    return results;
+
+error:
+    err_name = rodsErrorName(status, &err_subname);
+    logmsg(ERROR, BATON_CAT,
+           "Failed get query result: in chunk %d error %d %s %s",
+           chunk_num, status, err_name, err_subname);
+
+    if (conn->rError) {
+        log_rods_errstack(ERROR, BATON_CAT, conn->rError);
+    }
+
+    if (results != NULL) {
+        free(results);
+    }
+
+    return NULL;
+}
+
+json_t* make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
+    json_t* array = json_array();
+    assert(array != NULL);
+
+    for (int row = 0; row < query_output->rowCnt; row++) {
+        json_t* jrow = json_object();
+        assert(jrow != NULL);
+
+        for (int i = 0; i < query_output->attriCnt; i++) {
+            char *result = query_output->sqlResult[i].value;
+            result += row * query_output->sqlResult[i].len;
+
+            logmsg(DEBUG, BATON_CAT,
+                   "Encoding column %d '%s' value '%s' as JSON",
+                   i, labels[i], result);
+
+            json_t* jvalue = json_string(result);
+            assert(jvalue != NULL);
+
+            json_object_set_new(jrow, labels[i], jvalue);
+        }
+
+        int status = json_array_append_new(array, jrow);
+        if (status != 0) {
+            logmsg(ERROR, BATON_CAT,
+                   "Failed to append a new JSON result at row %d of %d",
+                   row, query_output->rowCnt);
+            goto error;
+        }
+    }
+
+    return array;
+
+error:
+    if (array != NULL) {
+        free(array);
+    }
+
+    return NULL;
 }
