@@ -28,7 +28,6 @@
 #include "rodsPath.h"
 
 #define BATON_CAT "baton"
-#define METAMOD_CAT "baton_metamod"
 
 #define MAX_NUM_CONDITIONALS 20
 
@@ -179,13 +178,34 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
 int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
                     char *attr_name, char *attr_value, char *attr_unit);
 
-genQueryInp_t* make_query_input(int max_rows, int num_columns,
+/**
+ * Allocate a new iRODS generic query (see rodsGenQuery.h).
+ *
+ * @param[in] max_rows    Maximum number of rows to return.
+ * @param[in] num_columns The number of columns to select.
+ * @param[in] columns     The columns to select.
+ *
+ * @return A pointer to a new genQueryInp_t which must be freed using
+ * @ref free_query_input
+ */
+genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]);
 
 void free_query_input(genQueryInp_t *query_input);
 
-genQueryInp_t* add_query_conds(genQueryInp_t *query_input, int num_conds,
+genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
                                const query_cond conds[]);
+
+int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
+                    const char *labels[]);
+
+int list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
+
+json_t *list_obj_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                          char *attr_name);
+
+json_t *list_col_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                          char *attr_name);
 
 /**
  * Execute a general query and obtain results as a JSON array of objects.
@@ -201,9 +221,8 @@ genQueryInp_t* add_query_conds(genQueryInp_t *query_input, int num_conds,
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
-json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
+json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
                  genQueryOut_t *query_output, const char *labels[]);
-
 
 /**
  * Construct a JSON array of objects from a query output. Columns in the
