@@ -170,12 +170,12 @@ int query_metadata(char *attr_name, char *attr_value) {
     int error_count = 0;
 
     rodsEnv env;
-    rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
     if (conn == NULL) {
         goto error;
     }
 
+    // TODO: bundle the results into one JSON collection
     query_obj_and_print(conn, attr_name, attr_value);
     query_col_and_print(conn, attr_name, attr_value);
 
@@ -189,25 +189,6 @@ error:
     }
 
     return -1;
-}
-
-int print_json(json_t* results) {
-    char *json_str = json_dumps(results, JSON_INDENT(1));
-    printf("%s\n", json_str);
-    free(json_str);
-}
-
-
-int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
-                    const char *labels[]) {
-    genQueryOut_t *query_output;
-    json_t* results = do_query(conn, query_input, query_output, labels);
-    assert(results != NULL);
-
-    print_json(results);
-    free(results);
-
-    return 0;
 }
 
 int query_obj_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {

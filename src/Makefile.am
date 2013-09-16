@@ -5,7 +5,10 @@ libbaton_la_SOURCES = baton.c
 libbaton_includedir = $(includedir)/baton
 libbaton_include_HEADERS = baton.h
 
-bin_PROGRAMS = metamod metaquery
+bin_PROGRAMS = metalist metamod metaquery
+
+metalist_SOURCES = metalist.c
+metalist_LDADD = libbaton.la
 
 metamod_SOURCES = metamod.c
 metamod_LDADD = libbaton.la

@@ -21,4 +21,16 @@ AC_CHECK_LIB([jansson], [json_unpack])
 AC_CHECK_LIB([pthread], [pthread_kill])
 AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
 
+
+# Notes for OSX with homebrew:
+# Ensure that check.m4 ans pkg.m4 are in a system aclocal path or
+# a path added by ACLOCAL_AMFLAGS in Makefile.am
+
+# AM_PATH_CHECK is deprecated and replaced by PKG_CHECK_MODULES
+# AM_PATH_CHECK(,[have_check="yes"],
+#         AC_MSG_WARN([Check not found; cannot run unit tests!])
+#         [have_check="no"])
+PKG_CHECK_MODULES([CHECK], [check >= 0.9.4])
+AM_CONDITIONAL(HAVE_CHECK, test x"$have_check" = "xyes")
+
 AC_OUTPUT
