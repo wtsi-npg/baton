@@ -30,7 +30,7 @@ AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
 # AM_PATH_CHECK(,[have_check="yes"],
 #         AC_MSG_WARN([Check not found; cannot run unit tests!])
 #         [have_check="no"])
-PKG_CHECK_MODULES([CHECK], [check >= 0.9.4])
+PKG_CHECK_MODULES([CHECK], [check >= 0.9.4], [HAVE_CHECK=1], [HAVE_CHECK=0])
 AM_CONDITIONAL(HAVE_CHECK, test x"$have_check" = "xyes")
 
 AC_OUTPUT
