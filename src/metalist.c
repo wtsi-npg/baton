@@ -34,19 +34,13 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int help_flag;
 static int version_flag;
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation,
-                       char *attr_name, char *attr_value, char *attr_unit);
+int do_list_metadata(int argc, char *argv[], int optind, char *attr_name);
 
 int main(int argc, char *argv[]) {
 
     int exit_status;
 
-    metadata_op meta_op = -1;
-
     char *attr_name = NULL;
-    char *attr_value = NULL;
-    char *attr_units = "";
 
     while (1) {
         static struct option long_options[] = {
@@ -56,14 +50,11 @@ int main(int argc, char *argv[]) {
             // Indexed options
             {"attr",      required_argument, NULL, 'a'},
             {"logconf",   required_argument, NULL, 'l'},
-            {"operation", required_argument, NULL, 'o'},
-            {"units",     required_argument, NULL, 'u'},
-            {"value",     required_argument, NULL, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:o:u:v:",
+        int c = getopt_long_only(argc, argv, "a:l:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -79,21 +70,6 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE = optarg;
                 break;
 
-            case 'o':
-                if (strcmp("add", optarg) ==  0) {
-                    meta_op = META_ADD;
-                }
-
-                break;
-
-            case 'u':
-                attr_units = optarg;
-                break;
-
-            case 'v':
-                attr_value = optarg;
-                break;
-
             case '?':
                 // getopt_long already printed an error message
                 break;
@@ -106,20 +82,16 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    metamod");
+        puts("    metalist");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    metamod -o <operation> --attr <attr> --value <value> [--units <unit>] \\");
-        puts("      <paths ...>");
+        puts("    metamod [--attr <attr>] <paths ...>");
         puts("");
         puts("Description");
-        puts("    Modifies metadata AVUs.");
+        puts("    Lists metadata AVUs.");
         puts("");
-        puts("    --operation   Operation to perform. One of [add]. Required.");
-        puts("    --attr        The attribute of the AVU. Required.");
-        puts("    --value       The value of the AVU. Required");
-        puts("    --units       The units of the AVU. Optional");
+        puts("    --attr        The attribute of the AVU. Optional.");
         puts("");
 
         exit(0);
@@ -145,36 +117,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    switch (meta_op) {
-        case META_ADD:
-            if (!attr_name) {
-                fprintf(stderr, "An --attr argument is required\n");
-                goto args_error;
-            }
-
-            if (!attr_value) {
-                fprintf(stderr, "A --value argument is required\n");
-                goto args_error;
-            }
-
-            if (optind >= argc) {
-                fprintf(stderr,
-                        "Expected one or more iRODS paths as arguments\n");
-                goto args_error;
-            }
-
-            int status = do_modify_metadata(argc, argv, optind, meta_op,
-                                            attr_name, attr_value, attr_units);
-            if (status != 0) {
-                exit_status = 5;
-            }
-
-            break;
-
-        default:
-            fprintf(stderr, "No valid operation was specified; valid "
-                    "operations are: [add]\n");
-            goto args_error;
+    int status = do_list_metadata(argc, argv, optind, attr_name);
+    if (status != 0) {
+        exit_status = 5;
     }
 
     zlog_fini();
@@ -188,9 +133,7 @@ error:
     exit(exit_status);
 }
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation,
-                       char *attr_name, char *attr_value, char *attr_units) {
+int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
     char *err_name;
     char *err_subname;
 
@@ -215,15 +158,14 @@ int do_modify_metadata(int argc, char *argv[], int optind,
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
-            status = modify_metadata(conn, &rods_path, operation,
-                                     attr_name, attr_value, attr_units);
+            status = list_metadata(conn, &rods_path, attr_name);
             if (status < 0) {
                 error_count++;
                 err_name = rodsErrorName(status, &err_subname);
                 logmsg(ERROR, BATON_CAT,
-                       "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
+                       "Failed to list metadata ['%s'] on '%s': "
                        "error %d %s %s",
-                       attr_name, attr_value, attr_units, rods_path.outPath,
+                       attr_name, rods_path.outPath,
                        status, err_name, err_subname);
             }
         }
