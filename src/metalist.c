@@ -163,10 +163,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
                 error_count++;
                 err_name = rodsErrorName(status, &err_subname);
                 logmsg(ERROR, BATON_CAT,
-                       "Failed to list metadata ['%s'] on '%s': "
-                       "error %d %s %s",
-                       attr_name, rods_path.outPath,
-                       status, err_name, err_subname);
+                       "Failed to list metadata on '%s'", rods_path.outPath);
             }
             else {
                 print_json(results);

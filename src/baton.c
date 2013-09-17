@@ -228,6 +228,12 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name) {
     genQueryInp_t *query_input = NULL;
     genQueryOut_t *query_output;
 
+    if (rods_path->objState == NOT_EXIST_ST) {
+        logmsg(ERROR, BATON_CAT, "Path '%s' does not exist "
+               "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
     switch (rods_path->objType) {
         case DATA_OBJ_T:
             logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a data object",
@@ -251,7 +257,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name) {
 
         default:
             logmsg(ERROR, BATON_CAT,
-                   "Failed to set metadata on '%s' as it is "
+                   "Failed to list metadata on '%s' as it is "
                    "neither data object nor collection",
                    rods_path->outPath);
             goto error;
