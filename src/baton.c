@@ -28,6 +28,8 @@
 #include "miscUtil.h"
 #include "baton.h"
 
+char *metadata_op_name(metadata_op op);
+
 void logmsg(log_level level, const char* category, const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -198,7 +200,7 @@ error:
 }
 
 void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in *in) {
-    out->arg0 = metadata_ops[in->op];
+    out->arg0 = metadata_op_name(in->op);
     out->arg1 = in->type_arg;
     out->arg2 = in->rods_path->outPath;
     out->arg3 = in->attr_name;
@@ -552,4 +554,23 @@ int print_json(json_t* results) {
     char *json_str = json_dumps(results, JSON_INDENT(1));
     printf("%s\n", json_str);
     free(json_str);
+}
+
+char *metadata_op_name(metadata_op op) {
+    char *name;
+
+    switch (op) {
+        case META_ADD:
+            name = META_ADD_NAME;
+            break;
+
+        case META_REM:
+            name = META_REM_NAME;
+            break;
+
+        default:
+            name = NULL;
+    }
+
+    return name;
 }
