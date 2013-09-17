@@ -197,7 +197,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
 int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
                     const char *labels[]);
 
-int list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
 
 json_t *list_obj_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                           char *attr_name);

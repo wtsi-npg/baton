@@ -30,12 +30,18 @@
 
 char *metadata_op_name(metadata_op op);
 
+genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
+                                rodsPath_t *rods_path, char *attr_name);
+
+genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
+                                rodsPath_t *rods_path, char *attr_name);
+
 void logmsg(log_level level, const char* category, const char *format, ...) {
     va_list args;
     va_start(args, format);
 
     zlog_category_t *cat = zlog_get_category(category);
-    if (cat == NULL) {
+    if (!cat) {
         fprintf(stderr, "Failed to get zlog category '%s'\n", category);
         goto error;
     }
@@ -107,7 +113,7 @@ int is_irods_available() {
     rcComm_t *conn = rcConnect(env.rodsHost, env.rodsPort, env.rodsUserName,
                                env.rodsZone, RECONN_TIMEOUT, &errmsg);
     int available;
-    if (conn == NULL) {
+    if (!conn) {
         available = 0;
     }
     else {
@@ -133,7 +139,7 @@ rcComm_t *rods_login(rodsEnv *env) {
 
     rcComm_t *conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
                                env->rodsZone, RECONN_TIMEOUT, &errmsg);
-    if (conn == NULL) {
+    if (!conn) {
         logmsg(ERROR, BATON_CAT, "Failed to connect to %s:%d zone '%s' as '%s'",
                env->rodsHost, env->rodsPort, env->rodsZone, env->rodsUserName);
         goto error;
@@ -148,7 +154,7 @@ rcComm_t *rods_login(rodsEnv *env) {
     return conn;
 
 error:
-    if (conn != NULL) {
+    if (conn) {
         rcDisconnect(conn);
     }
 
@@ -156,13 +162,13 @@ error:
 }
 
 int init_rods_path(rodsPath_t *rodspath, char *inpath) {
-    if (rodspath == NULL) {
+    if (!rodspath) {
         return USER__NULL_INPUT_ERR;
     }
 
     memset(rodspath, 0, sizeof (rodsPath_t));
     char *dest = rstrcpy(rodspath->inPath, inpath, MAX_NAME_LEN);
-    if (dest == NULL) {
+    if (!dest) {
         return -1;
     }
 
@@ -214,18 +220,33 @@ void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in *in) {
     return;
 }
 
-int list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name) {
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name) {
+    const char *labels[] = { "attribute", "value", "units" };
+    int num_columns = 3;
+    int max_rows = 10;
+    int columns[num_columns];
+    genQueryInp_t *query_input = NULL;
+    genQueryOut_t *query_output;
+
     switch (rods_path->objType) {
         case DATA_OBJ_T:
             logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a data object",
                    rods_path->outPath);
-            list_obj_metadata(conn, rods_path, attr_name);
+            columns[0] = COL_META_DATA_ATTR_NAME;
+            columns[1] = COL_META_DATA_ATTR_VALUE;
+            columns[2] = COL_META_DATA_ATTR_UNITS;
+            query_input = make_query_input(max_rows, num_columns, columns);
+            prepare_obj_list(query_input, rods_path, attr_name);
             break;
 
         case COLL_OBJ_T:
             logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a collection",
                    rods_path->outPath);
-            list_col_metadata(conn, rods_path, attr_name);
+            columns[0] = COL_META_COLL_ATTR_NAME;
+            columns[1] = COL_META_COLL_ATTR_VALUE;
+            columns[2] = COL_META_COLL_ATTR_UNITS;
+            query_input = make_query_input(max_rows, num_columns, columns);
+            prepare_col_list(query_input, rods_path, attr_name);
             break;
 
         default:
@@ -236,77 +257,61 @@ int list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name) {
             goto error;
     }
 
-    return 0;
+    json_t* results = do_query(conn, query_input, query_output, labels);
+    free_query_input(query_input);
+
+    return results;
 
 error:
-    return -1;
+    if (query_input) {
+        free_query_input(query_input);
+    }
+    return NULL;
 }
 
-// TODO: the functions list_obj_metadata and list_col_metadata are not
-// finished; will be refactored into a single function
-json_t *list_obj_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                          char *attr_name) {
-    int num_columns = 3;
-    int columns[] = { COL_META_DATA_ATTR_NAME,
-                      COL_META_DATA_ATTR_VALUE,
-                      COL_META_DATA_ATTR_UNITS };
-    const char *labels[] = { "attribute", "value", "units" };
-    int max_rows = 10;
-    genQueryInp_t *query_input = make_query_input(max_rows, num_columns,
-                                                  columns);
-
+genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
+                                rodsPath_t *rods_path, char *attr_name) {
     char *path = rods_path->outPath;
     char *coll_name = dirname(path);
     char *data_name = basename(path);
-    int num_conds = 2;
+
     query_cond cn = { .column = COL_COLL_NAME,
                       .operator = "=",
                       .value = coll_name };
-
     query_cond dn = { .column = COL_DATA_NAME,
                       .operator = "=",
                       .value = data_name };
-
     query_cond an = { .column = COL_META_DATA_ATTR_NAME,
                       .operator = "=",
                       .value = attr_name };
 
-    add_query_conds(query_input, num_conds, (query_cond []) { cn, dn });
-
-    // TODO: return JSON, do not print it here
-    query_and_print(conn, query_input, labels);
-
-    return NULL;
+    int num_conds = 2;
+    if (!attr_name) {
+        add_query_conds(query_input, num_conds,
+                        (query_cond []) { cn, dn });
+    }
 }
 
-json_t *list_col_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                          char *attr_name) {
-    int num_columns = 3;
-    int columns[] = { COL_META_COLL_ATTR_NAME,
-                      COL_META_COLL_ATTR_VALUE,
-                      COL_META_COLL_ATTR_UNITS };
-    const char *labels[] = { "attribute", "value", "units" };
-    int max_rows = 10;
-    genQueryInp_t *query_input = make_query_input(max_rows, num_columns,
-                                                  columns);
-
+genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
+                                rodsPath_t *rods_path, char *attr_name) {
     char *path = rods_path->outPath;
-    char *coll_name = path;
-    int num_conds = 1;
+
     query_cond cn = { .column = COL_COLL_NAME,
                       .operator = "=",
-                      .value = coll_name };
-
-    query_cond an = { .column = COL_META_DATA_ATTR_NAME,
+                      .value = path };
+    query_cond an = { .column = COL_META_COLL_ATTR_NAME,
                       .operator = "=",
                       .value = attr_name };
 
-    add_query_conds(query_input, num_conds, (query_cond []) { cn });
-
-    // TODO: return JSON, do not print it here
-    query_and_print(conn, query_input, labels);
-
-    return NULL;
+    int num_conds = 1;
+    if (!attr_name) {
+        add_query_conds(query_input, num_conds,
+                        (query_cond []) { cn });
+    }
+    else {
+        add_query_conds(query_input, num_conds + 1,
+                        (query_cond []) { cn, an });
+    }
 }
 
 int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
@@ -372,7 +377,7 @@ error:
 genQueryInp_t* make_query_input(int max_rows, int num_columns,
                                 const int columns[]) {
     genQueryInp_t *query_input = calloc(1, sizeof (genQueryInp_t));
-    assert(query_input != NULL);
+    assert(query_input);
 
     int *cols_to_select = calloc(num_columns, sizeof (int));
     for (int i = 0; i < num_columns; i++) {
@@ -401,7 +406,7 @@ genQueryInp_t* make_query_input(int max_rows, int num_columns,
 }
 
 void free_query_input(genQueryInp_t *query_input) {
-    assert(query_input != NULL);
+    assert(query_input);
 
     // Free any strings allocated as query clause values
     for (int i = 0; i < query_input->sqlCondInp.len; i++) {
@@ -447,7 +452,7 @@ json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
     int chunk_num = 0;
 
     json_t* results = json_array();
-    assert(results != NULL);
+    assert(results);
 
     while (chunk_num == 0 || query_output->continueInx > 0) {
         status = rcGenQuery(conn, query_input, &query_output);
@@ -463,7 +468,7 @@ json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
             query_input->continueInx = query_output->continueInx;
 
             json_t* chunk = make_json_objects(query_output, labels);
-            if (chunk == NULL) {
+            if (!chunk) {
                 goto error;
             }
 
@@ -490,7 +495,7 @@ error:
         log_rods_errstack(ERROR, BATON_CAT, conn->rError);
     }
 
-    if (results != NULL) {
+    if (results) {
         free(results);
     }
 
@@ -499,11 +504,11 @@ error:
 
 json_t* make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
     json_t* array = json_array();
-    assert(array != NULL);
+    assert(array);
 
     for (int row = 0; row < query_output->rowCnt; row++) {
         json_t* jrow = json_object();
-        assert(jrow != NULL);
+        assert(jrow);
 
         for (int i = 0; i < query_output->attriCnt; i++) {
             char *result = query_output->sqlResult[i].value;
@@ -514,7 +519,7 @@ json_t* make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
                    i, labels[i], result);
 
             json_t* jvalue = json_string(result);
-            assert(jvalue != NULL);
+            assert(jvalue);
 
             json_object_set_new(jrow, labels[i], jvalue);
         }
@@ -531,7 +536,7 @@ json_t* make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
     return array;
 
 error:
-    if (array != NULL) {
+    if (array) {
         free(array);
     }
 
@@ -542,7 +547,7 @@ int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
                     const char *labels[]) {
     genQueryOut_t *query_output;
     json_t* results = do_query(conn, query_input, query_output, labels);
-    assert(results != NULL);
+    assert(results);
 
     print_json(results);
     free(results);
