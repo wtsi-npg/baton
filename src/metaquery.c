@@ -41,13 +41,6 @@ int obj_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
 
 int col_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
 
-genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
-                                 char *attr_value);
-
-genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value);
-
-
 int main(int argc, char *argv[]) {
     int exit_status;
 
@@ -168,80 +161,30 @@ int query_metadata(char *attr_name, char *attr_value) {
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
-    if (conn == NULL) {
+    if (!conn) {
         goto error;
     }
 
-    // TODO: bundle the results into one JSON collection
-    obj_search_and_print(conn, attr_name, attr_value);
-    col_search_and_print(conn, attr_name, attr_value);
+    json_t *results = search_metadata(conn, attr_name, attr_value);
+    if (!results) {
+        logmsg(ERROR, BATON_CAT,
+               "Failed to search metadata on attribute '%s'"
+               "and value '%s'", attr_name, attr_value);
+        goto error;
+    }
+    else {
+        print_json(results);
+        json_decref(results);
+    }
 
     rcDisconnect(conn);
 
     return 0;
 
 error:
-    if (conn != NULL) {
+    if (conn) {
         rcDisconnect(conn);
     }
 
-    return -1;
-}
-
-int obj_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
-    int num_columns = 2;
-    int columns[] = { COL_COLL_NAME, COL_DATA_NAME };
-    const char *labels[] = { "collection", "data_object" };
-
-    // TODO: Improve error handling
-    int max_rows = 10;
-    genQueryInp_t *query_input = make_query_input(max_rows, num_columns,
-                                                  columns);
-    query_input = prepare_obj_search(query_input, attr_name, attr_value);
-
-    int status = query_and_print(conn, query_input, labels);
-    free_query_input(query_input);
-
-    return status;
-}
-
-int col_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
-    int num_columns = 1;
-    int columns[] = { COL_COLL_NAME };
-    const char *labels[] = { "collection" };
-
-    // TODO: Improve error handling
-    int max_rows = 10;
-    genQueryInp_t *query_input = make_query_input(max_rows, num_columns,
-                                                  columns);
-    prepare_col_search(query_input, attr_name, attr_value);
-
-    int status = query_and_print(conn, query_input, labels);
-    free_query_input(query_input);
-
-    return status;
-}
-
-genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value) {
-    query_cond an = { .column = COL_META_DATA_ATTR_NAME,
-                      .operator = "=",
-                      .value = attr_name };
-    query_cond av = { .column = COL_META_DATA_ATTR_VALUE,
-                      .operator = "=",
-                      .value = attr_value };
-    int num_conds = 2;
-    return add_query_conds(query_input, num_conds, (query_cond []) { an, av });
-}
-
-genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value) {
-    query_cond an = { .column = COL_META_COLL_ATTR_NAME,
-                      .operator = "=",
-                      .value = attr_name };
-    query_cond av = { .column = COL_META_COLL_ATTR_VALUE,
-                      .operator = "=",
-                      .value = attr_value };
-    int num_conds = 2;
-    return add_query_conds(query_input, num_conds, (query_cond []) { an, av });
+    return 1;
 }

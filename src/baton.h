@@ -161,6 +161,22 @@ int init_rods_path(rodsPath_t *rodspath, char *inpath);
 int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
                       rodsPath_t *rods_path, char *inpath);
 
+json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
+
+/**
+ * List metadata of a specified data object or collection.
+ *
+ * @param[in]  conn       An open iRODS connection.
+ * @param[out] rodspath   An iRODS path.
+ * @param[in] attr_name   An attribute name to limit the values returned.
+ *                        Optional, NULL means return all metadata.
+ *
+ * @return A newly constructed JSON array of AVU JSON objects.
+ */
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
+
+json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value);
+
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
  *
@@ -188,7 +204,13 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
  */
 genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]);
-
+/**
+ * Free memory used by an iRODS generic query (see rodsGenQuery.h).
+ *
+ * @param[in] query_input The query to free.
+ *
+ * @ref make_query_input
+ */
 void free_query_input(genQueryInp_t *query_input);
 
 genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
@@ -196,14 +218,6 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
 
 int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
                     const char *labels[]);
-
-json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
-
-json_t *list_obj_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                          char *attr_name);
-
-json_t *list_col_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                          char *attr_name);
 
 /**
  * Execute a general query and obtain results as a JSON array of objects.

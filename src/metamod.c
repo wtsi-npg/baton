@@ -200,7 +200,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
     rodsEnv env;
     rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
-    if (conn == NULL) {
+    if (!conn) {
         goto error;
     }
 
@@ -237,12 +237,12 @@ int do_modify_metadata(int argc, char *argv[], int optind,
     return error_count;
 
 error:
-    if (conn != NULL) {
+    if (conn) {
         rcDisconnect(conn);
     }
 
     logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
            path_count, error_count);
 
-    return -1;
+    return 1;
 }

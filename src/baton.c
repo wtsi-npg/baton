@@ -30,11 +30,23 @@
 
 char *metadata_op_name(metadata_op op);
 
+void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in *in);
+
 genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
                                 rodsPath_t *rods_path, char *attr_name);
 
 genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
                                 rodsPath_t *rods_path, char *attr_name);
+
+genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
+                                  char *attr_value);
+
+genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
+                                  char *attr_value);
+
+json_t *data_object_path_to_json(const char *path);
+
+json_t *collection_path_to_json(const char *path);
 
 void logmsg(log_level level, const char* category, const char *format, ...) {
     va_list args;
@@ -205,21 +217,6 @@ error:
     return status;
 }
 
-void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in *in) {
-    out->arg0 = metadata_op_name(in->op);
-    out->arg1 = in->type_arg;
-    out->arg2 = in->rods_path->outPath;
-    out->arg3 = in->attr_name;
-    out->arg4 = in->attr_value;
-    out->arg5 = in->attr_units;
-    out->arg6 = "";
-    out->arg7 = "";
-    out->arg8 = "";
-    out->arg9 = "";
-
-    return;
-}
-
 json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name) {
     const char *labels[] = { "attribute", "value", "units" };
     int num_columns = 3;
@@ -275,60 +272,38 @@ error:
     return NULL;
 }
 
-genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
-                                rodsPath_t *rods_path, char *attr_name) {
-    char *path = rods_path->outPath;
-    size_t len = strlen(path) + 1;
+json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value) {
+    int num_columns = 1;
+    int max_rows = 10;
+    const char *labels[] = { "collection", "data_object" };
+    int columns[] = { COL_COLL_NAME, COL_DATA_NAME };
 
-    char *path1 = calloc(len, sizeof (char));
-    char *path2 = calloc(len, sizeof (char));
-    strncpy(path1, path, len);
-    strncpy(path2, path, len);
+    json_t* results = json_array();
+    assert(results);
 
-    char *coll_name = dirname(path1);
-    char *data_name = basename(path2);
+    genQueryInp_t *query_input = NULL;
+    genQueryOut_t *query_output;
 
-    query_cond cn = { .column = COL_COLL_NAME,
-                      .operator = "=",
-                      .value = coll_name };
-    query_cond dn = { .column = COL_DATA_NAME,
-                      .operator = "=",
-                      .value = data_name };
-    query_cond an = { .column = COL_META_DATA_ATTR_NAME,
-                      .operator = "=",
-                      .value = attr_name };
+    query_input = make_query_input(max_rows, num_columns, columns);
+    prepare_col_search(query_input, attr_name, attr_value);
 
-    int num_conds = 2;
-    if (attr_name) {
-        add_query_conds(query_input, num_conds + 1,
-                        (query_cond []) { cn, dn, an });
-    }
-    else {
-        add_query_conds(query_input, num_conds,
-                        (query_cond []) { cn, dn });
-    }
-}
+    json_t *collections = do_query(conn, query_input, query_output, labels);
+    json_array_extend(results, collections);
+    json_decref(collections);
+    free_query_input(query_input);
 
-genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
-                                rodsPath_t *rods_path, char *attr_name) {
-    char *path = rods_path->outPath;
+    query_input = make_query_input(max_rows, num_columns + 1, columns);
+    prepare_obj_search(query_input, attr_name, attr_value);
 
-    query_cond cn = { .column = COL_COLL_NAME,
-                      .operator = "=",
-                      .value = path };
-    query_cond an = { .column = COL_META_COLL_ATTR_NAME,
-                      .operator = "=",
-                      .value = attr_name };
+    json_t *data_objects = do_query(conn, query_input, query_output, labels);
+    json_array_extend(results, data_objects);
+    json_decref(data_objects);
+    free_query_input(query_input);
 
-    int num_conds = 1;
-    if (attr_name) {
-        add_query_conds(query_input, num_conds + 1,
-                        (query_cond []) { cn, an });
-    }
-    else {
-        add_query_conds(query_input, num_conds,
-                        (query_cond []) { cn });
-    }
+    return results;
+
+error:
+    return NULL;
 }
 
 int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
@@ -562,22 +537,100 @@ error:
     return NULL;
 }
 
-int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
-                    const char *labels[]) {
-    genQueryOut_t *query_output;
-    json_t* results = do_query(conn, query_input, query_output, labels);
-    assert(results);
+json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
+    json_t *result = NULL;
 
-    print_json(results);
-    json_decref(results);
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a data object",
+                   rods_path->outPath);
+            result = data_object_path_to_json(rods_path->outPath);
+            break;
 
-    return 0;
+        case COLL_OBJ_T:
+            logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a collection",
+                   rods_path->outPath);
+            result = collection_path_to_json(rods_path->outPath);
+            break;
+
+        default:
+            logmsg(ERROR, BATON_CAT,
+                   "Failed to list metadata on '%s' as it is "
+                   "neither data object nor collection",
+                   rods_path->outPath);
+            goto error;
+    }
+
+    if (!result) {
+        goto error;
+    }
+
+    json_t *avus = list_metadata(conn, rods_path, NULL);
+    if (!avus) {
+        goto avu_error;
+    }
+
+    int status = json_object_set_new(result, "avus", avus);
+    if (status != 0) {
+        goto avu_error;
+    }
+
+    return result;
+
+avu_error:
+    json_decref(result);
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to covert '%s' to JSON",
+           rods_path->outPath);
+
+    return NULL;
+}
+
+
+json_t *data_object_path_to_json(const char *path) {
+    size_t len = strlen(path) + 1;
+
+    char *path1 = calloc(len, sizeof (char));
+    char *path2 = calloc(len, sizeof (char));
+    strncpy(path1, path, len);
+    strncpy(path2, path, len);
+
+    char *coll_name = dirname(path1);
+    char *data_name = basename(path2);
+
+    json_t *result = json_pack("{s:s, s:s}",
+                               "collection", coll_name,
+                               "data_object", data_name);
+    free(path1);
+    free(path2);
+
+    return result;
+}
+
+json_t *collection_path_to_json(const char *path) {
+    return json_pack("{s:s}", "collection", path);
 }
 
 int print_json(json_t* results) {
     char *json_str = json_dumps(results, JSON_INDENT(1));
     printf("%s\n", json_str);
     free(json_str);
+}
+
+void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in *in) {
+    out->arg0 = metadata_op_name(in->op);
+    out->arg1 = in->type_arg;
+    out->arg2 = in->rods_path->outPath;
+    out->arg3 = in->attr_name;
+    out->arg4 = in->attr_value;
+    out->arg5 = in->attr_units;
+    out->arg6 = "";
+    out->arg7 = "";
+    out->arg8 = "";
+    out->arg9 = "";
+
+    return;
 }
 
 char *metadata_op_name(metadata_op op) {
@@ -597,4 +650,83 @@ char *metadata_op_name(metadata_op op) {
     }
 
     return name;
+}
+
+genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
+                                rodsPath_t *rods_path, char *attr_name) {
+    char *path = rods_path->outPath;
+    size_t len = strlen(path) + 1;
+
+    char *path1 = calloc(len, sizeof (char));
+    char *path2 = calloc(len, sizeof (char));
+    strncpy(path1, path, len);
+    strncpy(path2, path, len);
+
+    char *coll_name = dirname(path1);
+    char *data_name = basename(path2);
+
+    query_cond cn = { .column = COL_COLL_NAME,
+                      .operator = "=",
+                      .value = coll_name };
+    query_cond dn = { .column = COL_DATA_NAME,
+                      .operator = "=",
+                      .value = data_name };
+    query_cond an = { .column = COL_META_DATA_ATTR_NAME,
+                      .operator = "=",
+                      .value = attr_name };
+
+    int num_conds = 2;
+    if (attr_name) {
+        add_query_conds(query_input, num_conds + 1,
+                        (query_cond []) { cn, dn, an });
+    }
+    else {
+        add_query_conds(query_input, num_conds,
+                        (query_cond []) { cn, dn });
+    }
+}
+
+genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
+                                rodsPath_t *rods_path, char *attr_name) {
+    char *path = rods_path->outPath;
+    query_cond cn = { .column = COL_COLL_NAME,
+                      .operator = "=",
+                      .value = path };
+    query_cond an = { .column = COL_META_COLL_ATTR_NAME,
+                      .operator = "=",
+                      .value = attr_name };
+
+    int num_conds = 1;
+    if (attr_name) {
+        add_query_conds(query_input, num_conds + 1,
+                        (query_cond []) { cn, an });
+    }
+    else {
+        add_query_conds(query_input, num_conds,
+                        (query_cond []) { cn });
+    }
+}
+
+genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
+                                  char *attr_value) {
+    query_cond an = { .column = COL_META_DATA_ATTR_NAME,
+                      .operator = "=",
+                      .value = attr_name };
+    query_cond av = { .column = COL_META_DATA_ATTR_VALUE,
+                      .operator = "=",
+                      .value = attr_value };
+    int num_conds = 2;
+    return add_query_conds(query_input, num_conds, (query_cond []) { an, av });
+}
+
+genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
+                                  char *attr_value) {
+    query_cond an = { .column = COL_META_COLL_ATTR_NAME,
+                      .operator = "=",
+                      .value = attr_name };
+    query_cond av = { .column = COL_META_COLL_ATTR_VALUE,
+                      .operator = "=",
+                      .value = attr_value };
+    int num_conds = 2;
+    return add_query_conds(query_input, num_conds, (query_cond []) { an, av });
 }
