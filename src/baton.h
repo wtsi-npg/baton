@@ -31,6 +31,9 @@
 
 #define MAX_NUM_CONDITIONALS 20
 
+#define META_ADD_NAME "add"
+#define META_REM_NAME "rem"
+
 /**
  *  @enum log_level
  *  @brief Log message levels.
@@ -56,11 +59,6 @@ typedef enum {
     /** Query AVUs */
     META_QUERY
 } metadata_op;
-
-static char *metadata_ops[] = {
-    "add",
-    "rem",
-};
 
 /**
  *  @struct metadata_op
@@ -199,7 +197,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
 int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
                     const char *labels[]);
 
-int list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
 
 json_t *list_obj_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                           char *attr_name);
@@ -237,5 +235,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
  * caller must free this after use.
  */
 json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]);
+
+int print_json(json_t* results);
 
 #endif // BATON_H

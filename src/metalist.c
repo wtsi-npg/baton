@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (USER_LOG_CONF_FILE == NULL) {
+    if (!USER_LOG_CONF_FILE) {
         if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
             fprintf(stderr, "Logging configuration failed "
                     "(using system-defined configuration in '%s')\n",
@@ -143,7 +143,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
     rodsEnv env;
     rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
-    if (conn == NULL) {
+    if (!conn) {
         goto error;
     }
 
@@ -158,15 +158,15 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
-            status = list_metadata(conn, &rods_path, attr_name);
-            if (status < 0) {
+            json_t *results = list_metadata(conn, &rods_path, attr_name);
+            if (!results) {
                 error_count++;
                 err_name = rodsErrorName(status, &err_subname);
                 logmsg(ERROR, BATON_CAT,
-                       "Failed to list metadata ['%s'] on '%s': "
-                       "error %d %s %s",
-                       attr_name, rods_path.outPath,
-                       status, err_name, err_subname);
+                       "Failed to list metadata on '%s'", rods_path.outPath);
+            }
+            else {
+                print_json(results);
             }
         }
     }
@@ -179,7 +179,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
     return error_count;
 
 error:
-    if (conn != NULL) {
+    if (conn) {
         rcDisconnect(conn);
     }
 
