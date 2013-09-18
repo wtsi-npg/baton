@@ -141,7 +141,6 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
     int error_count = 0;
 
     rodsEnv env;
-    rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
     if (!conn) {
         goto error;
@@ -149,16 +148,17 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
 
     while (optind < argc) {
         char *path = argv[optind++];
-        int status;
+        rodsPath_t rods_path;
         path_count++;
 
-        status = resolve_rods_path(conn, &env, &rods_path, path);
+        int status = resolve_rods_path(conn, &env, &rods_path, path);
         if (status < 0) {
             error_count++;
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
             json_t *results = list_metadata(conn, &rods_path, attr_name);
+
             if (!results) {
                 error_count++;
                 err_name = rodsErrorName(status, &err_subname);
@@ -167,6 +167,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
             }
             else {
                 print_json(results);
+                json_decref(results);
             }
         }
     }

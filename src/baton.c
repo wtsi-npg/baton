@@ -278,8 +278,15 @@ error:
 genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
                                 rodsPath_t *rods_path, char *attr_name) {
     char *path = rods_path->outPath;
-    char *coll_name = dirname(path);
-    char *data_name = basename(path);
+    size_t len = strlen(path) + 1;
+
+    char *path1 = calloc(len, sizeof (char));
+    char *path2 = calloc(len, sizeof (char));
+    strncpy(path1, path, len);
+    strncpy(path2, path, len);
+
+    char *coll_name = dirname(path1);
+    char *data_name = basename(path2);
 
     query_cond cn = { .column = COL_COLL_NAME,
                       .operator = "=",
@@ -292,7 +299,11 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
                       .value = attr_name };
 
     int num_conds = 2;
-    if (!attr_name) {
+    if (attr_name) {
+        add_query_conds(query_input, num_conds + 1,
+                        (query_cond []) { cn, dn, an });
+    }
+    else {
         add_query_conds(query_input, num_conds,
                         (query_cond []) { cn, dn });
     }
@@ -310,13 +321,13 @@ genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
                       .value = attr_name };
 
     int num_conds = 1;
-    if (!attr_name) {
-        add_query_conds(query_input, num_conds,
-                        (query_cond []) { cn });
-    }
-    else {
+    if (attr_name) {
         add_query_conds(query_input, num_conds + 1,
                         (query_cond []) { cn, an });
+    }
+    else {
+        add_query_conds(query_input, num_conds,
+                        (query_cond []) { cn });
     }
 }
 
@@ -483,6 +494,8 @@ json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
             chunk_num++;
 
             status = json_array_extend(results, chunk);
+            json_decref(chunk);
+
             if (status != 0) {
                 goto error;
             }
@@ -502,7 +515,7 @@ error:
     }
 
     if (results) {
-        free(results);
+        json_decref(results);
     }
 
     return NULL;
@@ -556,7 +569,7 @@ int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
     assert(results);
 
     print_json(results);
-    free(results);
+    json_decref(results);
 
     return 0;
 }
