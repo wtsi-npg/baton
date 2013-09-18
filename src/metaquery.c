@@ -37,18 +37,15 @@ static int version_flag;
 
 int query_metadata(char *attr_name, char *attr_value);
 
-int query_obj_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
+int obj_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
 
-int query_col_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
+int col_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
 
-int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
-                    const char *labels[]);
-
-genQueryInp_t *prepare_obj_query(genQueryInp_t *query_input, char *attr_name,
+genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
                                  char *attr_value);
 
-genQueryInp_t *prepare_col_query(genQueryInp_t *query_input, char *attr_name,
-                                 char *attr_value);
+genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
+                                  char *attr_value);
 
 
 int main(int argc, char *argv[]) {
@@ -176,8 +173,8 @@ int query_metadata(char *attr_name, char *attr_value) {
     }
 
     // TODO: bundle the results into one JSON collection
-    query_obj_and_print(conn, attr_name, attr_value);
-    query_col_and_print(conn, attr_name, attr_value);
+    obj_search_and_print(conn, attr_name, attr_value);
+    col_search_and_print(conn, attr_name, attr_value);
 
     rcDisconnect(conn);
 
@@ -191,7 +188,7 @@ error:
     return -1;
 }
 
-int query_obj_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
+int obj_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
     int num_columns = 2;
     int columns[] = { COL_COLL_NAME, COL_DATA_NAME };
     const char *labels[] = { "collection", "data_object" };
@@ -200,7 +197,7 @@ int query_obj_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
     int max_rows = 10;
     genQueryInp_t *query_input = make_query_input(max_rows, num_columns,
                                                   columns);
-    query_input = prepare_obj_query(query_input, attr_name, attr_value);
+    query_input = prepare_obj_search(query_input, attr_name, attr_value);
 
     int status = query_and_print(conn, query_input, labels);
     free_query_input(query_input);
@@ -208,7 +205,7 @@ int query_obj_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
     return status;
 }
 
-int query_col_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
+int col_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
     int num_columns = 1;
     int columns[] = { COL_COLL_NAME };
     const char *labels[] = { "collection" };
@@ -217,7 +214,7 @@ int query_col_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
     int max_rows = 10;
     genQueryInp_t *query_input = make_query_input(max_rows, num_columns,
                                                   columns);
-    prepare_col_query(query_input, attr_name, attr_value);
+    prepare_col_search(query_input, attr_name, attr_value);
 
     int status = query_and_print(conn, query_input, labels);
     free_query_input(query_input);
@@ -225,26 +222,26 @@ int query_col_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
     return status;
 }
 
-genQueryInp_t *prepare_obj_query(genQueryInp_t *query_input, char *attr_name,
-                                 char *attr_value) {
+genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
+                                  char *attr_value) {
     query_cond an = { .column = COL_META_DATA_ATTR_NAME,
                       .operator = "=",
                       .value = attr_name };
     query_cond av = { .column = COL_META_DATA_ATTR_VALUE,
                       .operator = "=",
                       .value = attr_value };
-
-    return add_query_conds(query_input, 2, (query_cond []) { an, av });
+    int num_conds = 2;
+    return add_query_conds(query_input, num_conds, (query_cond []) { an, av });
 }
 
-genQueryInp_t *prepare_col_query(genQueryInp_t *query_input, char *attr_name,
-                                 char *attr_value) {
+genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
+                                  char *attr_value) {
     query_cond an = { .column = COL_META_COLL_ATTR_NAME,
                       .operator = "=",
                       .value = attr_name };
     query_cond av = { .column = COL_META_COLL_ATTR_VALUE,
                       .operator = "=",
                       .value = attr_value };
-
-    return add_query_conds(query_input, 2, (query_cond []) { an, av });
+    int num_conds = 2;
+    return add_query_conds(query_input, num_conds, (query_cond []) { an, av });
 }
