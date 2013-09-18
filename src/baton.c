@@ -166,23 +166,17 @@ rcComm_t *rods_login(rodsEnv *env) {
     return conn;
 
 error:
-    if (conn) {
-        rcDisconnect(conn);
-    }
+    if (conn) rcDisconnect(conn);
 
     return NULL;
 }
 
 int init_rods_path(rodsPath_t *rodspath, char *inpath) {
-    if (!rodspath) {
-        return USER__NULL_INPUT_ERR;
-    }
+    if (!rodspath) return USER__NULL_INPUT_ERR;
 
     memset(rodspath, 0, sizeof (rodsPath_t));
     char *dest = rstrcpy(rodspath->inPath, inpath, MAX_NAME_LEN);
-    if (!dest) {
-        return -1;
-    }
+    if (!dest) return -1;
 
     return 0;
 }
@@ -345,9 +339,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
     modAVUMetadataInp_t anon_args;
     map_mod_args(&anon_args, &named_args);
     status = rcModAVUMetadata(conn, &anon_args);
-    if (status < 0) {
-        goto rods_error;
-    }
+    if (status < 0) goto rods_error;
 
     return status;
 
@@ -451,7 +443,6 @@ json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
 
         if (status == CAT_NO_ROWS_FOUND) {
             logmsg(DEBUG, BATON_CAT, "Query returned no results");
-            break;
         }
         else if (status != 0) {
             goto error;
@@ -460,9 +451,7 @@ json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
             query_input->continueInx = query_output->continueInx;
 
             json_t* chunk = make_json_objects(query_output, labels);
-            if (!chunk) {
-                goto error;
-            }
+            if (!chunk) goto error;
 
             logmsg(DEBUG, BATON_CAT, "Fetched chunk %d of %d results",
                    chunk_num, json_array_size(chunk));
@@ -471,9 +460,7 @@ json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
             status = json_array_extend(results, chunk);
             json_decref(chunk);
 
-            if (status != 0) {
-                goto error;
-            }
+            if (status != 0) goto error;
         }
     }
 
@@ -530,9 +517,7 @@ json_t* make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
     return array;
 
 error:
-    if (array) {
-        free(array);
-    }
+    if (array) free(array);
 
     return NULL;
 }
@@ -561,19 +546,13 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
             goto error;
     }
 
-    if (!result) {
-        goto error;
-    }
+    if (!result) goto error;
 
     json_t *avus = list_metadata(conn, rods_path, NULL);
-    if (!avus) {
-        goto avu_error;
-    }
+    if (!avus) goto avu_error;
 
     int status = json_object_set_new(result, "avus", avus);
-    if (status != 0) {
-        goto avu_error;
-    }
+    if (status != 0) goto avu_error;
 
     return result;
 

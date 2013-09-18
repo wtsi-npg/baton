@@ -142,9 +142,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
-    if (!conn) {
-        goto error;
-    }
+    if (!conn) goto error;
 
     while (optind < argc) {
         char *path = argv[optind++];
@@ -180,9 +178,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
     return error_count;
 
 error:
-    if (conn) {
-        rcDisconnect(conn);
-    }
+    if (conn) rcDisconnect(conn);
 
     logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
            path_count, error_count);

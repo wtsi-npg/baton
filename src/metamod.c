@@ -200,9 +200,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
     rodsEnv env;
     rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
-    if (!conn) {
-        goto error;
-    }
+    if (!conn) goto error;
 
     while (optind < argc) {
         char *path = argv[optind++];
@@ -237,9 +235,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
     return error_count;
 
 error:
-    if (conn) {
-        rcDisconnect(conn);
-    }
+    if (conn) rcDisconnect(conn);
 
     logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
            path_count, error_count);

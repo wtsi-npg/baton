@@ -161,9 +161,7 @@ int query_metadata(char *attr_name, char *attr_value) {
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
-    if (!conn) {
-        goto error;
-    }
+    if (!conn) goto error;
 
     json_t *results = search_metadata(conn, attr_name, attr_value);
     if (!results) {
@@ -182,9 +180,7 @@ int query_metadata(char *attr_name, char *attr_value) {
     return 0;
 
 error:
-    if (conn) {
-        rcDisconnect(conn);
-    }
+    if (conn) rcDisconnect(conn);
 
     return 1;
 }
