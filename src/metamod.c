@@ -39,11 +39,8 @@ int do_modify_metadata(int argc, char *argv[], int optind,
                        char *attr_name, char *attr_value, char *attr_unit);
 
 int main(int argc, char *argv[]) {
-
     int exit_status;
-
     metadata_op meta_op = -1;
-
     char *attr_name = NULL;
     char *attr_value = NULL;
     char *attr_units = "";
@@ -67,8 +64,7 @@ int main(int argc, char *argv[]) {
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
-        if (c == -1)
-            break;
+        if (c == -1) break;
 
         switch (c) {
             case 'a':

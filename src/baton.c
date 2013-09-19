@@ -591,7 +591,7 @@ json_t *collection_path_to_json(const char *path) {
     return json_pack("{s:s}", "collection", path);
 }
 
-int print_json(json_t* results) {
+void print_json(json_t* results) {
     char *json_str = json_dumps(results, JSON_INDENT(1));
     printf("%s\n", json_str);
     free(json_str);

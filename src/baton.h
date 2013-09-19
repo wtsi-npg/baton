@@ -250,6 +250,6 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
  */
 json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]);
 
-int print_json(json_t* results);
+void print_json(json_t* results);
 
 #endif // BATON_H

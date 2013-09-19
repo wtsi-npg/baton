@@ -28,22 +28,16 @@
 #include "rodsPath.h"
 #include "baton.h"
 
-
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
 static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
 static int version_flag;
 
-int query_metadata(char *attr_name, char *attr_value);
-
-int obj_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
-
-int col_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
+int do_search_metadata(char *attr_name, char *attr_value);
 
 int main(int argc, char *argv[]) {
     int exit_status;
-
     char *attr_name = NULL;
     char *attr_value = NULL;
 
@@ -64,8 +58,7 @@ int main(int argc, char *argv[]) {
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
-        if (c == -1)
-            break;
+        if (c == -1) break;
 
         switch (c) {
             case 'a':
@@ -128,7 +121,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
     if (!attr_name) {
         fprintf(stderr, "An --attr argument is required\n");
         goto args_error;
@@ -139,7 +131,7 @@ int main(int argc, char *argv[]) {
         goto args_error;
     }
 
-    exit_status = query_metadata(attr_name, attr_value);
+    exit_status = do_search_metadata(attr_name, attr_value);
 
     zlog_fini();
     exit(exit_status);
@@ -152,7 +144,7 @@ error:
     exit(exit_status);
 }
 
-int query_metadata(char *attr_name, char *attr_value) {
+int do_search_metadata(char *attr_name, char *attr_value) {
     char *err_name;
     char *err_subname;
 

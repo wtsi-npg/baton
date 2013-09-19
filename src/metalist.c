@@ -37,9 +37,7 @@ static int version_flag;
 int do_list_metadata(int argc, char *argv[], int optind, char *attr_name);
 
 int main(int argc, char *argv[]) {
-
     int exit_status;
-
     char *attr_name = NULL;
 
     while (1) {
@@ -58,8 +56,7 @@ int main(int argc, char *argv[]) {
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
-        if (c == -1)
-            break;
+        if (c == -1) break;
 
         switch (c) {
             case 'a':
