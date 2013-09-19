@@ -21,31 +21,17 @@
 #ifndef _BATON_H
 #define _BATON_H
 
-#include <stdarg.h>
-#include <jansson.h>
-#include "rodsClient.h"
 #include "rcConnect.h"
+#include "rodsClient.h"
 #include "rodsPath.h"
+#include <jansson.h>
 
-#define BATON_CAT "baton"
+#include "utilities.h"
 
 #define MAX_NUM_CONDITIONALS 20
 
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rem"
-
-/**
- *  @enum log_level
- *  @brief Log message levels.
- */
-typedef enum {
-    FATAL,
-    ERROR,
-    WARN,
-    NOTICE,
-    INFO,
-    DEBUG
-} log_level;
 
 /**
  *  @enum metadata_op
@@ -87,18 +73,6 @@ typedef struct {
     /** The value to match */
     char* value;
 } query_cond;
-
-/**
- * Log an error through the underlying logging mechanism.  This
- * function exists to abstract the logging implementation.
- *
- * @param[in] level    The logging level.
- * @param[in] category The log message category.  Categories are based
- * on e.g. program subsystem.
- * @param[in] format    The logging format string or template.
- * @param[in] arguments The format arguments.
- */
-void logmsg(log_level level, const char *category, const char *format, ...);
 
 /**
  * Log the current iRODS error stack through the underlying logging
@@ -216,9 +190,6 @@ void free_query_input(genQueryInp_t *query_input);
 genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
                                const query_cond conds[]);
 
-int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
-                    const char *labels[]);
-
 /**
  * Execute a general query and obtain results as a JSON array of objects.
  * Columns in the query are mapped to JSON object properties specified
@@ -250,6 +221,4 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
  */
 json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]);
 
-void print_json(json_t* results);
-
-#endif // BATON_H
+#endif // _BATON_H

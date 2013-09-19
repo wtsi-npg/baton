@@ -17,15 +17,17 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 
-#include "config.h"
-#include "zlog.h"
 #include "rodsClient.h"
 #include "rodsPath.h"
+#include <zlog.h>
+
 #include "baton.h"
+#include "config.h"
+#include "utilities.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
 

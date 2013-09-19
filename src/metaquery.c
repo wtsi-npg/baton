@@ -18,15 +18,16 @@
  */
 
 #include <assert.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 
-#include "config.h"
-#include "zlog.h"
 #include "rodsClient.h"
 #include "rodsPath.h"
+#include <zlog.h>
+
 #include "baton.h"
+#include "config.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
 static char *USER_LOG_CONF_FILE = NULL;
@@ -54,7 +55,7 @@ int main(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:u:v:",
+        int c = getopt_long_only(argc, argv, "a:l:v:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */

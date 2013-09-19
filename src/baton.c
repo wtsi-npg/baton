@@ -19,14 +19,20 @@
 
 #include <assert.h>
 #include <libgen.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <jansson.h>
-#include "zlog.h"
+#include <zlog.h>
 #include "rodsType.h"
 #include "rodsErrorTable.h"
 #include "rodsClient.h"
 #include "miscUtil.h"
+
 #include "baton.h"
+#include "json.h"
+#include "utilities.h"
 
 char *metadata_op_name(metadata_op op);
 
@@ -43,57 +49,6 @@ genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
 
 genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
                                   char *attr_value);
-
-json_t *data_object_path_to_json(const char *path);
-
-json_t *collection_path_to_json(const char *path);
-
-void logmsg(log_level level, const char* category, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-
-    zlog_category_t *cat = zlog_get_category(category);
-    if (!cat) {
-        fprintf(stderr, "Failed to get zlog category '%s'\n", category);
-        goto error;
-    }
-
-    switch (level) {
-        case FATAL:
-            vzlog_fatal(cat, format, args);
-            break;
-
-        case ERROR:
-            vzlog_error(cat, format, args);
-            break;
-
-        case WARN:
-            vzlog_warn(cat, format, args);
-            break;
-
-        case NOTICE:
-            vzlog_notice(cat, format, args);
-            break;
-
-        case INFO:
-            vzlog_info(cat, format, args);
-            break;
-
-        case DEBUG:
-            vzlog_debug(cat, format, args);
-            break;
-
-        default:
-            vzlog_debug(cat, format, args);
-    }
-
-    va_end(args);
-    return;
-
-error:
-    va_end(args);
-    return;
-}
 
 void log_rods_errstack(log_level level, const char* category, rError_t *error) {
     rErrMsg_t *errmsg;
@@ -476,9 +431,7 @@ error:
         log_rods_errstack(ERROR, BATON_CAT, conn->rError);
     }
 
-    if (results) {
-        json_decref(results);
-    }
+    if (results) json_decref(results);
 
     return NULL;
 }
@@ -517,7 +470,7 @@ json_t* make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
     return array;
 
 error:
-    if (array) free(array);
+    if (array) json_decref(array);
 
     return NULL;
 }
@@ -564,37 +517,6 @@ error:
            rods_path->outPath);
 
     return NULL;
-}
-
-
-json_t *data_object_path_to_json(const char *path) {
-    size_t len = strlen(path) + 1;
-
-    char *path1 = calloc(len, sizeof (char));
-    char *path2 = calloc(len, sizeof (char));
-    strncpy(path1, path, len);
-    strncpy(path2, path, len);
-
-    char *coll_name = dirname(path1);
-    char *data_name = basename(path2);
-
-    json_t *result = json_pack("{s:s, s:s}",
-                               "collection", coll_name,
-                               "data_object", data_name);
-    free(path1);
-    free(path2);
-
-    return result;
-}
-
-json_t *collection_path_to_json(const char *path) {
-    return json_pack("{s:s}", "collection", path);
-}
-
-void print_json(json_t* results) {
-    char *json_str = json_dumps(results, JSON_INDENT(1));
-    printf("%s\n", json_str);
-    free(json_str);
 }
 
 void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in *in) {
@@ -663,6 +585,8 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
         add_query_conds(query_input, num_conds,
                         (query_cond []) { cn, dn });
     }
+
+    return query_input;
 }
 
 genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
@@ -681,9 +605,11 @@ genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
                         (query_cond []) { cn, an });
     }
     else {
-        add_query_conds(query_input, num_conds,
-                        (query_cond []) { cn });
+         add_query_conds(query_input, num_conds,
+                         (query_cond []) { cn });
     }
+
+    return query_input;
 }
 
 genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
