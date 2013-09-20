@@ -21,31 +21,17 @@
 #ifndef _BATON_H
 #define _BATON_H
 
-#include <stdarg.h>
-#include <jansson.h>
-#include "rodsClient.h"
 #include "rcConnect.h"
+#include "rodsClient.h"
 #include "rodsPath.h"
+#include <jansson.h>
 
-#define BATON_CAT "baton"
+#include "utilities.h"
 
 #define MAX_NUM_CONDITIONALS 20
 
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rem"
-
-/**
- *  @enum log_level
- *  @brief Log message levels.
- */
-typedef enum {
-    FATAL,
-    ERROR,
-    WARN,
-    NOTICE,
-    INFO,
-    DEBUG
-} log_level;
 
 /**
  *  @enum metadata_op
@@ -87,18 +73,6 @@ typedef struct {
     /** The value to match */
     char* value;
 } query_cond;
-
-/**
- * Log an error through the underlying logging mechanism.  This
- * function exists to abstract the logging implementation.
- *
- * @param[in] level    The logging level.
- * @param[in] category The log message category.  Categories are based
- * on e.g. program subsystem.
- * @param[in] format    The logging format string or template.
- * @param[in] arguments The format arguments.
- */
-void logmsg(log_level level, const char *category, const char *format, ...);
 
 /**
  * Log the current iRODS error stack through the underlying logging
@@ -161,6 +135,22 @@ int init_rods_path(rodsPath_t *rodspath, char *inpath);
 int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
                       rodsPath_t *rods_path, char *inpath);
 
+json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
+
+/**
+ * List metadata of a specified data object or collection.
+ *
+ * @param[in]  conn       An open iRODS connection.
+ * @param[out] rodspath   An iRODS path.
+ * @param[in] attr_name   An attribute name to limit the values returned.
+ *                        Optional, NULL means return all metadata.
+ *
+ * @return A newly constructed JSON array of AVU JSON objects.
+ */
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
+
+json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value);
+
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
  *
@@ -188,22 +178,17 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
  */
 genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]);
-
+/**
+ * Free memory used by an iRODS generic query (see rodsGenQuery.h).
+ *
+ * @param[in] query_input The query to free.
+ *
+ * @ref make_query_input
+ */
 void free_query_input(genQueryInp_t *query_input);
 
 genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
                                const query_cond conds[]);
-
-int query_and_print(rcComm_t *conn, genQueryInp_t *query_input,
-                    const char *labels[]);
-
-json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
-
-json_t *list_obj_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                          char *attr_name);
-
-json_t *list_col_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                          char *attr_name);
 
 /**
  * Execute a general query and obtain results as a JSON array of objects.
@@ -236,6 +221,4 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
  */
 json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]);
 
-int print_json(json_t* results);
-
-#endif // BATON_H
+#endif // _BATON_H

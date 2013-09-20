@@ -17,15 +17,17 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 
-#include "config.h"
-#include "zlog.h"
 #include "rodsClient.h"
 #include "rodsPath.h"
+#include <zlog.h>
+
 #include "baton.h"
+#include "config.h"
+#include "utilities.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
 
@@ -37,9 +39,7 @@ static int version_flag;
 int do_list_metadata(int argc, char *argv[], int optind, char *attr_name);
 
 int main(int argc, char *argv[]) {
-
     int exit_status;
-
     char *attr_name = NULL;
 
     while (1) {
@@ -58,8 +58,7 @@ int main(int argc, char *argv[]) {
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
-        if (c == -1)
-            break;
+        if (c == -1) break;
 
         switch (c) {
             case 'a':
@@ -141,24 +140,22 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
     int error_count = 0;
 
     rodsEnv env;
-    rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
-    if (!conn) {
-        goto error;
-    }
+    if (!conn) goto error;
 
     while (optind < argc) {
         char *path = argv[optind++];
-        int status;
+        rodsPath_t rods_path;
         path_count++;
 
-        status = resolve_rods_path(conn, &env, &rods_path, path);
+        int status = resolve_rods_path(conn, &env, &rods_path, path);
         if (status < 0) {
             error_count++;
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
             json_t *results = list_metadata(conn, &rods_path, attr_name);
+
             if (!results) {
                 error_count++;
                 err_name = rodsErrorName(status, &err_subname);
@@ -167,6 +164,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
             }
             else {
                 print_json(results);
+                json_decref(results);
             }
         }
     }
@@ -179,9 +177,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
     return error_count;
 
 error:
-    if (conn) {
-        rcDisconnect(conn);
-    }
+    if (conn) rcDisconnect(conn);
 
     logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
            path_count, error_count);

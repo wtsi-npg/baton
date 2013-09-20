@@ -1,4 +1,4 @@
- /**
+/**
  * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,16 +17,19 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 
 #include "rodsClient.h"
 #include "rodsPath.h"
+#include <jansson.h>
 #include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
+#include "json.h"
+#include "utilities.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
 
@@ -36,15 +39,12 @@ static int help_flag;
 static int version_flag;
 
 int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation,
-                       char *attr_name, char *attr_value, char *attr_unit);
+                       metadata_op operation, const char *json_file);
 
 int main(int argc, char *argv[]) {
     int exit_status;
     metadata_op meta_op = -1;
-    char *attr_name = NULL;
-    char *attr_value = NULL;
-    char *attr_units = "";
+    char *json_file = NULL;
 
     while (1) {
         static struct option long_options[] = {
@@ -52,24 +52,22 @@ int main(int argc, char *argv[]) {
             {"help",      no_argument, &help_flag,    1},
             {"version",   no_argument, &version_flag, 1},
             // Indexed options
-            {"attr",      required_argument, NULL, 'a'},
+            {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
             {"operation", required_argument, NULL, 'o'},
-            {"units",     required_argument, NULL, 'u'},
-            {"value",     required_argument, NULL, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:o:u:v:",
+        int c = getopt_long_only(argc, argv, "f:l:o:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
 
         switch (c) {
-            case 'a':
-                attr_name = optarg;
+            case 'f':
+                json_file = optarg;
                 break;
 
             case 'l':
@@ -81,14 +79,6 @@ int main(int argc, char *argv[]) {
                     meta_op = META_ADD;
                 }
 
-                break;
-
-            case 'u':
-                attr_units = optarg;
-                break;
-
-            case 'v':
-                attr_value = optarg;
                 break;
 
             case '?':
@@ -103,20 +93,19 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    metamod");
+        puts("    json-metamod");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    metamod -o <operation> --attr <attr> --value <value> [--units <unit>] \\");
-        puts("      <paths ...>");
+        puts("    json-metamod -o <operation> --file <json file>");
         puts("");
         puts("Description");
-        puts("    Modifies metadata AVUs.");
+        puts("    Modifies metadata AVUs on collections and data objects");
+        puts("described in a JSON input file.");
         puts("");
         puts("    --operation   Operation to perform. One of [add]. Required.");
-        puts("    --attr        The attribute of the AVU. Required.");
-        puts("    --value       The value of the AVU. Required");
-        puts("    --units       The units of the AVU. Optional");
+        puts("    --file        The JSON file describing the data objects.");
+        puts("                  Required");
         puts("");
 
         exit(0);
@@ -144,24 +133,13 @@ int main(int argc, char *argv[]) {
 
     switch (meta_op) {
         case META_ADD:
-            if (!attr_name) {
-                fprintf(stderr, "An --attr argument is required\n");
-                goto args_error;
-            }
-
-            if (!attr_value) {
-                fprintf(stderr, "A --value argument is required\n");
-                goto args_error;
-            }
-
-            if (optind >= argc) {
-                fprintf(stderr,
-                        "Expected one or more iRODS paths as arguments\n");
+            if (!json_file) {
+                fprintf(stderr, "A --file argument is required\n");
                 goto args_error;
             }
 
             int status = do_modify_metadata(argc, argv, optind, meta_op,
-                                            attr_name, attr_value, attr_units);
+                                            json_file);
             if (status != 0) {
                 exit_status = 5;
             }
@@ -186,8 +164,7 @@ error:
 }
 
 int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation,
-                       char *attr_name, char *attr_value, char *attr_units) {
+                       metadata_op operation, const char *json_file) {
     char *err_name;
     char *err_subname;
 
@@ -199,27 +176,60 @@ int do_modify_metadata(int argc, char *argv[], int optind,
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    while (optind < argc) {
-        char *path = argv[optind++];
-        int status;
+    json_error_t error;
+    json_t *targets = json_load_file(json_file, JSON_REJECT_DUPLICATES, &error);
+    if (!targets) goto json_error;
+
+    for (size_t i = 0; i < json_array_size(targets); i++) {
+        json_t *target = json_array_get(targets, i);
+        char *path = json_to_path(target);
         path_count++;
 
-        status = resolve_rods_path(conn, &env, &rods_path, path);
+        json_t *avus = json_object_get(target, "avus");
+        if (!json_is_array(avus)) {
+            logmsg(ERROR, BATON_CAT,
+                   "AVU data for %s is not in a JSON array", path);
+            goto error;
+        }
+
+        int status = resolve_rods_path(conn, &env, &rods_path, path);
         if (status < 0) {
             error_count++;
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
-            status = modify_metadata(conn, &rods_path, operation,
-                                     attr_name, attr_value, attr_units);
-            if (status < 0) {
-                error_count++;
-                err_name = rodsErrorName(status, &err_subname);
-                logmsg(ERROR, BATON_CAT,
-                       "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
-                       "error %d %s %s",
-                       attr_name, attr_value, attr_units, rods_path.outPath,
-                       status, err_name, err_subname);
+            for (size_t j = 0; j < json_array_size(avus); j++) {
+                json_t *avu = json_array_get(avus, j);
+
+                char *attr_name = NULL;
+                char *attr_value = NULL;
+                char *attr_units = "";
+
+                const char *key;
+                json_t *value;
+                json_object_foreach(avu, key, value) {
+                    if ((strcmp(key, "attribute") == 0)) {
+                        attr_name = copy_str(json_string_value(value));
+                    }
+                    else if ((strcmp(key, "value") == 0)) {
+                        attr_value = copy_str(json_string_value(value));
+                    }
+                    else if ((strcmp(key, "units") == 0)) {
+                        attr_units = copy_str(json_string_value(value));
+                    }
+                }
+
+                status = modify_metadata(conn, &rods_path, operation,
+                                         attr_name, attr_value, attr_units);
+                if (status < 0) {
+                    error_count++;
+                    err_name = rodsErrorName(status, &err_subname);
+                    logmsg(ERROR, BATON_CAT,
+                           "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
+                           "error %d %s %s",
+                           attr_name, attr_value, attr_units, rods_path.outPath,
+                           status, err_name, err_subname);
+                }
             }
         }
     }
@@ -230,6 +240,10 @@ int do_modify_metadata(int argc, char *argv[], int optind,
            path_count, error_count);
 
     return error_count;
+
+json_error:
+    logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
+           error.line, error.column, error.text);
 
 error:
     if (conn) rcDisconnect(conn);
