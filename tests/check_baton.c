@@ -45,6 +45,8 @@ START_TEST(test_resolve_rods_path) {
     rcComm_t *conn = rods_login(&env);
     char *path = "/";
 
+    ck_assert_msg(is_irods_available(), "iRODS is not available");
+    ck_assert(conn->loggedIn);
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, path),
                      COLL_OBJ_T);
     ck_assert_str_eq(rods_path.inPath, path);
@@ -79,6 +81,7 @@ END_TEST
 
 
 
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -86,10 +89,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_is_irods_available);
     tcase_add_test(basic_tests, test_init_rods_path);
     tcase_add_test(basic_tests, test_make_query_input);
-
-    if (is_irods_available()) {
-        tcase_add_test(basic_tests, test_resolve_rods_path);
-    }
+    tcase_add_test(basic_tests, test_resolve_rods_path);
 
     suite_add_tcase(suite, basic_tests);
 
@@ -100,7 +100,7 @@ int main (void) {
     Suite *suite = baton_suite();
 
     SRunner *runner = srunner_create(suite);
-    srunner_run_all(runner, CK_NORMAL);
+    srunner_run_all(runner, CK_VERBOSE);
 
     int number_failed = srunner_ntests_failed(runner);
     srunner_free(runner);

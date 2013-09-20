@@ -18,16 +18,16 @@
  */
 
 #include <assert.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 
-#include "config.h"
-#include "zlog.h"
 #include "rodsClient.h"
 #include "rodsPath.h"
-#include "baton.h"
+#include <zlog.h>
 
+#include "baton.h"
+#include "config.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
 static char *USER_LOG_CONF_FILE = NULL;
@@ -35,22 +35,10 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int help_flag;
 static int version_flag;
 
-int query_metadata(char *attr_name, char *attr_value);
-
-int obj_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
-
-int col_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value);
-
-genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
-                                 char *attr_value);
-
-genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value);
-
+int do_search_metadata(char *attr_name, char *attr_value);
 
 int main(int argc, char *argv[]) {
     int exit_status;
-
     char *attr_name = NULL;
     char *attr_value = NULL;
 
@@ -67,12 +55,11 @@ int main(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:u:v:",
+        int c = getopt_long_only(argc, argv, "a:l:v:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
-        if (c == -1)
-            break;
+        if (c == -1) break;
 
         switch (c) {
             case 'a':
@@ -135,7 +122,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
     if (!attr_name) {
         fprintf(stderr, "An --attr argument is required\n");
         goto args_error;
@@ -146,7 +132,7 @@ int main(int argc, char *argv[]) {
         goto args_error;
     }
 
-    exit_status = query_metadata(attr_name, attr_value);
+    exit_status = do_search_metadata(attr_name, attr_value);
 
     zlog_fini();
     exit(exit_status);
@@ -159,7 +145,7 @@ error:
     exit(exit_status);
 }
 
-int query_metadata(char *attr_name, char *attr_value) {
+int do_search_metadata(char *attr_name, char *attr_value) {
     char *err_name;
     char *err_subname;
 
@@ -168,80 +154,26 @@ int query_metadata(char *attr_name, char *attr_value) {
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
-    if (conn == NULL) {
+    if (!conn) goto error;
+
+    json_t *results = search_metadata(conn, attr_name, attr_value);
+    if (!results) {
+        logmsg(ERROR, BATON_CAT,
+               "Failed to search metadata on attribute '%s'"
+               "and value '%s'", attr_name, attr_value);
         goto error;
     }
-
-    // TODO: bundle the results into one JSON collection
-    obj_search_and_print(conn, attr_name, attr_value);
-    col_search_and_print(conn, attr_name, attr_value);
+    else {
+        print_json(results);
+        json_decref(results);
+    }
 
     rcDisconnect(conn);
 
     return 0;
 
 error:
-    if (conn != NULL) {
-        rcDisconnect(conn);
-    }
+    if (conn) rcDisconnect(conn);
 
-    return -1;
-}
-
-int obj_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
-    int num_columns = 2;
-    int columns[] = { COL_COLL_NAME, COL_DATA_NAME };
-    const char *labels[] = { "collection", "data_object" };
-
-    // TODO: Improve error handling
-    int max_rows = 10;
-    genQueryInp_t *query_input = make_query_input(max_rows, num_columns,
-                                                  columns);
-    query_input = prepare_obj_search(query_input, attr_name, attr_value);
-
-    int status = query_and_print(conn, query_input, labels);
-    free_query_input(query_input);
-
-    return status;
-}
-
-int col_search_and_print(rcComm_t *conn, char *attr_name, char *attr_value) {
-    int num_columns = 1;
-    int columns[] = { COL_COLL_NAME };
-    const char *labels[] = { "collection" };
-
-    // TODO: Improve error handling
-    int max_rows = 10;
-    genQueryInp_t *query_input = make_query_input(max_rows, num_columns,
-                                                  columns);
-    prepare_col_search(query_input, attr_name, attr_value);
-
-    int status = query_and_print(conn, query_input, labels);
-    free_query_input(query_input);
-
-    return status;
-}
-
-genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value) {
-    query_cond an = { .column = COL_META_DATA_ATTR_NAME,
-                      .operator = "=",
-                      .value = attr_name };
-    query_cond av = { .column = COL_META_DATA_ATTR_VALUE,
-                      .operator = "=",
-                      .value = attr_value };
-    int num_conds = 2;
-    return add_query_conds(query_input, num_conds, (query_cond []) { an, av });
-}
-
-genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value) {
-    query_cond an = { .column = COL_META_COLL_ATTR_NAME,
-                      .operator = "=",
-                      .value = attr_name };
-    query_cond av = { .column = COL_META_COLL_ATTR_VALUE,
-                      .operator = "=",
-                      .value = attr_value };
-    int num_conds = 2;
-    return add_query_conds(query_input, num_conds, (query_cond []) { an, av });
+    return 1;
 }
