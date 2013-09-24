@@ -233,18 +233,26 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value) {
     genQueryInp_t *query_input = NULL;
     genQueryOut_t *query_output;
 
+    logmsg(DEBUG, BATON_CAT, "Searching for collections ...");
     query_input = make_query_input(max_rows, num_columns, columns);
     prepare_col_search(query_input, attr_name, attr_value);
 
     json_t *collections = do_query(conn, query_input, query_output, labels);
+    logmsg(DEBUG, BATON_CAT, "Found %d matching collections",
+           json_array_size(collections));
+
     json_array_extend(results, collections);
     json_decref(collections);
     free_query_input(query_input);
 
+    logmsg(DEBUG, BATON_CAT, "Searching for data objects ...");
     query_input = make_query_input(max_rows, num_columns + 1, columns);
     prepare_obj_search(query_input, attr_name, attr_value);
 
     json_t *data_objects = do_query(conn, query_input, query_output, labels);
+    logmsg(DEBUG, BATON_CAT, "Found %d matching data objects",
+           json_array_size(data_objects));
+
     json_array_extend(results, data_objects);
     json_decref(data_objects);
     free_query_input(query_input);
@@ -398,6 +406,7 @@ json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
 
         if (status == CAT_NO_ROWS_FOUND) {
             logmsg(DEBUG, BATON_CAT, "Query returned no results");
+            break;
         }
         else if (status != 0) {
             goto error;
