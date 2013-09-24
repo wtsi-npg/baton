@@ -157,7 +157,7 @@ int do_search_metadata(char *attr_name, char *attr_value) {
     if (!conn) goto error;
 
     json_t *results = search_metadata(conn, attr_name, attr_value);
-    if (!results) {
+    if (json_array_size(results) == 0) {
         logmsg(ERROR, BATON_CAT,
                "Failed to search metadata on attribute '%s'"
                "and value '%s'", attr_name, attr_value);
