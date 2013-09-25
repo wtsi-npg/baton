@@ -41,6 +41,9 @@ static int version_flag;
 int do_modify_metadata(int argc, char *argv[], int optind,
                        metadata_op operation, const char *json_file);
 
+int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                         metadata_op operation, json_t *avu);
+
 int main(int argc, char *argv[]) {
     int exit_status;
     metadata_op meta_op = -1;
@@ -163,16 +166,51 @@ error:
     exit(exit_status);
 }
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, const char *json_file) {
+int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                         metadata_op operation, json_t *avu) {
     char *err_name;
     char *err_subname;
 
+    char *attr_name = NULL;
+    char *attr_value = NULL;
+    char *attr_units = "";
+
+    const char *key;
+    json_t *value;
+    json_object_foreach(avu, key, value) {
+        if ((strcmp(key, "attribute") == 0)) {
+            attr_name = copy_str(json_string_value(value));
+        }
+        else if ((strcmp(key, "value") == 0)) {
+            attr_value = copy_str(json_string_value(value));
+        }
+        else if ((strcmp(key, "units") == 0)) {
+            attr_units = copy_str(json_string_value(value));
+        }
+    }
+
+    int status = modify_metadata(conn, rods_path, operation,
+                                 attr_name, attr_value, attr_units);
+    return status;
+
+error:
+    err_name = rodsErrorName(status, &err_subname);
+    logmsg(ERROR, BATON_CAT,
+           "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
+           "error %d %s %s",
+           attr_name, attr_value, attr_units, rods_path->outPath,
+           status, err_name, err_subname);
+
+    return status;
+}
+
+
+int do_modify_metadata(int argc, char *argv[], int optind,
+                       metadata_op operation, const char *json_file) {
     int path_count = 0;
     int error_count = 0;
 
     rodsEnv env;
-    rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
@@ -192,6 +230,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
             goto error;
         }
 
+        rodsPath_t rods_path;
         int status = resolve_rods_path(conn, &env, &rods_path, path);
         if (status < 0) {
             error_count++;
@@ -200,36 +239,9 @@ int do_modify_metadata(int argc, char *argv[], int optind,
         else {
             for (size_t j = 0; j < json_array_size(avus); j++) {
                 json_t *avu = json_array_get(avus, j);
+                status = modify_json_metadata(conn, &rods_path, operation, avu);
 
-                char *attr_name = NULL;
-                char *attr_value = NULL;
-                char *attr_units = "";
-
-                const char *key;
-                json_t *value;
-                json_object_foreach(avu, key, value) {
-                    if ((strcmp(key, "attribute") == 0)) {
-                        attr_name = copy_str(json_string_value(value));
-                    }
-                    else if ((strcmp(key, "value") == 0)) {
-                        attr_value = copy_str(json_string_value(value));
-                    }
-                    else if ((strcmp(key, "units") == 0)) {
-                        attr_units = copy_str(json_string_value(value));
-                    }
-                }
-
-                status = modify_metadata(conn, &rods_path, operation,
-                                         attr_name, attr_value, attr_units);
-                if (status < 0) {
-                    error_count++;
-                    err_name = rodsErrorName(status, &err_subname);
-                    logmsg(ERROR, BATON_CAT,
-                           "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
-                           "error %d %s %s",
-                           attr_name, attr_value, attr_units, rods_path.outPath,
-                           status, err_name, err_subname);
-                }
+                if (status < 0) error_count++;
             }
         }
     }
