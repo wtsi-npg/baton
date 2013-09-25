@@ -27,6 +27,7 @@
 
 #include "baton.h"
 #include "config.h"
+#include "json.h"
 #include "utilities.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
