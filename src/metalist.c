@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    metamod [--attr <attr>] <paths ...>");
+        puts("    metalist [--attr <attr>] <paths ...>");
         puts("");
         puts("Description");
         puts("    Lists metadata AVUs.");
