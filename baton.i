@@ -1,5 +1,5 @@
 
-%module BatonWrap
+%module batonwrap
 %{
 
 #include "rodsDef.h"
