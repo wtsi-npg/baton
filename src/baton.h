@@ -166,6 +166,9 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value);
 int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
                     char *attr_name, char *attr_value, char *attr_unit);
 
+int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                         metadata_op operation, json_t *avu);
+
 /**
  * Allocate a new iRODS generic query (see rodsGenQuery.h).
  *

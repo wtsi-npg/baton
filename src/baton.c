@@ -321,6 +321,45 @@ error:
     return status;
 }
 
+int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                         metadata_op operation, json_t *avu) {
+    char *err_name;
+    char *err_subname;
+
+    char *attr_name = NULL;
+    char *attr_value = NULL;
+    char *attr_units = "";
+
+    const char *key;
+    json_t *value;
+    json_object_foreach(avu, key, value) {
+        if ((strcmp(key, "attribute") == 0)) {
+            attr_name = copy_str(json_string_value(value));
+        }
+        else if ((strcmp(key, "value") == 0)) {
+            attr_value = copy_str(json_string_value(value));
+        }
+        else if ((strcmp(key, "units") == 0)) {
+            attr_units = copy_str(json_string_value(value));
+        }
+    }
+
+    int status = modify_metadata(conn, rods_path, operation,
+                                 attr_name, attr_value, attr_units);
+    return status;
+
+error:
+    err_name = rodsErrorName(status, &err_subname);
+    logmsg(ERROR, BATON_CAT,
+           "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
+           "error %d %s %s",
+           attr_name, attr_value, attr_units, rods_path->outPath,
+           status, err_name, err_subname);
+
+    return status;
+}
+
+
 genQueryInp_t* make_query_input(int max_rows, int num_columns,
                                 const int columns[]) {
     genQueryInp_t *query_input = calloc(1, sizeof (genQueryInp_t));
