@@ -14,16 +14,12 @@ AC_PROG_INSTALL
 
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile perl/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile])
 
 AC_CHECK_LIB([zlog], [zlog_init])
 AC_CHECK_LIB([jansson], [json_unpack])
 AC_CHECK_LIB([pthread], [pthread_kill])
 AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
-
-AX_PERL_EXT
-AX_PKG_SWIG(1.3, [HAVE_SWIG=1], [HAVE_SWIG=0])
-AM_CONDITIONAL(HAVE_SWIG, test x"$have_swig" = "xyes")
 
 # Notes for OSX with homebrew:
 # Ensure that check.m4 ans pkg.m4 are in a system aclocal path or
