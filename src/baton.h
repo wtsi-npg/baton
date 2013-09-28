@@ -33,6 +33,10 @@
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rem"
 
+#define JSON_ATTRIBUTE_KEY  "attribute"
+#define JSON_VALUE_KEY "value"
+#define JSON_UNITS_KEY "units"
+
 /**
  *  @enum metadata_op
  *  @brief AVU metadata operations.
@@ -73,6 +77,16 @@ typedef struct {
     /** The value to match */
     char* value;
 } query_cond;
+
+typedef struct {
+    /** Error code */
+    int code;
+    /** Error message */
+    const char *message;
+    /** Error message length */
+    size_t size;
+} baton_error;
+
 
 /**
  * Log the current iRODS error stack through the underlying logging

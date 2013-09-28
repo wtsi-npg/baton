@@ -196,9 +196,8 @@ int do_modify_metadata(int argc, char *argv[], int optind,
     json_error_t error;
     size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
 
-    json_t *target;
     while (!feof(input)) {
-      target = json_loadf(input, flags, &error);
+       json_t *target = json_loadf(input, flags, &error);
       if (!target) {
         if (!feof(input)) {
           logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
@@ -226,7 +225,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
           for (size_t j = 0; j < json_array_size(avus); j++) {
             json_t *avu = json_array_get(avus, j);
             status = modify_json_metadata(conn, &rods_path, operation, avu);
-          
+
             if (status < 0) error_count++;
           }
         }

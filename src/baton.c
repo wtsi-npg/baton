@@ -50,7 +50,7 @@ genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
 genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
                                   char *attr_value);
 
-void log_rods_errstack(log_level level, const char* category, rError_t *error) {
+void log_rods_errstack(log_level level, const char *category, rError_t *error) {
     rErrMsg_t *errmsg;
 
     int len = error->len;
@@ -60,7 +60,7 @@ void log_rods_errstack(log_level level, const char* category, rError_t *error) {
     }
 }
 
-void log_json_error(log_level level, const char* category,
+void log_json_error(log_level level, const char *category,
                     json_error_t *error) {
     logmsg(level, category, "JSON error: %s, line %d, column %d, position %d",
            error->text, error->line, error->column, error->position);
@@ -91,6 +91,7 @@ int is_irods_available() {
     return available;
 
 error:
+
     return status;
 }
 
@@ -209,7 +210,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name) {
             goto error;
     }
 
-    json_t* results = do_query(conn, query_input, query_output, labels);
+    json_t *results = do_query(conn, query_input, query_output, labels);
     free_query_input(query_input);
 
     return results;
@@ -227,7 +228,7 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value) {
     const char *labels[] = { "collection", "data_object" };
     int columns[] = { COL_COLL_NAME, COL_DATA_NAME };
 
-    json_t* results = json_array();
+    json_t *results = json_array();
     assert(results);
 
     genQueryInp_t *query_input = NULL;
@@ -333,13 +334,13 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     const char *key;
     json_t *value;
     json_object_foreach(avu, key, value) {
-        if ((strcmp(key, "attribute") == 0)) {
+        if ((strcmp(key, JSON_ATTRIBUTE_KEY) == 0)) {
             attr_name = copy_str(json_string_value(value));
         }
-        else if ((strcmp(key, "value") == 0)) {
+        else if ((strcmp(key, JSON_VALUE_KEY) == 0)) {
             attr_value = copy_str(json_string_value(value));
         }
-        else if ((strcmp(key, "units") == 0)) {
+        else if ((strcmp(key, JSON_UNITS_KEY) == 0)) {
             attr_units = copy_str(json_string_value(value));
         }
     }
@@ -360,7 +361,7 @@ error:
 }
 
 
-genQueryInp_t* make_query_input(int max_rows, int num_columns,
+genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]) {
     genQueryInp_t *query_input = calloc(1, sizeof (genQueryInp_t));
     assert(query_input);
@@ -382,7 +383,7 @@ genQueryInp_t* make_query_input(int max_rows, int num_columns,
     query_input->condInput.len = 0;
 
     int *query_cond_indices = calloc(MAX_NUM_CONDITIONALS, sizeof (int));
-    char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));;
+    char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));
 
     query_input->sqlCondInp.inx = query_cond_indices;
     query_input->sqlCondInp.value = query_cond_values;
@@ -406,7 +407,7 @@ void free_query_input(genQueryInp_t *query_input) {
     free(query_input);
 }
 
-genQueryInp_t* add_query_conds(genQueryInp_t *query_input, int num_conds,
+genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
                                const query_cond conds[]) {
     for (int i = 0; i < num_conds; i++) {
         char *op = conds[i].operator;
@@ -430,14 +431,14 @@ genQueryInp_t* add_query_conds(genQueryInp_t *query_input, int num_conds,
     return query_input;
 }
 
-json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
-                 genQueryOut_t *query_output, const char* labels[]) {
+json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
+                 genQueryOut_t *query_output, const char *labels[]) {
     int status;
     char *err_name;
     char *err_subname;
     int chunk_num = 0;
 
-    json_t* results = json_array();
+    json_t *results = json_array();
     assert(results);
 
     while (chunk_num == 0 || query_output->continueInx > 0) {
@@ -453,7 +454,7 @@ json_t* do_query(rcComm_t *conn, genQueryInp_t *query_input,
         else {
             query_input->continueInx = query_output->continueInx;
 
-            json_t* chunk = make_json_objects(query_output, labels);
+            json_t *chunk = make_json_objects(query_output, labels);
             if (!chunk) goto error;
 
             logmsg(DEBUG, BATON_CAT, "Fetched chunk %d of %d results",
@@ -484,12 +485,12 @@ error:
     return NULL;
 }
 
-json_t* make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
-    json_t* array = json_array();
+json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
+    json_t *array = json_array();
     assert(array);
 
     for (int row = 0; row < query_output->rowCnt; row++) {
-        json_t* jrow = json_object();
+        json_t *jrow = json_object();
         assert(jrow);
 
         for (int i = 0; i < query_output->attriCnt; i++) {
@@ -500,7 +501,7 @@ json_t* make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
                    "Encoding column %d '%s' value '%s' as JSON",
                    i, labels[i], result);
 
-            json_t* jvalue = json_string(result);
+            json_t *jvalue = json_string(result);
             assert(jvalue);
 
             json_object_set_new(jrow, labels[i], jvalue);
