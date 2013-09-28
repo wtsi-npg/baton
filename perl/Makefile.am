@@ -12,4 +12,4 @@ $(srcdir)/baton_wrap.c : $(SWIG_SOURCES)
 
 AM_CPPFLAGS = -I/usr/local/include/ -I/usr/include/
 
-MOSTLYCLEANFILES = baton_wrap.c BatonWrap.pm
+MOSTLYCLEANFILES = baton_wrap.c batonwrap.pm
