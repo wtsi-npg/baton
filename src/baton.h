@@ -33,9 +33,13 @@
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rem"
 
+#define META_SEARCH_EQUALS "="
+#define META_SEARCH_LIKE "like"
+
 #define JSON_ATTRIBUTE_KEY  "attribute"
 #define JSON_VALUE_KEY "value"
 #define JSON_UNITS_KEY "units"
+#define JSON_AVUS_KEY "avus"
 
 /**
  *  @enum metadata_op
@@ -54,7 +58,7 @@ typedef enum {
  *  @struct metadata_op
  *  @brief AVU metadata operation inputs.
  */
-typedef struct {
+struct mod_metadata_in {
     /** The operation to perform. */
     metadata_op op;
     /** The type argument for the iRODS path i.e. -d or -C. */
@@ -67,26 +71,25 @@ typedef struct {
     char *attr_value;
     /** The AVU attribute units. */
     char *attr_units;
-} mod_metadata_in;
+};
 
-typedef struct {
+struct query_cond {
     /** The ICAT column to match e.g. COL_META_DATA_ATTR_NAME */
     int column;
     /** The operator to use e.g. "=", "<", ">" */
     char* operator;
     /** The value to match */
     char* value;
-} query_cond;
+};
 
-typedef struct {
+struct baton_error {
     /** Error code */
     int code;
     /** Error message */
     const char *message;
     /** Error message length */
     size_t size;
-} baton_error;
-
+};
 
 /**
  * Log the current iRODS error stack through the underlying logging
@@ -205,7 +208,7 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
 void free_query_input(genQueryInp_t *query_input);
 
 genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
-                               const query_cond conds[]);
+                               const struct query_cond conds[]);
 
 /**
  * Execute a general query and obtain results as a JSON array of objects.

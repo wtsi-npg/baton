@@ -51,4 +51,6 @@ int ends_with(const char *str, const char *suffix);
 
 char *copy_str(const char *str);
 
+FILE *maybe_stdin(const char *path);
+
 #endif // _BATON_UTILITIES_H

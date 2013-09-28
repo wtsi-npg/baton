@@ -41,8 +41,6 @@ static int version_flag;
 int do_modify_metadata(int argc, char *argv[], int optind,
                        metadata_op operation, FILE *input);
 
-FILE *maybe_stdin(const char *path);
-
 int main(int argc, char *argv[]) {
     int exit_status;
     metadata_op meta_op = -1;
@@ -119,19 +117,17 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (USER_LOG_CONF_FILE == NULL) {
+    if (!USER_LOG_CONF_FILE) {
         if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
             fprintf(stderr, "Logging configuration failed "
                     "(using system-defined configuration in '%s')\n",
                     SYSTEM_LOG_CONF_FILE);
         }
     }
-    else {
-        if (zlog_init(USER_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using user-defined configuration in '%s')\n",
-                    USER_LOG_CONF_FILE);
-        }
+    else if (zlog_init(USER_LOG_CONF_FILE)) {
+        fprintf(stderr, "Logging configuration failed "
+                "(using user-defined configuration in '%s')\n",
+                USER_LOG_CONF_FILE);
     }
 
     switch (meta_op) {
@@ -139,10 +135,7 @@ int main(int argc, char *argv[]) {
             input = maybe_stdin(json_file);
             int status = do_modify_metadata(argc, argv, optind, meta_op,
                                             input);
-            if (status != 0) {
-                exit_status = 5;
-            }
-
+            if (status != 0) exit_status = 5;
             break;
 
         default:
@@ -162,28 +155,6 @@ error:
     exit(exit_status);
 }
 
-
-
-FILE *maybe_stdin(const char *path) {
-  FILE *stream;
-
-  if (path) {
-    stream = fopen(path, "r");
-    if (!stream) goto error;
-  }
-  else {
-    stream = stdin;
-  }
-
-  return stream;
-
- error:
-  logmsg(ERROR, BATON_CAT, "Failed to open '%s': error %d %s",
-         path, errno, strerror(errno));
-
-  return NULL;
-}
-
 int do_modify_metadata(int argc, char *argv[], int optind,
                        metadata_op operation, FILE *input) {
     int path_count = 0;
@@ -198,38 +169,38 @@ int do_modify_metadata(int argc, char *argv[], int optind,
 
     while (!feof(input)) {
        json_t *target = json_loadf(input, flags, &error);
-      if (!target) {
-        if (!feof(input)) {
-          logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
-                 error.line, error.column, error.text);
-        }
-      }
-      else {
-        char *path = json_to_path(target);
-        path_count++;
+       if (!target) {
+           if (!feof(input)) {
+               logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
+                      error.line, error.column, error.text);
+           }
+       }
+       else {
+           char *path = json_to_path(target);
+           path_count++;
 
-        json_t *avus = json_object_get(target, "avus");
-        if (!json_is_array(avus)) {
-          logmsg(ERROR, BATON_CAT,
-                 "AVU data for %s is not in a JSON array", path);
-          goto error;
-        }
+           json_t *avus = json_object_get(target, "avus");
+           if (!json_is_array(avus)) {
+               logmsg(ERROR, BATON_CAT,
+                      "AVU data for %s is not in a JSON array", path);
+               goto error;
+           }
 
-        rodsPath_t rods_path;
-        int status = resolve_rods_path(conn, &env, &rods_path, path);
-        if (status < 0) {
-          error_count++;
-          logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
-        }
-        else {
-          for (size_t j = 0; j < json_array_size(avus); j++) {
-            json_t *avu = json_array_get(avus, j);
-            status = modify_json_metadata(conn, &rods_path, operation, avu);
-
-            if (status < 0) error_count++;
-          }
-        }
-      }
+           rodsPath_t rods_path;
+           int status = resolve_rods_path(conn, &env, &rods_path, path);
+           if (status < 0) {
+               error_count++;
+               logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+           }
+           else {
+               for (size_t i = 0; i < json_array_size(avus); i++) {
+                   json_t *avu = json_array_get(avus, i);
+                   status = modify_json_metadata(conn, &rods_path, operation,
+                                                 avu);
+                   if (status < 0) error_count++;
+               }
+           }
+       }
     }
 
     rcDisconnect(conn);

@@ -24,6 +24,7 @@
 
 #include <jansson.h>
 
+#include "json.h"
 #include "utilities.h"
 
 json_t *data_object_path_to_json(const char *path) {
@@ -38,8 +39,8 @@ json_t *data_object_path_to_json(const char *path) {
     char *data_name = basename(path2);
 
     json_t *result = json_pack("{s:s, s:s}",
-                               "collection", coll_name,
-                               "data_object", data_name);
+                               JSON_COLLECTION_KEY, coll_name,
+                               JSON_DATA_OBJECT_KEY, data_name);
     free(path1);
     free(path2);
 
@@ -54,8 +55,8 @@ char *json_to_path(json_t *json) {
     assert(json);
     char *path;
 
-    json_t *coll = json_object_get(json, "collection");
-    json_t *data = json_object_get(json, "data_object");
+    json_t *coll = json_object_get(json, JSON_COLLECTION_KEY);
+    json_t *data = json_object_get(json, JSON_DATA_OBJECT_KEY);
     if (!coll) {
         logmsg(ERROR, BATON_CAT, "collection value was missing");
         goto error;
