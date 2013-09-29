@@ -118,9 +118,7 @@ int main(int argc, char *argv[]) {
     }
 
     int status = do_list_metadata(argc, argv, optind, attr_name);
-    if (status != 0) {
-        exit_status = 5;
-    }
+    if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);

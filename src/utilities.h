@@ -20,6 +20,8 @@
 #ifndef _BATON_UTILITIES_H
 #define _BATON_UTILITIES_H
 
+#include <stdarg.h>
+
 #define BATON_CAT "baton"
 
 /**

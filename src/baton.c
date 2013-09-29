@@ -80,12 +80,12 @@ int is_irods_available() {
     rcComm_t *conn = rcConnect(env.rodsHost, env.rodsPort, env.rodsUserName,
                                env.rodsZone, RECONN_TIMEOUT, &errmsg);
     int available;
-    if (!conn) {
-        available = 0;
-    }
-    else {
+    if (conn) {
         available = 1;
         rcDisconnect(conn);
+    }
+    else {
+        available = 0;
     }
 
     return available;
@@ -287,7 +287,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
                    "Failed to set metadata on '%s' as it is "
                    "neither data object nor collection",
                    rods_path->outPath);
-            status = -1;
+            status = USER_INPUT_PATH_ERR;
             goto error;
     }
 
@@ -441,14 +441,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
     while (chunk_num == 0 || query_output->continueInx > 0) {
         status = rcGenQuery(conn, query_input, &query_output);
 
-        if (status == CAT_NO_ROWS_FOUND) {
-            logmsg(DEBUG, BATON_CAT, "Query returned no results");
-            break;
-        }
-        else if (status != 0) {
-            goto error;
-        }
-        else {
+        if (status == 0) {
             query_input->continueInx = query_output->continueInx;
 
             json_t *chunk = make_json_objects(query_output, labels);
@@ -462,6 +455,13 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
             json_decref(chunk);
 
             if (status != 0) goto error;
+        }
+        else if (status == CAT_NO_ROWS_FOUND) {
+            logmsg(DEBUG, BATON_CAT, "Query returned no results");
+            break;
+        }
+        else {
+            goto error;
         }
     }
 
