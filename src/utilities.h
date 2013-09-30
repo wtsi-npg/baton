@@ -20,6 +20,8 @@
 #ifndef _BATON_UTILITIES_H
 #define _BATON_UTILITIES_H
 
+#include <stdarg.h>
+
 #define BATON_CAT "baton"
 
 /**
@@ -50,5 +52,7 @@ void logmsg(log_level level, const char *category, const char *format, ...);
 int ends_with(const char *str, const char *suffix);
 
 char *copy_str(const char *str);
+
+FILE *maybe_stdin(const char *path);
 
 #endif // _BATON_UTILITIES_H

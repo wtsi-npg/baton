@@ -1,6 +1,6 @@
 AC_INIT([baton], [m4_esyscmd([git describe --dirty | tr -d '\012'])], [kdj@sanger.ac.uk])
 
-AM_DISABLE_SHARED
+# AM_DISABLE_SHARED
 
 AM_INIT_AUTOMAKE([foreign -Wall -Werror]) # Must precede AC_PROG_CC
 
@@ -20,7 +20,6 @@ AC_CHECK_LIB([zlog], [zlog_init])
 AC_CHECK_LIB([jansson], [json_unpack])
 AC_CHECK_LIB([pthread], [pthread_kill])
 AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
-
 
 # Notes for OSX with homebrew:
 # Ensure that check.m4 ans pkg.m4 are in a system aclocal path or

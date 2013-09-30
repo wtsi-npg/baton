@@ -20,6 +20,9 @@
 #ifndef _BATON_JSON_H
 #define _BATON_JSON_H
 
+#define JSON_DATA_OBJECT_KEY "data_object"
+#define JSON_COLLECTION_KEY "collection"
+
 json_t *data_object_path_to_json(const char *path);
 
 json_t *collection_path_to_json(const char *path);

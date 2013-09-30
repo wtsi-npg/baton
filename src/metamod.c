@@ -107,7 +107,8 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    metamod -o <operation> --attr <attr> --value <value> [--units <unit>] \\");
+        puts("    metamod -o <operation> --attr <attr> --value <value>"
+             " [--units <unit>] \\");
         puts("      <paths ...>");
         puts("");
         puts("Description");
@@ -127,19 +128,17 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (USER_LOG_CONF_FILE == NULL) {
+    if (!USER_LOG_CONF_FILE) {
         if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
             fprintf(stderr, "Logging configuration failed "
                     "(using system-defined configuration in '%s')\n",
                     SYSTEM_LOG_CONF_FILE);
         }
     }
-    else {
-        if (zlog_init(USER_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using user-defined configuration in '%s')\n",
-                    USER_LOG_CONF_FILE);
-        }
+    else if (zlog_init(USER_LOG_CONF_FILE)) {
+        fprintf(stderr, "Logging configuration failed "
+                "(using user-defined configuration in '%s')\n",
+                USER_LOG_CONF_FILE);
     }
 
     switch (meta_op) {
@@ -162,10 +161,7 @@ int main(int argc, char *argv[]) {
 
             int status = do_modify_metadata(argc, argv, optind, meta_op,
                                             attr_name, attr_value, attr_units);
-            if (status != 0) {
-                exit_status = 5;
-            }
-
+            if (status != 0) exit_status = 5;
             break;
 
         default:
@@ -195,32 +191,24 @@ int do_modify_metadata(int argc, char *argv[], int optind,
     int error_count = 0;
 
     rodsEnv env;
-    rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
     while (optind < argc) {
         char *path = argv[optind++];
-        int status;
+        rodsPath_t rods_path;
         path_count++;
 
-        status = resolve_rods_path(conn, &env, &rods_path, path);
+        int status = resolve_rods_path(conn, &env, &rods_path, path);
         if (status < 0) {
             error_count++;
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
-            status = modify_metadata(conn, &rods_path, operation,
-                                     attr_name, attr_value, attr_units);
-            if (status < 0) {
-                error_count++;
-                err_name = rodsErrorName(status, &err_subname);
-                logmsg(ERROR, BATON_CAT,
-                       "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
-                       "error %d %s %s",
-                       attr_name, attr_value, attr_units, rods_path.outPath,
-                       status, err_name, err_subname);
-            }
+            struct baton_error error;
+            modify_metadata(conn, &rods_path, operation,
+                            attr_name, attr_value, attr_units, &error);
+            if (error.code != 0) error_count++;
         }
     }
 

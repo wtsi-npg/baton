@@ -20,6 +20,16 @@
 #include <check.h>
 #include "../src/baton.h"
 
+void setup(void) {
+    int ret = system("./scripts/setup_irods.sh");
+    if (ret != 0) raise(SIGINT);
+}
+
+void teardown(void) {
+    int ret = system("./scripts/teardown_irods.sh");
+    if (ret != 0) raise(SIGINT);
+}
+
 // Is iRODS accepting connections?
 START_TEST(test_is_irods_available) {
     int avail = is_irods_available();
@@ -90,6 +100,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_init_rods_path);
     tcase_add_test(basic_tests, test_make_query_input);
     tcase_add_test(basic_tests, test_resolve_rods_path);
+    tcase_add_checked_fixture (basic_tests, setup, teardown);
 
     suite_add_tcase(suite, basic_tests);
 

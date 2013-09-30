@@ -28,6 +28,7 @@
 
 #include "baton.h"
 #include "config.h"
+#include "json.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
 static char *USER_LOG_CONF_FILE = NULL;
@@ -107,19 +108,17 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (USER_LOG_CONF_FILE == NULL) {
+    if (!USER_LOG_CONF_FILE) {
         if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
             fprintf(stderr, "Logging configuration failed "
                     "(using system-defined configuration in '%s')\n",
                     SYSTEM_LOG_CONF_FILE);
         }
     }
-    else {
-        if (zlog_init(USER_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
+    else if (zlog_init(USER_LOG_CONF_FILE)) {
+        fprintf(stderr, "Logging configuration failed "
                     "(using user-defined configuration in '%s')\n",
                     USER_LOG_CONF_FILE);
-        }
     }
 
     if (!attr_name) {
@@ -156,11 +155,10 @@ int do_search_metadata(char *attr_name, char *attr_value) {
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    json_t *results = search_metadata(conn, attr_name, attr_value);
-    if (json_array_size(results) == 0) {
-        logmsg(ERROR, BATON_CAT,
-               "Failed to search metadata on attribute '%s'"
-               "and value '%s'", attr_name, attr_value);
+    struct baton_error error;
+    json_t *results = search_metadata(conn, attr_name, attr_value, &error);
+    if (error.code != 0) {
+        logmsg(ERROR, BATON_CAT, "Failed to search: %s", error.message);
         goto error;
     }
     else {
