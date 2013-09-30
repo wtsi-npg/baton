@@ -1,9 +1,9 @@
-SUBDIRS = src .
+SUBDIRS = src . tests
 ACLOCAL_AMFLAGS= -I m4
 
-if HAVE_CHECK
-	SUBDIRS += tests
-endif
+# if HAVE_CHECK
+# SUBDIRS += tests
+# endif
 
 etcdir = $(sysconfdir)
 etc_DATA = baton_zlog.conf

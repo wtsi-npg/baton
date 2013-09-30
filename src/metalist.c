@@ -27,6 +27,7 @@
 
 #include "baton.h"
 #include "config.h"
+#include "json.h"
 #include "utilities.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
@@ -85,7 +86,7 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    metamod [--attr <attr>] <paths ...>");
+        puts("    metalist [--attr <attr>] <paths ...>");
         puts("");
         puts("Description");
         puts("    Lists metadata AVUs.");
@@ -117,9 +118,7 @@ int main(int argc, char *argv[]) {
     }
 
     int status = do_list_metadata(argc, argv, optind, attr_name);
-    if (status != 0) {
-        exit_status = 5;
-    }
+    if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);
@@ -133,9 +132,6 @@ error:
 }
 
 int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
-    char *err_name;
-    char *err_subname;
-
     int path_count = 0;
     int error_count = 0;
 
@@ -154,15 +150,13 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
-            json_t *results = list_metadata(conn, &rods_path, attr_name);
+            struct baton_error error;
+            json_t *results =
+                list_metadata(conn, &rods_path, attr_name, &error);
 
-            if (!results) {
-                error_count++;
-                err_name = rodsErrorName(status, &err_subname);
-                logmsg(ERROR, BATON_CAT,
-                       "Failed to list metadata on '%s'", rods_path.outPath);
-            }
-            else {
+            if (error.code != 0) error_count++;
+
+            if (results) {
                 print_json(results);
                 json_decref(results);
             }

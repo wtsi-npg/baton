@@ -1,0 +1,9 @@
+*.[oa]
+*.l[oa]
+*.in
+*.log
+*~
+*.cache
+*.dSYM
+.deps
+.libs

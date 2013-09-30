@@ -100,3 +100,23 @@ int ends_with(const char *str, const char *suffix) {
         return strncmp(str + (len - slen), suffix, len) == 0;
     }
 }
+
+FILE *maybe_stdin(const char *path) {
+    FILE *stream;
+
+    if (path) {
+        stream = fopen(path, "r");
+        if (!stream) goto error;
+    }
+    else {
+        stream = stdin;
+    }
+
+    return stream;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to open '%s': error %d %s",
+           path, errno, strerror(errno));
+
+    return NULL;
+}
