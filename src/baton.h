@@ -29,6 +29,7 @@
 #include "utilities.h"
 
 #define MAX_NUM_CONDITIONALS 20
+#define MAX_ERROR_MESSAGE_LEN 1024
 
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rem"
@@ -86,10 +87,11 @@ struct baton_error {
     /** Error code */
     int code;
     /** Error message */
-    const char *message;
+    char message[MAX_ERROR_MESSAGE_LEN];
     /** Error message length */
     size_t size;
 };
+
 
 /**
  * Log the current iRODS error stack through the underlying logging
@@ -111,6 +113,18 @@ void log_rods_errstack(log_level level, const char *category, rError_t *error);
  */
 void log_json_error(log_level level, const char *category,
                     json_error_t *error);
+
+/**
+ * Set error state information. The size field will be set to the
+ * length of the formatted message.
+ *
+ * @param[in] error     The error struct to modify.
+ * @param[in] code      The error code.
+ * @param[in] format    The error message format string or template.
+ * @param[in] arguments The format arguments.
+ */
+void set_baton_error(struct baton_error *error, int code,
+                     const char *format, ...);
 
 /**
  * Test that a connection can be made to the server.
@@ -161,12 +175,15 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
  * @param[out] rodspath   An iRODS path.
  * @param[in] attr_name   An attribute name to limit the values returned.
  *                        Optional, NULL means return all metadata.
+ * @param[out] error      An error report struct.
  *
  * @return A newly constructed JSON array of AVU JSON objects.
  */
-json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name);
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
+                      struct baton_error *error);
 
-json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value);
+json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
+                        struct baton_error *error);
 
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
@@ -177,14 +194,17 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value);
  * @param[in] attr_name   The attribute name.
  * @param[in] attr_value  The attribute value.
  * @param[in] attr_unit   The attribute unit (the empty string for none).
+ * @param[out] error      An error report struct.
  *
  * @return 0 on success, iRODS error code on failure.
  */
 int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
-                    char *attr_name, char *attr_value, char *attr_unit);
+                    char *attr_name, char *attr_value, char *attr_unit,
+                    struct baton_error *error);
 
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                         metadata_op operation, json_t *avu);
+                         metadata_op operation, json_t *avu,
+                         struct baton_error *error);
 
 /**
  * Allocate a new iRODS generic query (see rodsGenQuery.h).
@@ -220,12 +240,14 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
  * @param[out] query_output A query output struct to receive results.
  * @param[in] labels        An array of as many labels as there were columns
  *                          selected in the query.
+ * @param[out] error        An error report struct.
  *
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
 json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
-                 genQueryOut_t *query_output, const char *labels[]);
+                 genQueryOut_t *query_output, const char *labels[],
+                 struct baton_error *error);
 
 /**
  * Construct a JSON array of objects from a query output. Columns in the

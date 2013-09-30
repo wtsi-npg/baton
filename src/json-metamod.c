@@ -195,9 +195,10 @@ int do_modify_metadata(int argc, char *argv[], int optind,
            else {
                for (size_t i = 0; i < json_array_size(avus); i++) {
                    json_t *avu = json_array_get(avus, i);
-                   status = modify_json_metadata(conn, &rods_path, operation,
-                                                 avu);
-                   if (status < 0) error_count++;
+                   struct baton_error error;
+                   modify_json_metadata(conn, &rods_path, operation, avu,
+                                        &error);
+                   if (error.code != 0) error_count++;
                }
            }
        }

@@ -191,32 +191,24 @@ int do_modify_metadata(int argc, char *argv[], int optind,
     int error_count = 0;
 
     rodsEnv env;
-    rodsPath_t rods_path;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
     while (optind < argc) {
         char *path = argv[optind++];
-        int status;
+        rodsPath_t rods_path;
         path_count++;
 
-        status = resolve_rods_path(conn, &env, &rods_path, path);
+        int status = resolve_rods_path(conn, &env, &rods_path, path);
         if (status < 0) {
             error_count++;
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
-            status = modify_metadata(conn, &rods_path, operation,
-                                     attr_name, attr_value, attr_units);
-            if (status < 0) {
-                error_count++;
-                err_name = rodsErrorName(status, &err_subname);
-                logmsg(ERROR, BATON_CAT,
-                       "Failed to add metadata ['%s' '%s' '%s'] to '%s': "
-                       "error %d %s %s",
-                       attr_name, attr_value, attr_units, rods_path.outPath,
-                       status, err_name, err_subname);
-            }
+            struct baton_error error;
+            modify_metadata(conn, &rods_path, operation,
+                            attr_name, attr_value, attr_units, &error);
+            if (error.code != 0) error_count++;
         }
     }
 
