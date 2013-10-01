@@ -1,0 +1,19 @@
+add -d f1.txt attr1 value1 units1
+add -d f2.txt attr1 value1 units1
+add -d f3.txt attr1 value1 units1
+
+add -d a/f4.txt attr1 value1 units1
+add -d a/f5.txt attr1 value1 units1
+add -d a/f6.txt attr1 value1 units1
+
+add -d a/x/f7.txt attr1 value1 units1
+add -d a/x/f8.txt attr1 value1 units1
+add -d a/x/f9.txt attr1 value1 units1
+
+add -d a/x/m/f10.txt attr1 value1 units1
+add -d a/x/m/f11.txt attr1 value1 units1
+add -d a/x/m/f12.txt attr1 value1 units1
+
+add -C a attr2 value2 units2
+add -C a/x attr2 value2 units2
+add -C a/x/m attr2 value2 units2
