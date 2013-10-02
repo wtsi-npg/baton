@@ -26,29 +26,29 @@
 #include "../src/baton.h"
 #include "../src/json.h"
 
-int MAX_COMMAND_LEN = 1024;
-int MAX_PATH_LEN = 4096;
+static int MAX_COMMAND_LEN = 1024;
+static int MAX_PATH_LEN = 4096;
 
-char *BASIC_COLL = "baton-basic-test";
-char *BASIC_DATA_PATH = "./data/";
-char *BASIC_METADATA_PATH = "./metadata/meta1.imeta";
+static char *BASIC_COLL = "baton-basic-test";
+static char *BASIC_DATA_PATH = "./data/";
+static char *BASIC_METADATA_PATH = "./metadata/meta1.imeta";
 
-char *SETUP_SCRIPT = "./scripts/setup_irods.sh";
-char *TEARDOWN_SCRIPT = "./scripts/teardown_irods.sh";
+static char *SETUP_SCRIPT = "./scripts/setup_irods.sh";
+static char *TEARDOWN_SCRIPT = "./scripts/teardown_irods.sh";
 
-void set_current_rods_root(char *in, char *out) {
+static void set_current_rods_root(char *in, char *out) {
     snprintf(out, MAX_PATH_LEN, "%s.%d", in, getpid());
 }
 
-void setup() {
+static void setup() {
     zlog_init("../baton_zlog.conf");
 }
 
-void teardown() {
+static void teardown() {
     zlog_fini();
 }
 
-void basic_setup() {
+static void basic_setup() {
     char command[MAX_COMMAND_LEN];
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
@@ -63,7 +63,7 @@ void basic_setup() {
     if (ret != 0) raise(SIGINT);
 }
 
-void basic_teardown() {
+static void basic_teardown() {
     char command[MAX_COMMAND_LEN];
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
@@ -172,6 +172,9 @@ START_TEST(test_list_metadata_obj) {
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
 }
 END_TEST
 
@@ -198,11 +201,59 @@ START_TEST(test_list_metadata_coll) {
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
 }
 END_TEST
 
-// json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-//                         struct baton_error *error)
+// Can we search for data objects by their metadata?
+START_TEST(test_search_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    struct baton_error error;
+    json_t *results = search_metadata(conn, "attr1", "value1", &error);
+    ck_assert_int_eq(json_array_size(results), 12);
+
+    const char *key1 = "collection";
+    const char *key2 = "data_object";
+
+    for (size_t i = 0; i < 12; i++) {
+        json_t *obj = json_array_get(results, i);
+        ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
+    }
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+}
+END_TEST
+
+// Can we search for collections by their metadata?
+START_TEST(test_search_metadata_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    struct baton_error error;
+    json_t *results = search_metadata(conn, "attr2", "value2", &error);
+    ck_assert_int_eq(json_array_size(results), 3);
+    for (size_t i = 0; i < 3; i++) {
+        json_t *coll = json_array_get(results, i);
+        ck_assert_ptr_ne(json_object_get(coll, "collection"), NULL);
+        ck_assert_ptr_eq(json_object_get(coll, "data_object"), NULL);
+    }
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+}
+END_TEST
 
 // int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
 //                     char *attr_name, char *attr_value, char *attr_units,
@@ -234,6 +285,8 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_make_query_input);
     tcase_add_test(basic_tests, test_list_metadata_obj);
     tcase_add_test(basic_tests, test_list_metadata_coll);
+    tcase_add_test(basic_tests, test_search_metadata_obj);
+    tcase_add_test(basic_tests, test_search_metadata_coll);
 
     suite_add_tcase(suite, basic_tests);
 
