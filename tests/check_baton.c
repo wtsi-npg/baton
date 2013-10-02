@@ -318,14 +318,73 @@ START_TEST(test_remove_metadata_obj) {
 }
 END_TEST
 
+// Can we add a JSON AVU to a data object?
+START_TEST(test_add_json_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
 
-// int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
-//                     char *attr_name, char *attr_value, char *attr_units,
-//                     struct baton_error *error)
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
-// int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-//                          metadata_op operation, json_t *avu,
-//                          struct baton_error *error)
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            "attribute", "test_attr",
+                            "value", "test_value",
+                            "units", "test_units");
+    struct baton_error error;
+    int rv = modify_json_metadata(conn, &rods_path, META_ADD, avu, &error);
+    ck_assert_int_eq(rv, 0);
+
+    json_t *results = list_metadata(conn, &rods_path, "test_attr", &error);
+    json_t *expected = json_array();
+    json_array_append_new(expected, avu);
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we remove a JSON AVU from a data object?
+START_TEST(test_remove_json_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            "attribute", "attr1",
+                            "value", "value1",
+                            "units", "units1");
+    struct baton_error error;
+    int rv = modify_json_metadata(conn, &rods_path, META_REM, avu, &error);
+    ck_assert_int_eq(rv, 0);
+
+    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    json_t *expected = json_array(); // Empty
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
 
 // json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path)
 
@@ -356,6 +415,8 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_add_metadata_obj);
     tcase_add_test(basic_tests, test_remove_metadata_obj);
+    tcase_add_test(basic_tests, test_add_json_metadata_obj);
+    tcase_add_test(basic_tests, test_remove_json_metadata_obj);
 
     suite_add_tcase(suite, basic_tests);
 
