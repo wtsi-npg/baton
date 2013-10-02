@@ -35,21 +35,21 @@
 #include "json.h"
 #include "utilities.h"
 
-char *metadata_op_name(metadata_op op);
+static char *metadata_op_name(metadata_op op);
 
-void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in);
+static void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in);
 
-genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
-                                rodsPath_t *rods_path, char *attr_name);
+static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
+                                       rodsPath_t *rods_path, char *attr_name);
 
-genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
-                                rodsPath_t *rods_path, char *attr_name);
+static genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
+                                       rodsPath_t *rods_path, char *attr_name);
 
-genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value);
+static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input,
+                                         char *attr_name, char *attr_value);
 
-genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value);
+static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
+                                         char *attr_name, char *attr_value);
 
 void log_rods_errstack(log_level level, const char *category, rError_t *error) {
     rErrMsg_t *errmsg;
@@ -353,8 +353,8 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
     if (status < 0) {
         err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
-                        "Failed to add metadata '%s' -> '%s' to '%s': "
-                        "error %d %s %s",
+                        "Failed to %s metadata '%s' -> '%s' on '%s': "
+                        "error %d %s %s", metadata_op_name(op),
                         attr_name, attr_value, rods_path->outPath,
                         status, err_name, err_subname);
         goto error;
@@ -631,7 +631,7 @@ void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in) {
     out->arg9 = "";
 }
 
-char *metadata_op_name(metadata_op op) {
+static char *metadata_op_name(metadata_op op) {
     char *name;
 
     switch (op) {
@@ -650,8 +650,8 @@ char *metadata_op_name(metadata_op op) {
     return name;
 }
 
-genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
-                                rodsPath_t *rods_path, char *attr_name) {
+static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
+                                       rodsPath_t *rods_path, char *attr_name) {
     char *path = rods_path->outPath;
     size_t len = strlen(path) + 1;
 
@@ -686,8 +686,8 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
     return query_input;
 }
 
-genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
-                                rodsPath_t *rods_path, char *attr_name) {
+static genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
+                                       rodsPath_t *rods_path, char *attr_name) {
     char *path = rods_path->outPath;
     struct query_cond cn = { .column = COL_COLL_NAME,
                              .operator = META_SEARCH_EQUALS,
@@ -709,8 +709,8 @@ genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
     return query_input;
 }
 
-genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value) {
+static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input,
+                                         char *attr_name, char *attr_value) {
     struct query_cond an = { .column = COL_META_DATA_ATTR_NAME,
                              .operator = META_SEARCH_EQUALS,
                              .value = attr_name };
@@ -722,8 +722,8 @@ genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input, char *attr_name,
                            (struct query_cond []) { an, av });
 }
 
-genQueryInp_t *prepare_col_search(genQueryInp_t *query_input, char *attr_name,
-                                  char *attr_value) {
+static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
+                                         char *attr_name, char *attr_value) {
     struct query_cond an = { .column = COL_META_COLL_ATTR_NAME,
                              .operator = META_SEARCH_EQUALS,
                              .value = attr_name };
