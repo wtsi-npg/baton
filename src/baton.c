@@ -353,8 +353,8 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
     if (status < 0) {
         err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
-                        "Failed to add metadata '%s' -> '%s' to '%s': "
-                        "error %d %s %s",
+                        "Failed to %s metadata '%s' -> '%s' on '%s': "
+                        "error %d %s %s", metadata_op_name(op),
                         attr_name, attr_value, rods_path->outPath,
                         status, err_name, err_subname);
         goto error;
