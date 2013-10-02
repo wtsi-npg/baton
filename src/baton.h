@@ -32,7 +32,7 @@
 #define MAX_ERROR_MESSAGE_LEN 1024
 
 #define META_ADD_NAME "add"
-#define META_REM_NAME "rem"
+#define META_REM_NAME "rm"
 
 #define META_SEARCH_EQUALS "="
 #define META_SEARCH_LIKE "like"
