@@ -683,6 +683,9 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
                         (struct query_cond []) { cn, dn });
     }
 
+    free(path1);
+    free(path2);
+
     return query_input;
 }
 
