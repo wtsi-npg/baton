@@ -385,14 +385,90 @@ START_TEST(test_remove_json_metadata_obj) {
 }
 END_TEST
 
+// Can we convert an iRODS object to a JSON representation?
+START_TEST(test_rods_path_to_json_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
 
-// json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path)
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
-// json_t *data_object_path_to_json(const char *path)
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
 
-// json_t *collection_path_to_json(const char *path)
+    json_t *path = data_object_path_to_json(rods_path.outPath);
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            "attribute", "attr1",
+                            "value", "value1",
+                            "units", "units1");
+    json_t *expected = json_pack("{s:[o]}",
+                                 "avus", avu);
+    json_object_update(expected, path);
 
-// char *json_to_path(json_t *json)
+    json_t *obj = rods_path_to_json(conn, &rods_path);
+    ck_assert_int_eq(json_equal(obj, expected), 1);
+
+    json_decref(obj);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we convert an iRODS collection to a JSON representation?
+START_TEST(test_rods_path_to_json_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char coll_path[MAX_PATH_LEN];
+    snprintf(coll_path, MAX_PATH_LEN, "%s/a", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, coll_path),
+                     EXIST_ST);
+
+    json_t *path = collection_path_to_json(rods_path.outPath);
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            "attribute", "attr2",
+                            "value", "value2",
+                            "units", "units2");
+    json_t *expected = json_pack("{s:[o]}",
+                                 "avus", avu);
+    json_object_update(expected, path);
+
+    json_t *coll = rods_path_to_json(conn, &rods_path);
+    ck_assert_int_eq(json_equal(coll, expected), 1);
+
+    json_decref(coll);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we convert JSON representation to a useful path string?
+START_TEST(test_json_to_path) {
+    const char *coll_path = "/a/b/c";
+    json_t *coll = json_pack("{s:s}", "collection", coll_path);
+    ck_assert_str_eq(json_to_path(coll), coll_path);
+    json_decref(coll);
+
+    const char *obj_path = "/a/b/c.txt";
+    json_t *obj = json_pack("{s:s, s:s}",
+                            "collection", "/a/b",
+                            "data_object", "c.txt");
+    ck_assert_str_eq(json_to_path(obj), obj_path);
+    json_decref(obj);
+
+    // No collection key:value
+    json_t *malformed_obj = json_pack("{s:s}",
+                                      "data_object", "c.txt");
+    ck_assert_ptr_eq(json_to_path(malformed_obj), NULL);
+    json_decref(malformed_obj);
+}
+END_TEST
+
 
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
@@ -417,6 +493,11 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_remove_metadata_obj);
     tcase_add_test(basic_tests, test_add_json_metadata_obj);
     tcase_add_test(basic_tests, test_remove_json_metadata_obj);
+
+    tcase_add_test(basic_tests, test_rods_path_to_json_obj);
+    tcase_add_test(basic_tests, test_rods_path_to_json_coll);
+
+    tcase_add_test(basic_tests, test_json_to_path);
 
     suite_add_tcase(suite, basic_tests);
 
