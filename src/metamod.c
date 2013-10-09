@@ -205,7 +205,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
-            struct baton_error error;
+            baton_error_t error;
             modify_metadata(conn, &rods_path, operation,
                             attr_name, attr_value, attr_units, &error);
             if (error.code != 0) error_count++;
