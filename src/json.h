@@ -29,7 +29,7 @@ int add_error_value(json_t *target, baton_error_t *error);
 
 json_t *error_to_json(baton_error_t *error);
 
-int has_avu(json_t *avus, json_t *avu);
+int contains_avu(json_t *avus, json_t *avu);
 
 json_t *data_object_path_to_json(const char *path);
 

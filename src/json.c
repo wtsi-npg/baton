@@ -38,7 +38,7 @@ int add_error_value(json_t *target, baton_error_t *error) {
     return json_object_set_new(target, "error", err);
 }
 
-int has_avu(json_t *avus, json_t *avu) {
+int contains_avu(json_t *avus, json_t *avu) {
     int has_avu = 0;
 
     for (size_t i = 0; i < json_array_size(avus); i++) {

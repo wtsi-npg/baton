@@ -185,7 +185,7 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                     json_t *current_avu = json_array_get(current_avus, i);
                     char *str = json_dumps(current_avu, NULL);
 
-                    if (has_avu(avus, current_avu)) {
+                    if (contains_avu(avus, current_avu)) {
                         logmsg(DEBUG, BATON_CAT, "Not removing AVU %s", str);
                     }
                     else {
@@ -209,7 +209,7 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                     json_t *avu = json_array_get(avus, i);
                     char *str = json_dumps(avu, NULL);
 
-                    if (has_avu(current_avus, avu)) {
+                    if (contains_avu(current_avus, avu)) {
                         logmsg(DEBUG, BATON_CAT, "Not adding AVU %s", str);
                     }
                     else {
