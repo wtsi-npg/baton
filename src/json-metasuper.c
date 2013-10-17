@@ -227,6 +227,8 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
 
                     free(str);
                 }
+
+                json_decref(current_avus);
             }
 
         print_result:
