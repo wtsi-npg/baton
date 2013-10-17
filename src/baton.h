@@ -74,23 +74,23 @@ struct mod_metadata_in {
     char *attr_units;
 };
 
-struct query_cond {
+typedef struct query_cond {
     /** The ICAT column to match e.g. COL_META_DATA_ATTR_NAME */
     int column;
     /** The operator to use e.g. "=", "<", ">" */
     char* operator;
     /** The value to match */
     char* value;
-};
+} query_cond_t;
 
-struct baton_error {
+typedef struct baton_error {
     /** Error code */
     int code;
     /** Error message */
     char message[MAX_ERROR_MESSAGE_LEN];
     /** Error message length */
     size_t size;
-};
+} baton_error_t;
 
 
 /**
@@ -123,7 +123,7 @@ void log_json_error(log_level level, const char *category,
  * @param[in] format    The error message format string or template.
  * @param[in] arguments The format arguments.
  */
-void set_baton_error(struct baton_error *error, int code,
+void set_baton_error(baton_error_t *error, int code,
                      const char *format, ...);
 
 /**
@@ -180,10 +180,10 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
  * @return A newly constructed JSON array of AVU JSON objects.
  */
 json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
-                      struct baton_error *error);
+                      baton_error_t *error);
 
 json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-                        struct baton_error *error);
+                        baton_error_t *error);
 
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
@@ -200,11 +200,11 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
  */
 int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
                     char *attr_name, char *attr_value, char *attr_unit,
-                    struct baton_error *error);
+                    baton_error_t *error);
 
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
-                         struct baton_error *error);
+                         baton_error_t *error);
 
 /**
  * Allocate a new iRODS generic query (see rodsGenQuery.h).
@@ -228,7 +228,7 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
 void free_query_input(genQueryInp_t *query_input);
 
 genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
-                               const struct query_cond conds[]);
+                               const query_cond_t conds[]);
 
 /**
  * Execute a general query and obtain results as a JSON array of objects.
@@ -247,7 +247,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
  */
 json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
                  genQueryOut_t *query_output, const char *labels[],
-                 struct baton_error *error);
+                 baton_error_t *error);
 
 /**
  * Construct a JSON array of objects from a query output. Columns in the

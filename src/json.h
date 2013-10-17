@@ -20,8 +20,16 @@
 #ifndef _BATON_JSON_H
 #define _BATON_JSON_H
 
+#include "baton.h"
+
 #define JSON_DATA_OBJECT_KEY "data_object"
 #define JSON_COLLECTION_KEY "collection"
+
+int add_error_value(json_t *target, baton_error_t *error);
+
+json_t *error_to_json(baton_error_t *error);
+
+int contains_avu(json_t *avus, json_t *avu);
 
 json_t *data_object_path_to_json(const char *path);
 
