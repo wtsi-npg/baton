@@ -38,12 +38,10 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int help_flag;
 static int version_flag;
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, FILE *input);
+int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input);
 
 int main(int argc, char *argv[]) {
     int exit_status;
-    metadata_op meta_op = -1;
     char *json_file = NULL;
     FILE *input = NULL;
 
@@ -55,12 +53,11 @@ int main(int argc, char *argv[]) {
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
-            {"operation", required_argument, NULL, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:l:o:",
+        int c = getopt_long_only(argc, argv, "f:l:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -75,16 +72,6 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE = optarg;
                 break;
 
-            case 'o':
-                if (strcmp("add", optarg) ==  0) {
-                    meta_op = META_ADD;
-                }
-                if (strcmp("rem", optarg) == 0) {
-                    meta_op = META_REM;
-                }
-
-                break;
-
             case '?':
                 // getopt_long already printed an error message
                 break;
@@ -97,17 +84,16 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    json-metamod");
+        puts("    json-metasuper");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metamod -o <operation> [--file <json file>]");
+        puts("    json-metasuper [--file <json file>]");
         puts("");
         puts("Description");
-        puts("    Modifies metadata AVUs on collections and data objects");
+        puts("    Supersedes metadata AVUs on collections and data objects");
         puts("described in a JSON input file.");
         puts("");
-        puts("    --operation   Operation to perform. One of [add]. Required.");
         puts("    --file        The JSON file describing the data objects.");
         puts("                  Optional, defaults to STDIN.");
         puts("");
@@ -133,20 +119,9 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE);
     }
 
-    switch (meta_op) {
-        case META_ADD:
-        case META_REM:
-            input = maybe_stdin(json_file);
-            int status = do_modify_metadata(argc, argv, optind, meta_op,
-                                            input);
-            if (status != 0) exit_status = 5;
-            break;
-
-        default:
-            fprintf(stderr, "No valid operation was specified; valid "
-                    "operations are: [add rem]\n");
-            goto args_error;
-    }
+    input = maybe_stdin(json_file);
+    int status = do_supersede_metadata(argc, argv, optind, input);
+    if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);
@@ -159,8 +134,7 @@ error:
     exit(exit_status);
 }
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, FILE *input) {
+int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
     int path_count = 0;
     int error_count = 0;
 
@@ -186,30 +160,78 @@ int do_modify_metadata(int argc, char *argv[], int optind,
             json_t *avus = json_object_get(target, "avus");
             if (!json_is_array(avus)) {
                 logmsg(ERROR, BATON_CAT,
-                       "AVU data for %s is not in a JSON array", path);
+                       "AVU data for '%s' is not in a JSON array", path);
                 goto error;
             }
 
             rodsPath_t rods_path;
             int status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
-                error_count++;
-                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+               error_count++;
+               logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
             }
             else {
+                baton_error_t list_error;
+                json_t *current_avus = list_metadata(conn, &rods_path, NULL,
+                                                     &list_error);
+                if (list_error.code != 0) {
+                    error_count++;
+                    add_error_value(target, &list_error);
+                    goto print_result;
+                }
+
+                // Remove any current AVUs that are not equal to target AVUs
+                for (size_t i = 0; i < json_array_size(current_avus); i++) {
+                    json_t *current_avu = json_array_get(current_avus, i);
+                    char *str = json_dumps(current_avu, NULL);
+
+                    if (contains_avu(avus, current_avu)) {
+                        logmsg(DEBUG, BATON_CAT, "Not removing AVU %s", str);
+                    }
+                    else {
+                        baton_error_t rem_error;
+                        logmsg(DEBUG, BATON_CAT, "Removing AVU %s", str);
+                        modify_json_metadata(conn, &rods_path, META_REM,
+                                             current_avu, &rem_error);
+                        if (rem_error.code != 0) {
+                            error_count++;
+                            add_error_value(target, &rem_error);
+                            free(str);
+                            goto print_result;
+                        }
+                    }
+
+                    free(str);
+                }
+
+                // Add any target AVUs that are not equal to current AVUs
                 for (size_t i = 0; i < json_array_size(avus); i++) {
                     json_t *avu = json_array_get(avus, i);
-                    baton_error_t mod_error;
-                    modify_json_metadata(conn, &rods_path, operation, avu,
-                                         &mod_error);
+                    char *str = json_dumps(avu, NULL);
 
-                    if (mod_error.code != 0) {
-                        error_count++;
-                        add_error_value(target, &mod_error);
+                    if (contains_avu(current_avus, avu)) {
+                        logmsg(DEBUG, BATON_CAT, "Not adding AVU %s", str);
                     }
+                    else {
+                        baton_error_t add_error;
+                        logmsg(DEBUG, BATON_CAT, "Adding AVU %s", str);
+                        modify_json_metadata(conn, &rods_path, META_ADD, avu,
+                                             &add_error);
+                        if (add_error.code != 0) {
+                            error_count++;
+                            add_error_value(target, &add_error);
+                            free(str);
+                            goto print_result;
+                        }
+                    }
+
+                    free(str);
                 }
+
+                json_decref(current_avus);
             }
 
+        print_result:
             print_json(target);
             fflush(stdout);
             json_decref(target);

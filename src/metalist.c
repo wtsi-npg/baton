@@ -150,7 +150,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
             logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
         }
         else {
-            struct baton_error error;
+            baton_error_t error;
             json_t *results =
                 list_metadata(conn, &rods_path, attr_name, &error);
 

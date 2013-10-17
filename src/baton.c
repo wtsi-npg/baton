@@ -67,14 +67,14 @@ void log_json_error(log_level level, const char *category,
            error->text, error->line, error->column, error->position);
 }
 
-void init_baton_error(struct baton_error *error) {
+void init_baton_error(baton_error_t *error) {
     assert(error);
     error->message[0] = '\0';
     error->code = 0;
     error->size = 1;
 }
 
-void set_baton_error(struct baton_error *error, int code,
+void set_baton_error(baton_error_t *error, int code,
                      const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -190,7 +190,7 @@ error:
 }
 
 json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
-                      struct baton_error *error) {
+                      baton_error_t *error) {
     const char *labels[] = { "attribute", "value", "units" };
     int num_columns = 3;
     int max_rows = 10;
@@ -245,6 +245,8 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
 
 error:
     if (query_input) free_query_input(query_input);
+    if (results) json_decref(results);
+
     logmsg(ERROR, BATON_CAT, "Failed to list metadata: error %d %s",
            error->code, error->message);
 
@@ -252,7 +254,7 @@ error:
 }
 
 json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-                        struct baton_error *error) {
+                        baton_error_t *error) {
     int num_columns = 1;
     int max_rows = 10;
     const char *labels[] = { "collection", "data_object" };
@@ -260,42 +262,50 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
 
     json_t *results = json_array();
     assert(results);
-
-    genQueryInp_t *query_input = NULL;
-    genQueryOut_t *query_output;
     init_baton_error(error);
 
     logmsg(DEBUG, BATON_CAT, "Searching for collections ...");
-    query_input = make_query_input(max_rows, num_columns, columns);
-    prepare_col_search(query_input, attr_name, attr_value);
+    genQueryInp_t *col_query_input = NULL;
+    genQueryOut_t *col_query_output;
+    col_query_input = make_query_input(max_rows, num_columns, columns);
+    prepare_col_search(col_query_input, attr_name, attr_value);
 
     json_t *collections =
-        do_query(conn, query_input, query_output, labels, error);
+        do_query(conn, col_query_input, col_query_output, labels, error);
     if (error->code != 0) goto error;
 
     logmsg(DEBUG, BATON_CAT, "Found %d matching collections",
            json_array_size(collections));
     json_array_extend(results, collections);
     json_decref(collections);
-    free_query_input(query_input);
+    free_query_input(col_query_input);
 
     logmsg(DEBUG, BATON_CAT, "Searching for data objects ...");
-    query_input = make_query_input(max_rows, num_columns + 1, columns);
-    prepare_obj_search(query_input, attr_name, attr_value);
+    genQueryInp_t *obj_query_input = NULL;
+    genQueryOut_t *obj_query_output;
+    obj_query_input = make_query_input(max_rows, num_columns + 1, columns);
+    prepare_obj_search(obj_query_input, attr_name, attr_value);
 
     json_t *data_objects =
-        do_query(conn, query_input, query_output, labels, error);
+        do_query(conn, obj_query_input, obj_query_output, labels, error);
     if (error->code != 0) goto error;
 
     logmsg(DEBUG, BATON_CAT, "Found %d matching data objects",
            json_array_size(data_objects));
     json_array_extend(results, data_objects);
     json_decref(data_objects);
-    free_query_input(query_input);
+    free_query_input(obj_query_input);
 
     return results;
 
 error:
+    json_decref(results);
+
+    if (col_query_input) free(col_query_input);
+    if (obj_query_input) free(obj_query_input);
+    if (collections) json_decref(collections);
+    if (data_objects) json_decref(data_objects);
+
     logmsg(ERROR, BATON_CAT, "Failed to search metadata '%s' -> '%s':"
            " error %d %s", attr_name, attr_value, error->code, error->message);
 
@@ -304,7 +314,7 @@ error:
 
 int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
                     char *attr_name, char *attr_value, char *attr_units,
-                    struct baton_error *error) {
+                    baton_error_t *error) {
     int status;
     char *err_name;
     char *err_subname;
@@ -376,13 +386,13 @@ error:
 
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
-                         struct baton_error *error) {
+                         baton_error_t *error) {
     char *err_name;
     char *err_subname;
 
     char *attr_name = NULL;
     char *attr_value = NULL;
-    char *attr_units = "";
+    char *attr_units = NULL;
 
     const char *key;
     json_t *value;
@@ -398,10 +408,22 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
         }
     }
 
-    return modify_metadata(conn, rods_path, operation,
-                           attr_name, attr_value, attr_units, error);
-}
+    // Units are optional
+    if (!attr_units) {
+        attr_units = calloc(1, sizeof (char));
+        assert(attr_units);
+        attr_units[0] = '\0';
+    }
 
+    int status = modify_metadata(conn, rods_path, operation,
+                                 attr_name, attr_value, attr_units, error);
+
+    if (attr_name) free(attr_name);
+    if (attr_value) free(attr_value);
+    if (attr_units) free(attr_units);
+
+    return status;
+}
 
 genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]) {
@@ -450,7 +472,7 @@ void free_query_input(genQueryInp_t *query_input) {
 }
 
 genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
-                               const struct query_cond conds[]) {
+                               const query_cond_t conds[]) {
     for (int i = 0; i < num_conds; i++) {
         char *op = conds[i].operator;
         char *name = conds[i].value;
@@ -475,7 +497,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
 
 json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
                  genQueryOut_t *query_output, const char *labels[],
-                 struct baton_error *error) {
+                 baton_error_t *error) {
     int status;
     char *err_name;
     char *err_subname;
@@ -550,10 +572,13 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
                    "Encoding column %d '%s' value '%s' as JSON",
                    i, labels[i], result);
 
-            json_t *jvalue = json_string(result);
-            assert(jvalue);
-
-            json_object_set_new(jrow, labels[i], jvalue);
+            // Skip any results which return as an empty string
+            // (notably units, when they are absent from an AVU).
+            if (strlen(result) > 0) {
+                json_t *jvalue = json_string(result);
+                assert(jvalue);
+                json_object_set_new(jrow, labels[i], jvalue);
+            }
         }
 
         int status = json_array_append_new(array, jrow);
@@ -599,7 +624,7 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
 
     if (!result) goto error;
 
-    struct baton_error error;
+    baton_error_t error;
     json_t *avus = list_metadata(conn, rods_path, NULL, &error);
     if (!avus) goto avu_error;
 
@@ -663,24 +688,24 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
     char *coll_name = dirname(path1);
     char *data_name = basename(path2);
 
-    struct query_cond cn = { .column = COL_COLL_NAME,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = coll_name };
-    struct query_cond dn = { .column = COL_DATA_NAME,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = data_name };
-    struct query_cond an = { .column = COL_META_DATA_ATTR_NAME,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = attr_name };
+    query_cond_t cn = { .column = COL_COLL_NAME,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = coll_name };
+    query_cond_t dn = { .column = COL_DATA_NAME,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = data_name };
+    query_cond_t an = { .column = COL_META_DATA_ATTR_NAME,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = attr_name };
 
     int num_conds = 2;
     if (attr_name) {
         add_query_conds(query_input, num_conds + 1,
-                        (struct query_cond []) { cn, dn, an });
+                        (query_cond_t []) { cn, dn, an });
     }
     else {
         add_query_conds(query_input, num_conds,
-                        (struct query_cond []) { cn, dn });
+                        (query_cond_t []) { cn, dn });
     }
 
     free(path1);
@@ -692,21 +717,21 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
 static genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
                                        rodsPath_t *rods_path, char *attr_name) {
     char *path = rods_path->outPath;
-    struct query_cond cn = { .column = COL_COLL_NAME,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = path };
-    struct query_cond an = { .column = COL_META_COLL_ATTR_NAME,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = attr_name };
+    query_cond_t cn = { .column = COL_COLL_NAME,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = path };
+    query_cond_t an = { .column = COL_META_COLL_ATTR_NAME,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = attr_name };
 
     int num_conds = 1;
     if (attr_name) {
         add_query_conds(query_input, num_conds + 1,
-                        (struct query_cond []) { cn, an });
+                        (query_cond_t []) { cn, an });
     }
     else {
          add_query_conds(query_input, num_conds,
-                         (struct query_cond []) { cn });
+                         (query_cond_t []) { cn });
     }
 
     return query_input;
@@ -714,26 +739,26 @@ static genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
 
 static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input,
                                          char *attr_name, char *attr_value) {
-    struct query_cond an = { .column = COL_META_DATA_ATTR_NAME,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = attr_name };
-    struct query_cond av = { .column = COL_META_DATA_ATTR_VALUE,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = attr_value };
+    query_cond_t an = { .column = COL_META_DATA_ATTR_NAME,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = attr_name };
+    query_cond_t av = { .column = COL_META_DATA_ATTR_VALUE,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = attr_value };
     int num_conds = 2;
     return add_query_conds(query_input, num_conds,
-                           (struct query_cond []) { an, av });
+                           (query_cond_t []) { an, av });
 }
 
 static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
                                          char *attr_name, char *attr_value) {
-    struct query_cond an = { .column = COL_META_COLL_ATTR_NAME,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = attr_name };
-    struct query_cond av = { .column = COL_META_COLL_ATTR_VALUE,
-                             .operator = META_SEARCH_EQUALS,
-                             .value = attr_value };
+    query_cond_t an = { .column = COL_META_COLL_ATTR_NAME,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = attr_name };
+    query_cond_t av = { .column = COL_META_COLL_ATTR_VALUE,
+                        .operator = META_SEARCH_EQUALS,
+                        .value = attr_value };
     int num_conds = 2;
     return add_query_conds(query_input, num_conds,
-                           (struct query_cond []) { an, av });
+                           (query_cond_t []) { an, av });
 }
