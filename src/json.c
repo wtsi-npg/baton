@@ -27,6 +27,31 @@
 #include "json.h"
 #include "utilities.h"
 
+json_t *error_to_json(baton_error_t *error) {
+    return json_pack("{s:s, s:i}",
+                     "message", error->message,
+                     "code", error->code);
+}
+
+int add_error_value(json_t *target, baton_error_t *error) {
+    json_t *err = error_to_json(error);
+    return json_object_set_new(target, "error", err);
+}
+
+int has_avu(json_t *avus, json_t *avu) {
+    int has_avu = 0;
+
+    for (size_t i = 0; i < json_array_size(avus); i++) {
+        json_t *x = json_array_get(avus, i);
+        if (json_equal(x, avu)) {
+            has_avu = 1;
+            break;
+        }
+    }
+
+    return has_avu;
+}
+
 json_t *data_object_path_to_json(const char *path) {
     size_t len = strlen(path) + 1;
 

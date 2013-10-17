@@ -247,6 +247,7 @@ error:
     if (query_input) free_query_input(query_input);
     logmsg(ERROR, BATON_CAT, "Failed to list metadata: error %d %s",
            error->code, error->message);
+    // FIXME -- if (results) json_decref(results);
 
     return NULL;
 }
@@ -382,7 +383,7 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
 
     char *attr_name = NULL;
     char *attr_value = NULL;
-    char *attr_units = "";
+    char *attr_units = NULL;
 
     const char *key;
     json_t *value;
@@ -398,10 +399,22 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
         }
     }
 
-    return modify_metadata(conn, rods_path, operation,
-                           attr_name, attr_value, attr_units, error);
-}
+    // Units are optional
+    if (!attr_units) {
+        attr_units = calloc(1, sizeof (char));
+        assert(attr_units);
+        attr_units[0] = '\0';
+    }
 
+    int status = modify_metadata(conn, rods_path, operation,
+                                 attr_name, attr_value, attr_units, error);
+
+    if (attr_name) free(attr_name);
+    if (attr_value) free(attr_value);
+    if (attr_units) free(attr_units);
+
+    return status;
+}
 
 genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]) {
@@ -550,10 +563,13 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
                    "Encoding column %d '%s' value '%s' as JSON",
                    i, labels[i], result);
 
-            json_t *jvalue = json_string(result);
-            assert(jvalue);
-
-            json_object_set_new(jrow, labels[i], jvalue);
+            // Skip any results which return as an empty string
+            // (notably units, when they are absent from an AVU).
+            if (strlen(result) > 0) {
+                json_t *jvalue = json_string(result);
+                assert(jvalue);
+                json_object_set_new(jrow, labels[i], jvalue);
+            }
         }
 
         int status = json_array_append_new(array, jrow);
