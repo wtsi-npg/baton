@@ -245,9 +245,10 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
 
 error:
     if (query_input) free_query_input(query_input);
+    if (results) json_decref(results);
+
     logmsg(ERROR, BATON_CAT, "Failed to list metadata: error %d %s",
            error->code, error->message);
-    // FIXME -- if (results) json_decref(results);
 
     return NULL;
 }
@@ -261,42 +262,50 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
 
     json_t *results = json_array();
     assert(results);
-
-    genQueryInp_t *query_input = NULL;
-    genQueryOut_t *query_output;
     init_baton_error(error);
 
     logmsg(DEBUG, BATON_CAT, "Searching for collections ...");
-    query_input = make_query_input(max_rows, num_columns, columns);
-    prepare_col_search(query_input, attr_name, attr_value);
+    genQueryInp_t *col_query_input = NULL;
+    genQueryOut_t *col_query_output;
+    col_query_input = make_query_input(max_rows, num_columns, columns);
+    prepare_col_search(col_query_input, attr_name, attr_value);
 
     json_t *collections =
-        do_query(conn, query_input, query_output, labels, error);
+        do_query(conn, col_query_input, col_query_output, labels, error);
     if (error->code != 0) goto error;
 
     logmsg(DEBUG, BATON_CAT, "Found %d matching collections",
            json_array_size(collections));
     json_array_extend(results, collections);
     json_decref(collections);
-    free_query_input(query_input);
+    free_query_input(col_query_input);
 
     logmsg(DEBUG, BATON_CAT, "Searching for data objects ...");
-    query_input = make_query_input(max_rows, num_columns + 1, columns);
-    prepare_obj_search(query_input, attr_name, attr_value);
+    genQueryInp_t *obj_query_input = NULL;
+    genQueryOut_t *obj_query_output;
+    obj_query_input = make_query_input(max_rows, num_columns + 1, columns);
+    prepare_obj_search(obj_query_input, attr_name, attr_value);
 
     json_t *data_objects =
-        do_query(conn, query_input, query_output, labels, error);
+        do_query(conn, obj_query_input, obj_query_output, labels, error);
     if (error->code != 0) goto error;
 
     logmsg(DEBUG, BATON_CAT, "Found %d matching data objects",
            json_array_size(data_objects));
     json_array_extend(results, data_objects);
     json_decref(data_objects);
-    free_query_input(query_input);
+    free_query_input(obj_query_input);
 
     return results;
 
 error:
+    json_decref(results);
+
+    if (col_query_input) free(col_query_input);
+    if (obj_query_input) free(obj_query_input);
+    if (collections) json_decref(collections);
+    if (data_objects) json_decref(data_objects);
+
     logmsg(ERROR, BATON_CAT, "Failed to search metadata '%s' -> '%s':"
            " error %d %s", attr_name, attr_value, error->code, error->message);
 
