@@ -54,13 +54,8 @@ then
         echo "Metadata input file '$meta_path' not found. Aborting"
         exit $E_INPUT_MISSING
     else
-        iwd=`ipwd`
-
-        icd $out_path
-        imeta < $meta_path >/dev/null
+        sed -e "s/IRODS_TEST_ROOT/$out_path/" < $meta_path | imeta >/dev/null
         status=$?
-
-        icd $iwd
 
         exit $status
     fi
