@@ -183,7 +183,7 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                 // Remove any current AVUs that are not equal to target AVUs
                 for (size_t i = 0; i < json_array_size(current_avus); i++) {
                     json_t *current_avu = json_array_get(current_avus, i);
-                    char *str = json_dumps(current_avu, NULL);
+                    char *str = json_dumps(current_avu, JSON_DECODE_ANY);
 
                     if (contains_avu(avus, current_avu)) {
                         logmsg(DEBUG, BATON_CAT, "Not removing AVU %s", str);
@@ -207,7 +207,7 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                 // Add any target AVUs that are not equal to current AVUs
                 for (size_t i = 0; i < json_array_size(avus); i++) {
                     json_t *avu = json_array_get(avus, i);
-                    char *str = json_dumps(avu, NULL);
+                    char *str = json_dumps(avu, JSON_DECODE_ANY);
 
                     if (contains_avu(current_avus, avu)) {
                         logmsg(DEBUG, BATON_CAT, "Not adding AVU %s", str);
