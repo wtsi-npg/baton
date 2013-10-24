@@ -39,7 +39,7 @@ static int version_flag;
 int do_search_metadata(char *attr_name, char *attr_value);
 
 int main(int argc, char *argv[]) {
-    int exit_status;
+    int exit_status = 0;
     char *attr_name = NULL;
     char *attr_value = NULL;
 

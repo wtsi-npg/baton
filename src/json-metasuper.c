@@ -41,7 +41,7 @@ static int version_flag;
 int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input);
 
 int main(int argc, char *argv[]) {
-    int exit_status;
+    int exit_status = 0;
     char *json_file = NULL;
     FILE *input = NULL;
 
@@ -121,6 +121,7 @@ int main(int argc, char *argv[]) {
 
     input = maybe_stdin(json_file);
     int status = do_supersede_metadata(argc, argv, optind, input);
+
     if (status != 0) exit_status = 5;
 
     zlog_fini();
