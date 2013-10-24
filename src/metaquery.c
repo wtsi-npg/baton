@@ -162,7 +162,10 @@ int do_search_metadata(char *attr_name, char *attr_value) {
         goto error;
     }
     else {
-        print_json(results);
+        for (size_t i = 0; i < json_array_size(results); i++) {
+            json_t *result = json_array_get(results, i);
+            printf("%s\n", json_to_path(result));
+        }
         json_decref(results);
     }
 
