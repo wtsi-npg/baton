@@ -14,7 +14,7 @@ else
     echo "Set iRODS home to $IRODS_HOME"
 fi
 
-CPPFLAGS=" \
+CPPFLAGS="$CPPFLAGS \
 -I$IRODS_HOME/lib/api/include \
 -I$IRODS_HOME/lib/core/include \
 -I$IRODS_HOME/lib/md5/include \
@@ -24,6 +24,6 @@ CPPFLAGS=" \
 -I$IRODS_HOME/server/icat/include \
 -I$IRODS_HOME/server/re/include"
 
-LDFLAGS="-L$IRODS_HOME/lib/core/obj -lRodsAPIs"
+LDFLAGS="$LDFLAGS -L$IRODS_HOME/lib/core/obj -lRodsAPIs"
 
 export IRODS_HOME CPPFLAGS LDFLAGS

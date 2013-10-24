@@ -40,7 +40,7 @@ static int version_flag;
 int do_list_metadata(int argc, char *argv[], int optind, char *attr_name);
 
 int main(int argc, char *argv[]) {
-    int exit_status;
+    int exit_status = 0;
     char *attr_name = NULL;
 
     while (1) {

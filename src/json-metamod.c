@@ -42,7 +42,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
                        metadata_op operation, FILE *input);
 
 int main(int argc, char *argv[]) {
-    int exit_status;
+    int exit_status = 0;
     metadata_op meta_op = -1;
     char *json_file = NULL;
     FILE *input = NULL;

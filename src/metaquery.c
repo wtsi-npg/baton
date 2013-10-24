@@ -39,7 +39,7 @@ static int version_flag;
 int do_search_metadata(char *attr_name, char *attr_value);
 
 int main(int argc, char *argv[]) {
-    int exit_status;
+    int exit_status = 0;
     char *attr_name = NULL;
     char *attr_value = NULL;
 
@@ -162,7 +162,10 @@ int do_search_metadata(char *attr_name, char *attr_value) {
         goto error;
     }
     else {
-        print_json(results);
+        for (size_t i = 0; i < json_array_size(results); i++) {
+            json_t *result = json_array_get(results, i);
+            printf("%s\n", json_to_path(result));
+        }
         json_decref(results);
     }
 
