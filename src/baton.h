@@ -97,9 +97,9 @@ typedef struct baton_error {
  * Log the current iRODS error stack through the underlying logging
  * mechanism.
  *
- * @param[in] level    The logging level.
- * @param[in] category The log message category.
- * @param[in] error    The iRODS error state.
+ * @param[in] level     The logging level.
+ * @param[in] category  The log message category.
+ * @param[in] error     The iRODS error state.
  */
 void log_rods_errstack(log_level level, const char *category, rError_t *error);
 
@@ -107,9 +107,9 @@ void log_rods_errstack(log_level level, const char *category, rError_t *error);
  * Log the current JSON error state through the underlying logging
  * mechanism.
  *
- * @param[in] level    The logging level.
- * @param[in] category The log message category.
- * @param[in] error    The JSON error state.
+ * @param[in] level     The logging level.
+ * @param[in] category  The log message category.
+ * @param[in] error     The JSON error state.
  */
 void log_json_error(log_level level, const char *category,
                     json_error_t *error);
@@ -118,10 +118,10 @@ void log_json_error(log_level level, const char *category,
  * Set error state information. The size field will be set to the
  * length of the formatted message.
  *
- * @param[in] error     The error struct to modify.
- * @param[in] code      The error code.
- * @param[in] format    The error message format string or template.
- * @param[in] arguments The format arguments.
+ * @param[in] error      The error struct to modify.
+ * @param[in] code       The error code.
+ * @param[in] format     The error message format string or template.
+ * @param[in] arguments  The format arguments.
  */
 void set_baton_error(baton_error_t *error, int code,
                      const char *format, ...);
@@ -173,7 +173,7 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
  *
  * @param[in]  conn       An open iRODS connection.
  * @param[out] rodspath   An iRODS path.
- * @param[in] attr_name   An attribute name to limit the values returned.
+ * @param[in]  attr_name  An attribute name to limit the values returned.
  *                        Optional, NULL means return all metadata.
  * @param[out] error      An error report struct.
  *
@@ -182,19 +182,32 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
 json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
                       baton_error_t *error);
 
+/**
+ * Search metadata to find matching data objects and collections.
+ *
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  attr_name   An attribute name to match.
+ * @param[in]  attr_value  The attribute value to match.
+ * @param[in]  root_path   An iRODS path to limit search scope. Only results
+                           within this path will be returned. Optional, NULL
+                           means the search will be global.
+ * @param[out] error       An error report struct.
+ *
+ * @return A newly constructed JSON array of AVU JSON objects.
+ */
 json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-                        baton_error_t *error);
+                        char *root_path, baton_error_t *error);
 
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
  *
- * @param[in] conn        An open iRODS connection.
- * @param[in] rodspath    A resolved iRODS path.
- * @param[in] op          An operation to apply e.g. ADD, REMOVE.
- * @param[in] attr_name   The attribute name.
- * @param[in] attr_value  The attribute value.
- * @param[in] attr_unit   The attribute unit (the empty string for none).
- * @param[out] error      An error report struct.
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  rodspath    A resolved iRODS path.
+ * @param[in]  op          An operation to apply e.g. ADD, REMOVE.
+ * @param[in]  attr_name   The attribute name.
+ * @param[in]  attr_value  The attribute value.
+ * @param[in]  attr_unit   The attribute unit (the empty string for none).
+ * @param[out] error       An error report struct.
  *
  * @return 0 on success, iRODS error code on failure.
  */
@@ -202,16 +215,29 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
                     char *attr_name, char *attr_value, char *attr_unit,
                     baton_error_t *error);
 
+/**
+ * Apply a metadata operation to an AVU on a resolved iRODS path. The
+ * functionality is identical to modify_metadata, except that the AVU is
+ * a JSON struct argument, with optional units.
+ *
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  rodspath    A resolved iRODS path.
+ * @param[in]  op          An operation to apply e.g. ADD, REMOVE.
+ * @param[in]  avu         The JSON AVU.
+ * @param[out] error       An error report struct.
+ *
+ * @return 0 on success, iRODS error code on failure.
+ * @ref modify_metadata
+ */
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
                          baton_error_t *error);
-
 /**
  * Allocate a new iRODS generic query (see rodsGenQuery.h).
  *
- * @param[in] max_rows    Maximum number of rows to return.
- * @param[in] num_columns The number of columns to select.
- * @param[in] columns     The columns to select.
+ * @param[in] max_rows     Maximum number of rows to return.
+ * @param[in] num_columns  The number of columns to select.
+ * @param[in] columns      The columns to select.
  *
  * @return A pointer to a new genQueryInp_t which must be freed using
  * @ref free_query_input
@@ -221,7 +247,7 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
 /**
  * Free memory used by an iRODS generic query (see rodsGenQuery.h).
  *
- * @param[in] query_input The query to free.
+ * @param[in] query_input  The query to free.
  *
  * @ref make_query_input
  */
@@ -235,12 +261,12 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
  * Columns in the query are mapped to JSON object properties specified
  * by the labels argument.
  *
- * @param[in]  conn         An open iRODS connection.
- * @param[in]  query_input  A populated query input.
- * @param[out] query_output A query output struct to receive results.
- * @param[in] labels        An array of as many labels as there were columns
- *                          selected in the query.
- * @param[out] error        An error report struct.
+ * @param[in]  conn          An open iRODS connection.
+ * @param[in]  query_input   A populated query input.
+ * @param[out] query_output  A query output struct to receive results.
+ * @param[in]  labels        An array of as many labels as there were columns
+ *                           selected in the query.
+ * @param[out] error         An error report struct.
  *
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.

@@ -76,6 +76,30 @@ static void basic_teardown() {
     if (ret != 0) raise(SIGINT);
 }
 
+START_TEST(test_starts_with) {
+    ck_assert_msg(starts_with("", ""), "'' starts with ''");
+    ck_assert_msg(starts_with("a", ""), "'a' starts with ''");
+    ck_assert_msg(starts_with("a", "a"), "'a' starts with 'a'");
+    ck_assert_msg(starts_with("ab", "a"), "'ab' starts with 'a'");
+
+    ck_assert_msg(!starts_with("", "a"), "'' !starts with 'a'");
+    ck_assert_msg(!starts_with("b", "a"), "'b' !starts with 'a'");
+    ck_assert_msg(!starts_with("ba", "a"), "'ba' !starts with 'a'");
+}
+END_TEST
+
+START_TEST(test_ends_with) {
+    ck_assert_msg(ends_with("", ""), "'' ends with ''");
+    ck_assert_msg(ends_with("a", ""), "'a' ends with ''");
+    ck_assert_msg(ends_with("a", "a"), "'a' ends with 'a'");
+    ck_assert_msg(ends_with("ba", "a"), "'ba' ends with 'a'");
+
+    ck_assert_msg(!ends_with("", "a"), "'' !ends with 'a'");
+    ck_assert_msg(!ends_with("b", "a"), "'b' !ends with 'a'");
+    ck_assert_msg(!ends_with("ab", "a"), "'ab' !ends with 'a'");
+}
+END_TEST
+
 // Can we log in?
 START_TEST(test_rods_login) {
     rodsEnv env;
@@ -216,13 +240,42 @@ START_TEST(test_search_metadata_obj) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     struct baton_error error;
-    json_t *results = search_metadata(conn, "attr1", "value1", &error);
+    json_t *results = search_metadata(conn, "attr1", "value1", NULL,  &error);
     ck_assert_int_eq(json_array_size(results), 12);
 
     const char *key1 = "collection";
     const char *key2 = "data_object";
 
     for (size_t i = 0; i < 12; i++) {
+        json_t *obj = json_array_get(results, i);
+        ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
+    }
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+}
+END_TEST
+
+// Can we search for data objects by their metadata, limiting scope by path?
+START_TEST(test_search_metadata_path_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char search_root[MAX_PATH_LEN];
+    snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_root);
+
+    struct baton_error error;
+    json_t *results = search_metadata(conn, "attr1", "value1", search_root,
+                                      &error);
+    ck_assert_int_eq(json_array_size(results), 3);
+
+    const char *key1 = "collection";
+    const char *key2 = "data_object";
+
+    for (size_t i = 0; i < 3; i++) {
         json_t *obj = json_array_get(results, i);
         ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
         ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
@@ -242,7 +295,7 @@ START_TEST(test_search_metadata_coll) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     struct baton_error error;
-    json_t *results = search_metadata(conn, "attr2", "value2", &error);
+    json_t *results = search_metadata(conn, "attr2", "value2", NULL, &error);
     ck_assert_int_eq(json_array_size(results), 3);
     for (size_t i = 0; i < 3; i++) {
         json_t *coll = json_array_get(results, i);
@@ -469,9 +522,12 @@ START_TEST(test_json_to_path) {
 }
 END_TEST
 
-
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
+
+    TCase *utilities_tests = tcase_create("utilities");
+    tcase_add_test(utilities_tests, test_starts_with);
+    tcase_add_test(utilities_tests, test_ends_with);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);
@@ -488,6 +544,7 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_search_metadata_obj);
     tcase_add_test(basic_tests, test_search_metadata_coll);
+    tcase_add_test(basic_tests, test_search_metadata_path_obj);
 
     tcase_add_test(basic_tests, test_add_metadata_obj);
     tcase_add_test(basic_tests, test_remove_metadata_obj);
@@ -499,6 +556,7 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_json_to_path);
 
+    suite_add_tcase(suite, utilities_tests);
     suite_add_tcase(suite, basic_tests);
 
     return suite;

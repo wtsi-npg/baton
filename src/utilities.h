@@ -21,6 +21,8 @@
 #define _BATON_UTILITIES_H
 
 #include <stdarg.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #define BATON_CAT "baton"
 
@@ -48,6 +50,8 @@ typedef enum {
  * @param[in] arguments The format arguments.
  */
 void logmsg(log_level level, const char *category, const char *format, ...);
+
+int starts_with(const char *str, const char *prefix);
 
 int ends_with(const char *str, const char *suffix);
 
