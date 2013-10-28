@@ -83,6 +83,19 @@ char *copy_str(const char *str) {
     return copy;
 }
 
+int starts_with(const char *str, const char *prefix) {
+    if (!str || !prefix) return 0;
+
+    size_t len = strlen(str);
+    size_t plen = strlen(prefix);
+
+    // A string always starts with the empty string
+    if (plen == 0) return 1;
+    if (plen > len) return 0;
+
+    return strncmp(str, prefix, plen) == 0;
+}
+
 int ends_with(const char *str, const char *suffix) {
     if (!str || !suffix) return 0;
 
@@ -90,15 +103,10 @@ int ends_with(const char *str, const char *suffix) {
     size_t slen = strlen(suffix);
 
     // A string always ends with the empty string
-    if (slen == 0) {
-        return 1;
-    }
-    else if (slen > len) {
-        return 0;
-    }
-    else {
-        return strncmp(str + (len - slen), suffix, len) == 0;
-    }
+    if (slen == 0) return 1;
+    if (slen > len) return 0;
+
+    return strncmp(str + (len - slen), suffix, len) == 0;
 }
 
 FILE *maybe_stdin(const char *path) {

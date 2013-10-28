@@ -51,6 +51,10 @@ static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input,
 static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
                                          char *attr_name, char *attr_value);
 
+static genQueryInp_t *prepare_path_search(genQueryInp_t *query_input,
+                                          char *root_path);
+
+
 void log_rods_errstack(log_level level, const char *category, rError_t *error) {
     rErrMsg_t *errmsg;
 
@@ -254,7 +258,7 @@ error:
 }
 
 json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-                        baton_error_t *error) {
+                        char *root_path, baton_error_t *error) {
     int num_columns = 1;
     int max_rows = 10;
     const char *labels[] = { "collection", "data_object" };
@@ -269,6 +273,8 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
     genQueryOut_t *col_query_output;
     col_query_input = make_query_input(max_rows, num_columns, columns);
     prepare_col_search(col_query_input, attr_name, attr_value);
+
+    if (root_path) prepare_path_search(col_query_input, root_path);
 
     json_t *collections =
         do_query(conn, col_query_input, col_query_output, labels, error);
@@ -285,6 +291,8 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
     genQueryOut_t *obj_query_output;
     obj_query_input = make_query_input(max_rows, num_columns + 1, columns);
     prepare_obj_search(obj_query_input, attr_name, attr_value);
+
+    if (root_path) prepare_path_search(obj_query_input, root_path);
 
     json_t *data_objects =
         do_query(conn, obj_query_input, obj_query_output, labels, error);
@@ -745,6 +753,7 @@ static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input,
     query_cond_t av = { .column = COL_META_DATA_ATTR_VALUE,
                         .operator = META_SEARCH_EQUALS,
                         .value = attr_value };
+
     int num_conds = 2;
     return add_query_conds(query_input, num_conds,
                            (query_cond_t []) { an, av });
@@ -761,4 +770,30 @@ static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
     int num_conds = 2;
     return add_query_conds(query_input, num_conds,
                            (query_cond_t []) { an, av });
+}
+
+static genQueryInp_t *prepare_path_search(genQueryInp_t *query_input,
+                                          char *root_path) {
+    size_t len = strlen(root_path) + 1;
+    char *path;
+
+    // Absolute path
+    if (starts_with(root_path, "/")) {
+        path = calloc(len + 1, sizeof (char));
+        snprintf(path, len, "%s%%", root_path);
+    }
+    else {
+        path = calloc(len + 3, sizeof (char));
+        snprintf(path, len + 2, "%%%s%%", root_path);
+    }
+
+    query_cond_t pv = { .column = COL_COLL_NAME,
+                        .operator = META_SEARCH_LIKE,
+                        .value = path };
+
+    int num_conds = 1;
+    add_query_conds(query_input, num_conds, (query_cond_t []) { pv });
+    free(path);
+
+    return query_input;
 }
