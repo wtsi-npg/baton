@@ -191,12 +191,14 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  * @param[in]  root_path   An iRODS path to limit search scope. Only results
                            within this path will be returned. Optional, NULL
                            means the search will be global.
+ * @param[in]  zone_name   An iRODS zone name. Optional, NULL means the current
+                           zone.
  * @param[out] error       An error report struct.
  *
  * @return A newly constructed JSON array of AVU JSON objects.
  */
 json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-                        char *root_path, baton_error_t *error);
+                        char *root_path, char *zone_name, baton_error_t *error);
 
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.

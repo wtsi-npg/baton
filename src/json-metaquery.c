@@ -100,12 +100,12 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    metaquery");
+        puts("    json-metaquery");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    metaquery --attr <attr> --value <value> [--root <path>]");
-        puts("      [--zone <name>]");
+        puts("    json-metaquery --attr <attr> --value <value> ");
+        puts("      [--root <path>] [--zone <name>]");
         puts("");
         puts("Description");
         puts("    Finds items in iRODS by AVU.");
@@ -184,9 +184,27 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
         for (size_t i = 0; i < json_array_size(results); i++) {
             json_t *result = json_array_get(results, i);
             char *path = json_to_path(result);
-            printf("%s\n", path);
+            rodsPath_t rods_path;
+
+            int status = resolve_rods_path(conn, &env, &rods_path, path);
+            if (status < 0) {
+                error_count++;
+                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+            }
+            else {
+                baton_error_t error;
+                json_t *avus = list_metadata(conn, &rods_path, NULL, &error);
+
+                if (error.code != 0) error_count++;
+                if (avus) {
+                    json_object_set_new(result, JSON_AVUS_KEY, avus);
+                    print_json(result);
+                }
+            }
+
             free(path);
         }
+
         json_decref(results);
     }
 
