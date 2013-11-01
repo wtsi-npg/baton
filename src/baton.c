@@ -563,7 +563,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
             query_input->continueInx = query_output->continueInx;
 
             json_t *chunk = make_json_objects(query_output, labels);
-            if (!chunk) goto query_error;
+            if (!chunk) goto json_error;
 
             logmsg(TRACE, BATON_CAT, "Fetched chunk %d of %d results",
                    chunk_num, json_array_size(chunk));
@@ -629,7 +629,12 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
             // (notably units, when they are absent from an AVU).
             if (strlen(result) > 0) {
                 json_t *jvalue = json_string(result);
-                if (!jvalue) goto json_error;
+                if (!jvalue) {
+                    logmsg(ERROR, BATON_CAT,
+                           "Failed to parse string '%s'; is it UTF-8?",
+                           result);
+                    goto error;
+                }
                 json_object_set_new(jrow, labels[i], jvalue);
             }
         }
