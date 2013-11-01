@@ -58,6 +58,10 @@ void logmsg(log_level level, const char* category, const char *format, ...) {
             vzlog_info(cat, format, args);
             break;
 
+        case TRACE:
+            vzlog_trace(cat, format, args);
+            break;
+
         case DEBUG:
             vzlog_debug(cat, format, args);
             break;
@@ -77,10 +81,17 @@ error:
 char *copy_str(const char *str) {
     size_t len = strlen(str) + 1;
     char *copy = calloc(len, sizeof (char));
-    assert(copy);
+    if (!copy) goto error;
+
     snprintf(copy, len, "%s", str);
 
     return copy;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
+
+    return NULL;
 }
 
 int starts_with(const char *str, const char *prefix) {

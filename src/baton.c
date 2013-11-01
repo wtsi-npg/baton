@@ -213,7 +213,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
                    rods_path->outPath);
             columns[0] = COL_META_DATA_ATTR_NAME;
             columns[1] = COL_META_DATA_ATTR_VALUE;
@@ -223,7 +223,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
             break;
 
         case COLL_OBJ_T:
-            logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
                    rods_path->outPath);
             columns[0] = COL_META_COLL_ATTR_NAME;
             columns[1] = COL_META_COLL_ATTR_VALUE;
@@ -265,10 +265,10 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
     int columns[] = { COL_COLL_NAME, COL_DATA_NAME };
 
     json_t *results = json_array();
-    assert(results);
+    if (!results) goto json_error;
     init_baton_error(error);
 
-    logmsg(DEBUG, BATON_CAT, "Searching for collections ...");
+    logmsg(TRACE, BATON_CAT, "Searching for collections ...");
     genQueryInp_t *col_query_input = NULL;
     genQueryOut_t *col_query_output;
     col_query_input = make_query_input(max_rows, num_columns, columns);
@@ -278,15 +278,15 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
 
     json_t *collections =
         do_query(conn, col_query_input, col_query_output, labels, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto query_error;
 
-    logmsg(DEBUG, BATON_CAT, "Found %d matching collections",
+    logmsg(TRACE, BATON_CAT, "Found %d matching collections",
            json_array_size(collections));
     json_array_extend(results, collections);
     json_decref(collections);
     free_query_input(col_query_input);
 
-    logmsg(DEBUG, BATON_CAT, "Searching for data objects ...");
+    logmsg(TRACE, BATON_CAT, "Searching for data objects ...");
     genQueryInp_t *obj_query_input = NULL;
     genQueryOut_t *obj_query_output;
     obj_query_input = make_query_input(max_rows, num_columns + 1, columns);
@@ -296,9 +296,9 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
 
     json_t *data_objects =
         do_query(conn, obj_query_input, obj_query_output, labels, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto query_error;
 
-    logmsg(DEBUG, BATON_CAT, "Found %d matching data objects",
+    logmsg(TRACE, BATON_CAT, "Found %d matching data objects",
            json_array_size(data_objects));
     json_array_extend(results, data_objects);
     json_decref(data_objects);
@@ -306,8 +306,12 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
 
     return results;
 
-error:
-    json_decref(results);
+json_error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON structure; "
+           "possibly out of memory");
+
+query_error:
+    if (results) json_decref(results);
 
     if (col_query_input) free(col_query_input);
     if (obj_query_input) free(obj_query_input);
@@ -338,13 +342,13 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
                    rods_path->outPath);
             type_arg = "-d";
             break;
 
         case COLL_OBJ_T:
-            logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
                    rods_path->outPath);
             type_arg = "-C";
             break;
@@ -419,7 +423,7 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     // Units are optional
     if (!attr_units) {
         attr_units = calloc(1, sizeof (char));
-        assert(attr_units);
+        if (! attr_units) goto error;
         attr_units[0] = '\0';
     }
 
@@ -431,12 +435,18 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     if (attr_units) free(attr_units);
 
     return status;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
+
+    return NULL;
 }
 
 genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]) {
     genQueryInp_t *query_input = calloc(1, sizeof (genQueryInp_t));
-    assert(query_input);
+    if (!query_input) goto error;
 
     int *cols_to_select = calloc(num_columns, sizeof (int));
     for (int i = 0; i < num_columns; i++) {
@@ -462,6 +472,12 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     query_input->sqlCondInp.len = 0;
 
     return query_input;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
+
+    return NULL;
 }
 
 void free_query_input(genQueryInp_t *query_input) {
@@ -512,7 +528,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
     int chunk_num = 0;
 
     json_t *results = json_array();
-    assert(results);
+    if (!results) goto json_error;
 
     while (chunk_num == 0 || query_output->continueInx > 0) {
         status = rcGenQuery(conn, query_input, &query_output);
@@ -521,29 +537,32 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
             query_input->continueInx = query_output->continueInx;
 
             json_t *chunk = make_json_objects(query_output, labels);
-            if (!chunk) goto error;
+            if (!chunk) goto query_error;
 
-            logmsg(DEBUG, BATON_CAT, "Fetched chunk %d of %d results",
+            logmsg(TRACE, BATON_CAT, "Fetched chunk %d of %d results",
                    chunk_num, json_array_size(chunk));
             chunk_num++;
 
             status = json_array_extend(results, chunk);
             json_decref(chunk);
 
-            if (status != 0) goto error;
+            if (status != 0) goto query_error;
         }
         else if (status == CAT_NO_ROWS_FOUND) {
-            logmsg(DEBUG, BATON_CAT, "Query returned no results");
+            logmsg(TRACE, BATON_CAT, "Query returned no results");
             break;
         }
         else {
-            goto error;
+            goto query_error;
         }
     }
 
     return results;
 
-error:
+json_error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate a new JSON array");
+
+query_error:
     if (conn->rError) {
         err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
@@ -566,11 +585,11 @@ error:
 
 json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
     json_t *array = json_array();
-    assert(array);
+    if (!array) goto json_error;
 
     for (int row = 0; row < query_output->rowCnt; row++) {
         json_t *jrow = json_object();
-        assert(jrow);
+        if (!jrow) goto json_error;
 
         for (int i = 0; i < query_output->attriCnt; i++) {
             char *result = query_output->sqlResult[i].value;
@@ -584,7 +603,7 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
             // (notably units, when they are absent from an AVU).
             if (strlen(result) > 0) {
                 json_t *jvalue = json_string(result);
-                assert(jvalue);
+                if (!jvalue) goto json_error;
                 json_object_set_new(jrow, labels[i], jvalue);
             }
         }
@@ -600,6 +619,10 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
 
     return array;
 
+json_error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON structure; "
+           "possibly out of memory");
+
 error:
     if (array) json_decref(array);
 
@@ -611,13 +634,13 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
                    rods_path->outPath);
             result = data_object_path_to_json(rods_path->outPath);
             break;
 
         case COLL_OBJ_T:
-            logmsg(DEBUG, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
                    rods_path->outPath);
             result = collection_path_to_json(rods_path->outPath);
             break;

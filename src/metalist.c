@@ -165,7 +165,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, BATON_CAT, "Processed %d paths with %d errors",
+    logmsg(TRACE, BATON_CAT, "Processed %d paths with %d errors",
            path_count, error_count);
 
     return error_count;
