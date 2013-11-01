@@ -258,7 +258,8 @@ error:
 }
 
 json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-                        char *root_path, baton_error_t *error) {
+                        char *root_path, char *zone_name,
+                        baton_error_t *error) {
     int num_columns = 1;
     int max_rows = 10;
     const char *labels[] = { "collection", "data_object" };
@@ -268,14 +269,22 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
     if (!results) goto json_error;
     init_baton_error(error);
 
-    logmsg(TRACE, BATON_CAT, "Searching for collections ...");
     genQueryInp_t *col_query_input = NULL;
     genQueryOut_t *col_query_output;
     col_query_input = make_query_input(max_rows, num_columns, columns);
     prepare_col_search(col_query_input, attr_name, attr_value);
 
-    if (root_path) prepare_path_search(col_query_input, root_path);
+    if (root_path) {
+        logmsg(TRACE, BATON_CAT, "Restricting search to '%s'", root_path);
+        prepare_path_search(col_query_input, root_path);
+    }
 
+    if (zone_name) {
+        logmsg(TRACE, BATON_CAT, "Setting search zone to '%s'", zone_name);
+        addKeyVal(&col_query_input->condInput, ZONE_KW, zone_name);
+    }
+
+    logmsg(TRACE, BATON_CAT, "Searching for collections ...");
     json_t *collections =
         do_query(conn, col_query_input, col_query_output, labels, error);
     if (error->code != 0) goto query_error;
@@ -293,6 +302,7 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
     prepare_obj_search(obj_query_input, attr_name, attr_value);
 
     if (root_path) prepare_path_search(obj_query_input, root_path);
+    if (zone_name) addKeyVal(&obj_query_input->condInput, ZONE_KW, zone_name);
 
     json_t *data_objects =
         do_query(conn, obj_query_input, obj_query_output, labels, error);
@@ -423,7 +433,8 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     // Units are optional
     if (!attr_units) {
         attr_units = calloc(1, sizeof (char));
-        if (! attr_units) goto error;
+        if (!attr_units) goto error;
+
         attr_units[0] = '\0';
     }
 
@@ -440,7 +451,7 @@ error:
     logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
            errno, strerror(errno));
 
-    return NULL;
+    return -1;
 }
 
 genQueryInp_t *make_query_input(int max_rows, int num_columns,
@@ -449,11 +460,15 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     if (!query_input) goto error;
 
     int *cols_to_select = calloc(num_columns, sizeof (int));
+    if (!cols_to_select) goto error;
+
     for (int i = 0; i < num_columns; i++) {
         cols_to_select[i] = columns[i];
     }
 
     int *special_select_ops = calloc(num_columns, sizeof (int));
+    if (!special_select_ops) goto error;
+
     special_select_ops[0] = 0;
 
     query_input->selectInp.inx = cols_to_select;
@@ -465,7 +480,10 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     query_input->condInput.len = 0;
 
     int *query_cond_indices = calloc(MAX_NUM_CONDITIONALS, sizeof (int));
+    if (!query_cond_indices) goto error;
+
     char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));
+    if (!query_cond_values) goto error;
 
     query_input->sqlCondInp.inx = query_cond_indices;
     query_input->sqlCondInp.value = query_cond_values;
@@ -503,6 +521,8 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
 
         int expr_size = strlen(name) + strlen(op) + 3 + 1;
         char *expr = calloc(expr_size, sizeof (char));
+        if (!expr) goto error;
+
         snprintf(expr, expr_size, "%s '%s'", op, name);
 
         logmsg(DEBUG, BATON_CAT,
@@ -517,6 +537,12 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
     }
 
     return query_input;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
+
+    return NULL;
 }
 
 json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
@@ -713,6 +739,9 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
 
     char *path1 = calloc(len, sizeof (char));
     char *path2 = calloc(len, sizeof (char));
+    if (!path1) goto error;
+    if (!path2) goto error;
+
     strncpy(path1, path, len);
     strncpy(path2, path, len);
 
@@ -743,6 +772,12 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
     free(path2);
 
     return query_input;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
+
+    return NULL;
 }
 
 static genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
@@ -797,26 +832,38 @@ static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
 
 static genQueryInp_t *prepare_path_search(genQueryInp_t *query_input,
                                           char *root_path) {
-    size_t len = strlen(root_path) + 1;
+    size_t len = strlen(root_path);
     char *path;
 
-    // Absolute path
-    if (starts_with(root_path, "/")) {
-        path = calloc(len + 1, sizeof (char));
-        snprintf(path, len, "%s%%", root_path);
-    }
-    else {
-        path = calloc(len + 3, sizeof (char));
-        snprintf(path, len + 2, "%%%s%%", root_path);
-    }
+    if (len > 0) {
+        // Absolute path
+        if (starts_with(root_path, "/")) {
+            path = calloc(len + 2, sizeof (char));
+            if (!path) goto error;
 
-    query_cond_t pv = { .column = COL_COLL_NAME,
-                        .operator = META_SEARCH_LIKE,
-                        .value = path };
+            snprintf(path, len + 2, "%s%%", root_path);
+        }
+        else {
+            path = calloc(len + 3, sizeof (char));
+            if (!path) goto error;
 
-    int num_conds = 1;
-    add_query_conds(query_input, num_conds, (query_cond_t []) { pv });
-    free(path);
+            snprintf(path, len + 3, "%%%s%%", root_path);
+        }
+
+        query_cond_t pv = { .column = COL_COLL_NAME,
+                            .operator = META_SEARCH_LIKE,
+                            .value = path };
+
+        int num_conds = 1;
+        add_query_conds(query_input, num_conds, (query_cond_t []) { pv });
+        free(path);
+    }
 
     return query_input;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
+
+    return NULL;
 }

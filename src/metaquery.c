@@ -36,10 +36,12 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int help_flag;
 static int version_flag;
 
-int do_search_metadata(char *attr_name, char *attr_value, char *root_path);
+int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
+                       char *zone_name);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
+    char *zone_name = NULL;
     char *attr_name = NULL;
     char *attr_value = NULL;
     char *root_path = NULL;
@@ -54,11 +56,12 @@ int main(int argc, char *argv[]) {
             {"logconf",   required_argument, NULL, 'l'},
             {"root",      required_argument, NULL, 'r'},
             {"value",     required_argument, NULL, 'v'},
+            {"zone",      required_argument, NULL, 'z'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:r:v:",
+        int c = getopt_long_only(argc, argv, "a:l:r:v:z:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -81,6 +84,10 @@ int main(int argc, char *argv[]) {
                 root_path = optarg;
                 break;
 
+            case 'z':
+                zone_name = optarg;
+                break;
+
             case '?':
                 // getopt_long already printed an error message
                 break;
@@ -98,6 +105,7 @@ int main(int argc, char *argv[]) {
         puts("Synopsis");
         puts("");
         puts("    metaquery --attr <attr> --value <value> [--root <path>]");
+        puts("      [--zone <name>]");
         puts("");
         puts("Description");
         puts("    Finds items in iRODS by AVU.");
@@ -105,6 +113,7 @@ int main(int argc, char *argv[]) {
         puts("    --attr        The attribute of the AVU. Required.");
         puts("    --value       The value of the AVU. Required");
         puts("    --root        The root path under which to search. Optional");
+        puts("    --zone        The zone to search. Optional");
         puts("");
 
         exit(0);
@@ -138,7 +147,8 @@ int main(int argc, char *argv[]) {
         goto args_error;
     }
 
-    exit_status = do_search_metadata(attr_name, attr_value, root_path);
+    exit_status = do_search_metadata(attr_name, attr_value, root_path,
+                                     zone_name);
 
     zlog_fini();
     exit(exit_status);
@@ -151,7 +161,8 @@ error:
     exit(exit_status);
 }
 
-int do_search_metadata(char *attr_name, char *attr_value, char *root_path) {
+int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
+                       char *zone_name) {
     char *err_name;
     char *err_subname;
 
@@ -164,7 +175,7 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path) {
 
     baton_error_t error;
     json_t *results = search_metadata(conn, attr_name, attr_value,
-                                      root_path, &error);
+                                      root_path, zone_name, &error);
     if (error.code != 0) {
         logmsg(ERROR, BATON_CAT, "Failed to search: %s", error.message);
         goto error;
