@@ -240,7 +240,8 @@ START_TEST(test_search_metadata_obj) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     struct baton_error error;
-    json_t *results = search_metadata(conn, "attr1", "value1", NULL,  &error);
+    json_t *results = search_metadata(conn, "attr1", "value1", NULL, NULL,
+                                      &error);
     ck_assert_int_eq(json_array_size(results), 12);
 
     const char *key1 = "collection";
@@ -269,7 +270,7 @@ START_TEST(test_search_metadata_path_obj) {
 
     struct baton_error error;
     json_t *results = search_metadata(conn, "attr1", "value1", search_root,
-                                      &error);
+                                      NULL, &error);
     ck_assert_int_eq(json_array_size(results), 3);
 
     const char *key1 = "collection";
@@ -295,7 +296,8 @@ START_TEST(test_search_metadata_coll) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     struct baton_error error;
-    json_t *results = search_metadata(conn, "attr2", "value2", NULL, &error);
+    json_t *results = search_metadata(conn, "attr2", "value2", NULL, NULL,
+                                      &error);
     ck_assert_int_eq(json_array_size(results), 3);
     for (size_t i = 0; i < 3; i++) {
         json_t *coll = json_array_get(results, i);
