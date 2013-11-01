@@ -37,7 +37,7 @@
 #define META_SEARCH_EQUALS "="
 #define META_SEARCH_LIKE "like"
 
-#define JSON_ATTRIBUTE_KEY  "attribute"
+#define JSON_ATTRIBUTE_KEY "attribute"
 #define JSON_VALUE_KEY "value"
 #define JSON_UNITS_KEY "units"
 #define JSON_AVUS_KEY "avus"

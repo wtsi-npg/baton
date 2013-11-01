@@ -214,7 +214,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, BATON_CAT, "Processed %d paths with %d errors",
+    logmsg(TRACE, BATON_CAT, "Processed %d paths with %d errors",
            path_count, error_count);
 
     return error_count;

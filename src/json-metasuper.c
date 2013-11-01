@@ -187,11 +187,11 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                     char *str = json_dumps(current_avu, JSON_DECODE_ANY);
 
                     if (contains_avu(avus, current_avu)) {
-                        logmsg(DEBUG, BATON_CAT, "Not removing AVU %s", str);
+                        logmsg(TRACE, BATON_CAT, "Not removing AVU %s", str);
                     }
                     else {
                         baton_error_t rem_error;
-                        logmsg(DEBUG, BATON_CAT, "Removing AVU %s", str);
+                        logmsg(TRACE, BATON_CAT, "Removing AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_REM,
                                              current_avu, &rem_error);
                         if (rem_error.code != 0) {
@@ -211,11 +211,11 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                     char *str = json_dumps(avu, JSON_DECODE_ANY);
 
                     if (contains_avu(current_avus, avu)) {
-                        logmsg(DEBUG, BATON_CAT, "Not adding AVU %s", str);
+                        logmsg(TRACE, BATON_CAT, "Not adding AVU %s", str);
                     }
                     else {
                         baton_error_t add_error;
-                        logmsg(DEBUG, BATON_CAT, "Adding AVU %s", str);
+                        logmsg(TRACE, BATON_CAT, "Adding AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_ADD, avu,
                                              &add_error);
                         if (add_error.code != 0) {
@@ -242,7 +242,7 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, BATON_CAT, "Processed %d paths with %d errors",
+    logmsg(TRACE, BATON_CAT, "Processed %d paths with %d errors",
            path_count, error_count);
 
     return error_count;

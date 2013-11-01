@@ -24,6 +24,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <zlog.h>
+
+enum {
+    ZLOG_LEVEL_TRACE = 30
+};
+
+#define vzlog_trace(cat, format, args) \
+    vzlog(cat, __FILE__, sizeof(__FILE__) -1, __func__, \
+          sizeof(__func__) -1, __LINE__, ZLOG_LEVEL_TRACE, format, args)
+
 #define BATON_CAT "baton"
 
 /**
@@ -36,6 +46,7 @@ typedef enum {
     WARN,
     NOTICE,
     INFO,
+    TRACE,
     DEBUG
 } log_level;
 
