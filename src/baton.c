@@ -54,6 +54,8 @@ static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
 static genQueryInp_t *prepare_path_search(genQueryInp_t *query_input,
                                           char *root_path);
 
+static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
+                                         baton_error_t *error);
 
 void log_rods_errstack(log_level level, const char *category, rError_t *error) {
     rErrMsg_t *errmsg;
@@ -124,6 +126,7 @@ error:
 rcComm_t *rods_login(rodsEnv *env) {
     int status;
     rErrMsg_t errmsg;
+    rcComm_t *conn = NULL;
 
     status = getRodsEnv(env);
     if (status < 0) {
@@ -131,8 +134,8 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
-    rcComm_t *conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
-                               env->rodsZone, RECONN_TIMEOUT, &errmsg);
+    conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
+                     env->rodsZone, RECONN_TIMEOUT, &errmsg);
     if (!conn) {
         logmsg(ERROR, BATON_CAT, "Failed to connect to %s:%d zone '%s' as '%s'",
                env->rodsHost, env->rodsPort, env->rodsZone, env->rodsUserName);
@@ -193,9 +196,50 @@ error:
     return status;
 }
 
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
+                  baton_error_t *error) {
+    json_t *results;
+    init_baton_error(error);
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+                   rods_path->outPath);
+            results = data_object_path_to_json(rods_path->outPath);
+            break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+                   rods_path->outPath);
+            results = list_collection(conn, rods_path, error);
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list metadata on '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    return results;
+
+error:
+    return NULL;
+}
+
 json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
                       baton_error_t *error) {
-    const char *labels[] = { "attribute", "value", "units" };
+    const char *labels[] = { JSON_ATTRIBUTE_KEY,
+                             JSON_VALUE_KEY,
+                             JSON_UNITS_KEY };
     int num_columns = 3;
     int max_rows = 10;
     int columns[num_columns];
@@ -262,15 +306,19 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
                         baton_error_t *error) {
     int num_columns = 1;
     int max_rows = 10;
-    const char *labels[] = { "collection", "data_object" };
+    const char *labels[] = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY };
     int columns[] = { COL_COLL_NAME, COL_DATA_NAME };
-
-    json_t *results = json_array();
-    if (!results) goto json_error;
-    init_baton_error(error);
 
     genQueryInp_t *col_query_input = NULL;
     genQueryOut_t *col_query_output;
+    init_baton_error(error);
+
+    json_t *results = json_array();
+    if (!results) {
+        logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON array");
+        goto error;
+    }
+
     col_query_input = make_query_input(max_rows, num_columns, columns);
     prepare_col_search(col_query_input, attr_name, attr_value);
 
@@ -291,7 +339,7 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
 
     logmsg(TRACE, BATON_CAT, "Found %d matching collections",
            json_array_size(collections));
-    json_array_extend(results, collections);
+    json_array_extend(results, collections); // TODO: check return value
     json_decref(collections);
     free_query_input(col_query_input);
 
@@ -310,15 +358,11 @@ json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
 
     logmsg(TRACE, BATON_CAT, "Found %d matching data objects",
            json_array_size(data_objects));
-    json_array_extend(results, data_objects);
+    json_array_extend(results, data_objects); // TODO: check return value
     json_decref(data_objects);
     free_query_input(obj_query_input);
 
     return results;
-
-json_error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON structure; "
-           "possibly out of memory");
 
 query_error:
     if (results) json_decref(results);
@@ -331,6 +375,7 @@ query_error:
     logmsg(ERROR, BATON_CAT, "Failed to search metadata '%s' -> '%s':"
            " error %d %s", attr_name, attr_value, error->code, error->message);
 
+error:
     return NULL;
 }
 
@@ -433,7 +478,12 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     // Units are optional
     if (!attr_units) {
         attr_units = calloc(1, sizeof (char));
-        if (!attr_units) goto error;
+        if (!attr_units) {
+            set_baton_error(error, errno,
+                            "Failed to allocate memory: error %d %s",
+                            errno, strerror(errno));
+            goto error;
+        }
 
         attr_units[0] = '\0';
     }
@@ -448,8 +498,7 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     return status;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    logmsg(ERROR, BATON_CAT, error->message);
 
     return -1;
 }
@@ -554,7 +603,10 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
     int chunk_num = 0;
 
     json_t *results = json_array();
-    if (!results) goto json_error;
+    if (!results) {
+        set_baton_error(error, -1, "Failed to allocate a new JSON array");
+        goto error;
+    }
 
     while (chunk_num == 0 || query_output->continueInx > 0) {
         status = rcGenQuery(conn, query_input, &query_output);
@@ -564,7 +616,6 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
 
             json_t *chunk = make_json_objects(query_output, labels);
             if (!chunk) goto json_error;
-
             logmsg(TRACE, BATON_CAT, "Fetched chunk %d of %d results",
                    chunk_num, json_array_size(chunk));
             chunk_num++;
@@ -572,39 +623,41 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
             status = json_array_extend(results, chunk);
             json_decref(chunk);
 
-            if (status != 0) goto query_error;
+            if (status != 0) goto json_error;
         }
         else if (status == CAT_NO_ROWS_FOUND) {
             logmsg(TRACE, BATON_CAT, "Query returned no results");
             break;
         }
         else {
-            goto query_error;
+            err_name = rodsErrorName(status, &err_subname);
+            set_baton_error(error, status,
+                            "Failed get query result: in chunk %d "
+                            "error %d %s %s",
+                            chunk_num, status, err_name, err_subname);
+            goto error;
         }
     }
 
     return results;
 
 json_error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate a new JSON array");
+    status = -1;
+    set_baton_error(error, status,
+                    "Failed to convert query result to JSON: "
+                    "in chunk %d error %d", chunk_num, status);
+    return NULL;
 
-query_error:
+error:
+    if (results) json_decref(results);
+
     if (conn->rError) {
-        err_name = rodsErrorName(status, &err_subname);
-        set_baton_error(error, status,
-                        "Failed get query result: in chunk %d error %d %s %s",
-                        chunk_num, status, err_name, err_subname);
         logmsg(ERROR, BATON_CAT, error->message);
         log_rods_errstack(ERROR, BATON_CAT, conn->rError);
     }
     else {
-        set_baton_error(error, status,
-                        "Failed to convert query result to JSON: "
-                        "in chunk %d error %d", chunk_num, status);
         logmsg(ERROR, BATON_CAT, error->message);
     }
-
-    if (results) json_decref(results);
 
     return NULL;
 }
@@ -651,8 +704,7 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
     return array;
 
 json_error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON structure; "
-           "possibly out of memory");
+    logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON structure");
 
 error:
     if (array) json_decref(array);
@@ -705,7 +757,100 @@ error:
     return NULL;
 }
 
-void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in) {
+static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
+                               baton_error_t *error) {
+    int status;
+    char *err_name;
+    char *err_subname;
+
+    int query_flags = DATA_QUERY_FIRST_FG;
+    collHandle_t coll_handle;
+    collEnt_t coll_entry;
+
+    status = rclOpenCollection(conn, rods_path->outPath, query_flags,
+                               &coll_handle);
+    if (status < 0) {
+        if (conn->rError) {
+            err_name = rodsErrorName(status, &err_subname);
+            set_baton_error(error, status,
+                            "Failed to open collection: '%s' error %d %s %s",
+                            rods_path->outPath, status, err_name, err_subname);
+        }
+
+        goto error;
+    }
+
+    json_t *results = json_array();
+    if (!results) {
+        set_baton_error(error, -1, "Failed to allocate a new JSON array");
+        goto error;
+    }
+
+    while ((status = rclReadCollection(conn, &coll_handle, &coll_entry)) >= 0) {
+        json_t *entry;
+
+        switch (coll_entry.objType) {
+            case DATA_OBJ_T:
+                logmsg(TRACE, BATON_CAT, "Indentified '%s/%s' as a data object",
+                       coll_entry.collName, coll_entry.dataName);
+                entry = data_object_parts_to_json(coll_entry.collName,
+                                                  coll_entry.dataName);
+                if (!entry) {
+                    set_baton_error(error, -1, "Failed to pack '%s/%s' as JSON",
+                                    coll_entry.collName, coll_entry.dataName);
+                    goto query_error;
+                }
+                break;
+
+            case COLL_OBJ_T:
+                logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+                       coll_entry.collName);
+                entry = collection_path_to_json(coll_entry.collName);
+                if (!entry) {
+                    set_baton_error(error, -1, "Failed to pack '%s' as JSON",
+                                    coll_entry.collName);
+                    goto query_error;
+                }
+                break;
+
+            default:
+                set_baton_error(error, USER_INPUT_PATH_ERR,
+                                "Failed to list entry '%s' in '%s' as it is "
+                                "neither data object nor collection",
+                                coll_entry.dataName, rods_path->outPath);
+                goto query_error;
+        }
+
+        status = json_array_append_new(results, entry);
+        if (status != 0) {
+            set_baton_error(error, status,
+                            "Failed to convert listing of '%s' to JSON: "
+                            "error %d", rods_path->outPath, status);
+            goto query_error;
+        }
+    }
+
+    rclCloseCollection(&coll_handle); // Always returns 0 in iRODS 3.3
+
+    return results;
+
+query_error:
+    rclCloseCollection(&coll_handle);
+    if (results) json_decref(results);
+
+error:
+    if (conn->rError) {
+        logmsg(ERROR, BATON_CAT, error->message);
+        log_rods_errstack(ERROR, BATON_CAT, conn->rError);
+    }
+    else {
+        logmsg(ERROR, BATON_CAT, error->message);
+    }
+
+    return NULL;
+}
+
+static void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in) {
     out->arg0 = metadata_op_name(in->op);
     out->arg1 = in->type_arg;
     out->arg2 = in->rods_path->outPath;

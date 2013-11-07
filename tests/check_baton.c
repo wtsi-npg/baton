@@ -148,6 +148,84 @@ START_TEST(test_resolve_rods_path) {
 }
 END_TEST
 
+// Can we list a data object?
+START_TEST(test_list_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    rodsPath_t rods_obj_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_path(conn, &rods_obj_path, &error);
+    json_t *expected = json_pack("{s:s, s:s}",
+                                 "collection", rods_path.outPath,
+                                 "data_object", "f1.txt");
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we list a collection?
+START_TEST(test_list_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_path(conn, &rods_path, &error);
+
+    char a[MAX_PATH_LEN];
+    char b[MAX_PATH_LEN];
+    char c[MAX_PATH_LEN];
+    snprintf(a, MAX_PATH_LEN, "%s/a", rods_path.outPath);
+    snprintf(b, MAX_PATH_LEN, "%s/b", rods_path.outPath);
+    snprintf(c, MAX_PATH_LEN, "%s/c", rods_path.outPath);
+
+    json_t *expected =
+        json_pack("[{s:s, s:s}, {s:s, s:s}, {s:s, s:s}"
+                  " {s:s}, {s:s}, {s:s}]",
+                  "collection", rods_path.outPath,
+                  "data_object", "f1.txt",
+                  "collection", rods_path.outPath,
+                  "data_object", "f2.txt",
+                  "collection", rods_path.outPath,
+                  "data_object", "f3.txt",
+                  "collection", a,
+                  "collection", b,
+                  "collection", c);
+
+    print_json(results);
+    print_json(expected);
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
 // Can we build a general query input?
 START_TEST(test_make_query_input) {
     int max_rows = 10;
@@ -187,7 +265,7 @@ START_TEST(test_list_metadata_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
                      EXIST_ST);
 
-    struct baton_error error;
+    baton_error_t error;
     json_t *results = list_metadata(conn, &rods_path, NULL, &error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
                                  "attribute", "attr1",
@@ -216,7 +294,7 @@ START_TEST(test_list_metadata_coll) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, coll_path),
                      EXIST_ST);
 
-    struct baton_error error;
+    baton_error_t error;
     json_t *results = list_metadata(conn, &rods_path, NULL, &error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
                                  "attribute", "attr2",
@@ -239,7 +317,7 @@ START_TEST(test_search_metadata_obj) {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
-    struct baton_error error;
+    baton_error_t error;
     json_t *results = search_metadata(conn, "attr1", "value1", NULL, NULL,
                                       &error);
     ck_assert_int_eq(json_array_size(results), 12);
@@ -268,7 +346,7 @@ START_TEST(test_search_metadata_path_obj) {
     char search_root[MAX_PATH_LEN];
     snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_root);
 
-    struct baton_error error;
+    baton_error_t error;
     json_t *results = search_metadata(conn, "attr1", "value1", search_root,
                                       NULL, &error);
     ck_assert_int_eq(json_array_size(results), 3);
@@ -295,7 +373,7 @@ START_TEST(test_search_metadata_coll) {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
-    struct baton_error error;
+    baton_error_t error;
     json_t *results = search_metadata(conn, "attr2", "value2", NULL, NULL,
                                       &error);
     ck_assert_int_eq(json_array_size(results), 3);
@@ -324,7 +402,7 @@ START_TEST(test_add_metadata_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
                      EXIST_ST);
 
-    struct baton_error error;
+    baton_error_t error;
     int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
                              "test_value", "test_units", &error);
     ck_assert_int_eq(rv, 0);
@@ -357,7 +435,7 @@ START_TEST(test_remove_metadata_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
                      EXIST_ST);
 
-    struct baton_error error;
+    baton_error_t error;
     int rv = modify_metadata(conn, &rods_path, META_REM, "attr1",
                              "value1", "units1", &error);
     ck_assert_int_eq(rv, 0);
@@ -391,7 +469,7 @@ START_TEST(test_add_json_metadata_obj) {
                             "attribute", "test_attr",
                             "value", "test_value",
                             "units", "test_units");
-    struct baton_error error;
+    baton_error_t error;
     int rv = modify_json_metadata(conn, &rods_path, META_ADD, avu, &error);
     ck_assert_int_eq(rv, 0);
 
@@ -425,7 +503,7 @@ START_TEST(test_remove_json_metadata_obj) {
                             "attribute", "attr1",
                             "value", "value1",
                             "units", "units1");
-    struct baton_error error;
+    baton_error_t error;
     int rv = modify_json_metadata(conn, &rods_path, META_REM, avu, &error);
     ck_assert_int_eq(rv, 0);
 
@@ -541,6 +619,8 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_resolve_rods_path);
     tcase_add_test(basic_tests, test_make_query_input);
 
+    tcase_add_test(basic_tests, test_list_obj);
+    tcase_add_test(basic_tests, test_list_coll);
     tcase_add_test(basic_tests, test_list_metadata_obj);
     tcase_add_test(basic_tests, test_list_metadata_coll);
 
