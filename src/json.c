@@ -27,6 +27,8 @@
 #include "json.h"
 #include "utilities.h"
 
+static int has_string_value(json_t *json, const char *key);
+
 json_t *error_to_json(baton_error_t *error) {
     return json_pack("{s:s, s:i}",
                      "message", error->message,
@@ -52,6 +54,29 @@ int contains_avu(json_t *avus, json_t *avu) {
     return has_avu;
 }
 
+int represents_collection(json_t *json) {
+    return (has_string_value(json, JSON_COLLECTION_KEY) &&
+            !has_string_value(json, JSON_DATA_OBJECT_KEY));
+}
+
+int represents_data_object(json_t *json) {
+    return (has_string_value(json, JSON_COLLECTION_KEY) &&
+            has_string_value(json, JSON_DATA_OBJECT_KEY));
+}
+
+json_t *data_object_parts_to_json(const char *coll_name,
+                                  const char *data_name) {
+    json_t *result = json_pack("{s:s, s:s}",
+                               JSON_COLLECTION_KEY, coll_name,
+                               JSON_DATA_OBJECT_KEY, data_name);
+    if (!result) {
+        logmsg(ERROR, BATON_CAT, "Failed to pack data object '%s/%s' as JSON",
+               coll_name, data_name);
+    }
+
+    return result;
+}
+
 json_t *data_object_path_to_json(const char *path) {
     size_t len = strlen(path) + 1;
 
@@ -63,9 +88,7 @@ json_t *data_object_path_to_json(const char *path) {
     char *coll_name = dirname(path1);
     char *data_name = basename(path2);
 
-    json_t *result = json_pack("{s:s, s:s}",
-                               JSON_COLLECTION_KEY, coll_name,
-                               JSON_DATA_OBJECT_KEY, data_name);
+    json_t *result = data_object_parts_to_json(coll_name, data_name);
     free(path1);
     free(path2);
 
@@ -73,7 +96,13 @@ json_t *data_object_path_to_json(const char *path) {
 }
 
 json_t *collection_path_to_json(const char *path) {
-    return json_pack("{s:s}", "collection", path);
+    json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
+    if (!result) {
+        logmsg(ERROR, BATON_CAT, "Failed to pack collection '%s' as JSON",
+               path);
+    }
+
+    return result;
 }
 
 char *json_to_path(json_t *json) {
@@ -124,4 +153,15 @@ void print_json(json_t *json) {
     free(json_str);
 
     return;
+}
+
+int has_string_value(json_t *json, const char *key) {
+    int result = 0;
+
+    if (json_is_object(json)) {
+        json_t *value = json_object_get(json, key);
+        if (json_is_string(value)) result = 1;
+    }
+
+    return result;
 }

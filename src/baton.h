@@ -41,6 +41,7 @@
 #define JSON_VALUE_KEY "value"
 #define JSON_UNITS_KEY "units"
 #define JSON_AVUS_KEY "avus"
+#define JSON_OPERATOR_KEY "operator"
 
 /**
  *  @enum metadata_op
@@ -167,6 +168,8 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
                       rodsPath_t *rods_path, char *inpath);
 
 json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
+
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *error);
 
 /**
  * List metadata of a specified data object or collection.

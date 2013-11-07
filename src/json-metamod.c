@@ -107,7 +107,8 @@ int main(int argc, char *argv[]) {
         puts("    Modifies metadata AVUs on collections and data objects");
         puts("described in a JSON input file.");
         puts("");
-        puts("    --operation   Operation to perform. One of [add]. Required.");
+        puts("    --operation   Operation to perform. One of [add, rem].");
+        puts("                  Required.");
         puts("    --file        The JSON file describing the data objects.");
         puts("                  Optional, defaults to STDIN.");
         puts("");
@@ -183,7 +184,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
             char *path = json_to_path(target);
             path_count++;
 
-            json_t *avus = json_object_get(target, "avus");
+            json_t *avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
                 logmsg(ERROR, BATON_CAT,
                        "AVU data for %s is not in a JSON array", path);

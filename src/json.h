@@ -31,6 +31,12 @@ json_t *error_to_json(baton_error_t *error);
 
 int contains_avu(json_t *avus, json_t *avu);
 
+int represents_collection(json_t *json);
+
+int represents_data_object(json_t *json);
+
+json_t *data_object_parts_to_json(const char *coll_name, const char *data_name);
+
 json_t *data_object_path_to_json(const char *path);
 
 json_t *collection_path_to_json(const char *path);
