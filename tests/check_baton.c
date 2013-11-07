@@ -215,9 +215,6 @@ START_TEST(test_list_coll) {
                   "collection", b,
                   "collection", c);
 
-    print_json(results);
-    print_json(expected);
-
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
