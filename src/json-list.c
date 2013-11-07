@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
 
     input = maybe_stdin(json_file);
 
-    int status = do_list_collections(argc, argv, optind, input);
+    int status = do_list_paths(argc, argv, optind, input);
     if (status != 0) exit_status = 5;
 
     zlog_fini();
