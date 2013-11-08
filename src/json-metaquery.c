@@ -165,8 +165,6 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
                        char *zone_name) {
     char *err_name;
     char *err_subname;
-
-    int path_count = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -183,26 +181,36 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
     else {
         for (size_t i = 0; i < json_array_size(results); i++) {
             json_t *result = json_array_get(results, i);
-            char *path = json_to_path(result);
-            rodsPath_t rods_path;
 
-            int status = resolve_rods_path(conn, &env, &rods_path, path);
-            if (status < 0) {
+            baton_error_t path_error;
+            char *path = json_to_path(result, &path_error);
+            if (path_error.code != 0) {
                 error_count++;
-                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+                logmsg(ERROR, BATON_CAT, path_error.message);
             }
             else {
-                baton_error_t error;
-                json_t *avus = list_metadata(conn, &rods_path, NULL, &error);
+                rodsPath_t rods_path;
 
-                if (error.code != 0) error_count++;
-                if (avus) {
-                    json_object_set_new(result, JSON_AVUS_KEY, avus);
-                    print_json(result);
+                int status = resolve_rods_path(conn, &env, &rods_path, path);
+                if (status < 0) {
+                    error_count++;
+                    logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'",
+                           path);
                 }
-            }
+                else {
+                    baton_error_t error;
+                    json_t *avus = list_metadata(conn, &rods_path, NULL,
+                                                 &error);
 
-            free(path);
+                    if (error.code != 0) error_count++;
+                    if (avus) {
+                        json_object_set_new(result, JSON_AVUS_KEY, avus);
+                        print_json(result);
+                    }
+                }
+
+                free(path);
+            }
         }
 
         json_decref(results);
