@@ -105,18 +105,18 @@ json_t *collection_path_to_json(const char *path) {
     return result;
 }
 
-char *json_to_path(json_t *json) {
-    assert(json);
+char *json_to_path(json_t *json, baton_error_t *error) {
     char *path;
+    init_baton_error(error);
 
     json_t *coll = json_object_get(json, JSON_COLLECTION_KEY);
     json_t *data = json_object_get(json, JSON_DATA_OBJECT_KEY);
     if (!coll) {
-        logmsg(ERROR, BATON_CAT, "collection value was missing");
+        set_baton_error(error, -1, "collection value was missing");
         goto error;
     }
     if (!json_is_string(coll)) {
-        logmsg(ERROR, BATON_CAT, "collection value was not a string");
+        set_baton_error(error, -1,  "collection value was not a string");
         goto error;
     }
 
@@ -132,10 +132,12 @@ char *json_to_path(json_t *json) {
         size_t len = clen + dlen + 1;
 
         if (ends_with(collection, "/")) {
+            // TODO -- check memory allocation succeeded
             path = calloc(len, sizeof (char));
             snprintf(path, len, "%s%s", collection, data_object);
         }
         else {
+            // TODO -- check memory allocation succeeded
             path = calloc(len + 1, sizeof (char));
             snprintf(path, len + 1, "%s/%s", collection, data_object);
         }
@@ -144,6 +146,8 @@ char *json_to_path(json_t *json) {
     return path;
 
 error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
     return NULL;
 }
 

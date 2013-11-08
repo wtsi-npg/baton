@@ -41,7 +41,7 @@ json_t *data_object_path_to_json(const char *path);
 
 json_t *collection_path_to_json(const char *path);
 
-char *json_to_path(json_t *json);
+char *json_to_path(json_t *json, baton_error_t *error);
 
 void print_json(json_t* results);
 

@@ -285,9 +285,9 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
     }
 
     json_t *results = do_query(conn, query_input, query_output, labels, error);
-    free_query_input(query_input);
-
     if (error->code != 0) goto error;
+
+    free_query_input(query_input);
 
     return results;
 

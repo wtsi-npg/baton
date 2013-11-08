@@ -179,11 +179,19 @@ int do_modify_metadata(int argc, char *argv[], int optind,
                 logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
                        load_error.line, load_error.column, load_error.text);
             }
+
+            continue;
+        }
+
+        baton_error_t path_error;
+        char *path = json_to_path(target, &path_error);
+        path_count++;
+
+        if (path_error.code != 0) {
+            error_count++;
+            add_error_value(target, &path_error);
         }
         else {
-            char *path = json_to_path(target);
-            path_count++;
-
             json_t *avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
                 logmsg(ERROR, BATON_CAT,
@@ -210,13 +218,13 @@ int do_modify_metadata(int argc, char *argv[], int optind,
                     }
                 }
             }
-
-            print_json(target);
-            fflush(stdout);
-            json_decref(target);
-            free(path);
         }
-    }
+
+        print_json(target);
+        fflush(stdout);
+        json_decref(target);
+        free(path);
+    } // while
 
     rcDisconnect(conn);
 

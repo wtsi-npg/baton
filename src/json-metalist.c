@@ -17,34 +17,33 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#include <assert.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 
 #include "rodsClient.h"
 #include "rodsPath.h"
+#include <jansson.h>
 #include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
 #include "json.h"
+#include "utilities.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
+
 static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
 static int version_flag;
 
-int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
-                       char *zone_name);
+int do_list_metadata(int argc, char *argv[], int optind, FILE *input);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
-    char *zone_name = NULL;
-    char *attr_name = NULL;
-    char *attr_value = NULL;
-    char *root_path = NULL;
+    char *json_file = NULL;
+    FILE *input = NULL;
 
     while (1) {
         static struct option long_options[] = {
@@ -52,40 +51,25 @@ int main(int argc, char *argv[]) {
             {"help",      no_argument, &help_flag,    1},
             {"version",   no_argument, &version_flag, 1},
             // Indexed options
-            {"attr",      required_argument, NULL, 'a'},
+            {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
-            {"root",      required_argument, NULL, 'r'},
-            {"value",     required_argument, NULL, 'v'},
-            {"zone",      required_argument, NULL, 'z'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:r:v:z:",
+        int c = getopt_long_only(argc, argv, "f:l:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
 
         switch (c) {
-            case 'a':
-                attr_name = optarg;
+            case 'f':
+                json_file = optarg;
                 break;
 
             case 'l':
                 USER_LOG_CONF_FILE = optarg;
-                break;
-
-            case 'v':
-                attr_value = optarg;
-                break;
-
-            case 'r':
-                root_path = optarg;
-                break;
-
-            case 'z':
-                zone_name = optarg;
                 break;
 
             case '?':
@@ -100,20 +84,18 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    metaquery");
+        puts("    json-metalist");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    metaquery --attr <attr> --value <value> [--root <path>]");
-        puts("      [--zone <name>]");
+        puts("    json-metalist [--file <json file>]");
         puts("");
         puts("Description");
-        puts("    Finds items in iRODS by AVU.");
+        puts("    Lists metadata AVUs on data objects and collections");
+        puts("described in a JSON input file.");
         puts("");
-        puts("    --attr        The attribute of the AVU. Required.");
-        puts("    --value       The value of the AVU. Required");
-        puts("    --root        The root path under which to search. Optional");
-        puts("    --zone        The zone to search. Optional");
+        puts("    --file        The JSON file describing the data objects and");
+        puts("                  collections. Optional, defaults to STDIN.");
         puts("");
 
         exit(0);
@@ -133,22 +115,13 @@ int main(int argc, char *argv[]) {
     }
     else if (zlog_init(USER_LOG_CONF_FILE)) {
         fprintf(stderr, "Logging configuration failed "
-                    "(using user-defined configuration in '%s')\n",
-                    USER_LOG_CONF_FILE);
+                "(using user-defined configuration in '%s')\n",
+                USER_LOG_CONF_FILE);
     }
 
-    if (!attr_name) {
-        fprintf(stderr, "An --attr argument is required\n");
-        goto args_error;
-    }
-
-    if (!attr_value) {
-        fprintf(stderr, "A --value argument is required\n");
-        goto args_error;
-    }
-
-    exit_status = do_search_metadata(attr_name, attr_value, root_path,
-                                     zone_name);
+    input = maybe_stdin(json_file);
+    int status = do_list_metadata(argc, argv, optind, input);
+    if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);
@@ -161,11 +134,7 @@ error:
     exit(exit_status);
 }
 
-int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
-                       char *zone_name) {
-    char *err_name;
-    char *err_subname;
-
+int do_list_metadata(int argc, char *argv[], int optind, FILE *input) {
     int path_count = 0;
     int error_count = 0;
 
@@ -173,38 +142,68 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    baton_error_t error;
-    json_t *results = search_metadata(conn, attr_name, attr_value,
-                                      root_path, zone_name, &error);
-    if (error.code != 0) {
-        logmsg(ERROR, BATON_CAT, "Failed to search: %s", error.message);
-        goto error;
-    }
-    else {
-        for (size_t i = 0; i < json_array_size(results); i++) {
-            json_t *result = json_array_get(results, i);
+    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
 
-            baton_error_t path_error;
-            char *path = json_to_path(result, &path_error);
+    while (!feof(input)) {
+        json_error_t load_error;
+        json_t *target = json_loadf(input, flags, &load_error);
+        if (!target) {
+            if (!feof(input)) {
+                logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
+                       load_error.line, load_error.column, load_error.text);
+            }
 
-            // This should always succeed because we are making the JSON
-            if (path_error.code != 0) {
+            continue;
+        }
+
+        baton_error_t path_error;
+        char *path = json_to_path(target, &path_error);
+        path_count++;
+
+        if (path_error.code != 0) {
+            error_count++;
+            add_error_value(target, &path_error);
+            print_json(target);
+        }
+        else {
+            rodsPath_t rods_path;
+            int status = resolve_rods_path(conn, &env, &rods_path, path);
+            if (status < 0) {
                 error_count++;
+                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
             }
             else {
-                printf("%s\n", path);
-                free(path);
+                baton_error_t error;
+                json_t *avus = list_metadata(conn, &rods_path, NULL, &error);
+
+                if (error.code != 0) {
+                    add_error_value(target, &error);
+                    print_json(target);
+                }
+                else {
+                    json_object_set_new(target, JSON_AVUS_KEY, avus);
+                    print_json(target);
+                }
             }
         }
-        json_decref(results);
-    }
+
+        fflush(stdout);
+        json_decref(target);
+        free(path);
+    } // while
 
     rcDisconnect(conn);
 
-    return 0;
+    logmsg(DEBUG, BATON_CAT, "Processed %d paths with %d errors",
+           path_count, error_count);
+
+    return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
+
+    logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
+           path_count, error_count);
 
     return 1;
 }
