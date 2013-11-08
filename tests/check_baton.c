@@ -17,9 +17,109 @@
  * @file check_baton.c
  */
 
-#include <check.h>
-#include "../src/baton.h"
+#include <unistd.h>
 
+#include <jansson.h>
+#include <zlog.h>
+#include <check.h>
+
+#include "../src/baton.h"
+#include "../src/json.h"
+
+static int MAX_COMMAND_LEN = 1024;
+static int MAX_PATH_LEN = 4096;
+
+static char *BASIC_COLL = "baton-basic-test";
+static char *BASIC_DATA_PATH = "./data/";
+static char *BASIC_METADATA_PATH = "./metadata/meta1.imeta";
+
+static char *SETUP_SCRIPT = "./scripts/setup_irods.sh";
+static char *TEARDOWN_SCRIPT = "./scripts/teardown_irods.sh";
+
+static void set_current_rods_root(char *in, char *out) {
+    snprintf(out, MAX_PATH_LEN, "%s.%d", in, getpid());
+}
+
+static void setup() {
+    zlog_init("../baton_zlog.conf");
+}
+
+static void teardown() {
+    zlog_fini();
+}
+
+static void basic_setup() {
+    char command[MAX_COMMAND_LEN];
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    snprintf(command, MAX_COMMAND_LEN, "%s %s %s %s",
+                      SETUP_SCRIPT, BASIC_DATA_PATH, rods_root,
+                      BASIC_METADATA_PATH);
+
+    printf("Setup: %s\n", command);
+    int ret = system(command);
+
+    if (ret != 0) raise(SIGINT);
+}
+
+static void basic_teardown() {
+    char command[MAX_COMMAND_LEN];
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    snprintf(command, MAX_COMMAND_LEN, "%s %s", TEARDOWN_SCRIPT, rods_root);
+
+    printf("Teardown: %s\n", command);
+    int ret = system(command);
+
+    if (ret != 0) raise(SIGINT);
+}
+
+START_TEST(test_starts_with) {
+    ck_assert_msg(starts_with("", ""), "'' starts with ''");
+    ck_assert_msg(starts_with("a", ""), "'a' starts with ''");
+    ck_assert_msg(starts_with("a", "a"), "'a' starts with 'a'");
+    ck_assert_msg(starts_with("ab", "a"), "'ab' starts with 'a'");
+
+    ck_assert_msg(!starts_with("", "a"), "'' !starts with 'a'");
+    ck_assert_msg(!starts_with("b", "a"), "'b' !starts with 'a'");
+    ck_assert_msg(!starts_with("ba", "a"), "'ba' !starts with 'a'");
+}
+END_TEST
+
+START_TEST(test_ends_with) {
+    ck_assert_msg(ends_with("", ""), "'' ends with ''");
+    ck_assert_msg(ends_with("a", ""), "'a' ends with ''");
+    ck_assert_msg(ends_with("a", "a"), "'a' ends with 'a'");
+    ck_assert_msg(ends_with("ba", "a"), "'ba' ends with 'a'");
+
+    ck_assert_msg(!ends_with("", "a"), "'' !ends with 'a'");
+    ck_assert_msg(!ends_with("b", "a"), "'b' !ends with 'a'");
+    ck_assert_msg(!ends_with("ab", "a"), "'ab' !ends with 'a'");
+}
+END_TEST
+
+// Can we log in?
+START_TEST(test_rods_login) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    ck_assert_ptr_ne(conn, NULL);
+    ck_assert(conn->loggedIn);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we test that iRODS is accepting connections?
+START_TEST(test_is_irods_available) {
+    int avail = is_irods_available();
+    ck_assert(avail == 0 || avail == 1);
+}
+END_TEST
+
+// Can we prepare a new path designator?
 START_TEST(test_init_rods_path) {
     rodsPath_t rodspath;
     char *inpath = "a path";
@@ -29,24 +129,526 @@ START_TEST(test_init_rods_path) {
 }
 END_TEST
 
+// Can we resolve a real path?
+START_TEST(test_resolve_rods_path) {
+    rodsEnv env;
+    rodsPath_t rods_path;
+
+    rcComm_t *conn = rods_login(&env);
+    char *path = "/";
+
+    ck_assert_msg(is_irods_available(), "iRODS is not available");
+    ck_assert(conn->loggedIn);
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, path), EXIST_ST);
+    ck_assert_str_eq(rods_path.inPath, path);
+    ck_assert_str_eq(rods_path.outPath, path);
+    ck_assert_int_eq(rods_path.objType, COLL_OBJ_T);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we list a data object?
+START_TEST(test_list_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    rodsPath_t rods_obj_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_path(conn, &rods_obj_path, &error);
+    json_t *expected = json_pack("{s:s, s:s}",
+                                 "collection", rods_path.outPath,
+                                 "data_object", "f1.txt");
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we list a collection?
+START_TEST(test_list_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_path(conn, &rods_path, &error);
+
+    char a[MAX_PATH_LEN];
+    char b[MAX_PATH_LEN];
+    char c[MAX_PATH_LEN];
+    snprintf(a, MAX_PATH_LEN, "%s/a", rods_path.outPath);
+    snprintf(b, MAX_PATH_LEN, "%s/b", rods_path.outPath);
+    snprintf(c, MAX_PATH_LEN, "%s/c", rods_path.outPath);
+
+    json_t *expected =
+        json_pack("[{s:s, s:s}, {s:s, s:s}, {s:s, s:s}"
+                  " {s:s}, {s:s}, {s:s}]",
+                  "collection", rods_path.outPath,
+                  "data_object", "f1.txt",
+                  "collection", rods_path.outPath,
+                  "data_object", "f2.txt",
+                  "collection", rods_path.outPath,
+                  "data_object", "f3.txt",
+                  "collection", a,
+                  "collection", b,
+                  "collection", c);
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we build a general query input?
+START_TEST(test_make_query_input) {
+    int max_rows = 10;
+    int num_columns = 1;
+    int columns[] = { COL_COLL_NAME };
+    genQueryInp_t* query_input =
+        make_query_input(max_rows, num_columns, columns);
+
+    ck_assert_ptr_ne(query_input, NULL);
+    ck_assert_ptr_ne(query_input->selectInp.inx, NULL);
+    ck_assert_ptr_ne(query_input->selectInp.value, NULL);
+    ck_assert_int_eq(query_input->selectInp.len, num_columns);
+
+    ck_assert_int_eq(query_input->maxRows, max_rows);
+    ck_assert_int_eq(query_input->continueInx, 0);
+    ck_assert_int_eq(query_input->condInput.len, 0);
+
+    ck_assert_ptr_ne(query_input->sqlCondInp.inx, NULL);
+    ck_assert_ptr_ne(query_input->sqlCondInp.value, NULL);
+    ck_assert_int_eq(query_input->sqlCondInp.len, 0);
+
+    free_query_input(query_input);
+}
+END_TEST
+
+// Can we list metadata on a data object?
+START_TEST(test_list_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    json_t *expected = json_pack("[{s:s, s:s, s:s}]",
+                                 "attribute", "attr1",
+                                 "value", "value1",
+                                 "units", "units1");
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we list metadata on a collection?
+START_TEST(test_list_metadata_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char coll_path[MAX_PATH_LEN];
+    snprintf(coll_path, MAX_PATH_LEN, "%s/a", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, coll_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    json_t *expected = json_pack("[{s:s, s:s, s:s}]",
+                                 "attribute", "attr2",
+                                 "value", "value2",
+                                 "units", "units2");
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we search for data objects by their metadata?
+START_TEST(test_search_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    baton_error_t error;
+    json_t *results = search_metadata(conn, "attr1", "value1", NULL, NULL,
+                                      &error);
+    ck_assert_int_eq(json_array_size(results), 12);
+
+    const char *key1 = "collection";
+    const char *key2 = "data_object";
+
+    for (size_t i = 0; i < 12; i++) {
+        json_t *obj = json_array_get(results, i);
+        ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
+    }
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+}
+END_TEST
+
+// Can we search for data objects by their metadata, limiting scope by path?
+START_TEST(test_search_metadata_path_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char search_root[MAX_PATH_LEN];
+    snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_root);
+
+    baton_error_t error;
+    json_t *results = search_metadata(conn, "attr1", "value1", search_root,
+                                      NULL, &error);
+    ck_assert_int_eq(json_array_size(results), 3);
+
+    const char *key1 = "collection";
+    const char *key2 = "data_object";
+
+    for (size_t i = 0; i < 3; i++) {
+        json_t *obj = json_array_get(results, i);
+        ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
+    }
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+}
+END_TEST
+
+// Can we search for collections by their metadata?
+START_TEST(test_search_metadata_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    baton_error_t error;
+    json_t *results = search_metadata(conn, "attr2", "value2", NULL, NULL,
+                                      &error);
+    ck_assert_int_eq(json_array_size(results), 3);
+    for (size_t i = 0; i < 3; i++) {
+        json_t *coll = json_array_get(results, i);
+        ck_assert_ptr_ne(json_object_get(coll, "collection"), NULL);
+        ck_assert_ptr_eq(json_object_get(coll, "data_object"), NULL);
+    }
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+}
+END_TEST
+
+// Can we add an AVU to a data object?
+START_TEST(test_add_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
+                             "test_value", "test_units", &error);
+    ck_assert_int_eq(rv, 0);
+
+    json_t *results = list_metadata(conn, &rods_path, "test_attr", &error);
+    json_t *expected = json_pack("[{s:s, s:s, s:s}]",
+                                 "attribute", "test_attr",
+                                 "value", "test_value",
+                                 "units", "test_units");
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we remove an AVU from a data object?
+START_TEST(test_remove_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    int rv = modify_metadata(conn, &rods_path, META_REM, "attr1",
+                             "value1", "units1", &error);
+    ck_assert_int_eq(rv, 0);
+
+    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    json_t *expected = json_array(); // Empty
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we add a JSON AVU to a data object?
+START_TEST(test_add_json_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            "attribute", "test_attr",
+                            "value", "test_value",
+                            "units", "test_units");
+    baton_error_t error;
+    int rv = modify_json_metadata(conn, &rods_path, META_ADD, avu, &error);
+    ck_assert_int_eq(rv, 0);
+
+    json_t *results = list_metadata(conn, &rods_path, "test_attr", &error);
+    json_t *expected = json_array();
+    json_array_append_new(expected, avu);
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we remove a JSON AVU from a data object?
+START_TEST(test_remove_json_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            "attribute", "attr1",
+                            "value", "value1",
+                            "units", "units1");
+    baton_error_t error;
+    int rv = modify_json_metadata(conn, &rods_path, META_REM, avu, &error);
+    ck_assert_int_eq(rv, 0);
+
+    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    json_t *expected = json_array(); // Empty
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we convert an iRODS object to a JSON representation?
+START_TEST(test_rods_path_to_json_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    json_t *path = data_object_path_to_json(rods_path.outPath);
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            "attribute", "attr1",
+                            "value", "value1",
+                            "units", "units1");
+    json_t *expected = json_pack("{s:[o]}",
+                                 "avus", avu);
+    json_object_update(expected, path);
+
+    json_t *obj = rods_path_to_json(conn, &rods_path);
+    ck_assert_int_eq(json_equal(obj, expected), 1);
+
+    json_decref(obj);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we convert an iRODS collection to a JSON representation?
+START_TEST(test_rods_path_to_json_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char coll_path[MAX_PATH_LEN];
+    snprintf(coll_path, MAX_PATH_LEN, "%s/a", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, coll_path),
+                     EXIST_ST);
+
+    json_t *path = collection_path_to_json(rods_path.outPath);
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            "attribute", "attr2",
+                            "value", "value2",
+                            "units", "units2");
+    json_t *expected = json_pack("{s:[o]}",
+                                 "avus", avu);
+    json_object_update(expected, path);
+
+    json_t *coll = rods_path_to_json(conn, &rods_path);
+    ck_assert_int_eq(json_equal(coll, expected), 1);
+
+    json_decref(coll);
+    json_decref(expected);
+}
+END_TEST
+
+// Can we convert JSON representation to a useful path string?
+START_TEST(test_json_to_path) {
+    const char *coll_path = "/a/b/c";
+    json_t *coll = json_pack("{s:s}", "collection", coll_path);
+    ck_assert_str_eq(json_to_path(coll), coll_path);
+    json_decref(coll);
+
+    const char *obj_path = "/a/b/c.txt";
+    json_t *obj = json_pack("{s:s, s:s}",
+                            "collection", "/a/b",
+                            "data_object", "c.txt");
+    ck_assert_str_eq(json_to_path(obj), obj_path);
+    json_decref(obj);
+
+    // No collection key:value
+    json_t *malformed_obj = json_pack("{s:s}",
+                                      "data_object", "c.txt");
+    ck_assert_ptr_eq(json_to_path(malformed_obj), NULL);
+    json_decref(malformed_obj);
+}
+END_TEST
 
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
-    TCase *tc_core = tcase_create("core");
-    tcase_add_test(tc_core, test_init_rods_path);
 
-    suite_add_tcase(suite, tc_core);
+    TCase *utilities_tests = tcase_create("utilities");
+    tcase_add_test(utilities_tests, test_starts_with);
+    tcase_add_test(utilities_tests, test_ends_with);
+
+    TCase *basic_tests = tcase_create("basic");
+    tcase_add_unchecked_fixture(basic_tests, setup, teardown);
+    tcase_add_checked_fixture (basic_tests, basic_setup, basic_teardown);
+
+    tcase_add_test(basic_tests, test_rods_login);
+    tcase_add_test(basic_tests, test_is_irods_available);
+    tcase_add_test(basic_tests, test_init_rods_path);
+    tcase_add_test(basic_tests, test_resolve_rods_path);
+    tcase_add_test(basic_tests, test_make_query_input);
+
+    tcase_add_test(basic_tests, test_list_obj);
+    tcase_add_test(basic_tests, test_list_coll);
+    tcase_add_test(basic_tests, test_list_metadata_obj);
+    tcase_add_test(basic_tests, test_list_metadata_coll);
+
+    tcase_add_test(basic_tests, test_search_metadata_obj);
+    tcase_add_test(basic_tests, test_search_metadata_coll);
+    tcase_add_test(basic_tests, test_search_metadata_path_obj);
+
+    tcase_add_test(basic_tests, test_add_metadata_obj);
+    tcase_add_test(basic_tests, test_remove_metadata_obj);
+    tcase_add_test(basic_tests, test_add_json_metadata_obj);
+    tcase_add_test(basic_tests, test_remove_json_metadata_obj);
+
+    tcase_add_test(basic_tests, test_rods_path_to_json_obj);
+    tcase_add_test(basic_tests, test_rods_path_to_json_coll);
+
+    tcase_add_test(basic_tests, test_json_to_path);
+
+    suite_add_tcase(suite, utilities_tests);
+    suite_add_tcase(suite, basic_tests);
 
     return suite;
 }
 
 int main (void) {
-    int number_failed;
     Suite *suite = baton_suite();
 
     SRunner *runner = srunner_create(suite);
-    srunner_run_all(runner, CK_NORMAL);
-    number_failed = srunner_ntests_failed(runner);
+    srunner_run_all(runner, CK_VERBOSE);
+
+    int number_failed = srunner_ntests_failed(runner);
     srunner_free(runner);
+
     return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

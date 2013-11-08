@@ -1,10 +1,9 @@
-ACLOCAL_AMFLAGS = -I m4  -I /usr/local/share/aclocal
+SUBDIRS = src . tests
+ACLOCAL_AMFLAGS= -I m4
 
-SUBDIRS = src tests
-
-if HAVE_CHECK
-	SUBDIRS += tests
-endif
+# if HAVE_CHECK
+# SUBDIRS += tests
+# endif
 
 etcdir = $(sysconfdir)
-etc_DATA = bmeta_zlog.conf
+etc_DATA = baton_zlog.conf
