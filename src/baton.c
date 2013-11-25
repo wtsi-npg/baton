@@ -198,7 +198,7 @@ error:
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
                   baton_error_t *error) {
-    json_t *results;
+    json_t *results = NULL;
     init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
@@ -232,6 +232,8 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
     return results;
 
 error:
+    if (results) json_decref(results);
+
     return NULL;
 }
 
@@ -246,6 +248,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
 
     genQueryInp_t *query_input = NULL;
     genQueryOut_t *query_output;
+    json_t *results = NULL;
     init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
@@ -284,7 +287,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
             goto error;
     }
 
-    json_t *results = do_query(conn, query_input, query_output, labels, error);
+    results = do_query(conn, query_input, query_output, labels, error);
     if (error->code != 0) goto error;
 
     free_query_input(query_input);
