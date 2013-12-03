@@ -132,13 +132,25 @@ char *json_to_path(json_t *json, baton_error_t *error) {
         size_t len = clen + dlen + 1;
 
         if (ends_with(collection, "/")) {
-            // TODO -- check memory allocation succeeded
             path = calloc(len, sizeof (char));
+            if (!path) {
+                set_baton_error(error, errno,
+                                "Failed to allocate memory: error %d %s",
+                                errno, strerror(errno));
+                goto error;
+            }
+
             snprintf(path, len, "%s%s", collection, data_object);
         }
         else {
-            // TODO -- check memory allocation succeeded
             path = calloc(len + 1, sizeof (char));
+            if (!path) {
+                set_baton_error(error, errno,
+                                "Failed to allocate memory: error %d %s",
+                                errno, strerror(errno));
+                goto error;
+            }
+
             snprintf(path, len + 1, "%s/%s", collection, data_object);
         }
     }
@@ -152,7 +164,7 @@ error:
 }
 
 void print_json(json_t *json) {
-    char *json_str = json_dumps(json, JSON_INDENT(1));
+    char *json_str = json_dumps(json, JSON_INDENT(0));
     printf("%s\n", json_str);
     free(json_str);
 

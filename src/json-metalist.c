@@ -162,6 +162,9 @@ int do_list_metadata(int argc, char *argv[], int optind, FILE *input) {
 
         if (path_error.code != 0) {
             error_count++;
+            logmsg(ERROR, BATON_CAT, "Failed to convert path '%s' to JSON",
+                   path);
+
             add_error_value(target, &path_error);
             print_json(target);
         }
@@ -177,14 +180,25 @@ int do_list_metadata(int argc, char *argv[], int optind, FILE *input) {
                 json_t *avus = list_metadata(conn, &rods_path, NULL, &error);
 
                 if (error.code != 0) {
+                    error_count++;
+                    logmsg(ERROR, BATON_CAT, "Failed to list metadata on '%s'",
+                           path);
                     add_error_value(target, &error);
                     print_json(target);
                 }
                 else {
+                    logmsg(DEBUG, BATON_CAT, "Listed metadata on '%s'", path);
                     json_object_set_new(target, JSON_AVUS_KEY, avus);
+
+                    char *str = json_dumps(target, JSON_INDENT(0));
+                    logmsg(DEBUG, BATON_CAT, "Sending JSON: %s", str);
+                    free(str);
+
                     print_json(target);
                 }
             }
+
+            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
         }
 
         fflush(stdout);

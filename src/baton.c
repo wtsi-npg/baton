@@ -210,13 +210,13 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             results = data_object_path_to_json(rods_path->outPath);
             break;
 
         case COLL_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             results = list_collection(conn, rods_path, error);
             break;
@@ -260,7 +260,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             columns[0] = COL_META_DATA_ATTR_NAME;
             columns[1] = COL_META_DATA_ATTR_VALUE;
@@ -270,7 +270,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
             break;
 
         case COLL_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             columns[0] = COL_META_COLL_ATTR_NAME;
             columns[1] = COL_META_COLL_ATTR_VALUE;
@@ -290,6 +290,9 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
     results = do_query(conn, query_input, query_output, labels, error);
     if (error->code != 0) goto error;
 
+    logmsg(DEBUG, BATON_CAT, "Obtained metadata on '%s'",
+           rods_path->outPath);
+
     free_query_input(query_input);
 
     return results;
@@ -298,8 +301,8 @@ error:
     if (query_input) free_query_input(query_input);
     if (results) json_decref(results);
 
-    logmsg(ERROR, BATON_CAT, "Failed to list metadata: error %d %s",
-           error->code, error->message);
+    logmsg(ERROR, BATON_CAT, "Failed to list metadata on '%s': error %d %s",
+           rods_path->outPath, error->code, error->message);
 
     return NULL;
 }
@@ -400,13 +403,13 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             type_arg = "-d";
             break;
 
         case COLL_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             type_arg = "-C";
             break;
@@ -604,6 +607,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
     char *err_name;
     char *err_subname;
     int chunk_num = 0;
+    int continue_flag = 0;
 
     json_t *results = json_array();
     if (!results) {
@@ -611,22 +615,43 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
         goto error;
     }
 
-    while (chunk_num == 0 || query_output->continueInx > 0) {
+    logmsg(DEBUG, BATON_CAT, "Running query ...");
+    while (chunk_num == 0 || continue_flag > 0) {
+        logmsg(DEBUG, BATON_CAT, "Attempting to get chunk %d of query",
+               chunk_num);
         status = rcGenQuery(conn, query_input, &query_output);
 
         if (status == 0) {
+            logmsg(DEBUG, BATON_CAT, "Successfully fetched chunk %d of query",
+                   chunk_num);
+
             query_input->continueInx = query_output->continueInx;
+            // Allows query_output to be freed
+            continue_flag = query_input->continueInx;
 
             json_t *chunk = make_json_objects(query_output, labels);
-            if (!chunk) goto json_error;
-            logmsg(TRACE, BATON_CAT, "Fetched chunk %d of %d results",
+
+            if (!chunk) {
+                set_baton_error(error, -1,
+                                "Failed to add JSON query result to total: "
+                                "in chunk %d error %d", chunk_num, -1);
+                goto error;
+            }
+
+            logmsg(TRACE, BATON_CAT, "Converted chunk %d into %d JSON results",
                    chunk_num, json_array_size(chunk));
             chunk_num++;
 
             status = json_array_extend(results, chunk);
             json_decref(chunk);
 
-            if (status != 0) goto json_error;
+            if (status != 0) {
+                set_baton_error(error, status,
+                                "Failed to add JSON query result to total: "
+                                "in chunk %d error %d", chunk_num, status);
+            }
+
+            if (query_output) free(query_output);
         }
         else if (status == CAT_NO_ROWS_FOUND) {
             logmsg(TRACE, BATON_CAT, "Query returned no results");
@@ -642,16 +667,13 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
         }
     }
 
+    logmsg(DEBUG, BATON_CAT, "Obtained a total of %d JSON results",
+           json_array_size(results));
+
     return results;
 
-json_error:
-    status = -1;
-    set_baton_error(error, status,
-                    "Failed to convert query result to JSON: "
-                    "in chunk %d error %d", chunk_num, status);
-    return NULL;
-
 error:
+    if (query_output) free(query_output);
     if (results) json_decref(results);
 
     if (conn->rError) {
@@ -669,7 +691,13 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
     json_t *array = json_array();
     if (!array) goto json_error;
 
+    logmsg(DEBUG, BATON_CAT, "Converting %d rows of results to JSON",
+           query_output->rowCnt);
+
     for (int row = 0; row < query_output->rowCnt; row++) {
+        logmsg(DEBUG, BATON_CAT, "Converting row %d of %d to JSON",
+               row, query_output->rowCnt);
+
         json_t *jrow = json_object();
         if (!jrow) goto json_error;
 
@@ -710,6 +738,8 @@ json_error:
     logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON structure");
 
 error:
+    logmsg(ERROR, BATON_CAT, "Failed to convert row %d of %d to JSON");
+
     if (array) json_decref(array);
 
     return NULL;
@@ -720,13 +750,13 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             result = data_object_path_to_json(rods_path->outPath);
             break;
 
         case COLL_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             result = collection_path_to_json(rods_path->outPath);
             break;
@@ -743,7 +773,7 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
 
     baton_error_t error;
     json_t *avus = list_metadata(conn, rods_path, NULL, &error);
-    if (!avus) goto avu_error;
+    if (error.code != 0)  goto error;
 
     int status = json_object_set_new(result, JSON_AVUS_KEY, avus);
     if (status != 0) goto avu_error;
@@ -751,6 +781,8 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
     return result;
 
 avu_error:
+    logmsg(ERROR, BATON_CAT, "Failed to covert '%s' to JSON",
+           rods_path->outPath);
     json_decref(result);
 
 error:
@@ -794,7 +826,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
 
         switch (coll_entry.objType) {
             case DATA_OBJ_T:
-                logmsg(TRACE, BATON_CAT, "Indentified '%s/%s' as a data object",
+                logmsg(TRACE, BATON_CAT, "Identified '%s/%s' as a data object",
                        coll_entry.collName, coll_entry.dataName);
                 entry = data_object_parts_to_json(coll_entry.collName,
                                                   coll_entry.dataName);
@@ -806,7 +838,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                 break;
 
             case COLL_OBJ_T:
-                logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+                logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                        coll_entry.collName);
                 entry = collection_path_to_json(coll_entry.collName);
                 if (!entry) {
