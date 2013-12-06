@@ -246,6 +246,8 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
             print_json(target);
             fflush(stdout);
             json_decref(target);
+
+            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
             free(path);
         }
     } // while

@@ -209,6 +209,7 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
                     }
                 }
 
+                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
                 free(path);
             }
         }

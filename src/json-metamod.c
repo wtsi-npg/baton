@@ -218,6 +218,8 @@ int do_modify_metadata(int argc, char *argv[], int optind,
                     }
                 }
             }
+
+            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
         }
 
         print_json(target);

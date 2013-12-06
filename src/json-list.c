@@ -188,6 +188,8 @@ int do_list_paths(int argc, char *argv[], int optind, FILE *input) {
                 }
             }
 
+            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
             fflush(stdout);
         }
 
