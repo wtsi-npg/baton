@@ -161,6 +161,8 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
                 json_decref(results);
             }
         }
+
+        if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     }
 
     rcDisconnect(conn);

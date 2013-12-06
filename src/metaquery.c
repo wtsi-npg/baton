@@ -173,9 +173,10 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
+    json_t *target = query_args_to_json(attr_name, attr_value, root_path);
+
     baton_error_t error;
-    json_t *results = search_metadata(conn, attr_name, attr_value,
-                                      root_path, zone_name, &error);
+    json_t *results = search_metadata(conn, target, zone_name, &error);
     if (error.code != 0) {
         logmsg(ERROR, BATON_CAT, "Failed to search: %s", error.message);
         goto error;

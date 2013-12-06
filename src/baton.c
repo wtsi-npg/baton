@@ -35,24 +35,44 @@
 #include "json.h"
 #include "utilities.h"
 
-static char *metadata_op_name(metadata_op op);
+typedef genQueryInp_t *(*prepare_search_cb) (genQueryInp_t *query_in,
+                                             const char *attr_name,
+                                             const char *attr_value,
+                                             const char *operator);
+
+static const char *metadata_op_name(metadata_op operation);
 
 static void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in);
 
-static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
-                                       rodsPath_t *rods_path, char *attr_name);
+static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
+                                       rodsPath_t *rods_path,
+                                       const char *attr_name);
 
-static genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
-                                       rodsPath_t *rods_path, char *attr_name);
+static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
+                                       rodsPath_t *rods_path,
+                                       const char *attr_name);
 
-static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input,
-                                         char *attr_name, char *attr_value);
+static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_in,
+                                         const char *attr_name,
+                                         const char *attr_value,
+                                         const char *operator);
 
-static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
-                                         char *attr_name, char *attr_value);
+static genQueryInp_t *prepare_col_search(genQueryInp_t *query_in,
+                                         const char *attr_name,
+                                         const char *attr_value,
+                                         const char *operator);
 
-static genQueryInp_t *prepare_path_search(genQueryInp_t *query_input,
-                                          char *root_path);
+static genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
+                                          const char *root_path);
+
+static genQueryInp_t *prepare_json_search(genQueryInp_t *query_in, json_t *avus,
+                                          prepare_search_cb prepare,
+                                          baton_error_t *error);
+
+static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
+                         int num_columns, const int columns[],
+                         const char *labels[], prepare_search_cb prepare,
+                         baton_error_t *error);
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                          baton_error_t *error);
@@ -210,13 +230,13 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             results = data_object_path_to_json(rods_path->outPath);
             break;
 
         case COLL_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             results = list_collection(conn, rods_path, error);
             break;
@@ -242,12 +262,11 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
     const char *labels[] = { JSON_ATTRIBUTE_KEY,
                              JSON_VALUE_KEY,
                              JSON_UNITS_KEY };
-    int num_columns = 3;
+    int num_cols = 3;
     int max_rows = 10;
-    int columns[num_columns];
+    int cols[num_cols];
 
-    genQueryInp_t *query_input = NULL;
-    genQueryOut_t *query_output;
+    genQueryInp_t *query_in = NULL;
     json_t *results = NULL;
     init_baton_error(error);
 
@@ -260,23 +279,23 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
-            columns[0] = COL_META_DATA_ATTR_NAME;
-            columns[1] = COL_META_DATA_ATTR_VALUE;
-            columns[2] = COL_META_DATA_ATTR_UNITS;
-            query_input = make_query_input(max_rows, num_columns, columns);
-            prepare_obj_list(query_input, rods_path, attr_name);
+            cols[0] = COL_META_DATA_ATTR_NAME;
+            cols[1] = COL_META_DATA_ATTR_VALUE;
+            cols[2] = COL_META_DATA_ATTR_UNITS;
+            query_in = make_query_input(max_rows, num_cols, cols);
+            query_in = prepare_obj_list(query_in, rods_path, attr_name);
             break;
 
         case COLL_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
-            columns[0] = COL_META_COLL_ATTR_NAME;
-            columns[1] = COL_META_COLL_ATTR_VALUE;
-            columns[2] = COL_META_COLL_ATTR_UNITS;
-            query_input = make_query_input(max_rows, num_columns, columns);
-            prepare_col_list(query_input, rods_path, attr_name);
+            cols[0] = COL_META_COLL_ATTR_NAME;
+            cols[1] = COL_META_COLL_ATTR_VALUE;
+            cols[2] = COL_META_COLL_ATTR_UNITS;
+            query_in = make_query_input(max_rows, num_cols, cols);
+            query_in = prepare_col_list(query_in, rods_path, attr_name);
             break;
 
         default:
@@ -287,102 +306,179 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
             goto error;
     }
 
-    results = do_query(conn, query_input, query_output, labels, error);
+    results = do_query(conn, query_in, labels, error);
     if (error->code != 0) goto error;
 
-    free_query_input(query_input);
+    logmsg(DEBUG, BATON_CAT, "Obtained metadata on '%s'", rods_path->outPath);
+    free_query_input(query_in);
 
     return results;
 
 error:
-    if (query_input) free_query_input(query_input);
-    if (results) json_decref(results);
+    logmsg(ERROR, BATON_CAT, "Failed to list metadata on '%s': error %d %s",
+           rods_path->outPath, error->code, error->message);
 
-    logmsg(ERROR, BATON_CAT, "Failed to list metadata: error %d %s",
-           error->code, error->message);
+    if (query_in) free_query_input(query_in);
+    if (results) json_decref(results);
 
     return NULL;
 }
 
-json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-                        char *root_path, char *zone_name,
+json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
                         baton_error_t *error) {
-    int num_columns = 1;
-    int max_rows = 10;
+    int num_col_cols = 1;
+    int num_obj_cols = 2;
     const char *labels[] = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY };
-    int columns[] = { COL_COLL_NAME, COL_DATA_NAME };
-
-    genQueryInp_t *col_query_input = NULL;
-    genQueryOut_t *col_query_output;
+    int cols[] = { COL_COLL_NAME, COL_DATA_NAME };
     init_baton_error(error);
 
-    json_t *results = json_array();
-    if (!results) {
-        logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON array");
+    if (!json_is_object(query)) {
+        set_baton_error(error, -1, "Invalid query: not a JSON object");
         goto error;
     }
 
-    col_query_input = make_query_input(max_rows, num_columns, columns);
-    prepare_col_search(col_query_input, attr_name, attr_value);
-
-    if (root_path) {
-        logmsg(TRACE, BATON_CAT, "Restricting search to '%s'", root_path);
-        prepare_path_search(col_query_input, root_path);
-    }
-
-    if (zone_name) {
-        logmsg(TRACE, BATON_CAT, "Setting search zone to '%s'", zone_name);
-        addKeyVal(&col_query_input->condInput, ZONE_KW, zone_name);
+    json_t *results = json_array();
+    if (!results) {
+        set_baton_error(error, -1, "Failed to allocate a new JSON array");
+        goto error;
     }
 
     logmsg(TRACE, BATON_CAT, "Searching for collections ...");
-    json_t *collections =
-        do_query(conn, col_query_input, col_query_output, labels, error);
-    if (error->code != 0) goto query_error;
-
-    logmsg(TRACE, BATON_CAT, "Found %d matching collections",
-           json_array_size(collections));
-    json_array_extend(results, collections); // TODO: check return value
-    json_decref(collections);
-    free_query_input(col_query_input);
+    json_t *collections = do_search(conn, zone_name, query, num_col_cols, cols,
+                                    labels, prepare_col_search, error);
+    if (error->code != 0) goto error;
 
     logmsg(TRACE, BATON_CAT, "Searching for data objects ...");
-    genQueryInp_t *obj_query_input = NULL;
-    genQueryOut_t *obj_query_output;
-    obj_query_input = make_query_input(max_rows, num_columns + 1, columns);
-    prepare_obj_search(obj_query_input, attr_name, attr_value);
+    json_t *data_objects = do_search(conn, zone_name, query, num_obj_cols, cols,
+                                     labels, prepare_obj_search, error);
+    if (error->code != 0) goto error;
 
-    if (root_path) prepare_path_search(obj_query_input, root_path);
-    if (zone_name) addKeyVal(&obj_query_input->condInput, ZONE_KW, zone_name);
-
-    json_t *data_objects =
-        do_query(conn, obj_query_input, obj_query_output, labels, error);
-    if (error->code != 0) goto query_error;
-
-    logmsg(TRACE, BATON_CAT, "Found %d matching data objects",
-           json_array_size(data_objects));
+    json_array_extend(results, collections); // TODO: check return value
+    json_decref(collections);
     json_array_extend(results, data_objects); // TODO: check return value
     json_decref(data_objects);
-    free_query_input(obj_query_input);
 
     return results;
 
-query_error:
-    if (results) json_decref(results);
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
 
-    if (col_query_input) free(col_query_input);
-    if (obj_query_input) free(obj_query_input);
+    if (results) json_decref(results);
     if (collections) json_decref(collections);
     if (data_objects) json_decref(data_objects);
 
-    logmsg(ERROR, BATON_CAT, "Failed to search metadata '%s' -> '%s':"
-           " error %d %s", attr_name, attr_value, error->code, error->message);
-
-error:
     return NULL;
 }
 
-int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
+static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
+                         int num_columns, const int columns[],
+                         const char *labels[], prepare_search_cb prepare,
+                         baton_error_t *error) {
+    // This appears to be the maximum number of rows returned per
+    // result chunk
+    int max_rows = 10;
+    genQueryInp_t *query_in = NULL;
+
+    query_in = make_query_input(max_rows, num_columns, columns);
+
+    json_t *root_path = json_object_get(query, JSON_COLLECTION_KEY);
+    if (root_path) {
+        if (!json_is_string(root_path)) {
+            set_baton_error(error, -1, "Invalid root path: not a JSON string");
+            goto error;
+        }
+        query_in = prepare_path_search(query_in, json_string_value(root_path));
+    }
+
+    json_t *avus = json_object_get(query, JSON_AVUS_KEY);
+    if (!json_is_array(avus)) {
+        set_baton_error(error, -1, "Invalid AVUs: not a JSON array");
+        goto error;
+    }
+
+    query_in = prepare_json_search(query_in, avus, prepare, error);
+    if (error->code != 0) goto error;
+
+    if (zone_name) {
+        logmsg(TRACE, BATON_CAT, "Setting zone to '%s'", zone_name);
+        addKeyVal(&query_in->condInput, ZONE_KW, zone_name);
+    }
+
+    json_t *items = do_query(conn, query_in, labels, error);
+    if (error->code != 0) goto error;
+
+    free_query_input(query_in);
+    logmsg(TRACE, BATON_CAT, "Found %d matching items", json_array_size(items));
+
+    return items;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (query_in) free_query_input(query_in);
+    if (items) json_decref(items);
+
+    return NULL;
+}
+
+static genQueryInp_t *prepare_json_search(genQueryInp_t *query_in,
+                                          json_t *avus,
+                                          prepare_search_cb prepare,
+                                          baton_error_t *error) {
+    int num_clauses = json_array_size(avus);
+
+    for (int i = 0; i < num_clauses; i++) {
+        const json_t *avu  = json_array_get(avus, i);
+        if (!json_is_object(avu)) {
+            set_baton_error(error, -1, "Invalid AVU at position %d of %d: not"
+                            "a JSON object", i, num_clauses);
+            goto error;
+        }
+
+        json_t *attr = json_object_get(avu, JSON_ATTRIBUTE_KEY);
+        json_t *value = json_object_get(avu, JSON_VALUE_KEY);
+        json_t *oper = json_object_get(avu, JSON_OPERATOR_KEY);
+
+        if (!json_is_string(attr)) {
+            set_baton_error(error, -1, "Invalid attribute: not a JSON string");
+            goto error;
+        }
+        if (!json_is_string(value)) {
+            set_baton_error(error, -1, "Invalid value: not a JSON string");
+            goto error;
+        }
+        if (oper && !json_is_string(oper)) {
+            set_baton_error(error, -1, "Invalid operator: not a JSON string");
+            goto error;
+        }
+
+        const char *attr_name  = json_string_value(attr);
+        const char *attr_value = json_string_value(value);
+        const char *attr_oper  = oper ? json_string_value(oper) :
+            META_SEARCH_EQUALS;
+
+        if (strncasecmp(attr_oper, META_SEARCH_EQUALS,
+                        strlen(META_SEARCH_EQUALS)) == 0 ||
+            strncasecmp(attr_oper, META_SEARCH_LIKE,
+                        strlen(META_SEARCH_LIKE)) == 0) {
+            prepare(query_in, attr_name, attr_value, attr_oper);
+        }
+        else {
+            set_baton_error(error, -1, "Invalid operator: expected one of ["
+                            "%s, %s]", META_SEARCH_EQUALS, META_SEARCH_LIKE);
+        }
+     }
+
+    return query_in;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return NULL;
+}
+
+int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                    metadata_op operation,
                     char *attr_name, char *attr_value, char *attr_units,
                     baton_error_t *error) {
     int status;
@@ -400,13 +496,13 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             type_arg = "-d";
             break;
 
         case COLL_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             type_arg = "-C";
             break;
@@ -420,10 +516,10 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
     }
 
     struct mod_metadata_in named_args;
-    named_args.op = op;
-    named_args.type_arg = type_arg;
-    named_args.rods_path = rods_path;
-    named_args.attr_name = attr_name;
+    named_args.op         = operation;
+    named_args.type_arg   = type_arg;
+    named_args.rods_path  = rods_path;
+    named_args.attr_name  = attr_name;
     named_args.attr_value = attr_value;
     named_args.attr_units = attr_units;
 
@@ -434,7 +530,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path, metadata_op op,
         err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to %s metadata '%s' -> '%s' on '%s': "
-                        "error %d %s %s", metadata_op_name(op),
+                        "error %d %s %s", metadata_op_name(operation),
                         attr_name, attr_value, rods_path->outPath,
                         status, err_name, err_subname);
         goto error;
@@ -467,13 +563,16 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     const char *key;
     json_t *value;
     json_object_foreach(avu, key, value) {
-        if ((strcmp(key, JSON_ATTRIBUTE_KEY) == 0)) {
+        if ((strncmp(key, JSON_ATTRIBUTE_KEY,
+                     strlen(JSON_ATTRIBUTE_KEY)) == 0)) {
             attr_name = copy_str(json_string_value(value));
         }
-        else if ((strcmp(key, JSON_VALUE_KEY) == 0)) {
+        else if ((strncmp(key, JSON_VALUE_KEY,
+                          strlen(JSON_VALUE_KEY)) == 0)) {
             attr_value = copy_str(json_string_value(value));
         }
-        else if ((strcmp(key, JSON_UNITS_KEY) == 0)) {
+        else if ((strncmp(key, JSON_UNITS_KEY,
+                          strlen(JSON_UNITS_KEY)) == 0)) {
             attr_units = copy_str(json_string_value(value));
         }
     }
@@ -508,8 +607,8 @@ error:
 
 genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]) {
-    genQueryInp_t *query_input = calloc(1, sizeof (genQueryInp_t));
-    if (!query_input) goto error;
+    genQueryInp_t *query_in = calloc(1, sizeof (genQueryInp_t));
+    if (!query_in) goto error;
 
     int *cols_to_select = calloc(num_columns, sizeof (int));
     if (!cols_to_select) goto error;
@@ -523,13 +622,13 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
 
     special_select_ops[0] = 0;
 
-    query_input->selectInp.inx = cols_to_select;
-    query_input->selectInp.value = special_select_ops;
-    query_input->selectInp.len = num_columns;
+    query_in->selectInp.inx = cols_to_select;
+    query_in->selectInp.value = special_select_ops;
+    query_in->selectInp.len = num_columns;
 
-    query_input->maxRows = max_rows;
-    query_input->continueInx = 0;
-    query_input->condInput.len = 0;
+    query_in->maxRows = max_rows;
+    query_in->continueInx = 0;
+    query_in->condInput.len = 0;
 
     int *query_cond_indices = calloc(MAX_NUM_CONDITIONALS, sizeof (int));
     if (!query_cond_indices) goto error;
@@ -537,11 +636,11 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));
     if (!query_cond_values) goto error;
 
-    query_input->sqlCondInp.inx = query_cond_indices;
-    query_input->sqlCondInp.value = query_cond_values;
-    query_input->sqlCondInp.len = 0;
+    query_in->sqlCondInp.inx = query_cond_indices;
+    query_in->sqlCondInp.value = query_cond_values;
+    query_in->sqlCondInp.len = 0;
 
-    return query_input;
+    return query_in;
 
 error:
     logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
@@ -550,45 +649,48 @@ error:
     return NULL;
 }
 
-void free_query_input(genQueryInp_t *query_input) {
-    assert(query_input);
+void free_query_input(genQueryInp_t *query_in) {
+    assert(query_in);
 
     // Free any strings allocated as query clause values
-    for (int i = 0; i < query_input->sqlCondInp.len; i++) {
-        free(query_input->sqlCondInp.value[i]);
+    for (int i = 0; i < query_in->sqlCondInp.len; i++) {
+        free(query_in->sqlCondInp.value[i]);
     }
 
-    free(query_input->selectInp.inx);
-    free(query_input->selectInp.value);
-    free(query_input->sqlCondInp.inx);
-    free(query_input->sqlCondInp.value);
-    free(query_input);
+    free(query_in->selectInp.inx);
+    free(query_in->selectInp.value);
+    free(query_in->sqlCondInp.inx);
+    free(query_in->sqlCondInp.value);
+    free(query_in);
 }
 
-genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
+genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
                                const query_cond_t conds[]) {
     for (int i = 0; i < num_conds; i++) {
-        char *op = conds[i].operator;
-        char *name = conds[i].value;
+        const char *operator = conds[i].operator;
+        const char *name     = conds[i].value;
 
-        int expr_size = strlen(name) + strlen(op) + 3 + 1;
+        logmsg(DEBUG, BATON_CAT, "Adding conditional %d of %d: %s %s",
+               1, num_conds, name, operator);
+
+        int expr_size = strlen(name) + strlen(operator) + 3 + 1;
         char *expr = calloc(expr_size, sizeof (char));
         if (!expr) goto error;
 
-        snprintf(expr, expr_size, "%s '%s'", op, name);
+        snprintf(expr, expr_size, "%s '%s'", operator, name);
 
         logmsg(DEBUG, BATON_CAT,
                "Added conditional %d of %d: %s, len %d, op: %s, "
                "total len %d [%s]",
-               i, num_conds, name, strlen(name), op, expr_size, expr);
+               i, num_conds, name, strlen(name), operator, expr_size, expr);
 
-        int current_index = query_input->sqlCondInp.len;
-        query_input->sqlCondInp.inx[current_index] = conds[i].column;
-        query_input->sqlCondInp.value[current_index] = expr;
-        query_input->sqlCondInp.len++;
+        int current_index = query_in->sqlCondInp.len;
+        query_in->sqlCondInp.inx[current_index] = conds[i].column;
+        query_in->sqlCondInp.value[current_index] = expr;
+        query_in->sqlCondInp.len++;
     }
 
-    return query_input;
+    return query_in;
 
 error:
     logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
@@ -597,13 +699,14 @@ error:
     return NULL;
 }
 
-json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
-                 genQueryOut_t *query_output, const char *labels[],
-                 baton_error_t *error) {
+json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
+                 const char *labels[], baton_error_t *error) {
     int status;
     char *err_name;
     char *err_subname;
+    genQueryOut_t *query_out = NULL;
     int chunk_num = 0;
+    int continue_flag = 0;
 
     json_t *results = json_array();
     if (!results) {
@@ -611,22 +714,47 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
         goto error;
     }
 
-    while (chunk_num == 0 || query_output->continueInx > 0) {
-        status = rcGenQuery(conn, query_input, &query_output);
+    logmsg(DEBUG, BATON_CAT, "Running query ...");
+
+    while (chunk_num == 0 || continue_flag > 0) {
+        logmsg(DEBUG, BATON_CAT, "Attempting to get chunk %d of query",
+               chunk_num);
+
+        status = rcGenQuery(conn, query_in, &query_out);
 
         if (status == 0) {
-            query_input->continueInx = query_output->continueInx;
+            logmsg(DEBUG, BATON_CAT, "Successfully fetched chunk %d of query",
+                   chunk_num);
 
-            json_t *chunk = make_json_objects(query_output, labels);
-            if (!chunk) goto json_error;
-            logmsg(TRACE, BATON_CAT, "Fetched chunk %d of %d results",
-                   chunk_num, json_array_size(chunk));
+            // Cargo-cult from iRODS clients; not sure this is useful
+            query_in->continueInx = query_out->continueInx;
+            // Allows query_out to be freed
+            continue_flag = query_out->continueInx;
+
+            json_t *chunk = make_json_objects(query_out, labels);
+            if (!chunk) {
+                set_baton_error(error, -1,
+                                "Failed to convert query result to JSON: "
+                                "in chunk %d error %d", chunk_num, -1);
+                goto error;
+            }
+
+            logmsg(TRACE, BATON_CAT, "Converted query result to JSON: "
+                   "in chunk %d of %d", chunk_num, json_array_size(chunk));
             chunk_num++;
 
             status = json_array_extend(results, chunk);
             json_decref(chunk);
 
-            if (status != 0) goto json_error;
+            if (status != 0) {
+                set_baton_error(error, status,
+                                "Failed to add JSON query result to total: "
+                                "in chunk %d error %d", chunk_num, status);
+                goto error;
+            }
+
+            // Would be better to somehow realloc this memory
+            if (query_out) free(query_out);
         }
         else if (status == CAT_NO_ROWS_FOUND) {
             logmsg(TRACE, BATON_CAT, "Query returned no results");
@@ -635,25 +763,19 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
         else {
             err_name = rodsErrorName(status, &err_subname);
             set_baton_error(error, status,
-                            "Failed get query result: in chunk %d "
+                            "Failed to fetch query result: in chunk %d "
                             "error %d %s %s",
                             chunk_num, status, err_name, err_subname);
             goto error;
         }
     }
 
+    logmsg(DEBUG, BATON_CAT, "Obtained a total of %d JSON results in %d chunks",
+           chunk_num, json_array_size(results));
+
     return results;
 
-json_error:
-    status = -1;
-    set_baton_error(error, status,
-                    "Failed to convert query result to JSON: "
-                    "in chunk %d error %d", chunk_num, status);
-    return NULL;
-
 error:
-    if (results) json_decref(results);
-
     if (conn->rError) {
         logmsg(ERROR, BATON_CAT, error->message);
         log_rods_errstack(ERROR, BATON_CAT, conn->rError);
@@ -662,20 +784,36 @@ error:
         logmsg(ERROR, BATON_CAT, error->message);
     }
 
+    if (query_out) free(query_out);
+    if (results) json_decref(results);
+
     return NULL;
 }
 
-json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
+json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
     json_t *array = json_array();
-    if (!array) goto json_error;
+    if (!array) {
+        logmsg(ERROR, BATON_CAT, "Failed to allocate a new JSON array");
+        goto error;
+    }
 
-    for (int row = 0; row < query_output->rowCnt; row++) {
+    logmsg(DEBUG, BATON_CAT, "Converting %d rows of results to JSON",
+           query_out->rowCnt);
+
+    for (int row = 0; row < query_out->rowCnt; row++) {
+        logmsg(DEBUG, BATON_CAT, "Converting row %d of %d to JSON",
+               row, query_out->rowCnt);
+
         json_t *jrow = json_object();
-        if (!jrow) goto json_error;
+        if (!jrow) {
+            logmsg(ERROR, BATON_CAT,"Failed to allocate a new JSON object for "
+                   "result row %d of %d", row, query_out->rowCnt);
+            goto error;
+        }
 
-        for (int i = 0; i < query_output->attriCnt; i++) {
-            char *result = query_output->sqlResult[i].value;
-            result += row * query_output->sqlResult[i].len;
+        for (int i = 0; i < query_out->attriCnt; i++) {
+            char *result = query_out->sqlResult[i].value;
+            result += row * query_out->sqlResult[i].len;
 
             logmsg(DEBUG, BATON_CAT,
                    "Encoding column %d '%s' value '%s' as JSON",
@@ -687,8 +825,7 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
                 json_t *jvalue = json_string(result);
                 if (!jvalue) {
                     logmsg(ERROR, BATON_CAT,
-                           "Failed to parse string '%s'; is it UTF-8?",
-                           result);
+                           "Failed to parse string '%s'; is it UTF-8?", result);
                     goto error;
                 }
                 json_object_set_new(jrow, labels[i], jvalue);
@@ -699,17 +836,16 @@ json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]) {
         if (status != 0) {
             logmsg(ERROR, BATON_CAT,
                    "Failed to append a new JSON result at row %d of %d",
-                   row, query_output->rowCnt);
+                   row, query_out->rowCnt);
             goto error;
         }
     }
 
     return array;
 
-json_error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate a new, empty JSON structure");
-
 error:
+    logmsg(ERROR, BATON_CAT, "Failed to convert row %d of %d to JSON");
+
     if (array) json_decref(array);
 
     return NULL;
@@ -720,13 +856,13 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
 
     switch (rods_path->objType) {
         case DATA_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a data object",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             result = data_object_path_to_json(rods_path->outPath);
             break;
 
         case COLL_OBJ_T:
-            logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             result = collection_path_to_json(rods_path->outPath);
             break;
@@ -743,19 +879,18 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
 
     baton_error_t error;
     json_t *avus = list_metadata(conn, rods_path, NULL, &error);
-    if (!avus) goto avu_error;
+    if (error.code != 0)  goto error;
 
     int status = json_object_set_new(result, JSON_AVUS_KEY, avus);
-    if (status != 0) goto avu_error;
+    if (status != 0) goto error;
 
     return result;
-
-avu_error:
-    json_decref(result);
 
 error:
     logmsg(ERROR, BATON_CAT, "Failed to covert '%s' to JSON",
            rods_path->outPath);
+
+    if (result) json_decref(result);
 
     return NULL;
 }
@@ -794,7 +929,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
 
         switch (coll_entry.objType) {
             case DATA_OBJ_T:
-                logmsg(TRACE, BATON_CAT, "Indentified '%s/%s' as a data object",
+                logmsg(TRACE, BATON_CAT, "Identified '%s/%s' as a data object",
                        coll_entry.collName, coll_entry.dataName);
                 entry = data_object_parts_to_json(coll_entry.collName,
                                                   coll_entry.dataName);
@@ -806,7 +941,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                 break;
 
             case COLL_OBJ_T:
-                logmsg(TRACE, BATON_CAT, "Indentified '%s' as a collection",
+                logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                        coll_entry.collName);
                 entry = collection_path_to_json(coll_entry.collName);
                 if (!entry) {
@@ -854,7 +989,7 @@ error:
 }
 
 static void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in) {
-    out->arg0 = metadata_op_name(in->op);
+    out->arg0 = (char *) metadata_op_name(in->op);
     out->arg1 = in->type_arg;
     out->arg2 = in->rods_path->outPath;
     out->arg3 = in->attr_name;
@@ -866,8 +1001,8 @@ static void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in) {
     out->arg9 = "";
 }
 
-static char *metadata_op_name(metadata_op op) {
-    char *name;
+static const char *metadata_op_name(metadata_op op) {
+    const char *name;
 
     switch (op) {
         case META_ADD:
@@ -885,8 +1020,9 @@ static char *metadata_op_name(metadata_op op) {
     return name;
 }
 
-static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
-                                       rodsPath_t *rods_path, char *attr_name) {
+static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
+                                       rodsPath_t *rods_path,
+                                       const char *attr_name) {
     char *path = rods_path->outPath;
     size_t len = strlen(path) + 1;
 
@@ -901,30 +1037,29 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_input,
     char *coll_name = dirname(path1);
     char *data_name = basename(path2);
 
-    query_cond_t cn = { .column = COL_COLL_NAME,
+    query_cond_t cn = { .column   = COL_COLL_NAME,
                         .operator = META_SEARCH_EQUALS,
-                        .value = coll_name };
-    query_cond_t dn = { .column = COL_DATA_NAME,
+                        .value    = coll_name };
+    query_cond_t dn = { .column   = COL_DATA_NAME,
                         .operator = META_SEARCH_EQUALS,
-                        .value = data_name };
-    query_cond_t an = { .column = COL_META_DATA_ATTR_NAME,
+                        .value    = data_name };
+    query_cond_t an = { .column   = COL_META_DATA_ATTR_NAME,
                         .operator = META_SEARCH_EQUALS,
-                        .value = attr_name };
+                        .value    = attr_name };
 
     int num_conds = 2;
     if (attr_name) {
-        add_query_conds(query_input, num_conds + 1,
+        add_query_conds(query_in, num_conds + 1,
                         (query_cond_t []) { cn, dn, an });
     }
     else {
-        add_query_conds(query_input, num_conds,
-                        (query_cond_t []) { cn, dn });
+        add_query_conds(query_in, num_conds, (query_cond_t []) { cn, dn });
     }
 
     free(path1);
     free(path2);
 
-    return query_input;
+    return query_in;
 
 error:
     logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
@@ -933,58 +1068,59 @@ error:
     return NULL;
 }
 
-static genQueryInp_t *prepare_col_list(genQueryInp_t *query_input,
-                                       rodsPath_t *rods_path, char *attr_name) {
+static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
+                                       rodsPath_t *rods_path,
+                                       const char *attr_name) {
     char *path = rods_path->outPath;
-    query_cond_t cn = { .column = COL_COLL_NAME,
+    query_cond_t cn = { .column   = COL_COLL_NAME,
                         .operator = META_SEARCH_EQUALS,
-                        .value = path };
-    query_cond_t an = { .column = COL_META_COLL_ATTR_NAME,
+                        .value    = path };
+    query_cond_t an = { .column   = COL_META_COLL_ATTR_NAME,
                         .operator = META_SEARCH_EQUALS,
-                        .value = attr_name };
+                        .value    = attr_name };
 
     int num_conds = 1;
     if (attr_name) {
-        add_query_conds(query_input, num_conds + 1,
-                        (query_cond_t []) { cn, an });
+        add_query_conds(query_in, num_conds + 1, (query_cond_t []) { cn, an });
     }
     else {
-         add_query_conds(query_input, num_conds,
-                         (query_cond_t []) { cn });
+        add_query_conds(query_in, num_conds, (query_cond_t []) { cn });
     }
 
-    return query_input;
+    return query_in;
 }
 
-static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_input,
-                                         char *attr_name, char *attr_value) {
-    query_cond_t an = { .column = COL_META_DATA_ATTR_NAME,
+static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_in,
+                                         const char *attr_name,
+                                         const char *attr_value,
+                                         const char *operator) {
+    query_cond_t an = { .column   = COL_META_DATA_ATTR_NAME,
                         .operator = META_SEARCH_EQUALS,
-                        .value = attr_name };
-    query_cond_t av = { .column = COL_META_DATA_ATTR_VALUE,
-                        .operator = META_SEARCH_EQUALS,
-                        .value = attr_value };
+                        .value    = attr_name };
+    query_cond_t av = { .column   = COL_META_DATA_ATTR_VALUE,
+                        .operator = operator,
+                        .value    = attr_value };
 
     int num_conds = 2;
-    return add_query_conds(query_input, num_conds,
-                           (query_cond_t []) { an, av });
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
 }
 
-static genQueryInp_t *prepare_col_search(genQueryInp_t *query_input,
-                                         char *attr_name, char *attr_value) {
-    query_cond_t an = { .column = COL_META_COLL_ATTR_NAME,
+static genQueryInp_t *prepare_col_search(genQueryInp_t *query_in,
+                                         const char *attr_name,
+                                         const char *attr_value,
+                                         const char *operator) {
+    query_cond_t an = { .column   = COL_META_COLL_ATTR_NAME,
                         .operator = META_SEARCH_EQUALS,
-                        .value = attr_name };
-    query_cond_t av = { .column = COL_META_COLL_ATTR_VALUE,
-                        .operator = META_SEARCH_EQUALS,
-                        .value = attr_value };
+                        .value    = attr_name };
+    query_cond_t av = { .column   = COL_META_COLL_ATTR_VALUE,
+                        .operator = operator,
+                        .value    = attr_value };
     int num_conds = 2;
-    return add_query_conds(query_input, num_conds,
-                           (query_cond_t []) { an, av });
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
 }
 
-static genQueryInp_t *prepare_path_search(genQueryInp_t *query_input,
-                                          char *root_path) {
+static genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
+                                          const char *root_path) {
     size_t len = strlen(root_path);
     char *path;
 
@@ -1003,16 +1139,16 @@ static genQueryInp_t *prepare_path_search(genQueryInp_t *query_input,
             snprintf(path, len + 3, "%%%s%%", root_path);
         }
 
-        query_cond_t pv = { .column = COL_COLL_NAME,
+        query_cond_t pv = { .column   = COL_COLL_NAME,
                             .operator = META_SEARCH_LIKE,
-                            .value = path };
+                            .value    = path };
 
         int num_conds = 1;
-        add_query_conds(query_input, num_conds, (query_cond_t []) { pv });
+        add_query_conds(query_in, num_conds, (query_cond_t []) { pv });
         free(path);
     }
 
-    return query_input;
+    return query_in;
 
 error:
     logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",

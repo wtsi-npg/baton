@@ -210,6 +210,8 @@ int do_modify_metadata(int argc, char *argv[], int optind,
                             attr_name, attr_value, attr_units, &error);
             if (error.code != 0) error_count++;
         }
+
+        if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     }
 
     rcDisconnect(conn);
