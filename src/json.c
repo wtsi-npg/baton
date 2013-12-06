@@ -95,6 +95,32 @@ json_t *data_object_path_to_json(const char *path) {
     return result;
 }
 
+json_t *query_args_to_json(const char *attr_name, const char *attr_value,
+                           const char *root_path) {
+    json_t *result;
+    if (root_path) {
+        result = json_pack("{s:s, s:[{s:s, s:s}]}",
+                           JSON_COLLECTION_KEY, root_path,
+                           JSON_AVUS_KEY,
+                           JSON_ATTRIBUTE_KEY, attr_name,
+                           JSON_VALUE_KEY, attr_value);
+    }
+    else {
+        result = json_pack("{s:[{s:s, s:s}]}",
+                           JSON_AVUS_KEY,
+                           JSON_ATTRIBUTE_KEY, attr_name,
+                           JSON_VALUE_KEY, attr_value);
+    }
+
+    if (!result) {
+        logmsg(ERROR, BATON_CAT, "Failed to pack query attribute: '%s', "
+               "value: '%s', path: '%s' as JSON", attr_name, attr_value,
+               root_path);
+    }
+
+    return result;
+}
+
 json_t *collection_path_to_json(const char *path) {
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {

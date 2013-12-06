@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metalist [--file <json file>]");
+        puts("    json-metalist [--file <JSON file>]");
         puts("");
         puts("Description");
         puts("    Lists metadata AVUs on data objects and collections");
@@ -161,6 +161,8 @@ int do_list_metadata(int argc, char *argv[], int optind, FILE *input) {
         path_count++;
 
         if (path_error.code != 0) {
+            logmsg(ERROR, BATON_CAT, "Failed to convert path '%s' to JSON",
+                   path);
             error_count++;
             logmsg(ERROR, BATON_CAT, "Failed to convert path '%s' to JSON",
                    path);
