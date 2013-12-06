@@ -17,6 +17,7 @@
  * @file check_baton.c
  */
 
+#include <assert.h>
 #include <unistd.h>
 
 #include <jansson.h>
@@ -314,9 +315,15 @@ START_TEST(test_search_metadata_obj) {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
+    json_t *avu = json_pack("{s:s, s:s}",
+                            "attribute", "attr1",
+                            "value", "value1");
+    json_t *query = json_pack("{s:s, s:[o]}",
+                              "collection", rods_root,
+                              "avus", avu);
+
     baton_error_t error;
-    json_t *results = search_metadata(conn, "attr1", "value1", NULL, NULL,
-                                      &error);
+    json_t *results = search_metadata(conn, query, NULL, &error);
     ck_assert_int_eq(json_array_size(results), 12);
 
     const char *key1 = "collection";
@@ -343,9 +350,15 @@ START_TEST(test_search_metadata_path_obj) {
     char search_root[MAX_PATH_LEN];
     snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_root);
 
+    json_t *avu = json_pack("{s:s, s:s}",
+                            "attribute", "attr1",
+                            "value", "value1");
+    json_t *query = json_pack("{s:s, s:[o]}",
+                              "collection", search_root,
+                              "avus", avu);
+
     baton_error_t error;
-    json_t *results = search_metadata(conn, "attr1", "value1", search_root,
-                                      NULL, &error);
+    json_t *results = search_metadata(conn, query, NULL, &error);
     ck_assert_int_eq(json_array_size(results), 3);
 
     const char *key1 = "collection";
@@ -370,9 +383,15 @@ START_TEST(test_search_metadata_coll) {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
+    json_t *avu = json_pack("{s:s, s:s}",
+                            "attribute", "attr2",
+                            "value", "value2");
+    json_t *query = json_pack("{s:s, s:[o]}",
+                              "collection", rods_root,
+                              "avus", avu);
+
     baton_error_t error;
-    json_t *results = search_metadata(conn, "attr2", "value2", NULL, NULL,
-                                      &error);
+    json_t *results = search_metadata(conn, query, NULL, &error);
     ck_assert_int_eq(json_array_size(results), 3);
     for (size_t i = 0; i < 3; i++) {
         json_t *coll = json_array_get(results, i);

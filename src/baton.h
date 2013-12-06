@@ -35,13 +35,13 @@
 #define META_REM_NAME "rm"
 
 #define META_SEARCH_EQUALS "="
-#define META_SEARCH_LIKE "like"
+#define META_SEARCH_LIKE   "like"
 
 #define JSON_ATTRIBUTE_KEY "attribute"
-#define JSON_VALUE_KEY "value"
-#define JSON_UNITS_KEY "units"
-#define JSON_AVUS_KEY "avus"
-#define JSON_OPERATOR_KEY "operator"
+#define JSON_VALUE_KEY     "value"
+#define JSON_UNITS_KEY     "units"
+#define JSON_AVUS_KEY      "avus"
+#define JSON_OPERATOR_KEY  "operator"
 
 /**
  *  @enum metadata_op
@@ -79,9 +79,9 @@ typedef struct query_cond {
     /** The ICAT column to match e.g. COL_META_DATA_ATTR_NAME */
     int column;
     /** The operator to use e.g. "=", "<", ">" */
-    char* operator;
+    const char *operator;
     /** The value to match */
-    char* value;
+    const char *value;
 } query_cond_t;
 
 typedef struct baton_error {
@@ -189,19 +189,19 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  * Search metadata to find matching data objects and collections.
  *
  * @param[in]  conn        An open iRODS connection.
- * @param[in]  attr_name   An attribute name to match.
- * @param[in]  attr_value  The attribute value to match.
- * @param[in]  root_path   An iRODS path to limit search scope. Only results
-                           within this path will be returned. Optional, NULL
+ * @param[in]  query       A JSON query specification which includes the
+ *                         attribute name and value to match. It may also have
+ *                         an iRODS path to limit search scope. Only results
+                           under this path will be returned. Omitting the path
                            means the search will be global.
  * @param[in]  zone_name   An iRODS zone name. Optional, NULL means the current
                            zone.
  * @param[out] error       An error report struct.
  *
- * @return A newly constructed JSON array of AVU JSON objects.
+ * @return A newly constructed JSON array of JSON result objects.
  */
-json_t *search_metadata(rcComm_t *conn, char *attr_name, char *attr_value,
-                        char *root_path, char *zone_name, baton_error_t *error);
+json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
+                        baton_error_t *error);
 
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
@@ -252,13 +252,13 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
 /**
  * Free memory used by an iRODS generic query (see rodsGenQuery.h).
  *
- * @param[in] query_input  The query to free.
+ * @param[in] query_in       The query to free.
  *
  * @ref make_query_input
  */
-void free_query_input(genQueryInp_t *query_input);
+void free_query_input(genQueryInp_t *query_in);
 
-genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
+genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
                                const query_cond_t conds[]);
 
 /**
@@ -267,8 +267,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
  * by the labels argument.
  *
  * @param[in]  conn          An open iRODS connection.
- * @param[in]  query_input   A populated query input.
- * @param[out] query_output  A query output struct to receive results.
+ * @param[in]  query_in      A populated query input.
  * @param[in]  labels        An array of as many labels as there were columns
  *                           selected in the query.
  * @param[out] error         An error report struct.
@@ -276,22 +275,21 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_input, int num_conds,
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
-json_t *do_query(rcComm_t *conn, genQueryInp_t *query_input,
-                 genQueryOut_t *query_output, const char *labels[],
-                 baton_error_t *error);
+json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
+                 const char *labels[], baton_error_t *error);
 
 /**
  * Construct a JSON array of objects from a query output. Columns in the
  * query are mapped to JSON object properties specified by the labels
  * argument.
  *
- * @param[in] query_output  A populated query output.
+ * @param[in] query_out     A populated query output.
  * @param[in] labels        An array of as many labels as there were columns
  *                          selected in the query.
  *
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
-json_t *make_json_objects(genQueryOut_t *query_output, const char *labels[]);
+json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]);
 
 #endif // _BATON_H

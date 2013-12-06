@@ -43,6 +43,9 @@ json_t *collection_path_to_json(const char *path);
 
 char *json_to_path(json_t *json, baton_error_t *error);
 
+json_t *query_args_to_json(const char *attr_name, const char *attr_value,
+                           const char *root_path);
+
 void print_json(json_t* results);
 
 #endif // _BATON_JSON_H
