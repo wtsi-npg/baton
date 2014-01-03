@@ -95,6 +95,32 @@ json_t *data_object_path_to_json(const char *path) {
     return result;
 }
 
+json_t *query_args_to_json(const char *attr_name, const char *attr_value,
+                           const char *root_path) {
+    json_t *result;
+    if (root_path) {
+        result = json_pack("{s:s, s:[{s:s, s:s}]}",
+                           JSON_COLLECTION_KEY, root_path,
+                           JSON_AVUS_KEY,
+                           JSON_ATTRIBUTE_KEY, attr_name,
+                           JSON_VALUE_KEY, attr_value);
+    }
+    else {
+        result = json_pack("{s:[{s:s, s:s}]}",
+                           JSON_AVUS_KEY,
+                           JSON_ATTRIBUTE_KEY, attr_name,
+                           JSON_VALUE_KEY, attr_value);
+    }
+
+    if (!result) {
+        logmsg(ERROR, BATON_CAT, "Failed to pack query attribute: '%s', "
+               "value: '%s', path: '%s' as JSON", attr_name, attr_value,
+               root_path);
+    }
+
+    return result;
+}
+
 json_t *collection_path_to_json(const char *path) {
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
@@ -105,18 +131,18 @@ json_t *collection_path_to_json(const char *path) {
     return result;
 }
 
-char *json_to_path(json_t *json) {
-    assert(json);
+char *json_to_path(json_t *json, baton_error_t *error) {
     char *path;
+    init_baton_error(error);
 
     json_t *coll = json_object_get(json, JSON_COLLECTION_KEY);
     json_t *data = json_object_get(json, JSON_DATA_OBJECT_KEY);
     if (!coll) {
-        logmsg(ERROR, BATON_CAT, "collection value was missing");
+        set_baton_error(error, -1, "collection value was missing");
         goto error;
     }
     if (!json_is_string(coll)) {
-        logmsg(ERROR, BATON_CAT, "collection value was not a string");
+        set_baton_error(error, -1,  "collection value was not a string");
         goto error;
     }
 
@@ -133,10 +159,24 @@ char *json_to_path(json_t *json) {
 
         if (ends_with(collection, "/")) {
             path = calloc(len, sizeof (char));
+            if (!path) {
+                set_baton_error(error, errno,
+                                "Failed to allocate memory: error %d %s",
+                                errno, strerror(errno));
+                goto error;
+            }
+
             snprintf(path, len, "%s%s", collection, data_object);
         }
         else {
             path = calloc(len + 1, sizeof (char));
+            if (!path) {
+                set_baton_error(error, errno,
+                                "Failed to allocate memory: error %d %s",
+                                errno, strerror(errno));
+                goto error;
+            }
+
             snprintf(path, len + 1, "%s/%s", collection, data_object);
         }
     }
@@ -144,11 +184,13 @@ char *json_to_path(json_t *json) {
     return path;
 
 error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
     return NULL;
 }
 
 void print_json(json_t *json) {
-    char *json_str = json_dumps(json, JSON_INDENT(1));
+    char *json_str = json_dumps(json, JSON_INDENT(0));
     printf("%s\n", json_str);
     free(json_str);
 

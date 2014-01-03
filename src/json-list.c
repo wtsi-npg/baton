@@ -91,10 +91,11 @@ int main(int argc, char *argv[]) {
         puts("    json-list [--file <json file>]");
         puts("");
         puts("Description");
-        puts("    Lists collections described in a JSON input file.");
+        puts("    Lists data objects and collections described in a JSON ");
+        puts("    input file.");
         puts("");
-        puts("    --file        The JSON file describing the data objects.");
-        puts("                  Optional, defaults to STDIN.");
+        puts("    --file        The JSON file describing the data objects and");
+        puts("                  collections. Optional, defaults to STDIN.");
         puts("");
 
         exit(0);
@@ -152,17 +153,25 @@ int do_list_paths(int argc, char *argv[], int optind, FILE *input) {
                 logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
                        load_error.line, load_error.column, load_error.text);
             }
+
+            continue;
+        }
+
+        baton_error_t path_error;
+        char *path = json_to_path(target, &path_error);
+        path_count++;
+
+        if (path_error.code != 0) {
+            error_count++;
+            add_error_value(target, &path_error);
+            print_json(target);
         }
         else {
-            char *path = json_to_path(target);
-            path_count++;
-
             rodsPath_t rods_path;
             int status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
                 error_count++;
-                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'",
-                       path);
+                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
             }
             else {
                 baton_error_t error;
@@ -177,12 +186,14 @@ int do_list_paths(int argc, char *argv[], int optind, FILE *input) {
                     print_json(results);
                     json_decref(results);
                 }
-
-                fflush(stdout);
             }
 
-            json_decref(target);
+            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+            fflush(stdout);
         }
+
+        json_decref(target);
     } // while
 
     rcDisconnect(conn);

@@ -153,11 +153,20 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                 logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
                        load_error.line, load_error.column, load_error.text);
             }
+
+            continue;
+        }
+
+        baton_error_t path_error;
+        char *path = json_to_path(target, &path_error);
+        path_count++;
+
+        if (path_error.code != 0) {
+            error_count++;
+            add_error_value(target, &path_error);
+            goto print_result;
         }
         else {
-            char *path = json_to_path(target);
-            path_count++;
-
             json_t *avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
                 logmsg(ERROR, BATON_CAT,
@@ -168,8 +177,9 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
             rodsPath_t rods_path;
             int status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
-               error_count++;
-               logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+                error_count++;
+                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'",
+                       path);
             }
             else {
                 baton_error_t list_error;
@@ -193,7 +203,7 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                         baton_error_t rem_error;
                         logmsg(TRACE, BATON_CAT, "Removing AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_REM,
-                                             current_avu, &rem_error);
+                                                 current_avu, &rem_error);
                         if (rem_error.code != 0) {
                             error_count++;
                             add_error_value(target, &rem_error);
@@ -216,8 +226,8 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
                     else {
                         baton_error_t add_error;
                         logmsg(TRACE, BATON_CAT, "Adding AVU %s", str);
-                        modify_json_metadata(conn, &rods_path, META_ADD, avu,
-                                             &add_error);
+                        modify_json_metadata(conn, &rods_path, META_ADD,
+                                             avu, &add_error);
                         if (add_error.code != 0) {
                             error_count++;
                             add_error_value(target, &add_error);
@@ -236,9 +246,11 @@ int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
             print_json(target);
             fflush(stdout);
             json_decref(target);
+
+            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
             free(path);
         }
-    }
+    } // while
 
     rcDisconnect(conn);
 

@@ -38,12 +38,10 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int help_flag;
 static int version_flag;
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, FILE *input);
+int do_list_metadata(int argc, char *argv[], int optind, FILE *input);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
-    metadata_op meta_op = -1;
     char *json_file = NULL;
     FILE *input = NULL;
 
@@ -55,12 +53,11 @@ int main(int argc, char *argv[]) {
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
-            {"operation", required_argument, NULL, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:l:o:",
+        int c = getopt_long_only(argc, argv, "f:l:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -75,16 +72,6 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE = optarg;
                 break;
 
-            case 'o':
-                if (strcmp("add", optarg) ==  0) {
-                    meta_op = META_ADD;
-                }
-                if (strcmp("rem", optarg) == 0) {
-                    meta_op = META_REM;
-                }
-
-                break;
-
             case '?':
                 // getopt_long already printed an error message
                 break;
@@ -97,20 +84,18 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    json-metamod");
+        puts("    json-metalist");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metamod -o <operation> [--file <json file>]");
+        puts("    json-metalist [--file <JSON file>]");
         puts("");
         puts("Description");
-        puts("    Modifies metadata AVUs on collections and data objects");
+        puts("    Lists metadata AVUs on data objects and collections");
         puts("described in a JSON input file.");
         puts("");
-        puts("    --operation   Operation to perform. One of [add, rem].");
-        puts("                  Required.");
-        puts("    --file        The JSON file describing the data objects.");
-        puts("                  Optional, defaults to STDIN.");
+        puts("    --file        The JSON file describing the data objects and");
+        puts("                  collections. Optional, defaults to STDIN.");
         puts("");
 
         exit(0);
@@ -134,20 +119,9 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE);
     }
 
-    switch (meta_op) {
-        case META_ADD:
-        case META_REM:
-            input = maybe_stdin(json_file);
-            int status = do_modify_metadata(argc, argv, optind, meta_op,
-                                            input);
-            if (status != 0) exit_status = 5;
-            break;
-
-        default:
-            fprintf(stderr, "No valid operation was specified; valid "
-                    "operations are: [add rem]\n");
-            goto args_error;
-    }
+    input = maybe_stdin(json_file);
+    int status = do_list_metadata(argc, argv, optind, input);
+    if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);
@@ -160,8 +134,7 @@ error:
     exit(exit_status);
 }
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, FILE *input) {
+int do_list_metadata(int argc, char *argv[], int optind, FILE *input) {
     int path_count = 0;
     int error_count = 0;
 
@@ -188,17 +161,16 @@ int do_modify_metadata(int argc, char *argv[], int optind,
         path_count++;
 
         if (path_error.code != 0) {
+            logmsg(ERROR, BATON_CAT, "Failed to convert path '%s' to JSON",
+                   path);
             error_count++;
+            logmsg(ERROR, BATON_CAT, "Failed to convert path '%s' to JSON",
+                   path);
+
             add_error_value(target, &path_error);
+            print_json(target);
         }
         else {
-            json_t *avus = json_object_get(target, JSON_AVUS_KEY);
-            if (!json_is_array(avus)) {
-                logmsg(ERROR, BATON_CAT,
-                       "AVU data for %s is not in a JSON array", path);
-                goto error;
-            }
-
             rodsPath_t rods_path;
             int status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
@@ -206,23 +178,31 @@ int do_modify_metadata(int argc, char *argv[], int optind,
                 logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
             }
             else {
-                for (size_t i = 0; i < json_array_size(avus); i++) {
-                    json_t *avu = json_array_get(avus, i);
-                    baton_error_t mod_error;
-                    modify_json_metadata(conn, &rods_path, operation, avu,
-                                         &mod_error);
+                baton_error_t error;
+                json_t *avus = list_metadata(conn, &rods_path, NULL, &error);
 
-                    if (mod_error.code != 0) {
-                        error_count++;
-                        add_error_value(target, &mod_error);
-                    }
+                if (error.code != 0) {
+                    error_count++;
+                    logmsg(ERROR, BATON_CAT, "Failed to list metadata on '%s'",
+                           path);
+                    add_error_value(target, &error);
+                    print_json(target);
+                }
+                else {
+                    logmsg(DEBUG, BATON_CAT, "Listed metadata on '%s'", path);
+                    json_object_set_new(target, JSON_AVUS_KEY, avus);
+
+                    char *str = json_dumps(target, JSON_INDENT(0));
+                    logmsg(DEBUG, BATON_CAT, "Sending JSON: %s", str);
+                    free(str);
+
+                    print_json(target);
                 }
             }
 
             if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
         }
 
-        print_json(target);
         fflush(stdout);
         json_decref(target);
         free(path);

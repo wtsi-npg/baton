@@ -173,9 +173,10 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
+    json_t *target = query_args_to_json(attr_name, attr_value, root_path);
+
     baton_error_t error;
-    json_t *results = search_metadata(conn, attr_name, attr_value,
-                                      root_path, zone_name, &error);
+    json_t *results = search_metadata(conn, target, zone_name, &error);
     if (error.code != 0) {
         logmsg(ERROR, BATON_CAT, "Failed to search: %s", error.message);
         goto error;
@@ -183,9 +184,18 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
     else {
         for (size_t i = 0; i < json_array_size(results); i++) {
             json_t *result = json_array_get(results, i);
-            char *path = json_to_path(result);
-            printf("%s\n", path);
-            free(path);
+
+            baton_error_t path_error;
+            char *path = json_to_path(result, &path_error);
+
+            // This should always succeed because we are making the JSON
+            if (path_error.code != 0) {
+                error_count++;
+            }
+            else {
+                printf("%s\n", path);
+                free(path);
+            }
         }
         json_decref(results);
     }
