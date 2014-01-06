@@ -28,6 +28,9 @@
 
 #include "utilities.h"
 
+#define ACCESS_READ  "read"
+#define ACCESS_WRITE "write"
+
 #define MAX_NUM_CONDITIONALS 20
 #define MAX_ERROR_MESSAGE_LEN 1024
 
@@ -42,6 +45,9 @@
 #define JSON_UNITS_KEY     "units"
 #define JSON_AVUS_KEY      "avus"
 #define JSON_OPERATOR_KEY  "operator"
+#define JSON_ACCESS_KEY    "access"
+#define JSON_OWNER_KEY     "owner"
+#define JSON_LEVEL_KEY     "level"
 
 /**
  *  @enum metadata_op
@@ -171,6 +177,13 @@ json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *error);
 
+int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path, char *owner_name,
+                       char *access_level, baton_error_t *error);
+
+int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                            json_t *perms, baton_error_t *error);
+
+
 /**
  * List metadata of a specified data object or collection.
  *
@@ -192,10 +205,10 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  * @param[in]  query       A JSON query specification which includes the
  *                         attribute name and value to match. It may also have
  *                         an iRODS path to limit search scope. Only results
-                           under this path will be returned. Omitting the path
-                           means the search will be global.
+ *                          under this path will be returned. Omitting the path
+ *                         means the search will be global.
  * @param[in]  zone_name   An iRODS zone name. Optional, NULL means the current
-                           zone.
+ *                         zone.
  * @param[out] error       An error report struct.
  *
  * @return A newly constructed JSON array of JSON result objects.

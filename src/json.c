@@ -157,7 +157,7 @@ char *json_to_path(json_t *json, baton_error_t *error) {
         size_t dlen = strlen(data_object);
         size_t len = clen + dlen + 1;
 
-        if (ends_with(collection, "/")) {
+        if (str_ends_with(collection, "/")) {
             path = calloc(len, sizeof (char));
             if (!path) {
                 set_baton_error(error, errno,

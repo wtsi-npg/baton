@@ -62,9 +62,13 @@ typedef enum {
  */
 void logmsg(log_level level, const char *category, const char *format, ...);
 
-int starts_with(const char *str, const char *prefix);
+int str_starts_with(const char *str, const char *prefix);
 
-int ends_with(const char *str, const char *suffix);
+int str_ends_with(const char *str, const char *suffix);
+
+int str_equals(const char *str1, const char *str2);
+
+int str_equals_ignore_case(const char *str1, const char *str2);
 
 char *copy_str(const char *str);
 
