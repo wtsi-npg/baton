@@ -77,43 +77,43 @@ static void basic_teardown() {
     if (ret != 0) raise(SIGINT);
 }
 
-START_TEST(test_starts_with) {
-    ck_assert_msg(starts_with("", ""),    "'' starts with ''");
-    ck_assert_msg(starts_with("a", ""),   "'a' starts with ''");
-    ck_assert_msg(starts_with("a", "a"),  "'a' starts with 'a'");
-    ck_assert_msg(starts_with("ab", "a"), "'ab' starts with 'a'");
+START_TEST(test_str_starts_with) {
+    ck_assert_msg(str_starts_with("", ""),    "'' starts with ''");
+    ck_assert_msg(str_starts_with("a", ""),   "'a' starts with ''");
+    ck_assert_msg(str_starts_with("a", "a"),  "'a' starts with 'a'");
+    ck_assert_msg(str_starts_with("ab", "a"), "'ab' starts with 'a'");
 
-    ck_assert_msg(!starts_with("", "a"),   "'' !starts with 'a'");
-    ck_assert_msg(!starts_with("b", "a"),  "'b' !starts with 'a'");
-    ck_assert_msg(!starts_with("ba", "a"), "'ba' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("", "a"),   "'' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("b", "a"),  "'b' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("ba", "a"), "'ba' !starts with 'a'");
 }
 END_TEST
 
-START_TEST(test_ends_with) {
-    ck_assert_msg(ends_with("", ""),    "'' ends with ''");
-    ck_assert_msg(ends_with("a", ""),   "'a' ends with ''");
-    ck_assert_msg(ends_with("a", "a"),  "'a' ends with 'a'");
-    ck_assert_msg(ends_with("ba", "a"), "'ba' ends with 'a'");
+START_TEST(test_str_ends_with) {
+    ck_assert_msg(str_ends_with("", ""),    "'' ends with ''");
+    ck_assert_msg(str_ends_with("a", ""),   "'a' ends with ''");
+    ck_assert_msg(str_ends_with("a", "a"),  "'a' ends with 'a'");
+    ck_assert_msg(str_ends_with("ba", "a"), "'ba' ends with 'a'");
 
-    ck_assert_msg(!ends_with("", "a"),   "'' !ends with 'a'");
-    ck_assert_msg(!ends_with("b", "a"),  "'b' !ends with 'a'");
-    ck_assert_msg(!ends_with("ab", "a"), "'ab' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("", "a"),   "'' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("b", "a"),  "'b' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("ab", "a"), "'ab' !ends with 'a'");
 }
 END_TEST
 
-START_TEST(test_equals) {
-    ck_assert_msg(equals("", ""),    "'' equals ''");
-    ck_assert_msg(equals(" ", " "),  "' ' equals ' '");
-    ck_assert_msg(equals("a", "a"),  "'a' equals 'a'");
-    ck_assert_msg(!equals("a", "A"), "'a' !equals 'A'");
+START_TEST(test_str_equals) {
+    ck_assert_msg(str_equals("", ""),    "'' equals ''");
+    ck_assert_msg(str_equals(" ", " "),  "' ' equals ' '");
+    ck_assert_msg(str_equals("a", "a"),  "'a' equals 'a'");
+    ck_assert_msg(!str_equals("a", "A"), "'a' !equals 'A'");
 }
 END_TEST
 
-START_TEST(test_equals_ignore_case) {
-    ck_assert_msg(equals_ignore_case("", ""),   "'' equals ''");
-    ck_assert_msg(equals_ignore_case(" ", " "), "' ' equals ' '");
-    ck_assert_msg(equals_ignore_case("a", "a"), "'a' equals 'a'");
-    ck_assert_msg(equals_ignore_case("a", "A"), "'a' equals 'A'");
+START_TEST(test_str_equals_ignore_case) {
+    ck_assert_msg(str_equals_ignore_case("", ""),   "'' equals ''");
+    ck_assert_msg(str_equals_ignore_case(" ", " "), "' ' equals ' '");
+    ck_assert_msg(str_equals_ignore_case("a", "a"), "'a' equals 'a'");
+    ck_assert_msg(str_equals_ignore_case("a", "A"), "'a' equals 'A'");
 }
 END_TEST
 
@@ -720,10 +720,10 @@ Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
     TCase *utilities_tests = tcase_create("utilities");
-    tcase_add_test(utilities_tests, test_equals);
-    tcase_add_test(utilities_tests, test_equals_ignore_case);
-    tcase_add_test(utilities_tests, test_starts_with);
-    tcase_add_test(utilities_tests, test_ends_with);
+    tcase_add_test(utilities_tests, test_str_equals);
+    tcase_add_test(utilities_tests, test_str_equals_ignore_case);
+    tcase_add_test(utilities_tests, test_str_starts_with);
+    tcase_add_test(utilities_tests, test_str_ends_with);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);
