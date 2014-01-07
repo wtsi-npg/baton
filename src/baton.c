@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * @file baton.c
+ * @author Keith James <kdj@sanger.ac.uk>
  */
 
 #include <assert.h>
@@ -475,23 +476,26 @@ error:
     return NULL;
 }
 
-int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path, char *owner_name,
+int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                       recursive_op recurse, char *owner_specifier,
                        char *access_level, baton_error_t *error) {
     int status;
-
     char user_name[NAME_LEN];
     char zone_name[NAME_LEN];
     modAccessControlInp_t mod_perms_in;
 
-    status = parseUserName(owner_name, user_name, zone_name);
+    status = parseUserName(owner_specifier, user_name, zone_name);
     if (status != 0) {
         set_baton_error(error, -1, "Failed to chmod '%s' because of an invalid "
-                        "user name format '%s'", rods_path->outPath,
-                        owner_name);
+                        "owner format '%s'", rods_path->outPath,
+                        owner_specifier);
         goto error;
     }
 
-    mod_perms_in.recursiveFlag = 0; // TODO: enable recursion
+    logmsg(DEBUG, BATON_CAT, "Parsed owner to user: '%s' zone: '%s'",
+           user_name, zone_name);
+
+    mod_perms_in.recursiveFlag = recurse;
     mod_perms_in.accessLevel   = access_level;
     mod_perms_in.userName      = user_name;
     mod_perms_in.zone          = zone_name;
@@ -504,7 +508,7 @@ int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path, char *owner_name,
         status = rcModAccessControl(conn, &mod_perms_in);
     }
     else {
-        set_baton_error(error, -1, "Invalid operator: expected one of ["
+        set_baton_error(error, -1, "Invalid permission level: expected one of ["
                         "%s, %s, %s, %s]",
                         ACCESS_OWN, ACCESS_WRITE,
                         ACCESS_READ, ACCESS_NULL);
@@ -512,10 +516,14 @@ int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path, char *owner_name,
     }
 
     if (status < 0) {
-        set_baton_error(error, status, "Failed to modify permissions '%s'",
-                        rods_path->outPath);
+        set_baton_error(error, status, "Failed to modify permissions of '%s' "
+                        "to '%s' for '%s'", rods_path->outPath, access_level,
+                        owner_specifier);
         goto error;
     }
+
+    logmsg(DEBUG, BATON_CAT, "Set permissions of '%s' to '%s' for '%s'",
+           rods_path->outPath, access_level, owner_specifier);
 
     return status;
 
@@ -532,9 +540,11 @@ error:
 }
 
 int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                            json_t *perm, baton_error_t *error) {
-    char *owner_name   = NULL;
-    char *access_level = NULL;
+                            recursive_op recurse, json_t *perm,
+                            baton_error_t *error) {
+    char *owner_specifier = NULL;
+    char *access_level    = NULL;
+    init_baton_error(error);
 
     if (!json_is_object(perm)) {
         set_baton_error(error, -1, "Invalid permissions specifiction: "
@@ -542,37 +552,35 @@ int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
-    json_t *owner  = json_object_get(perm, JSON_OWNER_KEY);
-    json_t *access = json_object_get(perm, JSON_ACCESS_KEY);
-    if (!json_is_string(owner)) {
+    json_t *user  = json_object_get(perm, JSON_OWNER_KEY);
+    json_t *level = json_object_get(perm, JSON_LEVEL_KEY);
+    if (!json_is_string(user)) {
         set_baton_error(error, -1, "Invalid owner: not a JSON string");
         goto error;
     }
-    if (!json_is_string(access)) {
-        set_baton_error(error, -1, "Invalid access level: "
-                        "not a JSON string");
+    if (!json_is_string(level)) {
+        set_baton_error(error, -1, "Invalid access level: not a JSON string");
         goto error;
     }
 
-    owner_name   = copy_str(json_string_value(owner));
-    access_level = copy_str(json_string_value(access));
+    owner_specifier = copy_str(json_string_value(user));
+    access_level    = copy_str(json_string_value(level));
 
-    int status = modify_permissions(conn, rods_path, owner_name,
+    int status = modify_permissions(conn, rods_path, recurse, owner_specifier,
                                     access_level, error);
 
-    if (owner_name)   free(owner_name);
-    if (access_level) free(access_level);
+    if (owner_specifier) free(owner_specifier);
+    if (access_level)    free(access_level);
 
     return status;
 
 error:
     logmsg(ERROR, BATON_CAT, error->message);
 
-    if (owner_name)   free(owner_name);
-    if (access_level) free(access_level);
+    if (owner_specifier) free(owner_specifier);
+    if (access_level)    free(access_level);
 
     return -1;
-
 }
 
 int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
@@ -583,7 +591,6 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     char *err_name;
     char *err_subname;
     char *type_arg;
-    init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
         set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
@@ -654,29 +661,38 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     char *attr_name  = NULL;
     char *attr_value = NULL;
     char *attr_units = NULL;
+    init_baton_error(error);
 
     if (!json_is_object(avu)) {
         set_baton_error(error, -1, "Invalid AVU: not a JSON object");
         goto error;
     }
 
-    const char *key;
-    json_t *value;
+    json_t *attr  = json_object_get(avu, JSON_ATTRIBUTE_KEY);
+    json_t *value = json_object_get(avu, JSON_VALUE_KEY);
+    json_t *units = json_object_get(avu, JSON_UNITS_KEY);
 
-    json_object_foreach(avu, key, value) {
-        if (str_equals(key, JSON_ATTRIBUTE_KEY)) {
-            attr_name = copy_str(json_string_value(value));
-        }
-        else if (str_equals(key, JSON_VALUE_KEY)) {
-            attr_value = copy_str(json_string_value(value));
-        }
-        else if (str_equals(key, JSON_UNITS_KEY)) {
-            attr_units = copy_str(json_string_value(value));
-        }
+    if (!json_is_string(attr)) {
+        set_baton_error(error, -1, "Invalid attribute: not a JSON string");
+        goto error;
+    }
+    if (value && !json_is_string(value)) {
+        set_baton_error(error, -1, "Invalid value: not a JSON string");
+        goto error;
+    }
+    if (units && !json_is_string(units)) {
+        set_baton_error(error, -1, "Invalid units: not a JSON string");
+        goto error;
     }
 
+    if (attr)  attr_name  = copy_str(json_string_value(attr));
+    if (value) attr_value = copy_str(json_string_value(value));
+
     // Units are optional
-    if (!attr_units) {
+    if (units) {
+        attr_units = copy_str(json_string_value(units));
+    }
+    else {
         attr_units = calloc(1, sizeof (char));
         if (!attr_units) {
             set_baton_error(error, errno,

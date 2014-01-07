@@ -443,6 +443,7 @@ START_TEST(test_add_metadata_obj) {
                      EXIST_ST);
 
     baton_error_t error;
+    init_baton_error(&error);
     int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
                              "test_value", "test_units", &error);
     ck_assert_int_eq(rv, 0);
@@ -478,6 +479,7 @@ START_TEST(test_remove_metadata_obj) {
                      EXIST_ST);
 
     baton_error_t error;
+    init_baton_error(&error);
     int rv = modify_metadata(conn, &rods_path, META_REM, "attr1",
                              "value1", "units1", &error);
     ck_assert_int_eq(rv, 0);
@@ -581,8 +583,9 @@ START_TEST(test_modify_permissions_obj) {
                      EXIST_ST);
 
     baton_error_t error;
-    int rv = modify_permissions(conn, &rods_path, "public", ACCESS_READ,
-                                &error);
+    init_baton_error(&error);
+    int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
+                                ACCESS_READ, &error);
     ck_assert_int_eq(rv, 0);
 
     // TODO: check the new permissions are in place (there is no high
@@ -608,10 +611,11 @@ START_TEST(test_modify_json_permissions_obj) {
 
     json_t *perm = json_pack("{s:s, s:s}",
                              JSON_OWNER_KEY, "public",
-                             JSON_ACCESS_KEY, ACCESS_READ);
+                             JSON_LEVEL_KEY,  ACCESS_READ);
 
     baton_error_t error;
-    int rv = modify_json_permissions(conn, &rods_path, perm, &error);
+    int rv = modify_json_permissions(conn, &rods_path, NO_RECURSE, perm,
+                                     &error);
     ck_assert_int_eq(rv, 0);
     ck_assert_int_eq(error.code, 0);
 
