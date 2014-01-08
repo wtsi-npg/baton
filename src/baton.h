@@ -28,6 +28,9 @@
 
 #include "utilities.h"
 
+#define ACCESS_READ  "read"
+#define ACCESS_WRITE "write"
+
 #define MAX_NUM_CONDITIONALS 20
 #define MAX_ERROR_MESSAGE_LEN 1024
 
@@ -42,6 +45,9 @@
 #define JSON_UNITS_KEY     "units"
 #define JSON_AVUS_KEY      "avus"
 #define JSON_OPERATOR_KEY  "operator"
+#define JSON_ACCESS_KEY    "access"
+#define JSON_OWNER_KEY     "owner"
+#define JSON_LEVEL_KEY     "level"
 
 /**
  *  @enum metadata_op
@@ -55,6 +61,13 @@ typedef enum {
     /** Query AVUs */
     META_QUERY
 } metadata_op;
+
+typedef enum {
+    /** Non-recursive operation */
+    NO_RECURSE,
+    /** Recursive operation */
+    RECURSE
+} recursive_op;
 
 /**
  *  @struct metadata_op
@@ -146,12 +159,12 @@ rcComm_t *rods_login(rodsEnv *env);
 /**
  * Initialise an iRODS path by copying a string into its inPath.
  *
- * @param[out] rodspath  An iRODS path.
+ * @param[out] rods_path An iRODS path.
  * @param[in]  inpath    A string representing an unresolved iRODS path.
  *
  * @return 0 on success, -1 on failure.
  */
-int init_rods_path(rodsPath_t *rodspath, char *inpath);
+int init_rods_path(rodsPath_t *rods_path, char *inpath);
 
 /**
  * Initialise and resolve an iRODS path by copying a string into its
@@ -170,6 +183,14 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
 json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *error);
+
+int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                       recursive_op recurse, char *owner_specifier,
+                       char *access_level,  baton_error_t *error);
+
+int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                            recursive_op recurse, json_t *perms,
+                            baton_error_t *error);
 
 /**
  * List metadata of a specified data object or collection.
@@ -192,10 +213,10 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  * @param[in]  query       A JSON query specification which includes the
  *                         attribute name and value to match. It may also have
  *                         an iRODS path to limit search scope. Only results
-                           under this path will be returned. Omitting the path
-                           means the search will be global.
+ *                          under this path will be returned. Omitting the path
+ *                         means the search will be global.
  * @param[in]  zone_name   An iRODS zone name. Optional, NULL means the current
-                           zone.
+ *                         zone.
  * @param[out] error       An error report struct.
  *
  * @return A newly constructed JSON array of JSON result objects.
@@ -206,13 +227,13 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
  *
- * @param[in]  conn        An open iRODS connection.
- * @param[in]  rodspath    A resolved iRODS path.
- * @param[in]  op          An operation to apply e.g. ADD, REMOVE.
- * @param[in]  attr_name   The attribute name.
- * @param[in]  attr_value  The attribute value.
- * @param[in]  attr_unit   The attribute unit (the empty string for none).
- * @param[out] error       An error report struct.
+ * @param[in]     conn        An open iRODS connection.
+ * @param[in]     rodspath    A resolved iRODS path.
+ * @param[in]     op          An operation to apply e.g. ADD, REMOVE.
+ * @param[in]     attr_name   The attribute name.
+ * @param[in]     attr_value  The attribute value.
+ * @param[in]     attr_unit   The attribute unit (the empty string for none).
+ * @param[in,out] error       An error report struct.
  *
  * @return 0 on success, iRODS error code on failure.
  */
@@ -270,7 +291,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
  * @param[in]  query_in      A populated query input.
  * @param[in]  labels        An array of as many labels as there were columns
  *                           selected in the query.
- * @param[out] error         An error report struct.
+ * @param[in,out] error      An error report struct.
  *
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.

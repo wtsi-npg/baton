@@ -94,27 +94,35 @@ error:
     return NULL;
 }
 
-int starts_with(const char *str, const char *prefix) {
+int str_starts_with(const char *str, const char *prefix) {
     if (!str || !prefix) return 0;
 
-    size_t len = strlen(str);
+    size_t len  = strlen(str);
     size_t plen = strlen(prefix);
 
     // A string always starts with the empty string
-    if (plen == 0) return 1;
+    if (plen == 0)  return 1;
     if (plen > len) return 0;
 
     return strncmp(str, prefix, plen) == 0;
 }
 
-int ends_with(const char *str, const char *suffix) {
+int str_equals(const char *str1, const char *str2) {
+    return (strncmp(str1, str2, strlen(str2)) == 0);
+}
+
+int str_equals_ignore_case(const char *str1, const char *str2) {
+    return (strncasecmp(str1, str2, strlen(str2)) == 0);
+}
+
+int str_ends_with(const char *str, const char *suffix) {
     if (!str || !suffix) return 0;
 
-    size_t len = strlen(str);
+    size_t len  = strlen(str);
     size_t slen = strlen(suffix);
 
     // A string always ends with the empty string
-    if (slen == 0) return 1;
+    if (slen == 0)  return 1;
     if (slen > len) return 0;
 
     return strncmp(str + (len - slen), suffix, len) == 0;

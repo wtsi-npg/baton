@@ -28,13 +28,13 @@
 #include "../src/json.h"
 
 static int MAX_COMMAND_LEN = 1024;
-static int MAX_PATH_LEN = 4096;
+static int MAX_PATH_LEN    = 4096;
 
-static char *BASIC_COLL = "baton-basic-test";
-static char *BASIC_DATA_PATH = "./data/";
+static char *BASIC_COLL          = "baton-basic-test";
+static char *BASIC_DATA_PATH     = "./data/";
 static char *BASIC_METADATA_PATH = "./metadata/meta1.imeta";
 
-static char *SETUP_SCRIPT = "./scripts/setup_irods.sh";
+static char *SETUP_SCRIPT    = "./scripts/setup_irods.sh";
 static char *TEARDOWN_SCRIPT = "./scripts/teardown_irods.sh";
 
 static void set_current_rods_root(char *in, char *out) {
@@ -77,27 +77,43 @@ static void basic_teardown() {
     if (ret != 0) raise(SIGINT);
 }
 
-START_TEST(test_starts_with) {
-    ck_assert_msg(starts_with("", ""), "'' starts with ''");
-    ck_assert_msg(starts_with("a", ""), "'a' starts with ''");
-    ck_assert_msg(starts_with("a", "a"), "'a' starts with 'a'");
-    ck_assert_msg(starts_with("ab", "a"), "'ab' starts with 'a'");
+START_TEST(test_str_starts_with) {
+    ck_assert_msg(str_starts_with("", ""),    "'' starts with ''");
+    ck_assert_msg(str_starts_with("a", ""),   "'a' starts with ''");
+    ck_assert_msg(str_starts_with("a", "a"),  "'a' starts with 'a'");
+    ck_assert_msg(str_starts_with("ab", "a"), "'ab' starts with 'a'");
 
-    ck_assert_msg(!starts_with("", "a"), "'' !starts with 'a'");
-    ck_assert_msg(!starts_with("b", "a"), "'b' !starts with 'a'");
-    ck_assert_msg(!starts_with("ba", "a"), "'ba' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("", "a"),   "'' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("b", "a"),  "'b' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("ba", "a"), "'ba' !starts with 'a'");
 }
 END_TEST
 
-START_TEST(test_ends_with) {
-    ck_assert_msg(ends_with("", ""), "'' ends with ''");
-    ck_assert_msg(ends_with("a", ""), "'a' ends with ''");
-    ck_assert_msg(ends_with("a", "a"), "'a' ends with 'a'");
-    ck_assert_msg(ends_with("ba", "a"), "'ba' ends with 'a'");
+START_TEST(test_str_ends_with) {
+    ck_assert_msg(str_ends_with("", ""),    "'' ends with ''");
+    ck_assert_msg(str_ends_with("a", ""),   "'a' ends with ''");
+    ck_assert_msg(str_ends_with("a", "a"),  "'a' ends with 'a'");
+    ck_assert_msg(str_ends_with("ba", "a"), "'ba' ends with 'a'");
 
-    ck_assert_msg(!ends_with("", "a"), "'' !ends with 'a'");
-    ck_assert_msg(!ends_with("b", "a"), "'b' !ends with 'a'");
-    ck_assert_msg(!ends_with("ab", "a"), "'ab' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("", "a"),   "'' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("b", "a"),  "'b' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("ab", "a"), "'ab' !ends with 'a'");
+}
+END_TEST
+
+START_TEST(test_str_equals) {
+    ck_assert_msg(str_equals("", ""),    "'' equals ''");
+    ck_assert_msg(str_equals(" ", " "),  "' ' equals ' '");
+    ck_assert_msg(str_equals("a", "a"),  "'a' equals 'a'");
+    ck_assert_msg(!str_equals("a", "A"), "'a' !equals 'A'");
+}
+END_TEST
+
+START_TEST(test_str_equals_ignore_case) {
+    ck_assert_msg(str_equals_ignore_case("", ""),   "'' equals ''");
+    ck_assert_msg(str_equals_ignore_case(" ", " "), "' ' equals ' '");
+    ck_assert_msg(str_equals_ignore_case("a", "a"), "'a' equals 'a'");
+    ck_assert_msg(str_equals_ignore_case("a", "A"), "'a' equals 'A'");
 }
 END_TEST
 
@@ -170,14 +186,16 @@ START_TEST(test_list_obj) {
     baton_error_t error;
     json_t *results = list_path(conn, &rods_obj_path, &error);
     json_t *expected = json_pack("{s:s, s:s}",
-                                 "collection", rods_path.outPath,
-                                 "data_object", "f1.txt");
+                                 JSON_COLLECTION_KEY,  rods_path.outPath,
+                                 JSON_DATA_OBJECT_KEY, "f1.txt");
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -206,21 +224,23 @@ START_TEST(test_list_coll) {
     json_t *expected =
         json_pack("[{s:s, s:s}, {s:s, s:s}, {s:s, s:s}"
                   " {s:s}, {s:s}, {s:s}]",
-                  "collection", rods_path.outPath,
-                  "data_object", "f1.txt",
-                  "collection", rods_path.outPath,
-                  "data_object", "f2.txt",
-                  "collection", rods_path.outPath,
-                  "data_object", "f3.txt",
-                  "collection", a,
-                  "collection", b,
-                  "collection", c);
+                  JSON_COLLECTION_KEY, rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "f1.txt",
+                  JSON_COLLECTION_KEY, rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "f2.txt",
+                  JSON_COLLECTION_KEY, rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "f3.txt",
+                  JSON_COLLECTION_KEY, a,
+                  JSON_COLLECTION_KEY, b,
+                  JSON_COLLECTION_KEY, c);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -266,15 +286,17 @@ START_TEST(test_list_metadata_obj) {
     baton_error_t error;
     json_t *results = list_metadata(conn, &rods_path, NULL, &error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
-                                 "attribute", "attr1",
-                                 "value", "value1",
-                                 "units", "units1");
+                                 JSON_ATTRIBUTE_KEY, "attr1",
+                                 JSON_VALUE_KEY,     "value1",
+                                 JSON_UNITS_KEY,     "units1");
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -295,15 +317,17 @@ START_TEST(test_list_metadata_coll) {
     baton_error_t error;
     json_t *results = list_metadata(conn, &rods_path, NULL, &error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
-                                 "attribute", "attr2",
-                                 "value", "value2",
-                                 "units", "units2");
+                                 JSON_ATTRIBUTE_KEY, "attr2",
+                                 JSON_VALUE_KEY,     "value2",
+                                 JSON_UNITS_KEY,     "units2");
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -316,27 +340,26 @@ START_TEST(test_search_metadata_obj) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     json_t *avu = json_pack("{s:s, s:s}",
-                            "attribute", "attr1",
-                            "value", "value1");
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              "collection", rods_root,
-                              "avus", avu);
+                              JSON_COLLECTION_KEY, rods_root,
+                              JSON_AVUS_KEY,       avu);
 
     baton_error_t error;
     json_t *results = search_metadata(conn, query, NULL, &error);
     ck_assert_int_eq(json_array_size(results), 12);
 
-    const char *key1 = "collection";
-    const char *key2 = "data_object";
-
     for (size_t i = 0; i < 12; i++) {
         json_t *obj = json_array_get(results, i);
-        ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
-        ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
     }
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -351,27 +374,26 @@ START_TEST(test_search_metadata_path_obj) {
     snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_root);
 
     json_t *avu = json_pack("{s:s, s:s}",
-                            "attribute", "attr1",
-                            "value", "value1");
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              "collection", search_root,
-                              "avus", avu);
+                              JSON_COLLECTION_KEY, search_root,
+                              JSON_AVUS_KEY,       avu);
 
     baton_error_t error;
     json_t *results = search_metadata(conn, query, NULL, &error);
     ck_assert_int_eq(json_array_size(results), 3);
 
-    const char *key1 = "collection";
-    const char *key2 = "data_object";
-
     for (size_t i = 0; i < 3; i++) {
         json_t *obj = json_array_get(results, i);
-        ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
-        ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
     }
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -384,23 +406,25 @@ START_TEST(test_search_metadata_coll) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     json_t *avu = json_pack("{s:s, s:s}",
-                            "attribute", "attr2",
-                            "value", "value2");
+                            JSON_ATTRIBUTE_KEY, "attr2",
+                            JSON_VALUE_KEY,     "value2");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              "collection", rods_root,
-                              "avus", avu);
+                              JSON_COLLECTION_KEY, rods_root,
+                              JSON_AVUS_KEY,       avu);
 
     baton_error_t error;
     json_t *results = search_metadata(conn, query, NULL, &error);
     ck_assert_int_eq(json_array_size(results), 3);
     for (size_t i = 0; i < 3; i++) {
         json_t *coll = json_array_get(results, i);
-        ck_assert_ptr_ne(json_object_get(coll, "collection"), NULL);
-        ck_assert_ptr_eq(json_object_get(coll, "data_object"), NULL);
+        ck_assert_ptr_ne(json_object_get(coll, JSON_COLLECTION_KEY), NULL);
+        ck_assert_ptr_eq(json_object_get(coll, JSON_DATA_OBJECT_KEY), NULL);
     }
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -419,21 +443,24 @@ START_TEST(test_add_metadata_obj) {
                      EXIST_ST);
 
     baton_error_t error;
+    init_baton_error(&error);
     int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
                              "test_value", "test_units", &error);
     ck_assert_int_eq(rv, 0);
 
     json_t *results = list_metadata(conn, &rods_path, "test_attr", &error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
-                                 "attribute", "test_attr",
-                                 "value", "test_value",
-                                 "units", "test_units");
+                                 JSON_ATTRIBUTE_KEY, "test_attr",
+                                 JSON_VALUE_KEY,     "test_value",
+                                 JSON_UNITS_KEY,     "test_units");
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -452,6 +479,7 @@ START_TEST(test_remove_metadata_obj) {
                      EXIST_ST);
 
     baton_error_t error;
+    init_baton_error(&error);
     int rv = modify_metadata(conn, &rods_path, META_REM, "attr1",
                              "value1", "units1", &error);
     ck_assert_int_eq(rv, 0);
@@ -464,6 +492,8 @@ START_TEST(test_remove_metadata_obj) {
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -482,9 +512,9 @@ START_TEST(test_add_json_metadata_obj) {
                      EXIST_ST);
 
     json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            "attribute", "test_attr",
-                            "value", "test_value",
-                            "units", "test_units");
+                            JSON_ATTRIBUTE_KEY, "test_attr",
+                            JSON_VALUE_KEY,     "test_value",
+                            JSON_UNITS_KEY,     "test_units");
     baton_error_t error;
     int rv = modify_json_metadata(conn, &rods_path, META_ADD, avu, &error);
     ck_assert_int_eq(rv, 0);
@@ -498,6 +528,8 @@ START_TEST(test_add_json_metadata_obj) {
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -516,9 +548,9 @@ START_TEST(test_remove_json_metadata_obj) {
                      EXIST_ST);
 
     json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            "attribute", "attr1",
-                            "value", "value1",
-                            "units", "units1");
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1",
+                            JSON_UNITS_KEY,     "units1");
     baton_error_t error;
     int rv = modify_json_metadata(conn, &rods_path, META_REM, avu, &error);
     ck_assert_int_eq(rv, 0);
@@ -531,6 +563,68 @@ START_TEST(test_remove_json_metadata_obj) {
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we change permissions on a data object?
+START_TEST(test_modify_permissions_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    init_baton_error(&error);
+    int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
+                                ACCESS_READ, &error);
+    ck_assert_int_eq(rv, 0);
+
+    // TODO: check the new permissions are in place (there is no high
+    // level iRODS API for this).
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we change JSON permissions on a data object?
+START_TEST(test_modify_json_permissions_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    json_t *perm = json_pack("{s:s, s:s}",
+                             JSON_OWNER_KEY, "public",
+                             JSON_LEVEL_KEY,  ACCESS_READ);
+
+    baton_error_t error;
+    int rv = modify_json_permissions(conn, &rods_path, NO_RECURSE, perm,
+                                     &error);
+    ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(error.code, 0);
+
+    // TODO: check the new permissions are in place (there is no high
+    // level iRODS API for this).
+
+    json_decref(perm);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -550,11 +644,10 @@ START_TEST(test_rods_path_to_json_obj) {
 
     json_t *path = data_object_path_to_json(rods_path.outPath);
     json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            "attribute", "attr1",
-                            "value", "value1",
-                            "units", "units1");
-    json_t *expected = json_pack("{s:[o]}",
-                                 "avus", avu);
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1",
+                            JSON_UNITS_KEY,     "units1");
+    json_t *expected = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
     json_object_update(expected, path);
 
     json_t *obj = rods_path_to_json(conn, &rods_path);
@@ -562,6 +655,8 @@ START_TEST(test_rods_path_to_json_obj) {
 
     json_decref(obj);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -581,11 +676,10 @@ START_TEST(test_rods_path_to_json_coll) {
 
     json_t *path = collection_path_to_json(rods_path.outPath);
     json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            "attribute", "attr2",
-                            "value", "value2",
-                            "units", "units2");
-    json_t *expected = json_pack("{s:[o]}",
-                                 "avus", avu);
+                            JSON_ATTRIBUTE_KEY, "attr2",
+                            JSON_VALUE_KEY,     "value2",
+                            JSON_UNITS_KEY,     "units2");
+    json_t *expected = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
     json_object_update(expected, path);
 
     json_t *coll = rods_path_to_json(conn, &rods_path);
@@ -593,13 +687,15 @@ START_TEST(test_rods_path_to_json_coll) {
 
     json_decref(coll);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
 // Can we convert JSON representation to a useful path string?
 START_TEST(test_json_to_path) {
     const char *coll_path = "/a/b/c";
-    json_t *coll = json_pack("{s:s}", "collection", coll_path);
+    json_t *coll = json_pack("{s:s}", JSON_COLLECTION_KEY, coll_path);
     baton_error_t error_col;
     ck_assert_str_eq(json_to_path(coll, &error_col), coll_path);
     ck_assert_int_eq(error_col.code, 0);
@@ -607,16 +703,16 @@ START_TEST(test_json_to_path) {
 
     const char *obj_path = "/a/b/c.txt";
     json_t *obj = json_pack("{s:s, s:s}",
-                            "collection", "/a/b",
-                            "data_object", "c.txt");
+                            JSON_COLLECTION_KEY,  "/a/b",
+                            JSON_DATA_OBJECT_KEY, "c.txt");
     baton_error_t error_obj;
     ck_assert_str_eq(json_to_path(obj, &error_obj), obj_path);
     ck_assert_int_eq(error_obj.code, 0);
     json_decref(obj);
 
     // No collection key:value
-    json_t *malformed_obj = json_pack("{s:s}",
-                                      "data_object", "c.txt");
+    json_t *malformed_obj = json_pack("{s:s}", JSON_DATA_OBJECT_KEY, "c.txt");
+
     baton_error_t error;
     ck_assert_ptr_eq(json_to_path(malformed_obj, &error), NULL);
     ck_assert_int_ne(error.code, 0);
@@ -628,8 +724,10 @@ Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
     TCase *utilities_tests = tcase_create("utilities");
-    tcase_add_test(utilities_tests, test_starts_with);
-    tcase_add_test(utilities_tests, test_ends_with);
+    tcase_add_test(utilities_tests, test_str_equals);
+    tcase_add_test(utilities_tests, test_str_equals_ignore_case);
+    tcase_add_test(utilities_tests, test_str_starts_with);
+    tcase_add_test(utilities_tests, test_str_ends_with);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);
@@ -654,6 +752,9 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_remove_metadata_obj);
     tcase_add_test(basic_tests, test_add_json_metadata_obj);
     tcase_add_test(basic_tests, test_remove_json_metadata_obj);
+
+    tcase_add_test(basic_tests, test_modify_permissions_obj);
+    tcase_add_test(basic_tests, test_modify_json_permissions_obj);
 
     tcase_add_test(basic_tests, test_rods_path_to_json_obj);
     tcase_add_test(basic_tests, test_rods_path_to_json_coll);

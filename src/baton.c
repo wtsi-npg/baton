@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * @file baton.c
+ * @author Keith James <kdj@sanger.ac.uk>
  */
 
 #include <assert.h>
@@ -363,8 +364,8 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
 error:
     logmsg(ERROR, BATON_CAT, error->message);
 
-    if (results) json_decref(results);
-    if (collections) json_decref(collections);
+    if (results)      json_decref(results);
+    if (collections)  json_decref(collections);
     if (data_objects) json_decref(data_objects);
 
     return NULL;
@@ -428,16 +429,16 @@ static genQueryInp_t *prepare_json_search(genQueryInp_t *query_in,
     int num_clauses = json_array_size(avus);
 
     for (int i = 0; i < num_clauses; i++) {
-        const json_t *avu  = json_array_get(avus, i);
+        const json_t *avu = json_array_get(avus, i);
         if (!json_is_object(avu)) {
-            set_baton_error(error, -1, "Invalid AVU at position %d of %d: not"
+            set_baton_error(error, -1, "Invalid AVU at position %d of %d: not "
                             "a JSON object", i, num_clauses);
             goto error;
         }
 
-        json_t *attr = json_object_get(avu, JSON_ATTRIBUTE_KEY);
+        json_t *attr  = json_object_get(avu, JSON_ATTRIBUTE_KEY);
         json_t *value = json_object_get(avu, JSON_VALUE_KEY);
-        json_t *oper = json_object_get(avu, JSON_OPERATOR_KEY);
+        json_t *oper  = json_object_get(avu, JSON_OPERATOR_KEY);
 
         if (!json_is_string(attr)) {
             set_baton_error(error, -1, "Invalid attribute: not a JSON string");
@@ -457,10 +458,8 @@ static genQueryInp_t *prepare_json_search(genQueryInp_t *query_in,
         const char *attr_oper  = oper ? json_string_value(oper) :
             META_SEARCH_EQUALS;
 
-        if (strncasecmp(attr_oper, META_SEARCH_EQUALS,
-                        strlen(META_SEARCH_EQUALS)) == 0 ||
-            strncasecmp(attr_oper, META_SEARCH_LIKE,
-                        strlen(META_SEARCH_LIKE)) == 0) {
+        if (str_equals_ignore_case(attr_oper, META_SEARCH_EQUALS) ||
+            str_equals_ignore_case(attr_oper, META_SEARCH_LIKE)) {
             prepare(query_in, attr_name, attr_value, attr_oper);
         }
         else {
@@ -477,6 +476,113 @@ error:
     return NULL;
 }
 
+int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                       recursive_op recurse, char *owner_specifier,
+                       char *access_level, baton_error_t *error) {
+    int status;
+    char user_name[NAME_LEN];
+    char zone_name[NAME_LEN];
+    modAccessControlInp_t mod_perms_in;
+
+    status = parseUserName(owner_specifier, user_name, zone_name);
+    if (status != 0) {
+        set_baton_error(error, -1, "Failed to chmod '%s' because of an invalid "
+                        "owner format '%s'", rods_path->outPath,
+                        owner_specifier);
+        goto error;
+    }
+
+    logmsg(DEBUG, BATON_CAT, "Parsed owner to user: '%s' zone: '%s'",
+           user_name, zone_name);
+
+    mod_perms_in.recursiveFlag = recurse;
+    mod_perms_in.accessLevel   = access_level;
+    mod_perms_in.userName      = user_name;
+    mod_perms_in.zone          = zone_name;
+    mod_perms_in.path          = rods_path->outPath;
+
+    if (str_equals_ignore_case(access_level, ACCESS_OWN)   ||
+        str_equals_ignore_case(access_level, ACCESS_WRITE) ||
+        str_equals_ignore_case(access_level, ACCESS_READ)  ||
+        str_equals_ignore_case(access_level, ACCESS_NULL)) {
+        status = rcModAccessControl(conn, &mod_perms_in);
+    }
+    else {
+        set_baton_error(error, -1, "Invalid permission level: expected one of ["
+                        "%s, %s, %s, %s]",
+                        ACCESS_OWN, ACCESS_WRITE,
+                        ACCESS_READ, ACCESS_NULL);
+        goto error;
+    }
+
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to modify permissions of '%s' "
+                        "to '%s' for '%s'", rods_path->outPath, access_level,
+                        owner_specifier);
+        goto error;
+    }
+
+    logmsg(DEBUG, BATON_CAT, "Set permissions of '%s' to '%s' for '%s'",
+           rods_path->outPath, access_level, owner_specifier);
+
+    return status;
+
+error:
+    if (conn->rError) {
+        logmsg(ERROR, BATON_CAT, error->message);
+        log_rods_errstack(ERROR, BATON_CAT, conn->rError);
+    }
+    else {
+        logmsg(ERROR, BATON_CAT, error->message);
+    }
+
+    return status;
+}
+
+int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                            recursive_op recurse, json_t *perm,
+                            baton_error_t *error) {
+    char *owner_specifier = NULL;
+    char *access_level    = NULL;
+    init_baton_error(error);
+
+    if (!json_is_object(perm)) {
+        set_baton_error(error, -1, "Invalid permissions specifiction: "
+                        "not a JSON object");
+        goto error;
+    }
+
+    json_t *user  = json_object_get(perm, JSON_OWNER_KEY);
+    json_t *level = json_object_get(perm, JSON_LEVEL_KEY);
+    if (!json_is_string(user)) {
+        set_baton_error(error, -1, "Invalid owner: not a JSON string");
+        goto error;
+    }
+    if (!json_is_string(level)) {
+        set_baton_error(error, -1, "Invalid access level: not a JSON string");
+        goto error;
+    }
+
+    owner_specifier = copy_str(json_string_value(user));
+    access_level    = copy_str(json_string_value(level));
+
+    int status = modify_permissions(conn, rods_path, recurse, owner_specifier,
+                                    access_level, error);
+
+    if (owner_specifier) free(owner_specifier);
+    if (access_level)    free(access_level);
+
+    return status;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (owner_specifier) free(owner_specifier);
+    if (access_level)    free(access_level);
+
+    return -1;
+}
+
 int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                     metadata_op operation,
                     char *attr_name, char *attr_value, char *attr_units,
@@ -485,7 +591,6 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     char *err_name;
     char *err_subname;
     char *type_arg;
-    init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
         set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
@@ -553,32 +658,41 @@ error:
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
                          baton_error_t *error) {
-    char *err_name;
-    char *err_subname;
-
-    char *attr_name = NULL;
+    char *attr_name  = NULL;
     char *attr_value = NULL;
     char *attr_units = NULL;
+    init_baton_error(error);
 
-    const char *key;
-    json_t *value;
-    json_object_foreach(avu, key, value) {
-        if ((strncmp(key, JSON_ATTRIBUTE_KEY,
-                     strlen(JSON_ATTRIBUTE_KEY)) == 0)) {
-            attr_name = copy_str(json_string_value(value));
-        }
-        else if ((strncmp(key, JSON_VALUE_KEY,
-                          strlen(JSON_VALUE_KEY)) == 0)) {
-            attr_value = copy_str(json_string_value(value));
-        }
-        else if ((strncmp(key, JSON_UNITS_KEY,
-                          strlen(JSON_UNITS_KEY)) == 0)) {
-            attr_units = copy_str(json_string_value(value));
-        }
+    if (!json_is_object(avu)) {
+        set_baton_error(error, -1, "Invalid AVU: not a JSON object");
+        goto error;
     }
 
+    json_t *attr  = json_object_get(avu, JSON_ATTRIBUTE_KEY);
+    json_t *value = json_object_get(avu, JSON_VALUE_KEY);
+    json_t *units = json_object_get(avu, JSON_UNITS_KEY);
+
+    if (!json_is_string(attr)) {
+        set_baton_error(error, -1, "Invalid attribute: not a JSON string");
+        goto error;
+    }
+    if (value && !json_is_string(value)) {
+        set_baton_error(error, -1, "Invalid value: not a JSON string");
+        goto error;
+    }
+    if (units && !json_is_string(units)) {
+        set_baton_error(error, -1, "Invalid units: not a JSON string");
+        goto error;
+    }
+
+    if (attr)  attr_name  = copy_str(json_string_value(attr));
+    if (value) attr_value = copy_str(json_string_value(value));
+
     // Units are optional
-    if (!attr_units) {
+    if (units) {
+        attr_units = copy_str(json_string_value(units));
+    }
+    else {
         attr_units = calloc(1, sizeof (char));
         if (!attr_units) {
             set_baton_error(error, errno,
@@ -593,7 +707,7 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     int status = modify_metadata(conn, rods_path, operation,
                                  attr_name, attr_value, attr_units, error);
 
-    if (attr_name) free(attr_name);
+    if (attr_name)  free(attr_name);
     if (attr_value) free(attr_value);
     if (attr_units) free(attr_units);
 
@@ -601,6 +715,10 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
 
 error:
     logmsg(ERROR, BATON_CAT, error->message);
+
+    if (attr_name)  free(attr_name);
+    if (attr_value) free(attr_value);
+    if (attr_units) free(attr_units);
 
     return -1;
 }
@@ -622,12 +740,12 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
 
     special_select_ops[0] = 0;
 
-    query_in->selectInp.inx = cols_to_select;
+    query_in->selectInp.inx   = cols_to_select;
     query_in->selectInp.value = special_select_ops;
-    query_in->selectInp.len = num_columns;
+    query_in->selectInp.len   = num_columns;
 
-    query_in->maxRows = max_rows;
-    query_in->continueInx = 0;
+    query_in->maxRows       = max_rows;
+    query_in->continueInx   = 0;
     query_in->condInput.len = 0;
 
     int *query_cond_indices = calloc(MAX_NUM_CONDITIONALS, sizeof (int));
@@ -636,9 +754,9 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));
     if (!query_cond_values) goto error;
 
-    query_in->sqlCondInp.inx = query_cond_indices;
+    query_in->sqlCondInp.inx   = query_cond_indices;
     query_in->sqlCondInp.value = query_cond_values;
-    query_in->sqlCondInp.len = 0;
+    query_in->sqlCondInp.len   = 0;
 
     return query_in;
 
@@ -1126,7 +1244,7 @@ static genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
 
     if (len > 0) {
         // Absolute path
-        if (starts_with(root_path, "/")) {
+        if (str_starts_with(root_path, "/")) {
             path = calloc(len + 2, sizeof (char));
             if (!path) goto error;
 
