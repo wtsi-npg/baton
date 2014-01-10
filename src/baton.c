@@ -53,6 +53,12 @@ static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
                                        const char *attr_name);
 
+static genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
+                                           rodsPath_t *rods_path);
+
+static genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
+                                           rodsPath_t *rods_path);
+
 static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_in,
                                          const char *attr_name,
                                          const char *attr_value,
@@ -76,7 +82,7 @@ static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                          baton_error_t *error);
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
-                                         baton_error_t *error);
+                               baton_error_t *error);
 
 void log_rods_errstack(log_level level, const char *category, rError_t *error) {
     rErrMsg_t *errmsg;
@@ -182,7 +188,7 @@ int init_rods_path(rodsPath_t *rodspath, char *inpath) {
 
     memset(rodspath, 0, sizeof (rodsPath_t));
     char *dest = rstrcpy(rodspath->inPath, inpath, MAX_NAME_LEN);
-    if (!dest) return -1;
+    if (!dest) return USER_PATH_EXCEEDS_MAX;
 
     return 0;
 }
@@ -208,6 +214,33 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
     if (status < 0) {
         logmsg(ERROR, BATON_CAT, "Failed to stat iRODS path '%s'",
                rods_path->inPath);
+        goto error;
+    }
+
+    return status;
+
+error:
+    return status;
+}
+
+int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
+    int status;
+
+    status = init_rods_path(rods_path, path);
+    if (status < 0) {
+        logmsg(ERROR, BATON_CAT, "Failed to create iRODS path '%s'", path);
+        goto error;
+    }
+
+    char *dest = rstrcpy(rods_path->outPath, path, MAX_NAME_LEN);
+    if (!dest) {
+        status = USER_PATH_EXCEEDS_MAX;
+        goto error;
+    }
+
+    status = getRodsObjType(conn, rods_path);
+    if (status < 0) {
+        logmsg(ERROR, BATON_CAT, "Failed to stat iRODS path '%s'", path);
         goto error;
     }
 
@@ -244,7 +277,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
 
         default:
             set_baton_error(error, USER_INPUT_PATH_ERR,
-                            "Failed to list metadata on '%s' as it is "
+                            "Failed to list '%s' as it is "
                             "neither data object nor collection",
                             rods_path->outPath);
             goto error;
@@ -253,6 +286,70 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
     return results;
 
 error:
+    if (results) json_decref(results);
+
+    return NULL;
+}
+
+json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                         baton_error_t *error) {
+    const char *labels[] = { JSON_OWNER_KEY, JSON_LEVEL_KEY };
+
+    int num_cols = 2;
+    int max_rows = 10;
+    int cols[num_cols];
+
+    genQueryInp_t *query_in = NULL;
+    json_t *results = NULL;
+    init_baton_error(error);
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
+                   rods_path->outPath);
+            cols[0] = COL_USER_NAME;
+            cols[1] = COL_DATA_ACCESS_NAME;
+            query_in = make_query_input(max_rows, num_cols, cols);
+            query_in = prepare_obj_acl_list(query_in, rods_path);
+            break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
+                   rods_path->outPath);
+            cols[0] = COL_COLL_USER_NAME;
+            cols[1] = COL_COLL_ACCESS_NAME;
+            query_in = make_query_input(max_rows, num_cols, cols);
+            query_in = prepare_col_acl_list(query_in, rods_path);
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list metadata on '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    results = do_query(conn, query_in, labels, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, BATON_CAT, "Obtained ACL data on '%s'", rods_path->outPath);
+    free_query_input(query_in);
+
+    return results;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to list ACL on '%s': error %d %s",
+           rods_path->outPath, error->code, error->message);
+
+    if (query_in) free_query_input(query_in);
     if (results) json_decref(results);
 
     return NULL;
@@ -456,15 +553,15 @@ static genQueryInp_t *prepare_json_search(genQueryInp_t *query_in,
         const char *attr_name  = json_string_value(attr);
         const char *attr_value = json_string_value(value);
         const char *attr_oper  = oper ? json_string_value(oper) :
-            META_SEARCH_EQUALS;
+            SEARCH_OP_EQUALS;
 
-        if (str_equals_ignore_case(attr_oper, META_SEARCH_EQUALS) ||
-            str_equals_ignore_case(attr_oper, META_SEARCH_LIKE)) {
+        if (str_equals_ignore_case(attr_oper, SEARCH_OP_EQUALS) ||
+            str_equals_ignore_case(attr_oper, SEARCH_OP_LIKE)) {
             prepare(query_in, attr_name, attr_value, attr_oper);
         }
         else {
             set_baton_error(error, -1, "Invalid operator: expected one of ["
-                            "%s, %s]", META_SEARCH_EQUALS, META_SEARCH_LIKE);
+                            "%s, %s]", SEARCH_OP_EQUALS, SEARCH_OP_LIKE);
         }
      }
 
@@ -946,6 +1043,8 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
                            "Failed to parse string '%s'; is it UTF-8?", result);
                     goto error;
                 }
+
+                // TODO: check return value
                 json_object_set_new(jrow, labels[i], jvalue);
             }
         }
@@ -1156,13 +1255,13 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
     char *data_name = basename(path2);
 
     query_cond_t cn = { .column   = COL_COLL_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = coll_name };
     query_cond_t dn = { .column   = COL_DATA_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = data_name };
     query_cond_t an = { .column   = COL_META_DATA_ATTR_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
 
     int num_conds = 2;
@@ -1186,15 +1285,44 @@ error:
     return NULL;
 }
 
+static genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
+                                           rodsPath_t *rods_path) {
+    char *data_id = rods_path->dataId;
+    query_cond_t id = { .column   = COL_DATA_ACCESS_DATA_ID,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = data_id };
+    query_cond_t at = { .column   = COL_DATA_TOKEN_NAMESPACE,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = ACCESS_NAMESPACE };
+
+    int num_conds = 2;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { id, at });
+}
+
+static genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
+                                           rodsPath_t *rods_path) {
+    char *path = rods_path->outPath;
+    query_cond_t cn = { .column   = COL_COLL_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = path };
+    query_cond_t at = { .column   = COL_COLL_TOKEN_NAMESPACE,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = ACCESS_NAMESPACE };
+
+    int num_conds = 2;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, at });
+}
+
+
 static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
                                        const char *attr_name) {
     char *path = rods_path->outPath;
     query_cond_t cn = { .column   = COL_COLL_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = path };
     query_cond_t an = { .column   = COL_META_COLL_ATTR_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
 
     int num_conds = 1;
@@ -1213,7 +1341,7 @@ static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_in,
                                          const char *attr_value,
                                          const char *operator) {
     query_cond_t an = { .column   = COL_META_DATA_ATTR_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
     query_cond_t av = { .column   = COL_META_DATA_ATTR_VALUE,
                         .operator = operator,
@@ -1228,7 +1356,7 @@ static genQueryInp_t *prepare_col_search(genQueryInp_t *query_in,
                                          const char *attr_value,
                                          const char *operator) {
     query_cond_t an = { .column   = COL_META_COLL_ATTR_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
     query_cond_t av = { .column   = COL_META_COLL_ATTR_VALUE,
                         .operator = operator,
@@ -1258,7 +1386,7 @@ static genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
         }
 
         query_cond_t pv = { .column   = COL_COLL_NAME,
-                            .operator = META_SEARCH_LIKE,
+                            .operator = SEARCH_OP_LIKE,
                             .value    = path };
 
         int num_conds = 1;

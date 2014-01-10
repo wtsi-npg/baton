@@ -28,8 +28,9 @@
 
 #include "utilities.h"
 
-#define ACCESS_READ  "read"
-#define ACCESS_WRITE "write"
+#define ACCESS_READ       "read"
+#define ACCESS_WRITE      "write"
+#define ACCESS_NAMESPACE  "access_type"
 
 #define MAX_NUM_CONDITIONALS 20
 #define MAX_ERROR_MESSAGE_LEN 1024
@@ -37,17 +38,18 @@
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rm"
 
-#define META_SEARCH_EQUALS "="
-#define META_SEARCH_LIKE   "like"
+#define SEARCH_OP_EQUALS "="
+#define SEARCH_OP_LIKE   "like"
 
-#define JSON_ATTRIBUTE_KEY "attribute"
-#define JSON_VALUE_KEY     "value"
-#define JSON_UNITS_KEY     "units"
-#define JSON_AVUS_KEY      "avus"
-#define JSON_OPERATOR_KEY  "operator"
-#define JSON_ACCESS_KEY    "access"
-#define JSON_OWNER_KEY     "owner"
-#define JSON_LEVEL_KEY     "level"
+#define JSON_ATTRIBUTE_KEY  "attribute"
+#define JSON_VALUE_KEY      "value"
+#define JSON_UNITS_KEY      "units"
+#define JSON_AVUS_KEY       "avus"
+#define JSON_OPERATOR_KEY   "operator"
+#define JSON_ACCESS_KEY     "access"
+#define JSON_OWNER_KEY      "owner"
+#define JSON_LEVEL_KEY      "level"
+
 
 /**
  *  @enum metadata_op
@@ -128,6 +130,8 @@ void log_rods_errstack(log_level level, const char *category, rError_t *error);
 void log_json_error(log_level level, const char *category,
                     json_error_t *error);
 
+void init_baton_error(baton_error_t *error);
+
 /**
  * Set error state information. The size field will be set to the
  * length of the formatted message.
@@ -180,9 +184,26 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath);
 int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
                       rodsPath_t *rods_path, char *inpath);
 
+/**
+ * Initialise and set an iRODS path by copying a string into both its
+ * inPath and outPath and then resolving it on the server. The path is not
+ * parsed, so must be derived from an existing parsed path.
+ *
+ * @param[in]  conn      An open iRODS connection.
+ * @param[in]  env       A populated iRODS environment.
+ * @param[out] rodspath  An iRODS path.
+ * @param[in]  path      A string representing an unresolved iRODS path.
+ *
+ * @return 0 on success, iRODS error code on failure.
+ */
+int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
+
 json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *error);
+
+json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                         baton_error_t *error);
 
 int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
                        recursive_op recurse, char *owner_specifier,

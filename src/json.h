@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
+ * @file json.h
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
@@ -23,7 +24,11 @@
 #include "baton.h"
 
 #define JSON_DATA_OBJECT_KEY "data_object"
-#define JSON_COLLECTION_KEY "collection"
+#define JSON_COLLECTION_KEY  "collection"
+
+#define JSON_ERROR_KEY       "error"
+#define JSON_ERROR_CODE_KEY  "code"
+#define JSON_ERROR_MSG_KEY   "message"
 
 int add_error_value(json_t *target, baton_error_t *error);
 
@@ -35,16 +40,18 @@ int represents_collection(json_t *json);
 
 int represents_data_object(json_t *json);
 
+int add_permissions(json_t *json, json_t *perms, baton_error_t *error);
+
 json_t *data_object_parts_to_json(const char *coll_name, const char *data_name);
 
 json_t *data_object_path_to_json(const char *path);
 
 json_t *collection_path_to_json(const char *path);
 
-char *json_to_path(json_t *json, baton_error_t *error);
-
 json_t *query_args_to_json(const char *attr_name, const char *attr_value,
                            const char *root_path);
+
+char *json_to_path(json_t *json, baton_error_t *error);
 
 void print_json(json_t* results);
 
