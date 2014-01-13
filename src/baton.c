@@ -84,6 +84,12 @@ static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                baton_error_t *error);
 
+static json_t *add_acl_json_array(rcComm_t *conn, json_t *target,
+                                  baton_error_t *error);
+
+static json_t *add_acl_json_object(rcComm_t *conn, json_t *target,
+                                   baton_error_t *error);
+
 void log_rods_errstack(log_level level, const char *category, rError_t *error) {
     rErrMsg_t *errmsg;
 
@@ -267,12 +273,22 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             results = data_object_path_to_json(rods_path->outPath);
+            if (error->code != 0) goto error;
+
+            results = add_acl_json_object(conn, results, error);
+            if (error->code != 0) goto error;
+
             break;
 
         case COLL_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             results = list_collection(conn, rods_path, error);
+            if (error->code != 0) goto error;
+
+            results = add_acl_json_array(conn, results, error);
+            if (error->code != 0) goto error;
+
             break;
 
         default:
@@ -455,6 +471,9 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     json_decref(collections);
     json_array_extend(results, data_objects); // TODO: check return value
     json_decref(data_objects);
+
+    results = add_acl_json_array(conn, results, error);
+    if (error->code != 0) goto error;
 
     return results;
 
@@ -1281,6 +1300,66 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
 error:
     logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
            errno, strerror(errno));
+
+    return NULL;
+}
+
+static json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
+                                  baton_error_t *error) {
+    if (!json_is_array(array)) {
+        set_baton_error(error, -1, "Invalid target: not a JSON array");
+        goto error;
+    }
+
+    for (size_t i = 0; i < json_array_size(array); i++) {
+        json_t *item = json_array_get(array, i);
+        add_acl_json_object(conn, item, error);
+        if (error->code != 0) goto error;
+    }
+
+    return array;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return NULL;
+}
+
+static json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
+                                   baton_error_t *error) {
+    rodsPath_t rods_path;
+    char *path;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Invalid target: not a JSON object");
+        goto error;
+    }
+
+    path = json_to_path(object, error);
+    if (error->code != 0) goto error;
+
+    int status = set_rods_path(conn, &rods_path, path);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
+        goto error;
+    }
+
+    json_t *perms = list_permissions(conn, &rods_path, error);
+    if (error->code != 0) goto error;
+
+    add_permissions(object, perms, error);
+    if (error->code != 0) goto error;
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return object;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return NULL;
 }

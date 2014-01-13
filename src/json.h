@@ -30,17 +30,17 @@
 #define JSON_ERROR_CODE_KEY  "code"
 #define JSON_ERROR_MSG_KEY   "message"
 
-int add_error_value(json_t *target, baton_error_t *error);
+int add_error_value(json_t *object, baton_error_t *error);
 
 json_t *error_to_json(baton_error_t *error);
 
 int contains_avu(json_t *avus, json_t *avu);
 
-int represents_collection(json_t *json);
+int represents_collection(json_t *object);
 
-int represents_data_object(json_t *json);
+int represents_data_object(json_t *object);
 
-int add_permissions(json_t *json, json_t *perms, baton_error_t *error);
+int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
 
 json_t *data_object_parts_to_json(const char *coll_name, const char *data_name);
 
@@ -51,8 +51,8 @@ json_t *collection_path_to_json(const char *path);
 json_t *query_args_to_json(const char *attr_name, const char *attr_value,
                            const char *root_path);
 
-char *json_to_path(json_t *json, baton_error_t *error);
+char *json_to_path(json_t *object, baton_error_t *error);
 
-void print_json(json_t* results);
+void print_json(json_t *json);
 
 #endif // _BATON_JSON_H

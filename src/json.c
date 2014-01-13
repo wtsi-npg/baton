@@ -36,9 +36,9 @@ json_t *error_to_json(baton_error_t *error) {
                      JSON_ERROR_CODE_KEY, error->code);
 }
 
-int add_error_value(json_t *target, baton_error_t *error) {
+int add_error_value(json_t *object, baton_error_t *error) {
     json_t *err = error_to_json(error);
-    return json_object_set_new(target, JSON_ERROR_KEY, err);
+    return json_object_set_new(object, JSON_ERROR_KEY, err);
 }
 
 int contains_avu(json_t *avus, json_t *avu) {
@@ -55,24 +55,24 @@ int contains_avu(json_t *avus, json_t *avu) {
     return has_avu;
 }
 
-int represents_collection(json_t *json) {
-    return (has_string_value(json, JSON_COLLECTION_KEY) &&
-            !has_string_value(json, JSON_DATA_OBJECT_KEY));
+int represents_collection(json_t *object) {
+    return (has_string_value(object, JSON_COLLECTION_KEY) &&
+            !has_string_value(object, JSON_DATA_OBJECT_KEY));
 }
 
-int represents_data_object(json_t *json) {
-    return (has_string_value(json, JSON_COLLECTION_KEY) &&
-            has_string_value(json, JSON_DATA_OBJECT_KEY));
+int represents_data_object(json_t *object) {
+    return (has_string_value(object, JSON_COLLECTION_KEY) &&
+            has_string_value(object, JSON_DATA_OBJECT_KEY));
 }
 
-int add_permissions(json_t *json, json_t *perms, baton_error_t *error) {
-    if (!json_is_object(json)) {
+int add_permissions(json_t *object, json_t *perms, baton_error_t *error) {
+    if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add permissions data: "
                         "target not a JSON object");
         goto error;
     }
 
-    return json_object_set_new(json, JSON_ACCESS_KEY, perms);
+    return json_object_set_new(object, JSON_ACCESS_KEY, perms);
 
 error:
     logmsg(ERROR, BATON_CAT, error->message);
@@ -147,12 +147,12 @@ json_t *collection_path_to_json(const char *path) {
     return result;
 }
 
-char *json_to_path(json_t *json, baton_error_t *error) {
+char *json_to_path(json_t *object, baton_error_t *error) {
     char *path;
     init_baton_error(error);
 
-    json_t *coll = json_object_get(json, JSON_COLLECTION_KEY);
-    json_t *data = json_object_get(json, JSON_DATA_OBJECT_KEY);
+    json_t *coll = json_object_get(object, JSON_COLLECTION_KEY);
+    json_t *data = json_object_get(object, JSON_DATA_OBJECT_KEY);
     if (!coll) {
         set_baton_error(error, -1, "collection value was missing");
         goto error;

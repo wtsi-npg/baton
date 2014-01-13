@@ -32,7 +32,7 @@
 #define ACCESS_WRITE      "write"
 #define ACCESS_NAMESPACE  "access_type"
 
-#define MAX_NUM_CONDITIONALS 20
+#define MAX_NUM_CONDITIONALS  20
 #define MAX_ERROR_MESSAGE_LEN 1024
 
 #define META_ADD_NAME "add"
@@ -49,7 +49,6 @@
 #define JSON_ACCESS_KEY     "access"
 #define JSON_OWNER_KEY      "owner"
 #define JSON_LEVEL_KEY      "level"
-
 
 /**
  *  @enum metadata_op
