@@ -256,7 +256,7 @@ START_TEST(test_list_coll) {
 
                   JSON_COLLECTION_KEY,  c,
                   JSON_ACCESS_KEY,      perms);
-
+    ck_assert_ptr_ne(NULL, results);
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
@@ -800,6 +800,25 @@ START_TEST(test_json_to_path) {
 }
 END_TEST
 
+START_TEST(test_get_user) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    baton_error_t error;
+    json_t *user = get_user(conn, "public", &error);
+
+    ck_assert_int_eq(error.code, 0);
+    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_NAME_KEY));
+    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ID_KEY));
+    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_TYPE_KEY));
+    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ZONE_KEY));
+
+    json_decref(user);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -844,6 +863,8 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_rods_path_to_json_coll);
 
     tcase_add_test(basic_tests, test_json_to_path);
+
+    tcase_add_test(basic_tests, test_get_user);
 
     suite_add_tcase(suite, utilities_tests);
     suite_add_tcase(suite, basic_tests);
