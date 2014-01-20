@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
+ * @file json.c
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
@@ -31,13 +32,13 @@ static int has_string_value(json_t *json, const char *key);
 
 json_t *error_to_json(baton_error_t *error) {
     return json_pack("{s:s, s:i}",
-                     "message", error->message,
-                     "code", error->code);
+                     JSON_ERROR_MSG_KEY , error->message,
+                     JSON_ERROR_CODE_KEY, error->code);
 }
 
-int add_error_value(json_t *target, baton_error_t *error) {
+int add_error_value(json_t *object, baton_error_t *error) {
     json_t *err = error_to_json(error);
-    return json_object_set_new(target, "error", err);
+    return json_object_set_new(object, JSON_ERROR_KEY, err);
 }
 
 int contains_avu(json_t *avus, json_t *avu) {
@@ -54,20 +55,35 @@ int contains_avu(json_t *avus, json_t *avu) {
     return has_avu;
 }
 
-int represents_collection(json_t *json) {
-    return (has_string_value(json, JSON_COLLECTION_KEY) &&
-            !has_string_value(json, JSON_DATA_OBJECT_KEY));
+int represents_collection(json_t *object) {
+    return (has_string_value(object, JSON_COLLECTION_KEY) &&
+            !has_string_value(object, JSON_DATA_OBJECT_KEY));
 }
 
-int represents_data_object(json_t *json) {
-    return (has_string_value(json, JSON_COLLECTION_KEY) &&
-            has_string_value(json, JSON_DATA_OBJECT_KEY));
+int represents_data_object(json_t *object) {
+    return (has_string_value(object, JSON_COLLECTION_KEY) &&
+            has_string_value(object, JSON_DATA_OBJECT_KEY));
+}
+
+int add_permissions(json_t *object, json_t *perms, baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add permissions data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_ACCESS_KEY, perms);
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return -1;
 }
 
 json_t *data_object_parts_to_json(const char *coll_name,
                                   const char *data_name) {
     json_t *result = json_pack("{s:s, s:s}",
-                               JSON_COLLECTION_KEY, coll_name,
+                               JSON_COLLECTION_KEY,  coll_name,
                                JSON_DATA_OBJECT_KEY, data_name);
     if (!result) {
         logmsg(ERROR, BATON_CAT, "Failed to pack data object '%s/%s' as JSON",
@@ -103,13 +119,13 @@ json_t *query_args_to_json(const char *attr_name, const char *attr_value,
                            JSON_COLLECTION_KEY, root_path,
                            JSON_AVUS_KEY,
                            JSON_ATTRIBUTE_KEY, attr_name,
-                           JSON_VALUE_KEY, attr_value);
+                           JSON_VALUE_KEY,     attr_value);
     }
     else {
         result = json_pack("{s:[{s:s, s:s}]}",
                            JSON_AVUS_KEY,
                            JSON_ATTRIBUTE_KEY, attr_name,
-                           JSON_VALUE_KEY, attr_value);
+                           JSON_VALUE_KEY,     attr_value);
     }
 
     if (!result) {
@@ -131,12 +147,12 @@ json_t *collection_path_to_json(const char *path) {
     return result;
 }
 
-char *json_to_path(json_t *json, baton_error_t *error) {
+char *json_to_path(json_t *object, baton_error_t *error) {
     char *path;
     init_baton_error(error);
 
-    json_t *coll = json_object_get(json, JSON_COLLECTION_KEY);
-    json_t *data = json_object_get(json, JSON_DATA_OBJECT_KEY);
+    json_t *coll = json_object_get(object, JSON_COLLECTION_KEY);
+    json_t *data = json_object_get(object, JSON_DATA_OBJECT_KEY);
     if (!coll) {
         set_baton_error(error, -1, "collection value was missing");
         goto error;
@@ -197,7 +213,7 @@ void print_json(json_t *json) {
     return;
 }
 
-int has_string_value(json_t *json, const char *key) {
+static int has_string_value(json_t *json, const char *key) {
     int result = 0;
 
     if (json_is_object(json)) {

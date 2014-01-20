@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,26 +28,27 @@
 
 #include "utilities.h"
 
-#define ACCESS_READ  "read"
-#define ACCESS_WRITE "write"
+#define ACCESS_READ       "read"
+#define ACCESS_WRITE      "write"
+#define ACCESS_NAMESPACE  "access_type"
 
-#define MAX_NUM_CONDITIONALS 20
+#define MAX_NUM_CONDITIONALS  20
 #define MAX_ERROR_MESSAGE_LEN 1024
 
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rm"
 
-#define META_SEARCH_EQUALS "="
-#define META_SEARCH_LIKE   "like"
+#define SEARCH_OP_EQUALS "="
+#define SEARCH_OP_LIKE   "like"
 
-#define JSON_ATTRIBUTE_KEY "attribute"
-#define JSON_VALUE_KEY     "value"
-#define JSON_UNITS_KEY     "units"
-#define JSON_AVUS_KEY      "avus"
-#define JSON_OPERATOR_KEY  "operator"
-#define JSON_ACCESS_KEY    "access"
-#define JSON_OWNER_KEY     "owner"
-#define JSON_LEVEL_KEY     "level"
+#define JSON_ATTRIBUTE_KEY  "attribute"
+#define JSON_VALUE_KEY      "value"
+#define JSON_UNITS_KEY      "units"
+#define JSON_AVUS_KEY       "avus"
+#define JSON_OPERATOR_KEY   "operator"
+#define JSON_ACCESS_KEY     "access"
+#define JSON_OWNER_KEY      "owner"
+#define JSON_LEVEL_KEY      "level"
 
 /**
  *  @enum metadata_op
@@ -128,6 +129,8 @@ void log_rods_errstack(log_level level, const char *category, rError_t *error);
 void log_json_error(log_level level, const char *category,
                     json_error_t *error);
 
+void init_baton_error(baton_error_t *error);
+
 /**
  * Set error state information. The size field will be set to the
  * length of the formatted message.
@@ -180,14 +183,91 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath);
 int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
                       rodsPath_t *rods_path, char *inpath);
 
+/**
+ * Initialise and set an iRODS path by copying a string into both its
+ * inPath and outPath and then resolving it on the server. The path is not
+ * parsed, so must be derived from an existing parsed path.
+ *
+ * @param[in]  conn      An open iRODS connection.
+ * @param[in]  env       A populated iRODS environment.
+ * @param[out] rodspath  An iRODS path.
+ * @param[in]  path      A string representing an unresolved iRODS path.
+ *
+ * @return 0 on success, iRODS error code on failure.
+ */
+int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
+
+/**
+ * Return a JSON representation of a resolved iRODS path (data object
+ * or collection).
+ *
+ * @param[in]  conn      An open iRODS connection.
+ * @param[in]  rodspath  An iRODS path.
+ *
+ * @return A new struct representing the path, which must be freed by
+ * the caller.
+ */
 json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
 
+/**
+ * Return a JSON representation of the content of a resolved iRODS
+ * path (data object or collection). In the case of a data object,
+ * return the representation of that path. In the case of an
+ * collection, return a JSON array containing zero or more JSON
+ * representations of its contents.
+ *
+ * @param[in]  conn      An open iRODS connection.
+ * @param[in]  rodspath  An iRODS path.
+ * @param[out] error     An error report struct.
+ *
+ * @return A new struct representing the path content, which must be
+ * freed by the caller.
+ */
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *error);
 
+/**
+ * Return a JSON representation of the access control list of a
+ * resolved iRODS path (data object or collection).
+ *
+ * @param[in]  conn      An open iRODS connection.
+ * @param[in]  rodspath  An iRODS path.
+ * @param[out] error     An error report struct.
+ *
+ * @return A new struct representing the path access control list,
+ * which must be freed by the caller.
+ */
+json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                         baton_error_t *error);
+
+/**
+ * Modify the access control list of a resolved iRODS path.
+ *
+ * @param[in]     conn      An open iRODS connection.
+ * @param[out]    rodspath  An iRODS path.
+ * @param[in]     recurse   Recurse into collections, one of RECURSE,
+                            NO_RECURSE.
+ * @param[in]     perms     An iRODS access control mode (read, write etc.)
+ * @param[in,out] error     An error report struct.
+ *
+ * @return 0 on success, iRODS error code on failure.
+ */
 int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
                        recursive_op recurse, char *owner_specifier,
                        char *access_level,  baton_error_t *error);
 
+/**
+ * Modify the access control list of a resolved iRODS path.  The
+ * functionality is identical to modify_permission, except that the
+ * access control argument is a JSON struct.
+ *
+ * @param[in]  conn       An open iRODS connection.
+ * @param[out] rodspath   An iRODS path.
+ * @param[in]  recurse    Recurse into collections, one of RECURSE, NO_RECURSE.
+ * @param[in]  perms      A JSON access control object.
+ * @param[out] error      An error report struct.
+ *
+ * @return 0 on success, iRODS error code on failure.
+ */
 int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
                             recursive_op recurse, json_t *perms,
                             baton_error_t *error);
@@ -279,6 +359,15 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
  */
 void free_query_input(genQueryInp_t *query_in);
 
+/**
+ * Append a new array of conditionals to an existing query.
+ *
+ * @param[in] query_in       The query to free.
+ * @param[in] num_conds      The number of conditionals to append.
+ * @param[in] conds          An array of conditionals to append.
+ *
+ * @return The modified query.
+ */
 genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
                                const query_cond_t conds[]);
 

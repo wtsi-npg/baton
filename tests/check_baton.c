@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -185,9 +185,14 @@ START_TEST(test_list_obj) {
 
     baton_error_t error;
     json_t *results = list_path(conn, &rods_obj_path, &error);
-    json_t *expected = json_pack("{s:s, s:s}",
+
+    json_t *perms = json_pack("{s:s, s:s}",
+                              JSON_OWNER_KEY, env.rodsUserName,
+                              JSON_LEVEL_KEY, ACCESS_OWN);
+    json_t *expected = json_pack("{s:s, s:s, s:[o]}",
                                  JSON_COLLECTION_KEY,  rods_path.outPath,
-                                 JSON_DATA_OBJECT_KEY, "f1.txt");
+                                 JSON_DATA_OBJECT_KEY, "f1.txt",
+                                 JSON_ACCESS_KEY,      perms);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
@@ -221,18 +226,36 @@ START_TEST(test_list_coll) {
     snprintf(b, MAX_PATH_LEN, "%s/b", rods_path.outPath);
     snprintf(c, MAX_PATH_LEN, "%s/c", rods_path.outPath);
 
+    json_t *perms = json_pack("{s:s, s:s}",
+                              JSON_OWNER_KEY, env.rodsUserName,
+                              JSON_LEVEL_KEY, ACCESS_OWN);
     json_t *expected =
-        json_pack("[{s:s, s:s}, {s:s, s:s}, {s:s, s:s}"
-                  " {s:s}, {s:s}, {s:s}]",
-                  JSON_COLLECTION_KEY, rods_path.outPath,
+        json_pack("[{s:s, s:s, s:[o]},"  // f1.txt
+                  " {s:s, s:s, s:[o]},"  // f2.txt
+                  " {s:s, s:s, s:[o]},"  // f3.txt
+                  " {s:s, s:[o]},"       // a
+                  " {s:s, s:[o]},"       // b
+                  " {s:s, s:[o]}]",      // c
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f1.txt",
-                  JSON_COLLECTION_KEY, rods_path.outPath,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f2.txt",
-                  JSON_COLLECTION_KEY, rods_path.outPath,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f3.txt",
-                  JSON_COLLECTION_KEY, a,
-                  JSON_COLLECTION_KEY, b,
-                  JSON_COLLECTION_KEY, c);
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  a,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  b,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  c,
+                  JSON_ACCESS_KEY,      perms);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
@@ -268,6 +291,63 @@ START_TEST(test_make_query_input) {
     free_query_input(query_input);
 }
 END_TEST
+
+// Can we list the ACL of an object?
+START_TEST(test_list_permissions_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_permissions(conn, &rods_path, &error);
+    json_t *expected = json_pack("[{s:s, s:s}]",
+                                 JSON_OWNER_KEY, env.rodsUserName,
+                                 JSON_LEVEL_KEY, ACCESS_OWN);
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we list the ACL of a collection?
+START_TEST(test_list_permissions_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_permissions(conn, &rods_path, &error);
+    json_t *expected = json_pack("[{s:s, s:s}]",
+                                 JSON_OWNER_KEY, env.rodsUserName,
+                                 JSON_LEVEL_KEY, ACCESS_OWN);
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 
 // Can we list metadata on a data object?
 START_TEST(test_list_metadata_obj) {
@@ -741,6 +821,10 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_list_obj);
     tcase_add_test(basic_tests, test_list_coll);
+
+    tcase_add_test(basic_tests, test_list_permissions_obj);
+    tcase_add_test(basic_tests, test_list_permissions_coll);
+
     tcase_add_test(basic_tests, test_list_metadata_obj);
     tcase_add_test(basic_tests, test_list_metadata_coll);
 

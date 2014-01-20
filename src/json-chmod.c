@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2014-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,7 +41,6 @@ static int version_flag;
 
 int do_modify_permissions(int argc, char *argv[], int optind,
                           recursive_op recurse, FILE *input);
-
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
@@ -220,8 +219,6 @@ int do_modify_permissions(int argc, char *argv[], int optind,
         json_decref(target);
         free(path);
     } // while
-
-
 
     rcDisconnect(conn);
 
