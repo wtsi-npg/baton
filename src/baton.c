@@ -45,6 +45,9 @@ static const char *metadata_op_name(metadata_op operation);
 
 static void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in);
 
+static genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
+                                          const char *user_name);
+
 static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
                                        const char *attr_name);
@@ -58,6 +61,11 @@ static genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
 
 static genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
                                            rodsPath_t *rods_path);
+
+static genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
+                                             rodsPath_t *rods_path,
+                                             const char *user_id,
+                                             const char *perm_id);
 
 static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_in,
                                          const char *attr_name,
@@ -139,7 +147,7 @@ int is_irods_available() {
     }
 
     rcComm_t *conn = rcConnect(env.rodsHost, env.rodsPort, env.rodsUserName,
-                               env.rodsZone, RECONN_TIMEOUT, &errmsg);
+                               env.rodsZone, NO_RECONN, &errmsg);
     int available;
     if (conn) {
         available = 1;
@@ -167,6 +175,7 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
+    // TODO: add option for NO_RECONN vs. RECONN_TIMEOUT
     conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
                      env->rodsZone, RECONN_TIMEOUT, &errmsg);
     if (!conn) {
@@ -254,6 +263,48 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
 
 error:
     return status;
+}
+
+json_t *get_user(rcComm_t *conn, char *user_name, baton_error_t *error) {
+    const char *labels[] = { JSON_USER_NAME_KEY,
+                             JSON_USER_ID_KEY,
+                             JSON_USER_TYPE_KEY,
+                             JSON_USER_ZONE_KEY };
+    int num_cols = 4;
+    int max_rows = 10;
+    int cols[] = { COL_USER_NAME, COL_USER_ID, COL_USER_TYPE, COL_USER_ZONE };
+
+    genQueryInp_t *query_in = NULL;
+    json_t *results = NULL;
+    json_t *user = NULL;
+    init_baton_error(error);
+
+    query_in = make_query_input(max_rows, num_cols, cols);
+    query_in = prepare_user_search(query_in, user_name);
+
+    results = do_query(conn, query_in, labels, error);
+    if (error->code != 0) goto error;
+
+    if (json_array_size(results) != 1) {
+        set_baton_error(error, -1,
+                        "Expected 1 user result but found %d",
+                        json_array_size(results));
+        goto error;
+    }
+
+    user = json_incref(json_array_get(results, 0));
+    json_array_clear(results);
+    json_decref(results);
+
+    return user;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (user) json_decref(user);
+    if (results) json_decref(results);
+
+    return NULL;
 }
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
@@ -1367,15 +1418,15 @@ error:
 static genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
                                            rodsPath_t *rods_path) {
     char *data_id = rods_path->dataId;
-    query_cond_t id = { .column   = COL_DATA_ACCESS_DATA_ID,
+    query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = data_id };
-    query_cond_t at = { .column   = COL_DATA_TOKEN_NAMESPACE,
+    query_cond_t tn = { .column   = COL_DATA_TOKEN_NAMESPACE,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = ACCESS_NAMESPACE };
 
     int num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { id, at });
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { di, tn });
 }
 
 static genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
@@ -1384,14 +1435,34 @@ static genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
     query_cond_t cn = { .column   = COL_COLL_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = path };
-    query_cond_t at = { .column   = COL_COLL_TOKEN_NAMESPACE,
+    query_cond_t tn = { .column   = COL_COLL_TOKEN_NAMESPACE,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = ACCESS_NAMESPACE };
-
     int num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, at });
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, tn });
 }
 
+static genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
+                                             rodsPath_t *rods_path,
+                                             const char *user_id,
+                                             const char *perm_id) {
+    char *data_id = rods_path->dataId;
+    query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = data_id };
+    query_cond_t tn = { .column   = COL_DATA_TOKEN_NAMESPACE,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = ACCESS_NAMESPACE };
+    query_cond_t ui = { .column   = COL_DATA_ACCESS_USER_ID,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = user_id };
+    query_cond_t pm = { .column   = COL_DATA_ACCESS_TYPE,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = perm_id };
+    int num_conds = 4;
+    return add_query_conds(query_in, num_conds,
+                           (query_cond_t []) { di, tn, ui, pm });
+}
 
 static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
@@ -1425,7 +1496,6 @@ static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_in,
     query_cond_t av = { .column   = COL_META_DATA_ATTR_VALUE,
                         .operator = operator,
                         .value    = attr_value };
-
     int num_conds = 2;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
 }
@@ -1480,4 +1550,14 @@ error:
            errno, strerror(errno));
 
     return NULL;
+}
+
+static genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
+                                          const char *user_name) {
+    query_cond_t un = { .column   = COL_USER_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = user_name };
+
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds,  (query_cond_t []) { un });
 }

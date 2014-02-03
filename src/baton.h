@@ -41,14 +41,31 @@
 #define SEARCH_OP_EQUALS "="
 #define SEARCH_OP_LIKE   "like"
 
-#define JSON_ATTRIBUTE_KEY  "attribute"
-#define JSON_VALUE_KEY      "value"
-#define JSON_UNITS_KEY      "units"
-#define JSON_AVUS_KEY       "avus"
-#define JSON_OPERATOR_KEY   "operator"
-#define JSON_ACCESS_KEY     "access"
-#define JSON_OWNER_KEY      "owner"
-#define JSON_LEVEL_KEY      "level"
+#define SEARCH_OP_STR_GT ">"
+#define SEARCH_OP_STR_LT "<"
+
+#define SEARCH_OP_NUM_GT "n>"
+#define SEARCH_OP_NUM_LT "n<"
+
+#define SEARCH_OP_STR_GE ">="
+#define SEARCH_OP_STR_LE "<="
+
+#define SEARCH_OP_NUM_GE "n>="
+#define SEARCH_OP_NUM_LE "n<="
+
+#define JSON_ATTRIBUTE_KEY "attribute"
+#define JSON_VALUE_KEY     "value"
+#define JSON_UNITS_KEY     "units"
+#define JSON_AVUS_KEY      "avus"
+#define JSON_OPERATOR_KEY  "operator"
+#define JSON_ACCESS_KEY    "access"
+#define JSON_OWNER_KEY     "owner"
+#define JSON_LEVEL_KEY     "level"
+
+#define JSON_USER_NAME_KEY "user_name"
+#define JSON_USER_ID_KEY   "user_id"
+#define JSON_USER_TYPE_KEY "user_type"
+#define JSON_USER_ZONE_KEY "user_zone"
 
 /**
  *  @enum metadata_op
@@ -208,6 +225,8 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
  * the caller.
  */
 json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
+
+json_t *get_user(rcComm_t *conn, char *user_name, baton_error_t *error);
 
 /**
  * Return a JSON representation of the content of a resolved iRODS
