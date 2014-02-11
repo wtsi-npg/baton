@@ -188,7 +188,7 @@ START_TEST(test_list_obj) {
 
     json_t *perms = json_pack("{s:s, s:s}",
                               JSON_OWNER_KEY, env.rodsUserName,
-                              JSON_LEVEL_KEY, ACCESS_OWN);
+                              JSON_LEVEL_KEY, ACCESS_LEVEL_OWN);
     json_t *expected = json_pack("{s:s, s:s, s:[o]}",
                                  JSON_COLLECTION_KEY,  rods_path.outPath,
                                  JSON_DATA_OBJECT_KEY, "f1.txt",
@@ -662,14 +662,36 @@ START_TEST(test_modify_permissions_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
                      EXIST_ST);
 
-    baton_error_t error;
-    init_baton_error(&error);
+    baton_error_t mod_error;
+    init_baton_error(&mod_error);
     int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
-                                ACCESS_READ, &error);
+                                ACCESS_LEVEL_READ, &mod_error);
     ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(mod_error.code, 0);
 
-    // TODO: check the new permissions are in place (there is no high
-    // level iRODS API for this).
+    json_t *expected = json_pack("{s:s, s:s}",
+                                 JSON_OWNER_KEY, "public",
+                                 JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
+
+    baton_error_t list_error;
+    json_t *acl = list_permissions(conn, &rods_path, &list_error);
+    ck_assert_int_eq(list_error.code, 0);
+
+    int num_elts = json_array_size(acl);
+    ck_assert_int_ne(num_elts, 0);
+
+    int found = 0;
+
+    for (int i = 0; i < num_elts; i++) {
+        json_t *elt = json_array_get(acl, i);
+        print_json(elt);
+        ck_assert(json_is_object(elt));
+        if (json_equal(expected, elt)) {
+            found = 1;
+        }
+    }
+
+    ck_assert_int_eq(found, 1);
 
     if (conn) rcDisconnect(conn);
 }
@@ -691,7 +713,7 @@ START_TEST(test_modify_json_permissions_obj) {
 
     json_t *perm = json_pack("{s:s, s:s}",
                              JSON_OWNER_KEY, "public",
-                             JSON_LEVEL_KEY,  ACCESS_READ);
+                             JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
 
     baton_error_t error;
     int rv = modify_json_permissions(conn, &rods_path, NO_RECURSE, perm,
@@ -699,8 +721,29 @@ START_TEST(test_modify_json_permissions_obj) {
     ck_assert_int_eq(rv, 0);
     ck_assert_int_eq(error.code, 0);
 
-    // TODO: check the new permissions are in place (there is no high
-    // level iRODS API for this).
+    json_t *expected = json_pack("{s:s, s:s}",
+                                 JSON_OWNER_KEY, "public",
+                                 JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
+
+    baton_error_t list_error;
+    json_t *acl = list_permissions(conn, &rods_path, &list_error);
+    ck_assert_int_eq(list_error.code, 0);
+
+    int num_elts = json_array_size(acl);
+    ck_assert_int_ne(num_elts, 0);
+
+    int found = 0;
+
+    for (int i = 0; i < num_elts; i++) {
+        json_t *elt = json_array_get(acl, i);
+        print_json(elt);
+        ck_assert(json_is_object(elt));
+        if (json_equal(expected, elt)) {
+            found = 1;
+        }
+    }
+
+    ck_assert_int_eq(found, 1);
 
     json_decref(perm);
 
@@ -800,11 +843,13 @@ START_TEST(test_json_to_path) {
 }
 END_TEST
 
+// Can we get user information?
 START_TEST(test_get_user) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
     baton_error_t error;
+    init_baton_error(&error);
     json_t *user = get_user(conn, "public", &error);
 
     ck_assert_int_eq(error.code, 0);

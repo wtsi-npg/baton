@@ -28,11 +28,14 @@
 
 #include "utilities.h"
 
-#define ACCESS_READ       "read"
-#define ACCESS_WRITE      "write"
-#define ACCESS_NAMESPACE  "access_type"
+#define ACCESS_NAMESPACE   "access_type"
+#define ACCESS_LEVEL_NULL  "null"
+#define ACCESS_LEVEL_OWN   "own"
+#define ACCESS_LEVEL_READ  "read"
+#define ACCESS_LEVEL_WRITE "write"
 
-#define MAX_NUM_CONDITIONALS  20
+#define MAX_NUM_COLUMNS       128
+#define MAX_NUM_CONDITIONALS  32
 #define MAX_ERROR_MESSAGE_LEN 1024
 
 #define META_ADD_NAME "add"
@@ -40,16 +43,12 @@
 
 #define SEARCH_OP_EQUALS "="
 #define SEARCH_OP_LIKE   "like"
-
 #define SEARCH_OP_STR_GT ">"
 #define SEARCH_OP_STR_LT "<"
-
 #define SEARCH_OP_NUM_GT "n>"
 #define SEARCH_OP_NUM_LT "n<"
-
 #define SEARCH_OP_STR_GE ">="
 #define SEARCH_OP_STR_LE "<="
-
 #define SEARCH_OP_NUM_GE "n>="
 #define SEARCH_OP_NUM_LE "n<="
 
@@ -91,7 +90,7 @@ typedef enum {
  *  @struct metadata_op
  *  @brief AVU metadata operation inputs.
  */
-struct mod_metadata_in {
+typedef struct mod_metadata_in {
     /** The operation to perform. */
     metadata_op op;
     /** The type argument for the iRODS path i.e. -d or -C. */
@@ -104,7 +103,16 @@ struct mod_metadata_in {
     char *attr_value;
     /** The AVU attribute units. */
     char *attr_units;
-};
+} mod_metadata_in_t;
+
+typedef struct query_format_in {
+    /** The number of columns to return */
+    int num_columns;
+    /** The ICAT columns to return */
+    const int columns[MAX_NUM_COLUMNS];
+    /** The labels to use for the returned column values */
+    const char *labels[MAX_NUM_COLUMNS];
+} query_format_in_t;
 
 typedef struct query_cond {
     /** The ICAT column to match e.g. COL_META_DATA_ATTR_NAME */
@@ -226,7 +234,7 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
  */
 json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
 
-json_t *get_user(rcComm_t *conn, char *user_name, baton_error_t *error);
+json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
 
 /**
  * Return a JSON representation of the content of a resolved iRODS
