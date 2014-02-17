@@ -184,7 +184,7 @@ START_TEST(test_list_obj) {
                      EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_path(conn, &rods_obj_path, &error);
+    json_t *results = list_path(conn, &rods_obj_path, PRINT_ACL, &error);
 
     json_t *perms = json_pack("{s:s, s:s}",
                               JSON_OWNER_KEY, env.rodsUserName,
@@ -217,7 +217,7 @@ START_TEST(test_list_coll) {
                      EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_path(conn, &rods_path, &error);
+    json_t *results = list_path(conn, &rods_path, PRINT_ACL, &error);
 
     char a[MAX_PATH_LEN];
     char b[MAX_PATH_LEN];
@@ -427,7 +427,7 @@ START_TEST(test_search_metadata_obj) {
                               JSON_AVUS_KEY,       avu);
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, &error);
+    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
     ck_assert_int_eq(json_array_size(results), 12);
 
     for (size_t i = 0; i < 12; i++) {
@@ -461,7 +461,7 @@ START_TEST(test_search_metadata_path_obj) {
                               JSON_AVUS_KEY,       avu);
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, &error);
+    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
     ck_assert_int_eq(json_array_size(results), 3);
 
     for (size_t i = 0; i < 3; i++) {
@@ -493,7 +493,7 @@ START_TEST(test_search_metadata_coll) {
                               JSON_AVUS_KEY,       avu);
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, &error);
+    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
     ck_assert_int_eq(json_array_size(results), 3);
     for (size_t i = 0; i < 3; i++) {
         json_t *coll = json_array_get(results, i);

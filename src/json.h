@@ -40,6 +40,8 @@ int represents_collection(json_t *object);
 
 int represents_data_object(json_t *object);
 
+int add_metadata(json_t *object, json_t *avus, baton_error_t *error);
+
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
 
 json_t *data_object_parts_to_json(const char *coll_name, const char *data_name);

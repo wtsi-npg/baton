@@ -33,13 +33,16 @@
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
 static char *USER_LOG_CONF_FILE = NULL;
 
+static int acl_flag;
+static int avu_flag;
 static int help_flag;
 static int version_flag;
 
 int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
-                       char *zone_name);
+                       char *zone_name, print_flags pflags);
 
 int main(int argc, char *argv[]) {
+    print_flags pflags = PRINT_DEFAULT;
     int exit_status = 0;
     char *zone_name = NULL;
     char *json_file = NULL;
@@ -48,6 +51,8 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
+            {"acl",       no_argument, &acl_flag,     1},
+            {"avu",       no_argument, &avu_flag,     1},
             {"help",      no_argument, &help_flag,    1},
             {"version",   no_argument, &version_flag, 1},
             // Indexed options
@@ -87,6 +92,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (acl_flag) pflags = pflags | PRINT_ACL;
+    if (avu_flag) pflags = pflags | PRINT_AVU;
+
     if (help_flag) {
         puts("Name");
         puts("    json-metaquery");
@@ -99,6 +107,8 @@ int main(int argc, char *argv[]) {
         puts("    Finds items in iRODS by AVU, given a query constructed");
         puts("from a JSON input file.");
         puts("");
+        puts("    --acl         Print access control lists in output.");
+        puts("    --avu         Print AVU lists in output.");
         puts("    --file        The JSON file describing the query. Optional,");
         puts("                  defaults to STDIN.");
         puts("    --zone        The zone to search. Optional");
@@ -126,7 +136,8 @@ int main(int argc, char *argv[]) {
     }
 
     input = maybe_stdin(json_file);
-    int status = do_search_metadata(argc, argv, optind, input, zone_name);
+    int status = do_search_metadata(argc, argv, optind, input, zone_name,
+                                    pflags);
     if (status != 0) exit_status = 5;
 
     zlog_fini();
@@ -141,7 +152,7 @@ error:
 }
 
 int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
-                       char *zone_name) {
+                       char *zone_name, print_flags pflags) {
     int query_count = 0;
     int error_count = 0;
 
@@ -152,11 +163,11 @@ int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
+    size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
 
     while (!feof(input)) {
         json_error_t load_error;
-        json_t *target = json_loadf(input, flags, &load_error);
+        json_t *target = json_loadf(input, jflags, &load_error);
         if (!target) {
             if (!feof(input)) {
                 logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
@@ -167,55 +178,21 @@ int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
         }
 
         baton_error_t error;
-        json_t *results = search_metadata(conn, target, zone_name, &error);
+        json_t *results = search_metadata(conn, target, zone_name, pflags,
+                                          &error);
         if (error.code != 0) {
-            logmsg(ERROR, BATON_CAT, "Failed to search: %s", error.message);
-            goto error;
+            error_count++;
+            add_error_value(target, &error);
+            print_json(target);
         }
         else {
-            for (size_t i = 0; i < json_array_size(results); i++) {
-                json_t *result = json_array_get(results, i);
-
-                baton_error_t path_error;
-                char *path = json_to_path(result, &path_error);
-                if (path_error.code != 0) {
-                    error_count++;
-                    logmsg(ERROR, BATON_CAT, path_error.message);
-                }
-                else {
-                    rodsPath_t rods_path;
-                    int status = resolve_rods_path(conn, &env, &rods_path,
-                                                   path);
-                    if (status < 0) {
-                        error_count++;
-                        logmsg(ERROR, BATON_CAT,
-                               "Failed to resolve path '%s'", path);
-                    }
-                    else {
-                        baton_error_t error;
-
-                        // TODO - Make fetching metadata on results optional
-                        json_t *avus =
-                            list_metadata(conn, &rods_path, NULL, &error);
-
-                        if (error.code != 0) error_count++;
-                        if (avus) {
-                            json_object_set_new(result, JSON_AVUS_KEY, avus);
-                            print_json(result);
-                        }
-                    }
-
-                    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-                }
-
-                free(path);
-            }
-
+            print_json(results);
             json_decref(results);
         }
 
+        fflush(stdout);
         json_decref(target);
-    }
+    } // while
 
     rcDisconnect(conn);
 

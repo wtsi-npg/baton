@@ -124,6 +124,12 @@ static json_t *add_acl_json_array(rcComm_t *conn, json_t *target,
 static json_t *add_acl_json_object(rcComm_t *conn, json_t *target,
                                    baton_error_t *error);
 
+static json_t *add_avus_json_array(rcComm_t *conn, json_t *target,
+                                   baton_error_t *error);
+
+static json_t *add_avus_json_object(rcComm_t *conn, json_t *target,
+                                    baton_error_t *error);
+
 void log_rods_errstack(log_level level, const char *category, rError_t *error) {
     rErrMsg_t *errmsg;
 
@@ -252,10 +258,9 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
     }
 
     status = getRodsObjType(conn, rods_path);
-    if (status < 0) {
-        logmsg(ERROR, BATON_CAT, "Failed to stat iRODS path '%s'",
-               rods_path->inPath);
-        goto error;
+    if (status != EXIST_ST) {
+        logmsg(WARN, BATON_CAT, "Failed to stat iRODS path '%s'",
+               rods_path->outPath);
     }
 
     return status;
@@ -320,18 +325,21 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error) {
     json_array_clear(results);
     json_decref(results);
 
+    if (query_in) free_query_input(query_in);
+
     return user;
 
 error:
     logmsg(ERROR, BATON_CAT, error->message);
 
+    if (query_in) free_query_input(query_in);
     if (user) json_decref(user);
     if (results) json_decref(results);
 
     return NULL;
 }
 
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                   baton_error_t *error) {
     json_t *results = NULL;
     init_baton_error(error);
@@ -350,8 +358,14 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
             results = data_object_path_to_json(rods_path->outPath);
             if (error->code != 0) goto error;
 
-            results = add_acl_json_object(conn, results, error);
-            if (error->code != 0) goto error;
+            if (flags & PRINT_ACL) {
+                results = add_acl_json_object(conn, results, error);
+                if (error->code != 0) goto error;
+            }
+            if (flags & PRINT_AVU) {
+                results = add_avus_json_object(conn, results, error);
+                if (error->code != 0) goto error;
+            }
 
             break;
 
@@ -361,8 +375,10 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
             results = list_collection(conn, rods_path, error);
             if (error->code != 0) goto error;
 
-            results = add_acl_json_array(conn, results, error);
-            if (error->code != 0) goto error;
+            if (flags & PRINT_ACL) {
+                results = add_acl_json_array(conn, results, error);
+                if (error->code != 0) goto error;
+            }
 
             break;
 
@@ -527,7 +543,7 @@ error:
 }
 
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
-                        baton_error_t *error) {
+                        print_flags flags, baton_error_t *error) {
     init_baton_error(error);
 
     json_t *results      = NULL;
@@ -582,8 +598,14 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     json_array_extend(results, data_objects); // TODO: check return value
     json_decref(data_objects);
 
-    results = add_acl_json_array(conn, results, error);
-    if (error->code != 0) goto error;
+    if (flags & PRINT_ACL) {
+        results = add_acl_json_array(conn, results, error);
+        if (error->code != 0) goto error;
+    }
+    if (flags & PRINT_AVU) {
+        results = add_avus_json_array(conn, results, error);
+        if (error->code != 0) goto error;
+    }
 
     return results;
 
@@ -1071,6 +1093,20 @@ void free_query_input(genQueryInp_t *query_in) {
     // Free any strings allocated as query clause values
     for (int i = 0; i < query_in->sqlCondInp.len; i++) {
         free(query_in->sqlCondInp.value[i]);
+    }
+
+    // Free any key/value pairs, notably zone hints
+    for (int i = 0; i < query_in->condInput.len; i++) {
+        free(query_in->condInput.keyWord[i]);
+        free(query_in->condInput.value[i]);
+    }
+
+    if (query_in->condInput.keyWord != NULL) {
+        free(query_in->condInput.keyWord);
+    }
+
+	if (query_in->condInput.value != NULL) {
+        free(query_in->condInput.value);
     }
 
     free(query_in->selectInp.inx);
@@ -1634,6 +1670,68 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
 error:
     logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
            errno, strerror(errno));
+
+    return NULL;
+}
+
+static json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
+                                   baton_error_t *error) {
+    if (!json_is_array(array)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON array");
+        goto error;
+    }
+
+    for (size_t i = 0; i < json_array_size(array); i++) {
+        json_t *item = json_array_get(array, i);
+        add_avus_json_object(conn, item, error);
+        if (error->code != 0) goto error;
+    }
+
+    return array;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return NULL;
+}
+
+static json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
+                                    baton_error_t *error) {
+    rodsPath_t rods_path;
+    char *path;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON object");
+        goto error;
+    }
+
+    path = json_to_path(object, error);
+    if (error->code != 0) goto error;
+
+    int status = set_rods_path(conn, &rods_path, path);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
+        goto error;
+    }
+
+    json_t *avus = list_metadata(conn, &rods_path, NULL, error);
+    if (error->code != 0) goto error;
+
+    add_metadata(object, avus, error);
+    if (error->code != 0) goto error;
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return object;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return NULL;
 }

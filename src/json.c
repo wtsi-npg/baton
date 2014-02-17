@@ -65,6 +65,21 @@ int represents_data_object(json_t *object) {
             has_string_value(object, JSON_DATA_OBJECT_KEY));
 }
 
+int add_metadata(json_t *object, json_t *avus, baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add AVU data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_AVUS_KEY, avus);
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return -1;
+}
+
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error) {
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add permissions data: "

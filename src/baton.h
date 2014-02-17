@@ -86,6 +86,17 @@ typedef enum {
     RECURSE
 } recursive_op;
 
+typedef enum {
+    /** Print minimal collections and data object */
+    PRINT_DEFAULT = 0,
+    /** Print AVUs on collections and data objects */
+    PRINT_AVU     = 1 << 0,
+    /** Print ACLs on collections and data objects */
+    PRINT_ACL     = 1 << 2,
+    /** Pretty-print JSON */
+    PRINT_PRETTY  = 1 << 3
+} print_flags;
+
 /**
  *  @struct metadata_op
  *  @brief AVU metadata operation inputs.
@@ -243,14 +254,16 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
  * collection, return a JSON array containing zero or more JSON
  * representations of its contents.
  *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  rodspath  An iRODS path.
- * @param[out] error     An error report struct.
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  rodspath    An iRODS path.
+ * @param[in]  print_flags Result print options.
+ * @param[out] error       An error report struct.
  *
  * @return A new struct representing the path content, which must be
  * freed by the caller.
  */
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *error);
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
+                  baton_error_t *error);
 
 /**
  * Return a JSON representation of the access control list of a
@@ -324,12 +337,13 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  *                         means the search will be global.
  * @param[in]  zone_name   An iRODS zone name. Optional, NULL means the current
  *                         zone.
+ * @param[in]  print_flags Result print options.
  * @param[out] error       An error report struct.
  *
  * @return A newly constructed JSON array of JSON result objects.
  */
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
-                        baton_error_t *error);
+                        print_flags flags, baton_error_t *error);
 
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
