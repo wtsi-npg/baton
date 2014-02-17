@@ -30,7 +30,7 @@
 #include "config.h"
 #include "json.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
+static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
 static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;

@@ -31,7 +31,7 @@
 #include "json.h"
 #include "utilities.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
+static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
 
 static char *USER_LOG_CONF_FILE = NULL;
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    json-metamod");
+        puts("    json-list");
         puts("");
         puts("Synopsis");
         puts("");

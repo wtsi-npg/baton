@@ -379,6 +379,10 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                 results = add_acl_json_array(conn, results, error);
                 if (error->code != 0) goto error;
             }
+            if (flags & PRINT_AVU) {
+                results = add_avus_json_array(conn, results, error);
+                if (error->code != 0) goto error;
+            }
 
             break;
 
