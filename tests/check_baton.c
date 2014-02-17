@@ -684,11 +684,9 @@ START_TEST(test_modify_permissions_obj) {
 
     for (int i = 0; i < num_elts; i++) {
         json_t *elt = json_array_get(acl, i);
-        print_json(elt);
+
         ck_assert(json_is_object(elt));
-        if (json_equal(expected, elt)) {
-            found = 1;
-        }
+        if (json_equal(expected, elt)) found = 1;
     }
 
     ck_assert_int_eq(found, 1);
@@ -736,11 +734,9 @@ START_TEST(test_modify_json_permissions_obj) {
 
     for (int i = 0; i < num_elts; i++) {
         json_t *elt = json_array_get(acl, i);
-        print_json(elt);
+
         ck_assert(json_is_object(elt));
-        if (json_equal(expected, elt)) {
-            found = 1;
-        }
+        if (json_equal(expected, elt)) found = 1;
     }
 
     ck_assert_int_eq(found, 1);
