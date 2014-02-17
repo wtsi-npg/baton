@@ -24,6 +24,10 @@ AC_CONFIG_MACRO_DIR([m4])
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4], [HAVE_CHECK=1], [HAVE_CHECK=0])
 AM_CONDITIONAL(HAVE_CHECK, test x"$have_check" = "xyes")
 
+AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build], [no])
+AS_IF([test "x$SPHINXBUILD" = xno],
+      AC_MSG_WARN(sphinx-build is required to build documentation))
+
 AC_CHECK_LIB([zlog], [zlog_init])
 AC_CHECK_LIB([jansson], [json_unpack])
 AC_CHECK_LIB([pthread], [pthread_kill])
@@ -31,5 +35,5 @@ AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([src/baton.h])
-AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile])
+AC_CONFIG_FILES([baton.pc Makefile src/Makefile tests/Makefile doc/Makefile])
 AC_OUTPUT

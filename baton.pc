@@ -1,0 +1,10 @@
+prefix=/Users/keith/wibble
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: baton
+Description: Clients and client API for iRODS
+Version: 0.6.0-8-gf0b357a-dirty
+Libs: -L${libdir} -lbaton
+Cflags: -I${includedir}
