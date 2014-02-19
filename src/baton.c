@@ -1382,6 +1382,20 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
+    json_t *base_entry = collection_path_to_json(rods_path->outPath);
+    if (!base_entry) {
+        set_baton_error(error, -1, "Failed to pack '%s' as JSON",
+                        rods_path->outPath);
+        goto query_error;
+    }
+    status = json_array_append_new(results, base_entry);
+    if (status != 0) {
+        set_baton_error(error, status,
+                        "Failed to convert listing of '%s' to JSON: "
+                        "error %d", rods_path->outPath, status);
+        goto query_error;
+    }
+
     while ((status = rclReadCollection(conn, &coll_handle, &coll_entry)) >= 0) {
         json_t *entry;
 

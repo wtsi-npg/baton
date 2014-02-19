@@ -230,12 +230,16 @@ START_TEST(test_list_coll) {
                               JSON_OWNER_KEY, env.rodsUserName,
                               JSON_LEVEL_KEY, ACCESS_OWN);
     json_t *expected =
-        json_pack("[{s:s, s:s, s:[o]},"  // f1.txt
+        json_pack("[{s:s,      s:[o]},"  // base collection
+                  " {s:s, s:s, s:[o]},"  // f1.txt
                   " {s:s, s:s, s:[o]},"  // f2.txt
                   " {s:s, s:s, s:[o]},"  // f3.txt
                   " {s:s, s:[o]},"       // a
                   " {s:s, s:[o]},"       // b
                   " {s:s, s:[o]}]",      // c
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_ACCESS_KEY,      perms,
+
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f1.txt",
                   JSON_ACCESS_KEY,      perms,
