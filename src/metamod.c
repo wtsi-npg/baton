@@ -1,4 +1,4 @@
- /**
+/**
  * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify

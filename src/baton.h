@@ -165,6 +165,13 @@ void log_rods_errstack(log_level level, const char *category, rError_t *error);
 void log_json_error(log_level level, const char *category,
                     json_error_t *error);
 
+/**
+ * Initialise an error struct before use.
+ *
+ * @param[in] error     A new JSON error state.
+ *
+ * @ref set_baton_error
+ */
 void init_baton_error(baton_error_t *error);
 
 /**
@@ -175,6 +182,8 @@ void init_baton_error(baton_error_t *error);
  * @param[in] code       The error code.
  * @param[in] format     The error message format string or template.
  * @param[in] arguments  The format arguments.
+ *
+ * @ref init_baton_error
  */
 void set_baton_error(baton_error_t *error, int code,
                      const char *format, ...);
@@ -400,6 +409,12 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
  */
 void free_query_input(genQueryInp_t *query_in);
 
+/**
+ * Free memory used by an iRODS generic query result (see
+ * rodsGenQuery.h).
+ *
+ * @param[in] query_out       The query result to free.
+ */
 void free_query_output(genQueryOut_t *query_out);
 
 /**
