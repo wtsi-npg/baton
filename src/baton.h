@@ -400,6 +400,8 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
  */
 void free_query_input(genQueryInp_t *query_in);
 
+void free_query_output(genQueryOut_t *query_out);
+
 /**
  * Append a new array of conditionals to an existing query.
  *

@@ -94,9 +94,31 @@ This program accepts JSON objects as described in
 :ref:`representing_paths` and prints results in the same format. If
 the target path is a data object, the printed result is also a data
 object. However, if the target path is a collection, the printed
-result is a JSON array of JSON objects, one for each collection or
-data object within the target.
+result is a JSON array of JSON objects containing one object
+representing the target collection followed by one for each collection
+or data object directly within the target.
 
+Command line options
+--------------------
+
+* ``--acl``
+
+  Print access control lists in output, in the format described in
+  :ref:`representing_path_permissions`. Optional.
+
+* ``--avu``
+
+  Print AVU lists in output, in the format described in
+  :ref:`representing_path_metadata`. Optional.
+
+* ``--file``
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+* ``--help``
+
+  Prints command line help.
 
 json-metalist
 -------------
@@ -117,6 +139,18 @@ Synopsis:
 This program accepts JSON objects as described in
 :ref:`representing_paths` and prints results in the same format, with
 metadata as described in :ref:`representing_path_metadata`.
+
+Command line options
+--------------------
+
+* ``--file``
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+* ``--help``
+
+  Prints command line help.
 
 
 json-metaquery

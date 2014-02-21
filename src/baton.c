@@ -1120,6 +1120,17 @@ void free_query_input(genQueryInp_t *query_in) {
     free(query_in);
 }
 
+void free_query_output(genQueryOut_t *query_out) {
+    assert(query_out);
+
+    // Free any strings allocated as query results
+    for (int i = 0; i < query_out->attriCnt; i++) {
+        free(query_out->sqlResult[i].value);
+    }
+
+    free(query_out);
+}
+
 genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
                                const query_cond_t conds[]) {
     for (int i = 0; i < num_conds; i++) {
@@ -1209,11 +1220,11 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
                 goto error;
             }
 
-            // Would be better to somehow realloc this memory
-            if (query_out) free(query_out);
+            if (query_out) free_query_output(query_out);
         }
         else if (status == CAT_NO_ROWS_FOUND) {
             logmsg(TRACE, BATON_CAT, "Query returned no results");
+            if (query_out) free_query_output(query_out);
             break;
         }
         else {
@@ -1240,7 +1251,7 @@ error:
         logmsg(ERROR, BATON_CAT, error->message);
     }
 
-    if (query_out) free(query_out);
+    if (query_out) free_query_output(query_out);
     if (results) json_decref(results);
 
     return NULL;
