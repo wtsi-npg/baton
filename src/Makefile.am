@@ -1,4 +1,13 @@
 
+MOSTLYCLEANFILES = *.gcda *.gcno
+
+if COVERAGE_ENABLED
+AM_CFLAGS = -fprofile-arcs -ftest-coverage
+AM_LDFLAGS = --coverage
+endif
+
+AM_CPPFLAGS = -DZLOG_CONF='"$(sysconfdir)/baton_zlog.conf"'
+
 lib_LTLIBRARIES = libbaton.la
 
 libbaton_la_SOURCES = baton.c json.c utilities.c
@@ -33,5 +42,3 @@ json_metaquery_LDADD = libbaton.la
 
 json_metasuper_SOURCES = json-metasuper.c
 json_metasuper_LDADD = libbaton.la
-
-AM_CPPFLAGS = -DZLOG_CONF='"$(sysconfdir)/baton_zlog.conf"'

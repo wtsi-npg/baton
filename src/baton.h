@@ -28,11 +28,14 @@
 
 #include "utilities.h"
 
-#define ACCESS_READ       "read"
-#define ACCESS_WRITE      "write"
-#define ACCESS_NAMESPACE  "access_type"
+#define ACCESS_NAMESPACE   "access_type"
+#define ACCESS_LEVEL_NULL  "null"
+#define ACCESS_LEVEL_OWN   "own"
+#define ACCESS_LEVEL_READ  "read"
+#define ACCESS_LEVEL_WRITE "write"
 
-#define MAX_NUM_CONDITIONALS  20
+#define MAX_NUM_COLUMNS       128
+#define MAX_NUM_CONDITIONALS  32
 #define MAX_ERROR_MESSAGE_LEN 1024
 
 #define META_ADD_NAME "add"
@@ -40,16 +43,12 @@
 
 #define SEARCH_OP_EQUALS "="
 #define SEARCH_OP_LIKE   "like"
-
 #define SEARCH_OP_STR_GT ">"
 #define SEARCH_OP_STR_LT "<"
-
 #define SEARCH_OP_NUM_GT "n>"
 #define SEARCH_OP_NUM_LT "n<"
-
 #define SEARCH_OP_STR_GE ">="
 #define SEARCH_OP_STR_LE "<="
-
 #define SEARCH_OP_NUM_GE "n>="
 #define SEARCH_OP_NUM_LE "n<="
 
@@ -87,11 +86,22 @@ typedef enum {
     RECURSE
 } recursive_op;
 
+typedef enum {
+    /** Print minimal collections and data object */
+    PRINT_DEFAULT = 0,
+    /** Print AVUs on collections and data objects */
+    PRINT_AVU     = 1 << 0,
+    /** Print ACLs on collections and data objects */
+    PRINT_ACL     = 1 << 2,
+    /** Pretty-print JSON */
+    PRINT_PRETTY  = 1 << 3
+} print_flags;
+
 /**
  *  @struct metadata_op
  *  @brief AVU metadata operation inputs.
  */
-struct mod_metadata_in {
+typedef struct mod_metadata_in {
     /** The operation to perform. */
     metadata_op op;
     /** The type argument for the iRODS path i.e. -d or -C. */
@@ -104,7 +114,16 @@ struct mod_metadata_in {
     char *attr_value;
     /** The AVU attribute units. */
     char *attr_units;
-};
+} mod_metadata_in_t;
+
+typedef struct query_format_in {
+    /** The number of columns to return */
+    int num_columns;
+    /** The ICAT columns to return */
+    const int columns[MAX_NUM_COLUMNS];
+    /** The labels to use for the returned column values */
+    const char *labels[MAX_NUM_COLUMNS];
+} query_format_in_t;
 
 typedef struct query_cond {
     /** The ICAT column to match e.g. COL_META_DATA_ATTR_NAME */
@@ -146,6 +165,13 @@ void log_rods_errstack(log_level level, const char *category, rError_t *error);
 void log_json_error(log_level level, const char *category,
                     json_error_t *error);
 
+/**
+ * Initialise an error struct before use.
+ *
+ * @param[in] error     A new JSON error state.
+ *
+ * @ref set_baton_error
+ */
 void init_baton_error(baton_error_t *error);
 
 /**
@@ -156,6 +182,8 @@ void init_baton_error(baton_error_t *error);
  * @param[in] code       The error code.
  * @param[in] format     The error message format string or template.
  * @param[in] arguments  The format arguments.
+ *
+ * @ref init_baton_error
  */
 void set_baton_error(baton_error_t *error, int code,
                      const char *format, ...);
@@ -226,7 +254,7 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
  */
 json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
 
-json_t *get_user(rcComm_t *conn, char *user_name, baton_error_t *error);
+json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
 
 /**
  * Return a JSON representation of the content of a resolved iRODS
@@ -235,14 +263,16 @@ json_t *get_user(rcComm_t *conn, char *user_name, baton_error_t *error);
  * collection, return a JSON array containing zero or more JSON
  * representations of its contents.
  *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  rodspath  An iRODS path.
- * @param[out] error     An error report struct.
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  rodspath    An iRODS path.
+ * @param[in]  print_flags Result print options.
+ * @param[out] error       An error report struct.
  *
  * @return A new struct representing the path content, which must be
  * freed by the caller.
  */
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *error);
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
+                  baton_error_t *error);
 
 /**
  * Return a JSON representation of the access control list of a
@@ -316,12 +346,13 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  *                         means the search will be global.
  * @param[in]  zone_name   An iRODS zone name. Optional, NULL means the current
  *                         zone.
+ * @param[in]  print_flags Result print options.
  * @param[out] error       An error report struct.
  *
  * @return A newly constructed JSON array of JSON result objects.
  */
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
-                        baton_error_t *error);
+                        print_flags flags, baton_error_t *error);
 
 /**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
@@ -377,6 +408,14 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
  * @ref make_query_input
  */
 void free_query_input(genQueryInp_t *query_in);
+
+/**
+ * Free memory used by an iRODS generic query result (see
+ * rodsGenQuery.h).
+ *
+ * @param[in] query_out       The query result to free.
+ */
+void free_query_output(genQueryOut_t *query_out);
 
 /**
  * Append a new array of conditionals to an existing query.

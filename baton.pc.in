@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=${prefix}/include
+
+Name: baton
+Description: Clients and client API for iRODS
+Version: @VERSION@
+Libs: -L${libdir} -lbaton
+Cflags: -I${includedir}
