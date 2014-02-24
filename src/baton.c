@@ -1187,10 +1187,11 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
             logmsg(DEBUG, BATON_CAT, "Successfully fetched chunk %d of query",
                    chunk_num);
 
-            // Cargo-cult from iRODS clients; not sure this is useful
-            query_in->continueInx = query_out->continueInx;
             // Allows query_out to be freed
             continue_flag = query_out->continueInx;
+
+            // Cargo-cult from iRODS clients; not sure this is useful
+            query_in->continueInx = query_out->continueInx;
 
             json_t *chunk = make_json_objects(query_out, labels);
             if (!chunk) {
@@ -1216,9 +1217,17 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
 
             if (query_out) free_query_output(query_out);
         }
+        else if (status == CAT_NO_ROWS_FOUND && chunk_num > 0) {
+            // Oddly CAT_NO_ROWS_FOUND is also returned at the end of a
+            // batch of chunks; test chunk_num to distinguish catch this
+            logmsg(TRACE, BATON_CAT,
+                   "Got CAT_NO_ROWS_FOUND at end of results!");
+            break;
+        }
         else if (status == CAT_NO_ROWS_FOUND) {
+            // If this genuinely means no rows have been found, should we
+            // free this, or not? Current iRODS leaves this NULL.
             logmsg(TRACE, BATON_CAT, "Query returned no results");
-            if (query_out) free_query_output(query_out);
             break;
         }
         else {
