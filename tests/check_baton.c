@@ -42,7 +42,8 @@ static void set_current_rods_root(char *in, char *out) {
 }
 
 static void setup() {
-    zlog_init("../baton_zlog.conf");
+    // This is too late to initialise zlog; moved to main.
+    // zlog_init("test_zlog.conf");
 }
 
 static void teardown() {
@@ -120,7 +121,10 @@ END_TEST
 START_TEST(test_maybe_stdin) {
     ck_assert_ptr_eq(stdin, maybe_stdin(NULL));
 
-    char *wd = getwd(NULL);
+    char buf[MAX_PATH_LEN];
+    char *wd = getcwd(buf, MAX_PATH_LEN);
+    ck_assert_ptr_ne(wd , NULL);
+
     char file_path[MAX_PATH_LEN];
     snprintf(file_path, MAX_PATH_LEN, "%s/data/f1.txt", wd);
 
@@ -968,6 +972,8 @@ Suite *baton_suite(void) {
 }
 
 int main (void) {
+    zlog_init("test_zlog.conf");
+
     Suite *suite = baton_suite();
 
     SRunner *runner = srunner_create(suite);

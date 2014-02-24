@@ -17,32 +17,49 @@ AC_CONFIG_MACRO_DIR([m4])
 # Ensure that check.m4 and pkg.m4 are in a system aclocal path or
 # a path added by ACLOCAL_AMFLAGS in Makefile.am
 
+# Unit tests using the check library
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4], [HAVE_CHECK=1], [HAVE_CHECK=0])
 AM_CONDITIONAL(HAVE_CHECK, test x"$have_check" = "xyes")
 
-AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build], [no])
-AS_IF([test "x$SPHINXBUILD" = xno],
-      AC_MSG_WARN(sphinx-build is required to build documentation))
+# Sphinx documentation build (HTML manual and manpage)
+AC_ARG_VAR([SPHINXBUILD], [Sphinx documentation builder])
+AC_ARG_VAR([LCOV], [lcov code coverage analysis tool])
+AC_ARG_VAR([GENHTML], [lcov HTML reporting tool])
 
-AC_ARG_ENABLE(coverage,
-  AS_HELP_STRING([--enable-coverage], [Enable gcov/lcov support]),
-    [coverage_enabled=$enableval], [coverage_enabled=no])
+AC_PATH_PROG([SPHINXBUILD], sphinx-build, no)
+ if test "x${SPHINXBUILD}" = xno; then
+   AC_MSG_WARN([
+-----------------------------------------------
+Unable to find sphinx-build on this system. The
+HTML manual and manpage will not be created.
+-----------------------------------------------])
+fi
 
-if test "$coverage_enabled" = yes; then
+AM_CONDITIONAL(HAVE_SPHINX, [test "x${SPHINXBUILD}" = xyes])
+
+# Lcov code coverage analysis
+AC_ARG_ENABLE([coverage],
+  [AS_HELP_STRING([--enable-coverage],
+    [Enable code coverage analysis (default is no)])],
+[coverage_enabled=${enableval}], [coverage_enabled=no])
+
+if test "x${coverage_enabled}" = xyes; then
   AC_CHECK_LIB(gcov, __gcov_init, [], [])
 
-  AC_PATH_PROG(LCOV, lcov, no)
-   if test "x$LCOV" = "xno"; then
-     AC_MSG_ERROR([Could not find lcov; install lcov package for coverage.])
-   fi
+  AC_PATH_PROG([LCOV], lcov, no)
+    if test "x${LCOV}" = xno; then
+      AC_MSG_ERROR([Could not find lcov, necessary for coverage analysis.])
+    fi
 
-  AC_PATH_PROG(GENHTML, genhtml, no)
-   if test "x$GENHTML" = "xno"; then
-     AC_MSG_ERROR([Could not find genhtml; install lcov package for coverage.])
-   fi
+  AC_PATH_PROG([GENHTML], genhtml, no)
+    if test "x${GENHTML}" = xno; then
+      AC_MSG_ERROR([Could not find genhtml, necessary for coverage reporting.])
+    fi
 fi
-AM_CONDITIONAL(COVERAGE_ENABLED, [test "$coverage_enabled"=yes])
 
+AM_CONDITIONAL(COVERAGE_ENABLED, [test "x${coverage_enabled}" = xyes])
+
+# Required library checks
 AC_CHECK_LIB([zlog], [zlog_init])
 AC_CHECK_LIB([jansson], [json_unpack])
 AC_CHECK_LIB([pthread], [pthread_kill])
