@@ -4,8 +4,13 @@
 COVERAGE_INFO_FILE = $(top_builddir)/coverage.info
 COVERAGE_REPORT_DIR = $(top_builddir)/coverage
 
-SUBDIRS = src . tests doc
 ACLOCAL_AMFLAGS= -I m4
+
+if HAVE_SPHINX
+  MAYBE_DOC = doc
+endif
+
+SUBDIRS = src . tests $(MAYBE_DOC)
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = baton.pc
@@ -17,8 +22,7 @@ coverage-report:
 	@mkdir -p $(COVERAGE_REPORT_DIR)
 	@touch $(COVERAGE_INFO_FILE)
 	$(LCOV) --compat-libtool --directory $(top_builddir) \
-		    --no-external --capture \
-            --output-file $(COVERAGE_INFO_FILE)
+--no-external --capture --output-file $(COVERAGE_INFO_FILE)
 	$(GENHTML) -o $(COVERAGE_REPORT_DIR) $(COVERAGE_INFO_FILE)
 
 coverage: coverage-report
