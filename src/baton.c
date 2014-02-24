@@ -560,12 +560,6 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         goto error;
     }
 
-    if (!json_is_object(query)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid query: not a JSON object");
-        goto error;
-    }
-
     query = map_access_args(conn, query, error);
     if (error->code != 0) goto error;
 

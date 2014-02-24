@@ -117,6 +117,21 @@ START_TEST(test_str_equals_ignore_case) {
 }
 END_TEST
 
+START_TEST(test_maybe_stdin) {
+    ck_assert_ptr_eq(stdin, maybe_stdin(NULL));
+
+    char *wd = getwd(NULL);
+    char file_path[MAX_PATH_LEN];
+    snprintf(file_path, MAX_PATH_LEN, "%s/data/f1.txt", wd);
+
+    FILE *f = maybe_stdin(file_path);
+    ck_assert_ptr_ne(f, NULL);
+    ck_assert_int_eq(fclose(f), 0);
+
+    ck_assert_ptr_eq(maybe_stdin("no_such_path"), NULL);
+}
+END_TEST
+
 // Can we log in?
 START_TEST(test_rods_login) {
     rodsEnv env;
@@ -161,6 +176,15 @@ START_TEST(test_resolve_rods_path) {
     ck_assert_str_eq(rods_path.outPath, path);
     ck_assert_int_eq(rods_path.objType, COLL_OBJ_T);
 
+    char *invalid_path = '\0';
+    rodsPath_t inv_rods_path;
+    ck_assert(resolve_rods_path(conn, &env, &inv_rods_path, invalid_path) < 0);
+
+    char *no_path = "no such path";
+    rodsPath_t no_rods_path;
+    ck_assert_int_ne(resolve_rods_path(conn, &env, &no_rods_path, no_path),
+                     EXIST_ST);
+
     if (conn) rcDisconnect(conn);
 }
 END_TEST
@@ -170,8 +194,17 @@ START_TEST(test_list_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
+    char *no_path = "no such path";
+    rodsPath_t no_rods_path;
+    baton_error_t no_path_error;
+    resolve_rods_path(conn, &env, &no_rods_path, no_path);
+    ck_assert_ptr_eq(list_path(conn, &no_rods_path, PRINT_ACL, &no_path_error),
+                     NULL);
+    ck_assert_int_ne(no_path_error.code, 0);
+
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
+
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -301,6 +334,14 @@ START_TEST(test_list_permissions_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
+    char *no_path = "no such path";
+    rodsPath_t no_rods_path;
+    baton_error_t no_path_error;
+    resolve_rods_path(conn, &env, &no_rods_path, no_path);
+    ck_assert_ptr_eq(list_permissions(conn, &no_rods_path, &no_path_error),
+                     NULL);
+    ck_assert_int_ne(no_path_error.code, 0);
+
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
@@ -357,6 +398,14 @@ END_TEST
 START_TEST(test_list_metadata_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
+
+    char *no_path = "no such path";
+    rodsPath_t no_rods_path;
+    baton_error_t no_path_error;
+    resolve_rods_path(conn, &env, &no_rods_path, no_path);
+    ck_assert_ptr_eq(list_metadata(conn, &no_rods_path, NULL, &no_path_error),
+                     NULL);
+    ck_assert_int_ne(no_path_error.code, 0);
 
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
@@ -872,6 +921,7 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_str_equals_ignore_case);
     tcase_add_test(utilities_tests, test_str_starts_with);
     tcase_add_test(utilities_tests, test_str_ends_with);
+    tcase_add_test(utilities_tests, test_maybe_stdin);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);
