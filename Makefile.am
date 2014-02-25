@@ -1,8 +1,4 @@
 
-.PHONY : coverage coverage-report clean-coverage-report check-coverage
-
-COVERAGE_INFO_FILE = $(top_builddir)/coverage.info
-COVERAGE_REPORT_DIR = $(top_builddir)/coverage
 
 ACLOCAL_AMFLAGS= -I m4
 
@@ -17,6 +13,12 @@ pkgconfig_DATA = baton.pc
 
 etcdir = $(sysconfdir)
 etc_DATA = baton_zlog.conf
+
+if COVERAGE_ENABLED
+.PHONY: coverage coverage-report clean-coverage-report check-coverage
+
+COVERAGE_INFO_FILE = $(top_builddir)/coverage.info
+COVERAGE_REPORT_DIR = $(top_builddir)/coverage
 
 coverage-report:
 	@mkdir -p $(COVERAGE_REPORT_DIR)
@@ -37,3 +39,5 @@ clean-coverage: clean-coverage-report
 mostlyclean-local: clean-coverage
 
 check-coverage: clean-coverage check coverage-report
+
+endif # COVERAGE_ENABLED
