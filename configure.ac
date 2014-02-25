@@ -60,14 +60,14 @@ fi
 AM_CONDITIONAL(COVERAGE_ENABLED, [test "x${coverage_enabled}" = xyes])
 
 # Required library checks
-AC_CHECK_LIB([RodsAPIs], [getRodsEnv], [],
+AC_CHECK_LIB([RodsAPIs], [getRodsEnvFileName], [],
              [AC_MSG_ERROR([
 -----------------------------------------------
 Unable to find iRODS shared library. Please
 ensure that you have configured the location of
 your iRODS installation
 -----------------------------------------------])
-])
+], [-lpthread -lgssapi_krb5])
 
 AC_CHECK_LIB([zlog], [zlog_init], [],
              [AC_MSG_ERROR([
