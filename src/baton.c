@@ -906,6 +906,24 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     char *err_subname;
     char *type_arg;
 
+    if (!attr_name) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_name was null");
+        goto error;
+    }
+    if (strlen(attr_name) == 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_name was empty");
+        goto error;
+    }
+
+    if (!attr_value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_value was null");
+        goto error;
+    }
+    if (strlen(attr_value) == 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_value was empty");
+        goto error;
+    }
+
     if (rods_path->objState == NOT_EXIST_ST) {
         set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
                         "Path '%s' does not exist "
@@ -987,12 +1005,22 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *value = json_object_get(avu, JSON_VALUE_KEY);
     json_t *units = json_object_get(avu, JSON_UNITS_KEY);
 
+    if (!attr) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid AVU: attribute property is missing");
+        goto error;
+    }
+    if (!value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid AVU: value property is missing");
+        goto error;
+    }
     if (!json_is_string(attr)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid attribute: not a JSON string");
         goto error;
     }
-    if (value && !json_is_string(value)) {
+    if (!json_is_string(value)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid value: not a JSON string");
         goto error;

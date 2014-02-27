@@ -52,7 +52,7 @@ stream of JSON objects on standard output. The ``baton`` programs are:
 
   Print the metadata on collections and data objects.
 
-* `json-metamod`
+* `json-metamod`_
 
   Add or remove specfic :term:`AVU` s in the metadata on collections
   and data objects.
@@ -99,7 +99,7 @@ representing the target collection followed by one for each collection
 or data object directly within the target.
 
 Command line options
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 * ``--acl``
 
@@ -141,7 +141,7 @@ This program accepts JSON objects as described in
 metadata as described in :ref:`representing_path_metadata`.
 
 Command line options
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 * ``--file``
 
@@ -151,6 +151,47 @@ Command line options
 * ``--help``
 
   Prints command line help.
+
+
+json-metamod
+------------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ echo '{"collection": "test",  \
+            "data_object": "a.txt" \
+            "avus": [{"attribute": "x", "value": "y"},   \
+                     {"attribute": "m", "value": "n"}]}' \
+                | json-metamod --operation add
+
+   $ echo '{"collection": "test",  \
+            "data_object": "a.txt" \
+            "avus": [{"attribute": "x"},                 \
+                     {"attribute": "m", "value": "n"}]}' \
+                | json-metamod --operation rem
+
+
+This program accepts JSON objects as described in
+:ref:`representing_paths` and adds or removes matching metadata as
+described in :ref:`representing_path_metadata`.
+
+Command line options
+^^^^^^^^^^^^^^^^^^^^
+
+* ``--file``
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+* ``--help``
+
+  Prints command line help.
+
+* ``--operation``
+
+  The operation to perform; one of ``add`` or ``remove``.
 
 
 json-metaquery
@@ -170,8 +211,8 @@ Synopsis:
                      {"attribute": "m", "value": "n"}]}' | json-metaquery
 
    $ echo '{"avus": [{"attribute": "v", "value": "100", \
-                      "operator": "n<"}, \
-                     {"attribute": "w", "value": "n%", \
+                      "operator": "n<"},                \
+                     {"attribute": "w", "value": "n%",  \
                       "operator": "like"}]}' | json-metaquery
 
 This program accepts JSON objects as described in

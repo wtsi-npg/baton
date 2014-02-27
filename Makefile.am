@@ -2,11 +2,7 @@
 
 ACLOCAL_AMFLAGS= -I m4
 
-if HAVE_SPHINX
-  MAYBE_DOC = doc
-endif
-
-SUBDIRS = src . tests $(MAYBE_DOC)
+SUBDIRS = src . tests doc
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = baton.pc
