@@ -193,18 +193,27 @@ START_TEST(test_resolve_rods_path) {
 }
 END_TEST
 
+// Do we fail to list a non-existent path?
+START_TEST(test_list_missing_path) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char *path = "no such path";
+    rodsPath_t rods_path;
+    baton_error_t error;
+    resolve_rods_path(conn, &env, &rods_path, path);
+
+    ck_assert_ptr_eq(list_path(conn, &rods_path, PRINT_ACL, &error), NULL);
+    ck_assert_int_ne(error.code, 0);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 // Can we list a data object?
 START_TEST(test_list_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
-
-    char *no_path = "no such path";
-    rodsPath_t no_rods_path;
-    baton_error_t no_path_error;
-    resolve_rods_path(conn, &env, &no_rods_path, no_path);
-    ck_assert_ptr_eq(list_path(conn, &no_rods_path, PRINT_ACL, &no_path_error),
-                     NULL);
-    ck_assert_int_ne(no_path_error.code, 0);
 
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
@@ -220,22 +229,56 @@ START_TEST(test_list_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
                      EXIST_ST);
 
-    baton_error_t error;
-    json_t *results = list_path(conn, &rods_obj_path, PRINT_ACL, &error);
+    json_t *perm = json_pack("{s:s, s:s}",
+                             JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_LEVEL_KEY, ACCESS_LEVEL_OWN);
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1",
+                            JSON_UNITS_KEY,     "units1");
 
-    json_t *perms = json_pack("{s:s, s:s}",
-                              JSON_OWNER_KEY, env.rodsUserName,
-                              JSON_LEVEL_KEY, ACCESS_LEVEL_OWN);
-    json_t *expected = json_pack("{s:s, s:s, s:[o]}",
-                                 JSON_COLLECTION_KEY,  rods_path.outPath,
-                                 JSON_DATA_OBJECT_KEY, "f1.txt",
-                                 JSON_ACCESS_KEY,      perms);
+    // Default representation
+    baton_error_t error1;
+    json_t *results1 = list_path(conn, &rods_obj_path, PRINT_DEFAULT, &error1);
+    json_t *expected1 = json_pack("{s:s, s:s}",
+                                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                                  JSON_DATA_OBJECT_KEY, "f1.txt");
 
-    ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(json_equal(results1, expected1), 1);
+    ck_assert_int_eq(error1.code, 0);
 
-    json_decref(results);
-    json_decref(expected);
+    // With ACL
+    baton_error_t error2;
+    json_t *results2 = list_path(conn, &rods_obj_path, PRINT_ACL, &error2);
+    json_t *expected2 = json_pack("{s:s, s:s, s:[o]}",
+                                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                                  JSON_DATA_OBJECT_KEY, "f1.txt",
+                                  JSON_ACCESS_KEY,      perm);
+
+    ck_assert_int_eq(json_equal(results2, expected2), 1);
+    ck_assert_int_eq(error2.code, 0);
+
+    // With AVUs
+    baton_error_t error3;
+    json_t *results3 = list_path(conn, &rods_obj_path, PRINT_ACL | PRINT_AVU,
+                                 &error3);
+    json_t *expected3 = json_pack("{s:s, s:s, s:[o], s:[o]}",
+                                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                                  JSON_DATA_OBJECT_KEY, "f1.txt",
+                                  JSON_ACCESS_KEY,      perm,
+                                  JSON_AVUS_KEY,        avu);
+
+    ck_assert_int_eq(json_equal(results3, expected3), 1);
+    ck_assert_int_eq(error3.code, 0);
+
+    json_decref(results1);
+    json_decref(expected1);
+
+    json_decref(results2);
+    json_decref(expected2);
+
+    json_decref(results3);
+    json_decref(expected3);
 
     if (conn) rcDisconnect(conn);
 }
@@ -333,18 +376,26 @@ START_TEST(test_make_query_input) {
 }
 END_TEST
 
+// Do we fail to list the ACL of a non-existant path?
+START_TEST(test_list_permissions_missing_path) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char *path = "no such path";
+    rodsPath_t rods_path;
+    baton_error_t error;
+    resolve_rods_path(conn, &env, &rods_path, path);
+    ck_assert_ptr_eq(list_permissions(conn, &rods_path, &error), NULL);
+    ck_assert_int_ne(error.code, 0);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 // Can we list the ACL of an object?
 START_TEST(test_list_permissions_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
-
-    char *no_path = "no such path";
-    rodsPath_t no_rods_path;
-    baton_error_t no_path_error;
-    resolve_rods_path(conn, &env, &no_rods_path, no_path);
-    ck_assert_ptr_eq(list_permissions(conn, &no_rods_path, &no_path_error),
-                     NULL);
-    ck_assert_int_ne(no_path_error.code, 0);
 
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
@@ -943,31 +994,48 @@ END_TEST
 // Can we convert JSON representation to a useful path string?
 START_TEST(test_json_to_path) {
     const char *coll_path = "/a/b/c";
-    json_t *coll = json_pack("{s:s}", JSON_COLLECTION_KEY, coll_path);
-    baton_error_t error_col;
-    ck_assert_str_eq(json_to_path(coll, &error_col), coll_path);
-    ck_assert_int_eq(error_col.code, 0);
-    json_decref(coll);
+    json_t *coll1 = json_pack("{s:s}", JSON_COLLECTION_KEY, coll_path);
+    baton_error_t error_coll1;
+    ck_assert_str_eq(json_to_path(coll1, &error_coll1), coll_path);
+    ck_assert_int_eq(error_coll1.code, 0);
+    json_decref(coll1);
+
+    // Collection not a string
+    json_t *coll2 = json_pack("{s: []}", JSON_COLLECTION_KEY);
+    baton_error_t error_coll2;
+    ck_assert_ptr_eq(json_to_path(coll2, &error_coll2), NULL);
+    ck_assert_int_ne(error_coll2.code, 0);
+    json_decref(coll2);
 
     const char *obj_path = "/a/b/c.txt";
-    json_t *obj = json_pack("{s:s, s:s}",
-                            JSON_COLLECTION_KEY,  "/a/b",
-                            JSON_DATA_OBJECT_KEY, "c.txt");
-    baton_error_t error_obj;
-    ck_assert_str_eq(json_to_path(obj, &error_obj), obj_path);
-    ck_assert_int_eq(error_obj.code, 0);
-    json_decref(obj);
+    json_t *obj1 = json_pack("{s:s, s:s}",
+                             JSON_COLLECTION_KEY,  "/a/b",
+                             JSON_DATA_OBJECT_KEY, "c.txt");
+    baton_error_t error_obj1;
+    ck_assert_str_eq(json_to_path(obj1, &error_obj1), obj_path);
+    ck_assert_int_eq(error_obj1.code, 0);
+    json_decref(obj1);
+
+    // Slash-terminated collection
+    json_t *obj2 = json_pack("{s:s, s:s}",
+                             JSON_COLLECTION_KEY,  "/a/b/",
+                             JSON_DATA_OBJECT_KEY, "c.txt");
+    baton_error_t error_obj2;
+    ck_assert_str_eq(json_to_path(obj2, &error_obj2), obj_path);
+    ck_assert_int_eq(error_obj2.code, 0);
+    json_decref(obj2);
 
     // No collection key:value
     json_t *malformed_obj = json_pack("{s:s}", JSON_DATA_OBJECT_KEY, "c.txt");
 
-    baton_error_t error;
-    ck_assert_ptr_eq(json_to_path(malformed_obj, &error), NULL);
-    ck_assert_int_ne(error.code, 0);
+    baton_error_t error_obj3;
+    ck_assert_ptr_eq(json_to_path(malformed_obj, &error_obj3), NULL);
+    ck_assert_int_ne(error_obj3.code, 0);
     json_decref(malformed_obj);
 }
 END_TEST
 
+// Can we test JSON for the presence of an AVU?
 START_TEST(test_contains_avu) {
     json_t *avu1 = json_pack("{s:s, s:s}",
                              JSON_ATTRIBUTE_KEY, "foo",
@@ -989,6 +1057,7 @@ START_TEST(test_contains_avu) {
 }
 END_TEST
 
+// Can we test for JSON representation of a collection?
 START_TEST(test_represents_collection) {
     json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
     json_t *obj = json_pack("{s:s, s:s}",
@@ -1003,6 +1072,7 @@ START_TEST(test_represents_collection) {
 }
 END_TEST
 
+// Can we test for JSON representation of a data object?
 START_TEST(test_represents_data_object) {
     json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
     json_t *obj = json_pack("{s:s, s:s}",
@@ -1017,6 +1087,7 @@ START_TEST(test_represents_data_object) {
 }
 END_TEST
 
+// Can we build query JSON from strings?
 START_TEST(test_query_args_to_json) {
     json_t *args1 = query_args_to_json("foo", "bar", NULL);
     json_t *expected1 = json_pack("{s:[{s:s, s:s}]}",
@@ -1048,6 +1119,12 @@ END_TEST
 START_TEST(test_get_user) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
+
+    baton_error_t expected_error;
+    init_baton_error(&expected_error);
+    json_t *bad_user = get_user(conn, "no_such_user", &expected_error);
+    ck_assert_int_ne(expected_error.code, 0);
+    ck_assert_ptr_eq(bad_user, NULL);
 
     baton_error_t error;
     init_baton_error(&error);
@@ -1085,9 +1162,11 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_resolve_rods_path);
     tcase_add_test(basic_tests, test_make_query_input);
 
+    tcase_add_test(basic_tests, test_list_missing_path);
     tcase_add_test(basic_tests, test_list_obj);
     tcase_add_test(basic_tests, test_list_coll);
 
+    tcase_add_test(basic_tests, test_list_permissions_missing_path);
     tcase_add_test(basic_tests, test_list_permissions_obj);
     tcase_add_test(basic_tests, test_list_permissions_coll);
 

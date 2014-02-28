@@ -21,7 +21,8 @@ coverage-report:
 	@touch $(COVERAGE_INFO_FILE)
 	$(LCOV) --compat-libtool --directory $(top_builddir) \
 --no-external --capture --output-file $(COVERAGE_INFO_FILE)
-	$(GENHTML) -o $(COVERAGE_REPORT_DIR) $(COVERAGE_INFO_FILE)
+	$(GENHTML) -o $(COVERAGE_REPORT_DIR) --config-file lcov.conf \
+$(COVERAGE_INFO_FILE)
 
 coverage: coverage-report
 
