@@ -118,6 +118,14 @@ START_TEST(test_str_equals_ignore_case) {
 }
 END_TEST
 
+START_TEST(test_parse_base_name) {
+    ck_assert_str_eq("a", parse_base_name("a"));
+    ck_assert_str_eq("a", parse_base_name("/a"));
+    ck_assert_str_eq("b", parse_base_name("/a/b"));
+
+}
+END_TEST
+
 START_TEST(test_maybe_stdin) {
     ck_assert_ptr_eq(stdin, maybe_stdin(NULL));
 
@@ -250,7 +258,7 @@ START_TEST(test_list_obj) {
     // With ACL
     baton_error_t error2;
     json_t *results2 = list_path(conn, &rods_obj_path, PRINT_ACL, &error2);
-    json_t *expected2 = json_pack("{s:s, s:s, s:[o]}",
+    json_t *expected2 = json_pack("{s:s, s:s, s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
                                   JSON_ACCESS_KEY,      perm);
@@ -262,7 +270,7 @@ START_TEST(test_list_obj) {
     baton_error_t error3;
     json_t *results3 = list_path(conn, &rods_obj_path, PRINT_ACL | PRINT_AVU,
                                  &error3);
-    json_t *expected3 = json_pack("{s:s, s:s, s:[o], s:[o]}",
+    json_t *expected3 = json_pack("{s:s, s:s, s:[O], s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
                                   JSON_ACCESS_KEY,      perm,
@@ -279,6 +287,9 @@ START_TEST(test_list_obj) {
 
     json_decref(results3);
     json_decref(expected3);
+
+    json_decref(perm);
+    json_decref(avu);
 
     if (conn) rcDisconnect(conn);
 }
@@ -559,7 +570,8 @@ START_TEST(test_search_metadata_obj) {
 }
 END_TEST
 
-// Can we search for data objects by their metadata, limiting scope by path?
+// Can we search for data objects by their metadata, limiting scope by
+// path?
 START_TEST(test_search_metadata_path_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -585,6 +597,55 @@ START_TEST(test_search_metadata_path_obj) {
         ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
         ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
     }
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we search for data objects by their metadata, limited by
+// permission?
+START_TEST(test_search_metadata_perm_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t mod_error;
+    init_baton_error(&mod_error);
+    int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
+                                ACCESS_LEVEL_READ, &mod_error);
+    ck_assert_int_eq(rv, 0);
+
+    json_t *avu = json_pack("{s:s, s:s}",
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1");
+    json_t *perm = json_pack("{s:s:, s:s}",
+                             JSON_OWNER_KEY, "public",
+                             JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
+
+    json_t *query = json_pack("{s:[o], s:[o]}",
+                              JSON_AVUS_KEY,   avu,
+                              JSON_ACCESS_KEY, perm);
+
+    baton_error_t error;
+    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    ck_assert_int_eq(json_array_size(results), 1);
+
+    json_t *obj = json_array_get(results, 0);
+    ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
+    ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
+
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
@@ -1150,6 +1211,7 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_str_equals_ignore_case);
     tcase_add_test(utilities_tests, test_str_starts_with);
     tcase_add_test(utilities_tests, test_str_ends_with);
+    tcase_add_test(utilities_tests, test_parse_base_name);
     tcase_add_test(utilities_tests, test_maybe_stdin);
 
     TCase *basic_tests = tcase_create("basic");
@@ -1176,6 +1238,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_search_metadata_obj);
     tcase_add_test(basic_tests, test_search_metadata_coll);
     tcase_add_test(basic_tests, test_search_metadata_path_obj);
+    tcase_add_test(basic_tests, test_search_metadata_perm_obj);
 
     tcase_add_test(basic_tests, test_add_metadata_obj);
     tcase_add_test(basic_tests, test_remove_metadata_obj);

@@ -196,6 +196,16 @@ error:
     return status;
 }
 
+int declare_client_name(const char *prog_path) {
+    char client_name[MAX_CLIENT_NAME_LEN];
+    const char *prog_name = parse_base_name(prog_path);
+
+    snprintf(client_name, MAX_CLIENT_NAME_LEN, "%s-%s",
+             PACKAGE_NAME, prog_name);
+
+    return setenv(SP_OPTION, client_name, 1);
+}
+
 rcComm_t *rods_login(rodsEnv *env) {
     int status;
     rErrMsg_t errmsg;

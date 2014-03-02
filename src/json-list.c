@@ -130,6 +130,8 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE);
     }
 
+    declare_client_name(argv[0]);
+
     input = maybe_stdin(json_file);
 
     int status = do_list_paths(argc, argv, optind, input, pflags);
