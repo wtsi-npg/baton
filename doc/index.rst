@@ -52,7 +52,7 @@ stream of JSON objects on standard output. The ``baton`` programs are:
 
   Print the metadata on collections and data objects.
 
-* `json-metamod`
+* `json-metamod`_
 
   Add or remove specfic :term:`AVU` s in the metadata on collections
   and data objects.
@@ -67,7 +67,7 @@ stream of JSON objects on standard output. The ``baton`` programs are:
   Print the paths, metadata and access control lists of collections
   and data objects matching queries on metadata.
 
-* `json-chmod`
+* `json-chmod`_
 
   Modify the access control lists of collections and data objects.
 
@@ -98,8 +98,8 @@ result is a JSON array of JSON objects containing one object
 representing the target collection followed by one for each collection
 or data object directly within the target.
 
-Command line options
---------------------
+Options
+^^^^^^^
 
 * ``--acl``
 
@@ -140,8 +140,8 @@ This program accepts JSON objects as described in
 :ref:`representing_paths` and prints results in the same format, with
 metadata as described in :ref:`representing_path_metadata`.
 
-Command line options
---------------------
+Options
+^^^^^^^
 
 * ``--file``
 
@@ -151,6 +151,47 @@ Command line options
 * ``--help``
 
   Prints command line help.
+
+
+json-metamod
+------------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ echo '{"collection": "test",  \
+            "data_object": "a.txt" \
+            "avus": [{"attribute": "x", "value": "y"},   \
+                     {"attribute": "m", "value": "n"}]}' \
+                | json-metamod --operation add
+
+   $ echo '{"collection": "test",  \
+            "data_object": "a.txt" \
+            "avus": [{"attribute": "x", "value": "y"},   \
+                     {"attribute": "m", "value": "n"}]}' \
+                | json-metamod --operation rem
+
+
+This program accepts JSON objects as described in
+:ref:`representing_paths` and adds or removes matching metadata as
+described in :ref:`representing_path_metadata`.
+
+Options
+^^^^^^^
+
+* ``--file``
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+* ``--help``
+
+  Prints command line help.
+
+* ``--operation``
+
+  The operation to perform; one of ``add`` or ``remove``.
 
 
 json-metaquery
@@ -170,8 +211,8 @@ Synopsis:
                      {"attribute": "m", "value": "n"}]}' | json-metaquery
 
    $ echo '{"avus": [{"attribute": "v", "value": "100", \
-                      "operator": "n<"}, \
-                     {"attribute": "w", "value": "n%", \
+                      "operator": "n<"},                \
+                     {"attribute": "w", "value": "n%",  \
                       "operator": "like"}]}' | json-metaquery
 
 This program accepts JSON objects as described in
@@ -180,6 +221,41 @@ described in :ref:`representing_paths` . Additionally, it accepts an
 optional ``collection`` property which limits the scope of the
 associated metadata query to returning only those results that lie
 somewhere under that collection.
+
+json-chmod
+----------
+
+.. code-block:: sh
+
+   $ echo '{"collection": "test",
+            "access": [{"owner": "public", "level": "null"},  \
+                       {"owner": "admin",  "level": "own"}]}' \
+                | json-chmod --recurse
+
+   $ echo '{"collection": "test",  \
+            "data_object": "a.txt" \
+            "access": [{"owner": "oscar",  "level": "read"},    \
+                       {"owner": "victor", "level": "write"}]}' \
+                | json-chmod
+
+Options
+^^^^^^^
+
+* ``--file``
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+* ``--help``
+
+  Prints command line help.
+
+* ``--recurse``
+
+  Recurse into collections. Optional, defaults to false.
+
+
+
 
 
 .. _representing_paths:

@@ -60,8 +60,31 @@ fi
 AM_CONDITIONAL(COVERAGE_ENABLED, [test "x${coverage_enabled}" = xyes])
 
 # Required library checks
-AC_CHECK_LIB([zlog], [zlog_init])
-AC_CHECK_LIB([jansson], [json_unpack])
+AC_CHECK_LIB([RodsAPIs], [getRodsEnvFileName], [],
+             [AC_MSG_ERROR([
+-----------------------------------------------
+Unable to find iRODS shared library. Please
+ensure that you have configured the location of
+your iRODS installation
+-----------------------------------------------])
+], [-lpthread -lgssapi_krb5])
+
+AC_CHECK_LIB([zlog], [zlog_init], [],
+             [AC_MSG_ERROR([
+-----------------------------------------------
+Unable to find the required logging library
+zlog. Please ensure that it is installed.
+-----------------------------------------------])
+])
+
+AC_CHECK_LIB([jansson], [json_unpack], [],
+             [AC_MSG_ERROR([
+-----------------------------------------------
+Unable to find the required JSON library
+jannson. Please ensure that it is installed.
+-----------------------------------------------])
+])
+
 AC_CHECK_LIB([pthread], [pthread_kill])
 AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
 

@@ -26,6 +26,7 @@
 #include "rodsPath.h"
 #include <jansson.h>
 
+#include "config.h"
 #include "utilities.h"
 
 #define ACCESS_NAMESPACE   "access_type"
@@ -37,6 +38,7 @@
 #define MAX_NUM_COLUMNS       128
 #define MAX_NUM_CONDITIONALS  32
 #define MAX_ERROR_MESSAGE_LEN 1024
+#define MAX_CLIENT_NAME_LEN   512
 
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rm"
@@ -194,6 +196,8 @@ void set_baton_error(baton_error_t *error, int code,
  * @return 1 on success, 0 on failure.
  */
 int is_irods_available();
+
+int declare_client_name(const char *name);
 
 /**
  * Log into iRODS using an pre-defined environment.

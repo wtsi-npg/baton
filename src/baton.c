@@ -196,6 +196,16 @@ error:
     return status;
 }
 
+int declare_client_name(const char *prog_path) {
+    char client_name[MAX_CLIENT_NAME_LEN];
+    const char *prog_name = parse_base_name(prog_path);
+
+    snprintf(client_name, MAX_CLIENT_NAME_LEN, "%s-%s",
+             PACKAGE_NAME, prog_name);
+
+    return setenv(SP_OPTION, client_name, 1);
+}
+
 rcComm_t *rods_login(rodsEnv *env) {
     int status;
     rErrMsg_t errmsg;
@@ -906,6 +916,24 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     char *err_subname;
     char *type_arg;
 
+    if (!attr_name) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_name was null");
+        goto error;
+    }
+    if (strlen(attr_name) == 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_name was empty");
+        goto error;
+    }
+
+    if (!attr_value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_value was null");
+        goto error;
+    }
+    if (strlen(attr_value) == 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_value was empty");
+        goto error;
+    }
+
     if (rods_path->objState == NOT_EXIST_ST) {
         set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
                         "Path '%s' does not exist "
@@ -987,12 +1015,22 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *value = json_object_get(avu, JSON_VALUE_KEY);
     json_t *units = json_object_get(avu, JSON_UNITS_KEY);
 
+    if (!attr) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid AVU: attribute property is missing");
+        goto error;
+    }
+    if (!value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid AVU: value property is missing");
+        goto error;
+    }
     if (!json_is_string(attr)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid attribute: not a JSON string");
         goto error;
     }
-    if (value && !json_is_string(value)) {
+    if (!json_is_string(value)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid value: not a JSON string");
         goto error;
@@ -1187,10 +1225,11 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
             logmsg(DEBUG, BATON_CAT, "Successfully fetched chunk %d of query",
                    chunk_num);
 
-            // Cargo-cult from iRODS clients; not sure this is useful
-            query_in->continueInx = query_out->continueInx;
             // Allows query_out to be freed
             continue_flag = query_out->continueInx;
+
+            // Cargo-cult from iRODS clients; not sure this is useful
+            query_in->continueInx = query_out->continueInx;
 
             json_t *chunk = make_json_objects(query_out, labels);
             if (!chunk) {
@@ -1216,9 +1255,17 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
 
             if (query_out) free_query_output(query_out);
         }
+        else if (status == CAT_NO_ROWS_FOUND && chunk_num > 0) {
+            // Oddly CAT_NO_ROWS_FOUND is also returned at the end of a
+            // batch of chunks; test chunk_num to distinguish catch this
+            logmsg(TRACE, BATON_CAT,
+                   "Got CAT_NO_ROWS_FOUND at end of results!");
+            break;
+        }
         else if (status == CAT_NO_ROWS_FOUND) {
+            // If this genuinely means no rows have been found, should we
+            // free this, or not? Current iRODS leaves this NULL.
             logmsg(TRACE, BATON_CAT, "Query returned no results");
-            if (query_out) free_query_output(query_out);
             break;
         }
         else {

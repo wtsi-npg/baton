@@ -1,16 +1,8 @@
 
-.PHONY : coverage coverage-report clean-coverage-report check-coverage
-
-COVERAGE_INFO_FILE = $(top_builddir)/coverage.info
-COVERAGE_REPORT_DIR = $(top_builddir)/coverage
 
 ACLOCAL_AMFLAGS= -I m4
 
-if HAVE_SPHINX
-  MAYBE_DOC = doc
-endif
-
-SUBDIRS = src . tests $(MAYBE_DOC)
+SUBDIRS = src . tests doc
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = baton.pc
@@ -18,12 +10,19 @@ pkgconfig_DATA = baton.pc
 etcdir = $(sysconfdir)
 etc_DATA = baton_zlog.conf
 
+if COVERAGE_ENABLED
+.PHONY: coverage coverage-report clean-coverage-report check-coverage
+
+COVERAGE_INFO_FILE = $(top_builddir)/coverage.info
+COVERAGE_REPORT_DIR = $(top_builddir)/coverage
+
 coverage-report:
 	@mkdir -p $(COVERAGE_REPORT_DIR)
 	@touch $(COVERAGE_INFO_FILE)
 	$(LCOV) --compat-libtool --directory $(top_builddir) \
 --no-external --capture --output-file $(COVERAGE_INFO_FILE)
-	$(GENHTML) -o $(COVERAGE_REPORT_DIR) $(COVERAGE_INFO_FILE)
+	$(GENHTML) -o $(COVERAGE_REPORT_DIR) --config-file lcov.conf \
+$(COVERAGE_INFO_FILE)
 
 coverage: coverage-report
 
@@ -37,3 +36,5 @@ clean-coverage: clean-coverage-report
 mostlyclean-local: clean-coverage
 
 check-coverage: clean-coverage check coverage-report
+
+endif # COVERAGE_ENABLED

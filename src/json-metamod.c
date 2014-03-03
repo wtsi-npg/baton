@@ -134,6 +134,8 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE);
     }
 
+    declare_client_name(argv[0]);
+
     switch (meta_op) {
         case META_ADD:
         case META_REM:

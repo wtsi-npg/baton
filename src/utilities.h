@@ -73,6 +73,8 @@ int str_equals_ignore_case(const char *str1, const char *str2);
 
 char *copy_str(const char *str);
 
+char *parse_base_name(const char *path);
+
 FILE *maybe_stdin(const char *path);
 
 #endif // _BATON_UTILITIES_H
