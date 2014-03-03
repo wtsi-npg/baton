@@ -994,7 +994,7 @@ error:
         logmsg(ERROR, BATON_CAT, error->message);
     }
 
-    return status;
+    return error->code;
 }
 
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,

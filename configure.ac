@@ -18,8 +18,9 @@ AC_CONFIG_MACRO_DIR([m4])
 # a path added by ACLOCAL_AMFLAGS in Makefile.am
 
 # Unit tests using the check library
-PKG_CHECK_MODULES([CHECK], [check >= 0.9.4], [HAVE_CHECK=1], [HAVE_CHECK=0])
-AM_CONDITIONAL(HAVE_CHECK, test x"$have_check" = "xyes")
+PKG_CHECK_MODULES([CHECK], [check >= 0.9.4], [check_present=yes],
+                  [check_present=no])
+AM_CONDITIONAL(HAVE_CHECK, test x"$check_present" = "xyes")
 
 # Sphinx documentation build (HTML manual and manpage)
 AC_ARG_VAR([SPHINXBUILD], [Sphinx documentation builder])
