@@ -626,6 +626,7 @@ START_TEST(test_search_metadata_perm_obj) {
     int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
                                 ACCESS_LEVEL_READ, &mod_error);
     ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(mod_error.code, 0);
 
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
@@ -640,13 +641,12 @@ START_TEST(test_search_metadata_perm_obj) {
 
     baton_error_t error;
     json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    ck_assert_int_eq(error.code, 0);
     ck_assert_int_eq(json_array_size(results), 1);
 
     json_t *obj = json_array_get(results, 0);
     ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
     ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
-
-    ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
 
@@ -702,9 +702,10 @@ START_TEST(test_add_metadata_obj) {
     // Bad call with no attr
     baton_error_t expected_error1;
     int fail_rv1 = modify_metadata(conn, &rods_path, META_ADD, NULL,
-                                   "test_value", "test_units"
-                                   , &expected_error1);
+                                   "test_value", "test_units",
+                                   &expected_error1);
     ck_assert_int_ne(fail_rv1, 0);
+    ck_assert_int_ne(expected_error1.code, 0);
 
     // Bad call with empty attr
     baton_error_t expected_error2;
@@ -712,33 +713,41 @@ START_TEST(test_add_metadata_obj) {
                                    "test_value", "test_units",
                                    &expected_error2);
     ck_assert_int_ne(fail_rv2, 0);
+    ck_assert_int_ne(expected_error2.code, 0);
 
     // Bad call with no value
     baton_error_t expected_error3;
     int fail_rv3 = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
-                                  NULL, "test_units", &expected_error3);
+                                   NULL, "test_units",
+                                   &expected_error3);
     ck_assert_int_ne(fail_rv3, 0);
+    ck_assert_int_ne(expected_error3.code, 0);
 
     // Bad call with empty value
     baton_error_t expected_error4;
     int fail_rv4 = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
-                                  "", "test_units", &expected_error4);
+                                   "", "test_units",
+                                   &expected_error4);
     ck_assert_int_ne(fail_rv4, 0);
+    ck_assert_int_ne(expected_error4.code, 0);
 
     baton_error_t error;
     init_baton_error(&error);
     int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
-                             "test_value", "test_units", &error);
+                             "test_value", "test_units",
+                             &error);
     ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(error.code, 0);
 
-    json_t *results = list_metadata(conn, &rods_path, "test_attr", &error);
+    baton_error_t list_error;
+    json_t *results = list_metadata(conn, &rods_path, "test_attr", &list_error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
                                  JSON_ATTRIBUTE_KEY, "test_attr",
                                  JSON_VALUE_KEY,     "test_value",
                                  JSON_UNITS_KEY,     "test_units");
 
     ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(list_error.code, 0);
 
     json_decref(results);
     json_decref(expected);
@@ -763,15 +772,17 @@ START_TEST(test_remove_metadata_obj) {
 
     baton_error_t error;
     init_baton_error(&error);
-    int rv = modify_metadata(conn, &rods_path, META_REM, "attr1",
-                             "value1", "units1", &error);
+    int rv = modify_metadata(conn, &rods_path, META_REM, "attr1", "value1",
+                             "units1", &error);
     ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(error.code, 0);
 
-    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    baton_error_t list_error;
+    json_t *results = list_metadata(conn, &rods_path, NULL, &list_error);
     json_t *expected = json_array(); // Empty
 
     ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(list_error.code, 0);
 
     json_decref(results);
     json_decref(expected);
@@ -800,6 +811,7 @@ START_TEST(test_add_json_metadata_obj) {
     int fail_rv1 = modify_json_metadata(conn, &rods_path, META_ADD, bad_avu1,
                                         &expected_error1);
     ck_assert_int_ne(fail_rv1, 0);
+    ck_assert_int_ne(expected_error1.code, 0);
 
     // Bad AVU with no attribute
     json_t *bad_avu2 = json_pack("{s:s}", JSON_VALUE_KEY, "test_value");
@@ -807,6 +819,7 @@ START_TEST(test_add_json_metadata_obj) {
     int fail_rv2 = modify_json_metadata(conn, &rods_path, META_ADD, bad_avu2,
                                         &expected_error2);
     ck_assert_int_ne(fail_rv2, 0);
+    ck_assert_int_ne(expected_error2.code, 0);
 
     // Bad AVU with no value
     json_t *bad_avu3 = json_pack("{s:s}", JSON_ATTRIBUTE_KEY, "test_attr");
@@ -814,21 +827,23 @@ START_TEST(test_add_json_metadata_obj) {
     int fail_rv3 = modify_json_metadata(conn, &rods_path, META_ADD, bad_avu3,
                                         &expected_error3);
     ck_assert_int_ne(fail_rv3, 0);
+    ck_assert_int_ne(expected_error3.code, 0);
 
     json_t *avu = json_pack("{s:s, s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "test_attr",
                             JSON_VALUE_KEY,     "test_value",
                             JSON_UNITS_KEY,     "test_units");
     baton_error_t error;
-    int rv = modify_json_metadata(conn, &rods_path, META_ADD, avu, &error);
-    ck_assert_int_eq(rv, 0);
+    modify_json_metadata(conn, &rods_path, META_ADD, avu, &error);
+    ck_assert_int_eq(error.code, 0);
 
-    json_t *results = list_metadata(conn, &rods_path, "test_attr", &error);
+    baton_error_t list_error;
+    json_t *results = list_metadata(conn, &rods_path, "test_attr", &list_error);
     json_t *expected = json_array();
     json_array_append_new(expected, avu);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(list_error.code, 0);
 
     json_decref(bad_avu1);
     json_decref(bad_avu2);
@@ -859,14 +874,15 @@ START_TEST(test_remove_json_metadata_obj) {
                             JSON_VALUE_KEY,     "value1",
                             JSON_UNITS_KEY,     "units1");
     baton_error_t error;
-    int rv = modify_json_metadata(conn, &rods_path, META_REM, avu, &error);
-    ck_assert_int_eq(rv, 0);
+    modify_json_metadata(conn, &rods_path, META_REM, avu, &error);
+    ck_assert_int_eq(error.code, 0);
 
-    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    baton_error_t list_error;
+    json_t *results = list_metadata(conn, &rods_path, NULL, &list_error);
     json_t *expected = json_array(); // Empty
 
     ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(list_error.code, 0);
 
     json_decref(results);
     json_decref(expected);
@@ -940,14 +956,16 @@ START_TEST(test_modify_json_permissions_obj) {
     baton_error_t expected_error1;
     int fail_rv1 = modify_json_permissions(conn, &rods_path, NO_RECURSE,
                                            bad_perm1, &expected_error1);
+    ck_assert_int_ne(fail_rv1, 0);
     ck_assert_int_ne(expected_error1.code, 0);
 
     json_t *bad_perm2 = json_pack("{s:s}", JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
     baton_error_t expected_error2;
     int fail_rv2 = modify_json_permissions(conn, &rods_path, NO_RECURSE,
                                            bad_perm2, &expected_error2);
+    
     ck_assert_int_ne(expected_error2.code, 0);
-
+    ck_assert_int_ne(fail_rv2, 0);
     json_t *perm = json_pack("{s:s, s:s}",
                              JSON_OWNER_KEY, "public",
                              JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
