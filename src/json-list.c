@@ -40,8 +40,7 @@ static int avu_flag;
 static int help_flag;
 static int version_flag;
 
-int do_list_paths(int argc, char *argv[], int optind, FILE *input,
-                  print_flags pflags);
+int do_list_paths(FILE *input, print_flags pflags);
 
 int main(int argc, char *argv[]) {
     print_flags pflags = PRINT_DEFAULT;
@@ -134,22 +133,14 @@ int main(int argc, char *argv[]) {
 
     input = maybe_stdin(json_file);
 
-    int status = do_list_paths(argc, argv, optind, input, pflags);
+    int status = do_list_paths(input, pflags);
     if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);
-
-args_error:
-    exit_status = 4;
-
-error:
-    zlog_fini();
-    exit(exit_status);
 }
 
-int do_list_paths(int argc, char *argv[], int optind, FILE *input,
-                  print_flags pflags) {
+int do_list_paths(FILE *input, print_flags pflags) {
     int path_count = 0;
     int error_count = 0;
 

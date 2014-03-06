@@ -129,10 +129,10 @@ int str_ends_with(const char *str, const char *suffix) {
     return strncmp(str + (len - slen), suffix, len) == 0;
 }
 
-char *parse_base_name(const char *path) {
+const char *parse_base_name(const char *path) {
     const char delim = '/';
 
-    char *base_name = strrchr(path, delim);
+    const char *base_name = strrchr(path, delim);
 
     // Base name should not include the '/'
     if (base_name) {

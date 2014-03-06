@@ -38,8 +38,7 @@ static int avu_flag;
 static int help_flag;
 static int version_flag;
 
-int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
-                       char *zone_name, print_flags pflags);
+int do_search_metadata(FILE *input, char *zone_name, print_flags pflags);
 
 int main(int argc, char *argv[]) {
     print_flags pflags = PRINT_DEFAULT;
@@ -138,28 +137,15 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
 
     input = maybe_stdin(json_file);
-    int status = do_search_metadata(argc, argv, optind, input, zone_name,
-                                    pflags);
+    int status = do_search_metadata(input, zone_name, pflags);
     if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);
-
-args_error:
-    exit_status = 4;
-
-error:
-    zlog_fini();
-    exit(exit_status);
 }
 
-int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
-                       char *zone_name, print_flags pflags) {
-    int query_count = 0;
+int do_search_metadata(FILE *input, char *zone_name, print_flags pflags) {
     int error_count = 0;
-
-    char *err_name;
-    char *err_subname;
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);

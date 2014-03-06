@@ -38,7 +38,7 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int help_flag;
 static int version_flag;
 
-int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input);
+int do_supersede_metadata(FILE *input);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
@@ -122,22 +122,15 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
 
     input = maybe_stdin(json_file);
-    int status = do_supersede_metadata(argc, argv, optind, input);
+    int status = do_supersede_metadata(input);
 
     if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);
-
-args_error:
-    exit_status = 4;
-
-error:
-    zlog_fini();
-    exit(exit_status);
 }
 
-int do_supersede_metadata(int argc, char *argv[], int optind, FILE *input) {
+int do_supersede_metadata(FILE *input) {
     int path_count = 0;
     int error_count = 0;
 

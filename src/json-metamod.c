@@ -38,8 +38,7 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int help_flag;
 static int version_flag;
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, FILE *input);
+int do_modify_metadata(FILE *input, metadata_op operation);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
@@ -140,8 +139,7 @@ int main(int argc, char *argv[]) {
         case META_ADD:
         case META_REM:
             input = maybe_stdin(json_file);
-            int status = do_modify_metadata(argc, argv, optind, meta_op,
-                                            input);
+            int status = do_modify_metadata(input, meta_op);
             if (status != 0) exit_status = 5;
             break;
 
@@ -157,13 +155,11 @@ int main(int argc, char *argv[]) {
 args_error:
     exit_status = 4;
 
-error:
     zlog_fini();
     exit(exit_status);
 }
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, FILE *input) {
+int do_modify_metadata(FILE *input, metadata_op operation) {
     int path_count = 0;
     int error_count = 0;
 

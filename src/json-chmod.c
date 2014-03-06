@@ -39,8 +39,7 @@ static int help_flag;
 static int recurse_flag;
 static int version_flag;
 
-int do_modify_permissions(int argc, char *argv[], int optind,
-                          recursive_op recurse, FILE *input);
+int do_modify_permissions(FILE *input, recursive_op recurse);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
@@ -131,27 +130,19 @@ int main(int argc, char *argv[]) {
     int status;
 
     if (recurse_flag) {
-        status = do_modify_permissions(argc, argv, optind, RECURSE, input);
+        status = do_modify_permissions(input, RECURSE);
     }
     else {
-        status = do_modify_permissions(argc, argv, optind, NO_RECURSE, input);
+        status = do_modify_permissions(input, NO_RECURSE);
     }
 
     if (status != 0) exit_status = 5;
 
     zlog_fini();
     exit(exit_status);
-
-args_error:
-    exit_status = 4;
-
-error:
-    zlog_fini();
-    exit(exit_status);
 }
 
-int do_modify_permissions(int argc, char *argv[], int optind,
-                          recursive_op recurse, FILE *input) {
+int do_modify_permissions(FILE *input, recursive_op recurse) {
     int path_count = 0;
     int error_count = 0;
 

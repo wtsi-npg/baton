@@ -58,8 +58,7 @@ static json_t *revmap_access_result(json_t *access,
 static const char *map_access_level(const char *access_level,
                                     baton_error_t *error);
 
-static const char *revmap_access_level(const char *icat_level,
-                                       baton_error_t *error);
+static const char *revmap_access_level(const char *icat_level);
 
 static genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
                                           const char *user_name);
@@ -1630,7 +1629,7 @@ static json_t *revmap_access_result(json_t *acl,  baton_error_t *error) {
         json_t *level = json_object_get(access, JSON_LEVEL_KEY);
 
         const char *icat_level = json_string_value(level);
-        const char *access_level  = revmap_access_level(icat_level, error);
+        const char *access_level = revmap_access_level(icat_level);
         if (error->code != 0) goto error;
 
         logmsg(DEBUG, BATON_CAT, "Mapped ICAT '%s' to access level '%s'",
@@ -1675,8 +1674,7 @@ static const char *map_access_level(const char *access_level,
 }
 
 // Map an iCAT token back to a user-visible access level.
-static const char *revmap_access_level(const char *icat_level,
-                                       baton_error_t *error) {
+static const char *revmap_access_level(const char *icat_level) {
     if (str_equals_ignore_case(icat_level, ACCESS_NULL)) {
         return ACCESS_LEVEL_NULL;
     }
