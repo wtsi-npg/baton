@@ -36,6 +36,7 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int acl_flag;
 static int avu_flag;
 static int help_flag;
+static int unbuffered_flag;
 static int version_flag;
 
 int do_search_metadata(FILE *input, char *zone_name, print_flags pflags);
@@ -45,15 +46,16 @@ int main(int argc, char *argv[]) {
     int exit_status = 0;
     char *zone_name = NULL;
     char *json_file = NULL;
-    FILE *input = NULL;
+    FILE *input     = NULL;
 
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"acl",       no_argument, &acl_flag,     1},
-            {"avu",       no_argument, &avu_flag,     1},
-            {"help",      no_argument, &help_flag,    1},
-            {"version",   no_argument, &version_flag, 1},
+            {"acl",        no_argument, &acl_flag,        1},
+            {"avu",        no_argument, &avu_flag,        1},
+            {"help",       no_argument, &help_flag,       1},
+            {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
@@ -110,6 +112,7 @@ int main(int argc, char *argv[]) {
         puts("    --avu         Print AVU lists in output.");
         puts("    --file        The JSON file describing the query. Optional,");
         puts("                  defaults to STDIN.");
+        puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --zone        The zone to search. Optional");
         puts("");
 

@@ -37,6 +37,7 @@ static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
 static int recurse_flag;
+static int unbuffered_flag;
 static int version_flag;
 
 int do_modify_permissions(FILE *input, recursive_op recurse);
@@ -44,14 +45,15 @@ int do_modify_permissions(FILE *input, recursive_op recurse);
 int main(int argc, char *argv[]) {
     int exit_status = 0;
     char *json_file = NULL;
-    FILE *input = NULL;
+    FILE *input     = NULL;
 
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"help",      no_argument, &help_flag,    1},
-            {"recurse",   no_argument, &recurse_flag, 1},
-            {"version",   no_argument, &version_flag, 1},
+            {"help",       no_argument, &help_flag,       1},
+            {"recurse",    no_argument, &recurse_flag,    1},
+            {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
@@ -98,9 +100,9 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("    --file        The JSON file describing the data objects.");
         puts("                  Optional, defaults to STDIN.");
-        puts("");
         puts("    --recurse     Modify collection permissions recursively.");
         puts("                  Optional, defaults to false.");
+        puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("");
 
         exit(0);
@@ -208,7 +210,8 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
         }
 
         print_json(target);
-        fflush(stdout);
+        if (unbuffered_flag) fflush(stdout);
+
         json_decref(target);
         free(path);
     } // while

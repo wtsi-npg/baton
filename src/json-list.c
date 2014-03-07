@@ -38,6 +38,7 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int acl_flag;
 static int avu_flag;
 static int help_flag;
+static int unbuffered_flag;
 static int version_flag;
 
 int do_list_paths(FILE *input, print_flags pflags);
@@ -46,15 +47,16 @@ int main(int argc, char *argv[]) {
     print_flags pflags = PRINT_DEFAULT;
     int exit_status = 0;
     char *json_file = NULL;
-    FILE *input = NULL;
+    FILE *input     = NULL;
 
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"acl",       no_argument, &acl_flag,     1},
-            {"avu",       no_argument, &avu_flag,     1},
-            {"help",      no_argument, &help_flag,    1},
-            {"version",   no_argument, &version_flag, 1},
+            {"acl",        no_argument, &acl_flag,        1},
+            {"avu",        no_argument, &avu_flag,        1},
+            {"help",       no_argument, &help_flag,       1},
+            {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
@@ -106,6 +108,7 @@ int main(int argc, char *argv[]) {
         puts("    --avu         Print AVU lists in output.");
         puts("    --file        The JSON file describing the data objects and");
         puts("                  collections. Optional, defaults to STDIN.");
+        puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("");
 
         exit(0);
@@ -199,7 +202,8 @@ int do_list_paths(FILE *input, print_flags pflags) {
             if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
         }
 
-        fflush(stdout);
+        if (unbuffered_flag) fflush(stdout);
+
         json_decref(target);
         free(path);
     } // while

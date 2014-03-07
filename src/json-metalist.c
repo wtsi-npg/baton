@@ -36,6 +36,7 @@ static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
 static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
+static int unbuffered_flag;
 static int version_flag;
 
 int do_list_metadata(FILE *input);
@@ -48,8 +49,9 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"help",      no_argument, &help_flag,    1},
-            {"version",   no_argument, &version_flag, 1},
+            {"help",       no_argument, &help_flag,       1},
+            {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
@@ -96,6 +98,7 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("    --file        The JSON file describing the data objects and");
         puts("                  collections. Optional, defaults to STDIN.");
+        puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("");
 
         exit(0);
@@ -199,7 +202,8 @@ int do_list_metadata(FILE *input) {
             if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
         }
 
-        fflush(stdout);
+        if (unbuffered_flag) fflush(stdout);
+
         json_decref(target);
         free(path);
     } // while
