@@ -1767,7 +1767,7 @@ error:
 static json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
                                     baton_error_t *error) {
     rodsPath_t rods_path;
-    char *path;
+    char *path = NULL;
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -1829,7 +1829,7 @@ error:
 static json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
                                    baton_error_t *error) {
     rodsPath_t rods_path;
-    char *path;
+    char *path = NULL;
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
