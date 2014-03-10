@@ -122,13 +122,6 @@ int main(int argc, char *argv[]) {
 
     zlog_fini();
     exit(exit_status);
-
-args_error:
-    exit_status = 4;
-
-error:
-    zlog_fini();
-    exit(exit_status);
 }
 
 int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {

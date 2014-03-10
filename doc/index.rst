@@ -73,8 +73,9 @@ stream of JSON objects on standard output. The ``baton`` programs are:
 
 All of the programs are designed to accept a stream of JSON objects,
 one for each operation on a collection or data object. After each
-operation is complete, the programs flush their output to ease their
-use in bidirectional communication via Unix pipes.
+operation is complete, the programs may be forced flush their output
+(See the ``--unbuffered`` command line option.) to ease their use in
+bidirectional communication via Unix pipes.
 
 For details of how errors are handled, see :ref:`representing_errors`.
 
@@ -104,14 +105,14 @@ Options
 * ``--acl``
 
   Print access control lists in output, in the format described in
-  :ref:`representing_path_permissions`. Optional.
+  :ref:`representing_path_permissions`.
 
 * ``--avu``
 
   Print AVU lists in output, in the format described in
-  :ref:`representing_path_metadata`. Optional.
+  :ref:`representing_path_metadata`.
 
-* ``--file``
+* ``--file <file name>``
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
@@ -119,6 +120,10 @@ Options
 * ``--help``
 
   Prints command line help.
+
+* ``--unbuffered``
+
+  Flush output after each JSON object is processed.
 
 json-metalist
 -------------
@@ -143,7 +148,7 @@ metadata as described in :ref:`representing_path_metadata`.
 Options
 ^^^^^^^
 
-* ``--file``
+* ``--file <file name>``
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
@@ -152,6 +157,9 @@ Options
 
   Prints command line help.
 
+* ``--unbuffered``
+
+  Flush output after each JSON object is processed.
 
 json-metamod
 ------------
@@ -180,7 +188,7 @@ described in :ref:`representing_path_metadata`.
 Options
 ^^^^^^^
 
-* ``--file``
+* ``--file <file name>``
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
@@ -189,10 +197,13 @@ Options
 
   Prints command line help.
 
-* ``--operation``
+* ``--operation <operation name>``
 
   The operation to perform; one of ``add`` or ``remove``.
 
+* ``--unbuffered``
+
+  Flush output after each JSON object is processed.
 
 json-metaquery
 --------------
@@ -241,7 +252,7 @@ json-chmod
 Options
 ^^^^^^^
 
-* ``--file``
+* ``--file <file name>``
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
@@ -252,11 +263,11 @@ Options
 
 * ``--recurse``
 
-  Recurse into collections. Optional, defaults to false.
+  Recurse into collections. Defaults to false.
 
+* ``--unbuffered``
 
-
-
+  Flush output after each JSON object is processed.
 
 .. _representing_paths:
 

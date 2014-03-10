@@ -4,6 +4,8 @@ MOSTLYCLEANFILES = *.gcda *.gcno
 if COVERAGE_ENABLED
 AM_CFLAGS = -fprofile-arcs -ftest-coverage
 AM_LDFLAGS = --coverage
+else
+AM_CFLAGS = -Wall -Werror -Wextra -pedantic
 endif
 
 AM_CPPFLAGS = -DZLOG_CONF='"$(sysconfdir)/baton_zlog.conf"'

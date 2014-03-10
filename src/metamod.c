@@ -176,7 +176,6 @@ int main(int argc, char *argv[]) {
 args_error:
     exit_status = 4;
 
-error:
     zlog_fini();
     exit(exit_status);
 }
@@ -184,9 +183,6 @@ error:
 int do_modify_metadata(int argc, char *argv[], int optind,
                        metadata_op operation,
                        char *attr_name, char *attr_value, char *attr_units) {
-    char *err_name;
-    char *err_subname;
-
     int path_count = 0;
     int error_count = 0;
 

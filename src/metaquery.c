@@ -156,17 +156,12 @@ int main(int argc, char *argv[]) {
 args_error:
     exit_status = 4;
 
-error:
     zlog_fini();
     exit(exit_status);
 }
 
 int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
                        char *zone_name) {
-    char *err_name;
-    char *err_subname;
-
-    int path_count = 0;
     int error_count = 0;
 
     rodsEnv env;
