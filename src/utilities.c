@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
+ * @file utilities.c
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
@@ -94,30 +95,54 @@ error:
     return NULL;
 }
 
-int starts_with(const char *str, const char *prefix) {
+int str_starts_with(const char *str, const char *prefix) {
     if (!str || !prefix) return 0;
 
-    size_t len = strlen(str);
+    size_t len  = strlen(str);
     size_t plen = strlen(prefix);
 
     // A string always starts with the empty string
-    if (plen == 0) return 1;
+    if (plen == 0)  return 1;
     if (plen > len) return 0;
 
     return strncmp(str, prefix, plen) == 0;
 }
 
-int ends_with(const char *str, const char *suffix) {
+int str_equals(const char *str1, const char *str2) {
+    return (strncmp(str1, str2, strlen(str2)) == 0);
+}
+
+int str_equals_ignore_case(const char *str1, const char *str2) {
+    return (strncasecmp(str1, str2, strlen(str2)) == 0);
+}
+
+int str_ends_with(const char *str, const char *suffix) {
     if (!str || !suffix) return 0;
 
-    size_t len = strlen(str);
+    size_t len  = strlen(str);
     size_t slen = strlen(suffix);
 
     // A string always ends with the empty string
-    if (slen == 0) return 1;
+    if (slen == 0)  return 1;
     if (slen > len) return 0;
 
     return strncmp(str + (len - slen), suffix, len) == 0;
+}
+
+char *parse_base_name(const char *path) {
+    const char delim = '/';
+
+    char *base_name = strrchr(path, delim);
+
+    // Base name should not include the '/'
+    if (base_name) {
+        base_name++;
+    }
+    else {
+        base_name = path;
+    }
+
+    return base_name;
 }
 
 FILE *maybe_stdin(const char *path) {

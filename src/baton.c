@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * @file baton.c
+ * @author Keith James <kdj@sanger.ac.uk>
  */
 
 #include <assert.h>
@@ -35,14 +36,33 @@
 #include "json.h"
 #include "utilities.h"
 
-typedef genQueryInp_t *(*prepare_search_cb) (genQueryInp_t *query_in,
-                                             const char *attr_name,
-                                             const char *attr_value,
-                                             const char *operator);
+typedef genQueryInp_t *(*prepare_avu_search_cb) (genQueryInp_t *query_in,
+                                                 const char *attr_name,
+                                                 const char *attr_value,
+                                                 const char *operator);
+
+typedef genQueryInp_t *(*prepare_acl_search_cb) (genQueryInp_t *query_in,
+                                                 const char *user_id,
+                                                 const char *access_level);
 
 static const char *metadata_op_name(metadata_op operation);
 
-static void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in);
+static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in);
+
+static json_t *map_access_args(rcComm_t *conn, json_t *access,
+                               baton_error_t *error);
+
+static json_t *revmap_access_result(json_t *access,
+                                    baton_error_t *error);
+
+static const char *map_access_level(const char *access_level,
+                                    baton_error_t *error);
+
+static const char *revmap_access_level(const char *icat_level,
+                                       baton_error_t *error);
+
+static genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
+                                          const char *user_name);
 
 static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
@@ -52,30 +72,63 @@ static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
                                        const char *attr_name);
 
-static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_in,
-                                         const char *attr_name,
-                                         const char *attr_value,
-                                         const char *operator);
+static genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
+                                           rodsPath_t *rods_path);
 
-static genQueryInp_t *prepare_col_search(genQueryInp_t *query_in,
-                                         const char *attr_name,
-                                         const char *attr_value,
-                                         const char *operator);
+static genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
+                                           rodsPath_t *rods_path);
+
+static genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
+                                             const char *user_id,
+                                             const char *perm_id);
+
+static genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
+                                             const char *user_id,
+                                             const char *access_level);
+
+static genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
+                                             const char *attr_name,
+                                             const char *attr_value,
+                                             const char *operator);
+
+static genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
+                                             const char *attr_name,
+                                             const char *attr_value,
+                                             const char *operator);
 
 static genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
                                           const char *root_path);
 
-static genQueryInp_t *prepare_json_search(genQueryInp_t *query_in, json_t *avus,
-                                          prepare_search_cb prepare,
-                                          baton_error_t *error);
+static genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
+                                              json_t *avus,
+                                              prepare_avu_search_cb prepare,
+                                              baton_error_t *error);
+
+static genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
+                                              json_t *acl,
+                                              prepare_acl_search_cb prepare,
+                                              baton_error_t *error);
 
 static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
-                         int num_columns, const int columns[],
-                         const char *labels[], prepare_search_cb prepare,
+                         query_format_in_t *format,
+                         prepare_avu_search_cb prepare_avu,
+                         prepare_acl_search_cb prepare_acl,
                          baton_error_t *error);
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
-                                         baton_error_t *error);
+                               baton_error_t *error);
+
+static json_t *add_acl_json_array(rcComm_t *conn, json_t *target,
+                                  baton_error_t *error);
+
+static json_t *add_acl_json_object(rcComm_t *conn, json_t *target,
+                                   baton_error_t *error);
+
+static json_t *add_avus_json_array(rcComm_t *conn, json_t *target,
+                                   baton_error_t *error);
+
+static json_t *add_avus_json_object(rcComm_t *conn, json_t *target,
+                                    baton_error_t *error);
 
 void log_rods_errstack(log_level level, const char *category, rError_t *error) {
     rErrMsg_t *errmsg;
@@ -126,7 +179,7 @@ int is_irods_available() {
     }
 
     rcComm_t *conn = rcConnect(env.rodsHost, env.rodsPort, env.rodsUserName,
-                               env.rodsZone, RECONN_TIMEOUT, &errmsg);
+                               env.rodsZone, NO_RECONN, &errmsg);
     int available;
     if (conn) {
         available = 1;
@@ -143,6 +196,16 @@ error:
     return status;
 }
 
+int declare_client_name(const char *prog_path) {
+    char client_name[MAX_CLIENT_NAME_LEN];
+    const char *prog_name = parse_base_name(prog_path);
+
+    snprintf(client_name, MAX_CLIENT_NAME_LEN, "%s-%s",
+             PACKAGE_NAME, prog_name);
+
+    return setenv(SP_OPTION, client_name, 1);
+}
+
 rcComm_t *rods_login(rodsEnv *env) {
     int status;
     rErrMsg_t errmsg;
@@ -154,6 +217,7 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
+    // TODO: add option for NO_RECONN vs. RECONN_TIMEOUT
     conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
                      env->rodsZone, RECONN_TIMEOUT, &errmsg);
     if (!conn) {
@@ -181,7 +245,7 @@ int init_rods_path(rodsPath_t *rodspath, char *inpath) {
 
     memset(rodspath, 0, sizeof (rodsPath_t));
     char *dest = rstrcpy(rodspath->inPath, inpath, MAX_NAME_LEN);
-    if (!dest) return -1;
+    if (!dest) return USER_PATH_EXCEEDS_MAX;
 
     return 0;
 }
@@ -204,9 +268,35 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
     }
 
     status = getRodsObjType(conn, rods_path);
+    if (status != EXIST_ST) {
+        logmsg(WARN, BATON_CAT, "Failed to stat iRODS path '%s'",
+               rods_path->outPath);
+    }
+
+    return status;
+
+error:
+    return status;
+}
+
+int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
+    int status;
+
+    status = init_rods_path(rods_path, path);
     if (status < 0) {
-        logmsg(ERROR, BATON_CAT, "Failed to stat iRODS path '%s'",
-               rods_path->inPath);
+        logmsg(ERROR, BATON_CAT, "Failed to create iRODS path '%s'", path);
+        goto error;
+    }
+
+    char *dest = rstrcpy(rods_path->outPath, path, MAX_NAME_LEN);
+    if (!dest) {
+        status = USER_PATH_EXCEEDS_MAX;
+        goto error;
+    }
+
+    status = getRodsObjType(conn, rods_path);
+    if (status < 0) {
+        logmsg(ERROR, BATON_CAT, "Failed to stat iRODS path '%s'", path);
         goto error;
     }
 
@@ -216,7 +306,50 @@ error:
     return status;
 }
 
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
+json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error) {
+    query_format_in_t format =
+        { .num_columns = 4,
+          .columns     = { COL_USER_NAME, COL_USER_ID,
+                           COL_USER_TYPE, COL_USER_ZONE },
+          .labels      = { JSON_USER_NAME_KEY, JSON_USER_ID_KEY,
+                           JSON_USER_TYPE_KEY, JSON_USER_ZONE_KEY } };
+
+    genQueryInp_t *query_in = NULL;
+    json_t *results = NULL;
+    json_t *user = NULL;
+    int max_rows = 10;
+
+    query_in = make_query_input(max_rows, format.num_columns, format.columns);
+    query_in = prepare_user_search(query_in, user_name);
+
+    results = do_query(conn, query_in, format.labels, error);
+    if (error->code != 0) goto error;
+
+    if (json_array_size(results) != 1) {
+        set_baton_error(error, -1, "Expected 1 user result but found %d",
+                        json_array_size(results));
+        goto error;
+    }
+
+    user = json_incref(json_array_get(results, 0));
+    json_array_clear(results);
+    json_decref(results);
+
+    if (query_in) free_query_input(query_in);
+
+    return user;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (query_in) free_query_input(query_in);
+    if (user) json_decref(user);
+    if (results) json_decref(results);
+
+    return NULL;
+}
+
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                   baton_error_t *error) {
     json_t *results = NULL;
     init_baton_error(error);
@@ -233,17 +366,39 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path,
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
             results = data_object_path_to_json(rods_path->outPath);
+            if (error->code != 0) goto error;
+
+            if (flags & PRINT_ACL) {
+                results = add_acl_json_object(conn, results, error);
+                if (error->code != 0) goto error;
+            }
+            if (flags & PRINT_AVU) {
+                results = add_avus_json_object(conn, results, error);
+                if (error->code != 0) goto error;
+            }
+
             break;
 
         case COLL_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
             results = list_collection(conn, rods_path, error);
+            if (error->code != 0) goto error;
+
+            if (flags & PRINT_ACL) {
+                results = add_acl_json_array(conn, results, error);
+                if (error->code != 0) goto error;
+            }
+            if (flags & PRINT_AVU) {
+                results = add_avus_json_array(conn, results, error);
+                if (error->code != 0) goto error;
+            }
+
             break;
 
         default:
             set_baton_error(error, USER_INPUT_PATH_ERR,
-                            "Failed to list metadata on '%s' as it is "
+                            "Failed to list '%s' as it is "
                             "neither data object nor collection",
                             rods_path->outPath);
             goto error;
@@ -257,17 +412,20 @@ error:
     return NULL;
 }
 
-json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
-                      baton_error_t *error) {
-    const char *labels[] = { JSON_ATTRIBUTE_KEY,
-                             JSON_VALUE_KEY,
-                             JSON_UNITS_KEY };
-    int num_cols = 3;
-    int max_rows = 10;
-    int cols[num_cols];
+json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                         baton_error_t *error) {
+    query_format_in_t obj_format =
+        { .num_columns = 2,
+          .columns     = { COL_USER_NAME, COL_DATA_ACCESS_NAME },
+          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY  } };
+    query_format_in_t col_format =
+        { .num_columns = 2,
+          .columns     = { COL_COLL_USER_NAME, COL_COLL_ACCESS_NAME },
+          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY  } };
 
     genQueryInp_t *query_in = NULL;
     json_t *results = NULL;
+    int max_rows = 10;
     init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
@@ -281,20 +439,94 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
         case DATA_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
-            cols[0] = COL_META_DATA_ATTR_NAME;
-            cols[1] = COL_META_DATA_ATTR_VALUE;
-            cols[2] = COL_META_DATA_ATTR_UNITS;
-            query_in = make_query_input(max_rows, num_cols, cols);
+            query_in = make_query_input(max_rows, obj_format.num_columns,
+                                        obj_format.columns);
+            query_in = prepare_obj_acl_list(query_in, rods_path);
+            break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
+                   rods_path->outPath);
+            query_in = make_query_input(max_rows, col_format.num_columns,
+                                        col_format.columns);
+            query_in = prepare_col_acl_list(query_in, rods_path);
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list metadata on '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    // We need to add a zone hint to return results from other zones.
+    // Without it, we will only see ACLs in the current zone. The
+    // iRODS path seems to work for this purpose
+    addKeyVal(&query_in->condInput, ZONE_KW, rods_path->outPath);
+    logmsg(DEBUG, BATON_CAT, "Using zone hint '%s'", rods_path->outPath);
+    results = do_query(conn, query_in, obj_format.labels, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, BATON_CAT, "Obtained ACL data on '%s'", rods_path->outPath);
+    free_query_input(query_in);
+
+    results = revmap_access_result(results, error);
+    if (error->code != 0) goto error;
+
+    return results;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to list ACL on '%s': error %d %s",
+           rods_path->outPath, error->code, error->message);
+
+    if (query_in) free_query_input(query_in);
+    if (results) json_decref(results);
+
+    return NULL;
+}
+
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
+                      baton_error_t *error) {
+    query_format_in_t obj_format =
+        { .num_columns  = 3,
+          .columns      = { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE,
+                            COL_META_DATA_ATTR_UNITS },
+          .labels       = { JSON_ATTRIBUTE_KEY, JSON_VALUE_KEY,
+                            JSON_UNITS_KEY } };
+    query_format_in_t col_format =
+        { .num_columns  = 3,
+          .columns      = { COL_META_COLL_ATTR_NAME, COL_META_COLL_ATTR_VALUE,
+                            COL_META_COLL_ATTR_UNITS },
+          .labels       = { JSON_ATTRIBUTE_KEY, JSON_VALUE_KEY,
+                            JSON_UNITS_KEY } };
+
+    genQueryInp_t *query_in = NULL;
+    json_t *results = NULL;
+    int max_rows = 10;
+    init_baton_error(error);
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
+                   rods_path->outPath);
+            query_in = make_query_input(max_rows, obj_format.num_columns,
+                                        obj_format.columns);
             query_in = prepare_obj_list(query_in, rods_path, attr_name);
             break;
 
         case COLL_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
-            cols[0] = COL_META_COLL_ATTR_NAME;
-            cols[1] = COL_META_COLL_ATTR_VALUE;
-            cols[2] = COL_META_COLL_ATTR_UNITS;
-            query_in = make_query_input(max_rows, num_cols, cols);
+            query_in = make_query_input(max_rows, col_format.num_columns,
+                                        col_format.columns);
             query_in = prepare_col_list(query_in, rods_path, attr_name);
             break;
 
@@ -306,7 +538,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
             goto error;
     }
 
-    results = do_query(conn, query_in, labels, error);
+    results = do_query(conn, query_in, obj_format.labels, error);
     if (error->code != 0) goto error;
 
     logmsg(DEBUG, BATON_CAT, "Obtained metadata on '%s'", rods_path->outPath);
@@ -325,32 +557,48 @@ error:
 }
 
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
-                        baton_error_t *error) {
-    int num_col_cols = 1;
-    int num_obj_cols = 2;
-    const char *labels[] = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY };
-    int cols[] = { COL_COLL_NAME, COL_DATA_NAME };
+                        print_flags flags, baton_error_t *error) {
     init_baton_error(error);
 
+    json_t *results      = NULL;
+    json_t *collections  = NULL;
+    json_t *data_objects = NULL;
+
     if (!json_is_object(query)) {
-        set_baton_error(error, -1, "Invalid query: not a JSON object");
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid query: not a JSON object");
         goto error;
     }
 
-    json_t *results = json_array();
+    query = map_access_args(conn, query, error);
+    if (error->code != 0) goto error;
+
+    results = json_array();
     if (!results) {
         set_baton_error(error, -1, "Failed to allocate a new JSON array");
         goto error;
     }
 
     logmsg(TRACE, BATON_CAT, "Searching for collections ...");
-    json_t *collections = do_search(conn, zone_name, query, num_col_cols, cols,
-                                    labels, prepare_col_search, error);
+    query_format_in_t col_format =
+        { .num_columns = 1,
+          .columns     = { COL_COLL_NAME },
+          .labels      = { JSON_COLLECTION_KEY } };
+
+    collections = do_search(conn, zone_name, query, &col_format,
+                            prepare_col_avu_search, prepare_col_acl_search,
+                            error);
     if (error->code != 0) goto error;
 
     logmsg(TRACE, BATON_CAT, "Searching for data objects ...");
-    json_t *data_objects = do_search(conn, zone_name, query, num_obj_cols, cols,
-                                     labels, prepare_obj_search, error);
+    query_format_in_t obj_format =
+        { .num_columns = 2,
+          .columns     = { COL_COLL_NAME, COL_DATA_NAME},
+          .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY } };
+
+    data_objects = do_search(conn, zone_name, query, &obj_format,
+                             prepare_obj_avu_search, prepare_obj_acl_search,
+                             error);
     if (error->code != 0) goto error;
 
     json_array_extend(results, collections); // TODO: check return value
@@ -358,33 +606,45 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     json_array_extend(results, data_objects); // TODO: check return value
     json_decref(data_objects);
 
+    if (flags & PRINT_ACL) {
+        results = add_acl_json_array(conn, results, error);
+        if (error->code != 0) goto error;
+    }
+    if (flags & PRINT_AVU) {
+        results = add_avus_json_array(conn, results, error);
+        if (error->code != 0) goto error;
+    }
+
     return results;
 
 error:
     logmsg(ERROR, BATON_CAT, error->message);
 
-    if (results) json_decref(results);
-    if (collections) json_decref(collections);
+    if (results)      json_decref(results);
+    if (collections)  json_decref(collections);
     if (data_objects) json_decref(data_objects);
 
     return NULL;
 }
 
 static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
-                         int num_columns, const int columns[],
-                         const char *labels[], prepare_search_cb prepare,
+                         query_format_in_t *format,
+                         prepare_avu_search_cb prepare_avu,
+                         prepare_acl_search_cb prepare_acl,
                          baton_error_t *error) {
     // This appears to be the maximum number of rows returned per
     // result chunk
     int max_rows = 10;
     genQueryInp_t *query_in = NULL;
+    json_t *items           = NULL;
 
-    query_in = make_query_input(max_rows, num_columns, columns);
+    query_in = make_query_input(max_rows, format->num_columns, format->columns);
 
     json_t *root_path = json_object_get(query, JSON_COLLECTION_KEY);
     if (root_path) {
         if (!json_is_string(root_path)) {
-            set_baton_error(error, -1, "Invalid root path: not a JSON string");
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid root path: not a JSON string");
             goto error;
         }
         query_in = prepare_path_search(query_in, json_string_value(root_path));
@@ -392,19 +652,26 @@ static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
 
     json_t *avus = json_object_get(query, JSON_AVUS_KEY);
     if (!json_is_array(avus)) {
-        set_baton_error(error, -1, "Invalid AVUs: not a JSON array");
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid AVUs: not a JSON array");
         goto error;
     }
 
-    query_in = prepare_json_search(query_in, avus, prepare, error);
+    query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
     if (error->code != 0) goto error;
+
+    json_t *acl = json_object_get(query, JSON_ACCESS_KEY);
+    if (acl) {
+        query_in = prepare_json_acl_search(query_in, acl, prepare_acl, error);
+        if (error->code != 0) goto error;
+    }
 
     if (zone_name) {
         logmsg(TRACE, BATON_CAT, "Setting zone to '%s'", zone_name);
         addKeyVal(&query_in->condInput, ZONE_KW, zone_name);
     }
 
-    json_t *items = do_query(conn, query_in, labels, error);
+    items = do_query(conn, query_in, format->labels, error);
     if (error->code != 0) goto error;
 
     free_query_input(query_in);
@@ -413,68 +680,231 @@ static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     return items;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     if (query_in) free_query_input(query_in);
-    if (items) json_decref(items);
+    if (items)    json_decref(items);
 
     return NULL;
 }
 
-static genQueryInp_t *prepare_json_search(genQueryInp_t *query_in,
-                                          json_t *avus,
-                                          prepare_search_cb prepare,
-                                          baton_error_t *error) {
+static genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
+                                              json_t *mapped_acl,
+                                              prepare_acl_search_cb prepare,
+                                              baton_error_t *error) {
+    int num_clauses = json_array_size(mapped_acl);
+    if (num_clauses > 1) {
+        set_baton_error(error, -1,
+                        "Invalid permissions specification "
+                        "(contains %d access elements); cannot query "
+                        "on more than one access element at a time "
+                        "due to limits in the iRODS general query interface",
+                        num_clauses);
+        goto error;
+    }
+
+    for (int i = 0; i < num_clauses; i++) {
+        const json_t *access = json_array_get(mapped_acl, i);
+        if (!json_is_object(access)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid permissions specification at position "
+                            "%d of %d: not a JSON object", i, num_clauses);
+            goto error;
+        }
+
+        json_t *owner = json_object_get(access, JSON_OWNER_KEY);
+        json_t *level = json_object_get(access, JSON_LEVEL_KEY);
+
+        if (!json_is_string(owner)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid owner: not a JSON string");
+            goto error;
+        }
+        if (!json_is_string(level)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid access level: not a JSON string");
+            goto error;
+        }
+
+        const char *owner_id     = json_string_value(owner);
+        const char *access_level = json_string_value(level);
+
+        query_in = prepare(query_in, owner_id, access_level);
+    }
+
+    return query_in;
+
+error:
+
+    return NULL;
+}
+
+static genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
+                                              json_t *avus,
+                                              prepare_avu_search_cb prepare,
+                                              baton_error_t *error) {
     int num_clauses = json_array_size(avus);
 
     for (int i = 0; i < num_clauses; i++) {
-        const json_t *avu  = json_array_get(avus, i);
+        const json_t *avu = json_array_get(avus, i);
         if (!json_is_object(avu)) {
-            set_baton_error(error, -1, "Invalid AVU at position %d of %d: not"
-                            "a JSON object", i, num_clauses);
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid AVU at position %d of %d: ",
+                            "not a JSON object", i, num_clauses);
             goto error;
         }
 
-        json_t *attr = json_object_get(avu, JSON_ATTRIBUTE_KEY);
+        json_t *attr  = json_object_get(avu, JSON_ATTRIBUTE_KEY);
         json_t *value = json_object_get(avu, JSON_VALUE_KEY);
-        json_t *oper = json_object_get(avu, JSON_OPERATOR_KEY);
+        json_t *oper  = json_object_get(avu, JSON_OPERATOR_KEY);
 
         if (!json_is_string(attr)) {
-            set_baton_error(error, -1, "Invalid attribute: not a JSON string");
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid attribute: not a JSON string");
             goto error;
         }
         if (!json_is_string(value)) {
-            set_baton_error(error, -1, "Invalid value: not a JSON string");
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid value: not a JSON string");
             goto error;
         }
         if (oper && !json_is_string(oper)) {
-            set_baton_error(error, -1, "Invalid operator: not a JSON string");
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid operator: not a JSON string");
             goto error;
         }
 
         const char *attr_name  = json_string_value(attr);
         const char *attr_value = json_string_value(value);
         const char *attr_oper  = oper ? json_string_value(oper) :
-            META_SEARCH_EQUALS;
+            SEARCH_OP_EQUALS;
 
-        if (strncasecmp(attr_oper, META_SEARCH_EQUALS,
-                        strlen(META_SEARCH_EQUALS)) == 0 ||
-            strncasecmp(attr_oper, META_SEARCH_LIKE,
-                        strlen(META_SEARCH_LIKE)) == 0) {
+        if (str_equals_ignore_case(attr_oper, SEARCH_OP_EQUALS) ||
+            str_equals_ignore_case(attr_oper, SEARCH_OP_LIKE)) {
             prepare(query_in, attr_name, attr_value, attr_oper);
         }
         else {
-            set_baton_error(error, -1, "Invalid operator: expected one of ["
-                            "%s, %s]", META_SEARCH_EQUALS, META_SEARCH_LIKE);
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid operator: expected one of [%s, %s]",
+                            SEARCH_OP_EQUALS, SEARCH_OP_LIKE);
         }
      }
 
     return query_in;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
 
     return NULL;
+}
+
+int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                       recursive_op recurse, char *owner_specifier,
+                       char *access_level, baton_error_t *error) {
+    int status;
+    char user_name[NAME_LEN];
+    char zone_name[NAME_LEN];
+    modAccessControlInp_t mod_perms_in;
+
+    status = parseUserName(owner_specifier, user_name, zone_name);
+    if (status != 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Failed to chmod '%s' because of an invalid "
+                        "owner format '%s'",
+                        rods_path->outPath, owner_specifier);
+        goto error;
+    }
+
+    logmsg(DEBUG, BATON_CAT, "Parsed owner to user: '%s' zone: '%s'",
+           user_name, zone_name);
+
+    mod_perms_in.recursiveFlag = recurse;
+    mod_perms_in.accessLevel   = access_level;
+    mod_perms_in.userName      = user_name;
+    mod_perms_in.zone          = zone_name;
+    mod_perms_in.path          = rods_path->outPath;
+
+    if (str_equals_ignore_case(access_level, ACCESS_LEVEL_NULL) ||
+        str_equals_ignore_case(access_level, ACCESS_LEVEL_OWN)  ||
+        str_equals_ignore_case(access_level, ACCESS_LEVEL_READ) ||
+        str_equals_ignore_case(access_level, ACCESS_LEVEL_WRITE)) {
+        status = rcModAccessControl(conn, &mod_perms_in);
+    }
+    else {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid permission level: expected one of "
+                        "[%s, %s, %s, %s]",
+                        ACCESS_LEVEL_NULL, ACCESS_LEVEL_OWN,
+                        ACCESS_LEVEL_READ, ACCESS_LEVEL_WRITE);
+        goto error;
+    }
+
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to modify permissions of '%s' "
+                        "to '%s' for '%s'", rods_path->outPath, access_level,
+                        owner_specifier);
+        goto error;
+    }
+
+    logmsg(DEBUG, BATON_CAT, "Set permissions of '%s' to '%s' for '%s'",
+           rods_path->outPath, access_level, owner_specifier);
+
+    return status;
+
+error:
+    if (conn->rError) {
+        logmsg(ERROR, BATON_CAT, error->message);
+        log_rods_errstack(ERROR, BATON_CAT, conn->rError);
+    }
+    else {
+        logmsg(ERROR, BATON_CAT, error->message);
+    }
+
+    return status;
+}
+
+int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                            recursive_op recurse, json_t *perm,
+                            baton_error_t *error) {
+    char *owner_specifier = NULL;
+    char *access_level    = NULL;
+    init_baton_error(error);
+
+    if (!json_is_object(perm)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid permissions specifiction: not a JSON object");
+        goto error;
+    }
+
+    json_t *owner = json_object_get(perm, JSON_OWNER_KEY);
+    json_t *level = json_object_get(perm, JSON_LEVEL_KEY);
+
+    if (!json_is_string(owner)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid owner: not a JSON string");
+        goto error;
+    }
+    if (!json_is_string(level)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid access level: not a JSON string");
+        goto error;
+    }
+
+    owner_specifier = copy_str(json_string_value(owner));
+    access_level    = copy_str(json_string_value(level));
+
+    int status = modify_permissions(conn, rods_path, recurse, owner_specifier,
+                                    access_level, error);
+
+    if (owner_specifier) free(owner_specifier);
+    if (access_level)    free(access_level);
+
+    return status;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (owner_specifier) free(owner_specifier);
+    if (access_level)    free(access_level);
+
+    return -1;
 }
 
 int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
@@ -485,7 +915,24 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     char *err_name;
     char *err_subname;
     char *type_arg;
-    init_baton_error(error);
+
+    if (!attr_name) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_name was null");
+        goto error;
+    }
+    if (strlen(attr_name) == 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_name was empty");
+        goto error;
+    }
+
+    if (!attr_value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_value was null");
+        goto error;
+    }
+    if (strlen(attr_value) == 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_value was empty");
+        goto error;
+    }
 
     if (rods_path->objState == NOT_EXIST_ST) {
         set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
@@ -515,7 +962,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
             goto error;
     }
 
-    struct mod_metadata_in named_args;
+    mod_metadata_in_t named_args;
     named_args.op         = operation;
     named_args.type_arg   = type_arg;
     named_args.rods_path  = rods_path;
@@ -547,38 +994,61 @@ error:
         logmsg(ERROR, BATON_CAT, error->message);
     }
 
-    return status;
+    return error->code;
 }
 
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
                          baton_error_t *error) {
-    char *err_name;
-    char *err_subname;
-
-    char *attr_name = NULL;
+    char *attr_name  = NULL;
     char *attr_value = NULL;
     char *attr_units = NULL;
+    init_baton_error(error);
 
-    const char *key;
-    json_t *value;
-    json_object_foreach(avu, key, value) {
-        if ((strncmp(key, JSON_ATTRIBUTE_KEY,
-                     strlen(JSON_ATTRIBUTE_KEY)) == 0)) {
-            attr_name = copy_str(json_string_value(value));
-        }
-        else if ((strncmp(key, JSON_VALUE_KEY,
-                          strlen(JSON_VALUE_KEY)) == 0)) {
-            attr_value = copy_str(json_string_value(value));
-        }
-        else if ((strncmp(key, JSON_UNITS_KEY,
-                          strlen(JSON_UNITS_KEY)) == 0)) {
-            attr_units = copy_str(json_string_value(value));
-        }
+    if (!json_is_object(avu)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid AVU: not a JSON object");
+        goto error;
     }
 
+    json_t *attr  = json_object_get(avu, JSON_ATTRIBUTE_KEY);
+    json_t *value = json_object_get(avu, JSON_VALUE_KEY);
+    json_t *units = json_object_get(avu, JSON_UNITS_KEY);
+
+    if (!attr) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid AVU: attribute property is missing");
+        goto error;
+    }
+    if (!value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid AVU: value property is missing");
+        goto error;
+    }
+    if (!json_is_string(attr)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid attribute: not a JSON string");
+        goto error;
+    }
+    if (!json_is_string(value)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid value: not a JSON string");
+        goto error;
+    }
+    if (units && !json_is_string(units)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid units: not a JSON string");
+        goto error;
+    }
+
+    if (attr)  attr_name  = copy_str(json_string_value(attr));
+    if (value) attr_value = copy_str(json_string_value(value));
+
     // Units are optional
-    if (!attr_units) {
+    if (units) {
+        attr_units = copy_str(json_string_value(units));
+    }
+    else {
         attr_units = calloc(1, sizeof (char));
         if (!attr_units) {
             set_baton_error(error, errno,
@@ -593,7 +1063,7 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     int status = modify_metadata(conn, rods_path, operation,
                                  attr_name, attr_value, attr_units, error);
 
-    if (attr_name) free(attr_name);
+    if (attr_name)  free(attr_name);
     if (attr_value) free(attr_value);
     if (attr_units) free(attr_units);
 
@@ -601,6 +1071,10 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
 
 error:
     logmsg(ERROR, BATON_CAT, error->message);
+
+    if (attr_name)  free(attr_name);
+    if (attr_value) free(attr_value);
+    if (attr_units) free(attr_units);
 
     return -1;
 }
@@ -622,12 +1096,12 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
 
     special_select_ops[0] = 0;
 
-    query_in->selectInp.inx = cols_to_select;
+    query_in->selectInp.inx   = cols_to_select;
     query_in->selectInp.value = special_select_ops;
-    query_in->selectInp.len = num_columns;
+    query_in->selectInp.len   = num_columns;
 
-    query_in->maxRows = max_rows;
-    query_in->continueInx = 0;
+    query_in->maxRows       = max_rows;
+    query_in->continueInx   = 0;
     query_in->condInput.len = 0;
 
     int *query_cond_indices = calloc(MAX_NUM_CONDITIONALS, sizeof (int));
@@ -636,9 +1110,9 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));
     if (!query_cond_values) goto error;
 
-    query_in->sqlCondInp.inx = query_cond_indices;
+    query_in->sqlCondInp.inx   = query_cond_indices;
     query_in->sqlCondInp.value = query_cond_values;
-    query_in->sqlCondInp.len = 0;
+    query_in->sqlCondInp.len   = 0;
 
     return query_in;
 
@@ -657,11 +1131,36 @@ void free_query_input(genQueryInp_t *query_in) {
         free(query_in->sqlCondInp.value[i]);
     }
 
+    // Free any key/value pairs, notably zone hints
+    for (int i = 0; i < query_in->condInput.len; i++) {
+        free(query_in->condInput.keyWord[i]);
+        free(query_in->condInput.value[i]);
+    }
+
+    if (query_in->condInput.keyWord != NULL) {
+        free(query_in->condInput.keyWord);
+    }
+
+	if (query_in->condInput.value != NULL) {
+        free(query_in->condInput.value);
+    }
+
     free(query_in->selectInp.inx);
     free(query_in->selectInp.value);
     free(query_in->sqlCondInp.inx);
     free(query_in->sqlCondInp.value);
     free(query_in);
+}
+
+void free_query_output(genQueryOut_t *query_out) {
+    assert(query_out);
+
+    // Free any strings allocated as query results
+    for (int i = 0; i < query_out->attriCnt; i++) {
+        free(query_out->sqlResult[i].value);
+    }
+
+    free(query_out);
 }
 
 genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
@@ -726,10 +1225,11 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
             logmsg(DEBUG, BATON_CAT, "Successfully fetched chunk %d of query",
                    chunk_num);
 
-            // Cargo-cult from iRODS clients; not sure this is useful
-            query_in->continueInx = query_out->continueInx;
             // Allows query_out to be freed
             continue_flag = query_out->continueInx;
+
+            // Cargo-cult from iRODS clients; not sure this is useful
+            query_in->continueInx = query_out->continueInx;
 
             json_t *chunk = make_json_objects(query_out, labels);
             if (!chunk) {
@@ -753,10 +1253,18 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
                 goto error;
             }
 
-            // Would be better to somehow realloc this memory
-            if (query_out) free(query_out);
+            if (query_out) free_query_output(query_out);
+        }
+        else if (status == CAT_NO_ROWS_FOUND && chunk_num > 0) {
+            // Oddly CAT_NO_ROWS_FOUND is also returned at the end of a
+            // batch of chunks; test chunk_num to distinguish catch this
+            logmsg(TRACE, BATON_CAT,
+                   "Got CAT_NO_ROWS_FOUND at end of results!");
+            break;
         }
         else if (status == CAT_NO_ROWS_FOUND) {
+            // If this genuinely means no rows have been found, should we
+            // free this, or not? Current iRODS leaves this NULL.
             logmsg(TRACE, BATON_CAT, "Query returned no results");
             break;
         }
@@ -784,7 +1292,7 @@ error:
         logmsg(ERROR, BATON_CAT, error->message);
     }
 
-    if (query_out) free(query_out);
+    if (query_out) free_query_output(query_out);
     if (results) json_decref(results);
 
     return NULL;
@@ -828,6 +1336,8 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
                            "Failed to parse string '%s'; is it UTF-8?", result);
                     goto error;
                 }
+
+                // TODO: check return value
                 json_object_set_new(jrow, labels[i], jvalue);
             }
         }
@@ -924,6 +1434,20 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
+    json_t *base_entry = collection_path_to_json(rods_path->outPath);
+    if (!base_entry) {
+        set_baton_error(error, -1, "Failed to pack '%s' as JSON",
+                        rods_path->outPath);
+        goto query_error;
+    }
+    status = json_array_append_new(results, base_entry);
+    if (status != 0) {
+        set_baton_error(error, status,
+                        "Failed to convert listing of '%s' to JSON: "
+                        "error %d", rods_path->outPath, status);
+        goto query_error;
+    }
+
     while ((status = rclReadCollection(conn, &coll_handle, &coll_entry)) >= 0) {
         json_t *entry;
 
@@ -988,7 +1512,7 @@ error:
     return NULL;
 }
 
-static void map_mod_args(modAVUMetadataInp_t *out, struct mod_metadata_in *in) {
+static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in) {
     out->arg0 = (char *) metadata_op_name(in->op);
     out->arg1 = in->type_arg;
     out->arg2 = in->rods_path->outPath;
@@ -1020,6 +1544,158 @@ static const char *metadata_op_name(metadata_op op) {
     return name;
 }
 
+static json_t *map_access_args(rcComm_t *conn, json_t *query,
+                               baton_error_t *error) {
+    json_t *user_info = NULL;
+
+    json_t *acl = json_object_get(query, JSON_ACCESS_KEY);
+    if (acl) {
+        if (!json_is_array(acl)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid ACL: not a JSON array");
+            goto error;
+        }
+
+        int num_elts = json_array_size(acl);
+        for (int i = 0; i < num_elts; i++) {
+            json_t *access = json_array_get(acl, i);
+            if (!json_is_object(access)) {
+                set_baton_error(error, CAT_INVALID_ARGUMENT,
+                                "Invalid access at position %d of %d: ",
+                                "not a JSON object", i, num_elts);
+                goto error;
+            }
+
+            // Map user name to user_id
+            json_t *owner = json_object_get(access, JSON_OWNER_KEY);
+            if (!json_is_string(owner)) {
+                set_baton_error(error, CAT_INVALID_ARGUMENT,
+                                "Invalid owner: not a JSON string");
+                goto error;
+            }
+
+            const char *owner_name = json_string_value(owner);
+            logmsg(DEBUG, BATON_CAT, "Getting user information for '%s'",
+                   owner_name);
+            user_info = get_user(conn, owner_name, error);
+            if (error->code != 0) goto error;
+
+            json_t *user_id =
+                json_incref(json_object_get(user_info, JSON_USER_ID_KEY));
+            logmsg(DEBUG, BATON_CAT, "Mapping user name '%s' to user id '%s'",
+                   owner_name, json_string_value(user_id));
+
+            json_object_set_new(access, JSON_OWNER_KEY, user_id);
+            json_decref(user_info);
+
+            // Map CLI access level to iCAT access type token
+            json_t *level = json_object_get(access, JSON_LEVEL_KEY);
+            if (!json_is_string(level)) {
+                set_baton_error(error, CAT_INVALID_ARGUMENT,
+                                "Invalid access level: not a JSON string");
+                goto error;
+            }
+
+            const char *access_level = json_string_value(level);
+            const char *icat_level  = map_access_level(access_level, error);
+            if (error->code != 0) goto error;
+
+            logmsg(DEBUG, BATON_CAT, "Mapped access level '%s' to ICAT '%s'",
+                   access_level, icat_level);
+
+            json_object_del(access, JSON_LEVEL_KEY);
+            json_object_set_new(access, JSON_LEVEL_KEY,
+                                json_string(icat_level));
+        }
+    }
+
+    return query;
+
+error:
+    if (user_info) json_decref(user_info);
+
+    return NULL;
+}
+
+static json_t *revmap_access_result(json_t *acl,  baton_error_t *error) {
+    if (!json_is_array(acl)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid ACL: not a JSON array");
+        goto error;
+    }
+
+    int num_elts = json_array_size(acl);
+    for (int i = 0; i < num_elts; i++) {
+        json_t *access = json_array_get(acl, i);
+        json_t *level = json_object_get(access, JSON_LEVEL_KEY);
+
+        const char *icat_level = json_string_value(level);
+        const char *access_level  = revmap_access_level(icat_level, error);
+        if (error->code != 0) goto error;
+
+        logmsg(DEBUG, BATON_CAT, "Mapped ICAT '%s' to access level '%s'",
+               access_level, icat_level);
+
+        json_object_del(access, JSON_LEVEL_KEY);
+        json_object_set_new(access, JSON_LEVEL_KEY,
+                            json_string(access_level));
+    }
+
+    return acl;
+
+error:
+
+    return NULL;
+}
+
+// Map a user-visible access level to the iCAT token
+// nomenclature. iRODS does a similar thing itself.
+static const char *map_access_level(const char *access_level,
+                                    baton_error_t *error) {
+    if (str_equals_ignore_case(access_level, ACCESS_LEVEL_NULL)) {
+        return ACCESS_NULL;
+    }
+    else if (str_equals_ignore_case(access_level, ACCESS_LEVEL_OWN)) {
+        return ACCESS_OWN;
+    }
+    else if (str_equals_ignore_case(access_level, ACCESS_LEVEL_READ)) {
+        return ACCESS_READ_OBJECT;
+    }
+    else if (str_equals_ignore_case(access_level, ACCESS_LEVEL_WRITE)) {
+        return ACCESS_MODIFY_OBJECT;
+    }
+    else {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid permission level: expected one of "
+                        "[%s, %s, %s, %s]",
+                        ACCESS_LEVEL_NULL, ACCESS_LEVEL_OWN,
+                        ACCESS_LEVEL_READ, ACCESS_LEVEL_WRITE);
+        return NULL;
+    }
+}
+
+// Map an iCAT token back to a user-visible access level.
+static const char *revmap_access_level(const char *icat_level,
+                                       baton_error_t *error) {
+    if (str_equals_ignore_case(icat_level, ACCESS_NULL)) {
+        return ACCESS_LEVEL_NULL;
+    }
+    else if (str_equals_ignore_case(icat_level, ACCESS_OWN)) {
+        return ACCESS_LEVEL_OWN;
+    }
+    else if (str_equals_ignore_case(icat_level, ACCESS_READ_OBJECT)) {
+        return ACCESS_LEVEL_READ;
+    }
+    else if (str_equals_ignore_case(icat_level, ACCESS_MODIFY_OBJECT)) {
+        return ACCESS_LEVEL_WRITE;
+    }
+    else {
+        // Fall back for anything else; not ideal, but it's more
+        // resilient to surprises than raising an error.
+        return icat_level;
+    }
+}
+
 static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
                                        const char *attr_name) {
@@ -1038,13 +1714,13 @@ static genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
     char *data_name = basename(path2);
 
     query_cond_t cn = { .column   = COL_COLL_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = coll_name };
     query_cond_t dn = { .column   = COL_DATA_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = data_name };
     query_cond_t an = { .column   = COL_META_DATA_ATTR_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
 
     int num_conds = 2;
@@ -1068,15 +1744,200 @@ error:
     return NULL;
 }
 
+static json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
+                                   baton_error_t *error) {
+    if (!json_is_array(array)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON array");
+        goto error;
+    }
+
+    for (size_t i = 0; i < json_array_size(array); i++) {
+        json_t *item = json_array_get(array, i);
+        add_avus_json_object(conn, item, error);
+        if (error->code != 0) goto error;
+    }
+
+    return array;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return NULL;
+}
+
+static json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
+                                    baton_error_t *error) {
+    rodsPath_t rods_path;
+    char *path;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON object");
+        goto error;
+    }
+
+    path = json_to_path(object, error);
+    if (error->code != 0) goto error;
+
+    int status = set_rods_path(conn, &rods_path, path);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
+        goto error;
+    }
+
+    json_t *avus = list_metadata(conn, &rods_path, NULL, error);
+    if (error->code != 0) goto error;
+
+    add_metadata(object, avus, error);
+    if (error->code != 0) goto error;
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return object;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return NULL;
+}
+
+static json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
+                                  baton_error_t *error) {
+    if (!json_is_array(array)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON array");
+        goto error;
+    }
+
+    for (size_t i = 0; i < json_array_size(array); i++) {
+        json_t *item = json_array_get(array, i);
+        add_acl_json_object(conn, item, error);
+        if (error->code != 0) goto error;
+    }
+
+    return array;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return NULL;
+}
+
+static json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
+                                   baton_error_t *error) {
+    rodsPath_t rods_path;
+    char *path;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON object");
+        goto error;
+    }
+
+    path = json_to_path(object, error);
+    if (error->code != 0) goto error;
+
+    int status = set_rods_path(conn, &rods_path, path);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
+        goto error;
+    }
+
+    json_t *perms = list_permissions(conn, &rods_path, error);
+    if (error->code != 0) goto error;
+
+    add_permissions(object, perms, error);
+    if (error->code != 0) goto error;
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return object;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return NULL;
+}
+
+static genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
+                                           rodsPath_t *rods_path) {
+    char *data_id = rods_path->dataId;
+    query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = data_id };
+    query_cond_t tn = { .column   = COL_DATA_TOKEN_NAMESPACE,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = ACCESS_NAMESPACE };
+
+    int num_conds = 2;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { di, tn });
+}
+
+static genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
+                                           rodsPath_t *rods_path) {
+    char *path = rods_path->outPath;
+    query_cond_t cn = { .column   = COL_COLL_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = path };
+    query_cond_t tn = { .column   = COL_COLL_TOKEN_NAMESPACE,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = ACCESS_NAMESPACE };
+    int num_conds = 2;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, tn });
+}
+
+static genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
+                                             const char *user_id,
+                                             const char *access_level) {
+    query_cond_t tn = { .column   = COL_DATA_TOKEN_NAMESPACE,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = ACCESS_NAMESPACE };
+    query_cond_t ui = { .column   = COL_DATA_ACCESS_USER_ID,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = user_id };
+    query_cond_t al = { .column   = COL_DATA_ACCESS_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = access_level };
+    int num_conds = 3;
+    return add_query_conds(query_in, num_conds,
+                           (query_cond_t []) { tn, ui, al });
+}
+
+static genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
+                                             const char *user_id,
+                                             const char *access_level) {
+    query_cond_t tn = { .column   = COL_COLL_TOKEN_NAMESPACE,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = ACCESS_NAMESPACE };
+    query_cond_t ui = { .column   = COL_COLL_ACCESS_USER_ID,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = user_id };
+    query_cond_t al = { .column   = COL_COLL_ACCESS_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = access_level };
+    int num_conds = 3;
+    return add_query_conds(query_in, num_conds,
+                           (query_cond_t []) { tn, ui, al });
+}
+
 static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
                                        const char *attr_name) {
     char *path = rods_path->outPath;
     query_cond_t cn = { .column   = COL_COLL_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = path };
     query_cond_t an = { .column   = COL_META_COLL_ATTR_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
 
     int num_conds = 1;
@@ -1090,27 +1951,26 @@ static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
     return query_in;
 }
 
-static genQueryInp_t *prepare_obj_search(genQueryInp_t *query_in,
-                                         const char *attr_name,
-                                         const char *attr_value,
-                                         const char *operator) {
+static genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
+                                             const char *attr_name,
+                                             const char *attr_value,
+                                             const char *operator) {
     query_cond_t an = { .column   = COL_META_DATA_ATTR_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
     query_cond_t av = { .column   = COL_META_DATA_ATTR_VALUE,
                         .operator = operator,
                         .value    = attr_value };
-
     int num_conds = 2;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
 }
 
-static genQueryInp_t *prepare_col_search(genQueryInp_t *query_in,
-                                         const char *attr_name,
-                                         const char *attr_value,
-                                         const char *operator) {
+static genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
+                                             const char *attr_name,
+                                             const char *attr_value,
+                                             const char *operator) {
     query_cond_t an = { .column   = COL_META_COLL_ATTR_NAME,
-                        .operator = META_SEARCH_EQUALS,
+                        .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
     query_cond_t av = { .column   = COL_META_COLL_ATTR_VALUE,
                         .operator = operator,
@@ -1126,7 +1986,7 @@ static genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
 
     if (len > 0) {
         // Absolute path
-        if (starts_with(root_path, "/")) {
+        if (str_starts_with(root_path, "/")) {
             path = calloc(len + 2, sizeof (char));
             if (!path) goto error;
 
@@ -1140,7 +2000,7 @@ static genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
         }
 
         query_cond_t pv = { .column   = COL_COLL_NAME,
-                            .operator = META_SEARCH_LIKE,
+                            .operator = SEARCH_OP_LIKE,
                             .value    = path };
 
         int num_conds = 1;
@@ -1155,4 +2015,14 @@ error:
            errno, strerror(errno));
 
     return NULL;
+}
+
+static genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
+                                          const char *user_name) {
+    query_cond_t un = { .column   = COL_USER_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = user_name };
+
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds,  (query_cond_t []) { un });
 }

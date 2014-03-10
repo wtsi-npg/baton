@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
+ * @file utilities.h
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
@@ -62,11 +63,17 @@ typedef enum {
  */
 void logmsg(log_level level, const char *category, const char *format, ...);
 
-int starts_with(const char *str, const char *prefix);
+int str_starts_with(const char *str, const char *prefix);
 
-int ends_with(const char *str, const char *suffix);
+int str_ends_with(const char *str, const char *suffix);
+
+int str_equals(const char *str1, const char *str2);
+
+int str_equals_ignore_case(const char *str1, const char *str2);
 
 char *copy_str(const char *str);
+
+char *parse_base_name(const char *path);
 
 FILE *maybe_stdin(const char *path);
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
 #include "json.h"
 #include "utilities.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
+static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
 
 static char *USER_LOG_CONF_FILE = NULL;
 
@@ -118,6 +118,8 @@ int main(int argc, char *argv[]) {
                 "(using user-defined configuration in '%s')\n",
                 USER_LOG_CONF_FILE);
     }
+
+    declare_client_name(argv[0]);
 
     input = maybe_stdin(json_file);
     int status = do_supersede_metadata(argc, argv, optind, input);

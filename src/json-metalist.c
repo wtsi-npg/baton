@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
 #include "json.h"
 #include "utilities.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
+static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
 
 static char *USER_LOG_CONF_FILE = NULL;
 
@@ -119,6 +119,8 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE);
     }
 
+    declare_client_name(argv[0]);
+
     input = maybe_stdin(json_file);
     int status = do_list_metadata(argc, argv, optind, input);
     if (status != 0) exit_status = 5;
@@ -175,7 +177,10 @@ int do_list_metadata(int argc, char *argv[], int optind, FILE *input) {
             int status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
                 error_count++;
-                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+                set_baton_error(&path_error, status,
+                                "Failed to resolve path '%s'", path);
+                add_error_value(target, &path_error);
+                print_json(target);
             }
             else {
                 baton_error_t error;
@@ -183,8 +188,6 @@ int do_list_metadata(int argc, char *argv[], int optind, FILE *input) {
 
                 if (error.code != 0) {
                     error_count++;
-                    logmsg(ERROR, BATON_CAT, "Failed to list metadata on '%s'",
-                           path);
                     add_error_value(target, &error);
                     print_json(target);
                 }

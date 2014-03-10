@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,16 +31,20 @@
 #include "json.h"
 #include "utilities.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
+static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
 
 static char *USER_LOG_CONF_FILE = NULL;
 
+static int acl_flag;
+static int avu_flag;
 static int help_flag;
 static int version_flag;
 
-int do_list_paths(int argc, char *argv[], int optind, FILE *input);
+int do_list_paths(int argc, char *argv[], int optind, FILE *input,
+                  print_flags pflags);
 
 int main(int argc, char *argv[]) {
+    print_flags pflags = PRINT_DEFAULT;
     int exit_status = 0;
     char *json_file = NULL;
     FILE *input = NULL;
@@ -48,6 +52,8 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
+            {"acl",       no_argument, &acl_flag,     1},
+            {"avu",       no_argument, &avu_flag,     1},
             {"help",      no_argument, &help_flag,    1},
             {"version",   no_argument, &version_flag, 1},
             // Indexed options
@@ -82,18 +88,23 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (acl_flag) pflags = pflags | PRINT_ACL;
+    if (avu_flag) pflags = pflags | PRINT_AVU;
+
     if (help_flag) {
         puts("Name");
-        puts("    json-metamod");
+        puts("    json-list");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-list [--file <json file>]");
+        puts("    json-list [--acl] [--avu] [--file <json file>]");
         puts("");
         puts("Description");
         puts("    Lists data objects and collections described in a JSON ");
         puts("    input file.");
         puts("");
+        puts("    --acl         Print access control lists in output.");
+        puts("    --avu         Print AVU lists in output.");
         puts("    --file        The JSON file describing the data objects and");
         puts("                  collections. Optional, defaults to STDIN.");
         puts("");
@@ -119,9 +130,11 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE);
     }
 
+    declare_client_name(argv[0]);
+
     input = maybe_stdin(json_file);
 
-    int status = do_list_paths(argc, argv, optind, input);
+    int status = do_list_paths(argc, argv, optind, input, pflags);
     if (status != 0) exit_status = 5;
 
     zlog_fini();
@@ -135,7 +148,8 @@ error:
     exit(exit_status);
 }
 
-int do_list_paths(int argc, char *argv[], int optind, FILE *input) {
+int do_list_paths(int argc, char *argv[], int optind, FILE *input,
+                  print_flags pflags) {
     int path_count = 0;
     int error_count = 0;
 
@@ -143,11 +157,11 @@ int do_list_paths(int argc, char *argv[], int optind, FILE *input) {
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
+    size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
 
     while (!feof(input)) {
         json_error_t load_error;
-        json_t *target = json_loadf(input, flags, &load_error);
+        json_t *target = json_loadf(input, jflags, &load_error);
         if (!target) {
             if (!feof(input)) {
                 logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
@@ -171,11 +185,14 @@ int do_list_paths(int argc, char *argv[], int optind, FILE *input) {
             int status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
                 error_count++;
-                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+                set_baton_error(&path_error, status,
+                                "Failed to resolve path '%s'", path);
+                add_error_value(target, &path_error);
+                print_json(target);
             }
             else {
                 baton_error_t error;
-                json_t *results = list_path(conn, &rods_path, &error);
+                json_t *results = list_path(conn, &rods_path, pflags, &error);
 
                 if (error.code != 0) {
                     error_count++;
@@ -189,11 +206,11 @@ int do_list_paths(int argc, char *argv[], int optind, FILE *input) {
             }
 
             if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-
-            fflush(stdout);
         }
 
+        fflush(stdout);
         json_decref(target);
+        free(path);
     } // while
 
     rcDisconnect(conn);

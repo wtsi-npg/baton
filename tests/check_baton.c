@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,13 +28,13 @@
 #include "../src/json.h"
 
 static int MAX_COMMAND_LEN = 1024;
-static int MAX_PATH_LEN = 4096;
+static int MAX_PATH_LEN    = 4096;
 
-static char *BASIC_COLL = "baton-basic-test";
-static char *BASIC_DATA_PATH = "./data/";
+static char *BASIC_COLL          = "baton-basic-test";
+static char *BASIC_DATA_PATH     = "./data/";
 static char *BASIC_METADATA_PATH = "./metadata/meta1.imeta";
 
-static char *SETUP_SCRIPT = "./scripts/setup_irods.sh";
+static char *SETUP_SCRIPT    = "./scripts/setup_irods.sh";
 static char *TEARDOWN_SCRIPT = "./scripts/teardown_irods.sh";
 
 static void set_current_rods_root(char *in, char *out) {
@@ -42,7 +42,8 @@ static void set_current_rods_root(char *in, char *out) {
 }
 
 static void setup() {
-    zlog_init("../baton_zlog.conf");
+    // This is too late to initialise zlog; moved to main.
+    // zlog_init("test_zlog.conf");
 }
 
 static void teardown() {
@@ -77,27 +78,69 @@ static void basic_teardown() {
     if (ret != 0) raise(SIGINT);
 }
 
-START_TEST(test_starts_with) {
-    ck_assert_msg(starts_with("", ""), "'' starts with ''");
-    ck_assert_msg(starts_with("a", ""), "'a' starts with ''");
-    ck_assert_msg(starts_with("a", "a"), "'a' starts with 'a'");
-    ck_assert_msg(starts_with("ab", "a"), "'ab' starts with 'a'");
+START_TEST(test_str_starts_with) {
+    ck_assert_msg(str_starts_with("", ""),    "'' starts with ''");
+    ck_assert_msg(str_starts_with("a", ""),   "'a' starts with ''");
+    ck_assert_msg(str_starts_with("a", "a"),  "'a' starts with 'a'");
+    ck_assert_msg(str_starts_with("ab", "a"), "'ab' starts with 'a'");
 
-    ck_assert_msg(!starts_with("", "a"), "'' !starts with 'a'");
-    ck_assert_msg(!starts_with("b", "a"), "'b' !starts with 'a'");
-    ck_assert_msg(!starts_with("ba", "a"), "'ba' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("", "a"),   "'' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("b", "a"),  "'b' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("ba", "a"), "'ba' !starts with 'a'");
 }
 END_TEST
 
-START_TEST(test_ends_with) {
-    ck_assert_msg(ends_with("", ""), "'' ends with ''");
-    ck_assert_msg(ends_with("a", ""), "'a' ends with ''");
-    ck_assert_msg(ends_with("a", "a"), "'a' ends with 'a'");
-    ck_assert_msg(ends_with("ba", "a"), "'ba' ends with 'a'");
+START_TEST(test_str_ends_with) {
+    ck_assert_msg(str_ends_with("", ""),    "'' ends with ''");
+    ck_assert_msg(str_ends_with("a", ""),   "'a' ends with ''");
+    ck_assert_msg(str_ends_with("a", "a"),  "'a' ends with 'a'");
+    ck_assert_msg(str_ends_with("ba", "a"), "'ba' ends with 'a'");
 
-    ck_assert_msg(!ends_with("", "a"), "'' !ends with 'a'");
-    ck_assert_msg(!ends_with("b", "a"), "'b' !ends with 'a'");
-    ck_assert_msg(!ends_with("ab", "a"), "'ab' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("", "a"),   "'' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("b", "a"),  "'b' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("ab", "a"), "'ab' !ends with 'a'");
+}
+END_TEST
+
+START_TEST(test_str_equals) {
+    ck_assert_msg(str_equals("", ""),    "'' equals ''");
+    ck_assert_msg(str_equals(" ", " "),  "' ' equals ' '");
+    ck_assert_msg(str_equals("a", "a"),  "'a' equals 'a'");
+    ck_assert_msg(!str_equals("a", "A"), "'a' !equals 'A'");
+}
+END_TEST
+
+START_TEST(test_str_equals_ignore_case) {
+    ck_assert_msg(str_equals_ignore_case("", ""),   "'' equals ''");
+    ck_assert_msg(str_equals_ignore_case(" ", " "), "' ' equals ' '");
+    ck_assert_msg(str_equals_ignore_case("a", "a"), "'a' equals 'a'");
+    ck_assert_msg(str_equals_ignore_case("a", "A"), "'a' equals 'A'");
+}
+END_TEST
+
+START_TEST(test_parse_base_name) {
+    ck_assert_str_eq("a", parse_base_name("a"));
+    ck_assert_str_eq("a", parse_base_name("/a"));
+    ck_assert_str_eq("b", parse_base_name("/a/b"));
+
+}
+END_TEST
+
+START_TEST(test_maybe_stdin) {
+    ck_assert_ptr_eq(stdin, maybe_stdin(NULL));
+
+    char buf[MAX_PATH_LEN];
+    char *wd = getcwd(buf, MAX_PATH_LEN);
+    ck_assert_ptr_ne(wd , NULL);
+
+    char file_path[MAX_PATH_LEN];
+    snprintf(file_path, MAX_PATH_LEN, "%s/data/f1.txt", wd);
+
+    FILE *f = maybe_stdin(file_path);
+    ck_assert_ptr_ne(f, NULL);
+    ck_assert_int_eq(fclose(f), 0);
+
+    ck_assert_ptr_eq(maybe_stdin("no_such_path"), NULL);
 }
 END_TEST
 
@@ -145,6 +188,32 @@ START_TEST(test_resolve_rods_path) {
     ck_assert_str_eq(rods_path.outPath, path);
     ck_assert_int_eq(rods_path.objType, COLL_OBJ_T);
 
+    char *invalid_path = '\0';
+    rodsPath_t inv_rods_path;
+    ck_assert(resolve_rods_path(conn, &env, &inv_rods_path, invalid_path) < 0);
+
+    char *no_path = "no such path";
+    rodsPath_t no_rods_path;
+    ck_assert_int_ne(resolve_rods_path(conn, &env, &no_rods_path, no_path),
+                     EXIST_ST);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Do we fail to list a non-existent path?
+START_TEST(test_list_missing_path) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char *path = "no such path";
+    rodsPath_t rods_path;
+    baton_error_t error;
+    resolve_rods_path(conn, &env, &rods_path, path);
+
+    ck_assert_ptr_eq(list_path(conn, &rods_path, PRINT_ACL, &error), NULL);
+    ck_assert_int_ne(error.code, 0);
+
     if (conn) rcDisconnect(conn);
 }
 END_TEST
@@ -156,6 +225,7 @@ START_TEST(test_list_obj) {
 
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
+
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -167,17 +237,61 @@ START_TEST(test_list_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
                      EXIST_ST);
 
-    baton_error_t error;
-    json_t *results = list_path(conn, &rods_obj_path, &error);
-    json_t *expected = json_pack("{s:s, s:s}",
-                                 "collection", rods_path.outPath,
-                                 "data_object", "f1.txt");
+    json_t *perm = json_pack("{s:s, s:s}",
+                             JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_LEVEL_KEY, ACCESS_LEVEL_OWN);
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1",
+                            JSON_UNITS_KEY,     "units1");
 
-    ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    // Default representation
+    baton_error_t error1;
+    json_t *results1 = list_path(conn, &rods_obj_path, PRINT_DEFAULT, &error1);
+    json_t *expected1 = json_pack("{s:s, s:s}",
+                                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                                  JSON_DATA_OBJECT_KEY, "f1.txt");
 
-    json_decref(results);
-    json_decref(expected);
+    ck_assert_int_eq(json_equal(results1, expected1), 1);
+    ck_assert_int_eq(error1.code, 0);
+
+    // With ACL
+    baton_error_t error2;
+    json_t *results2 = list_path(conn, &rods_obj_path, PRINT_ACL, &error2);
+    json_t *expected2 = json_pack("{s:s, s:s, s:[O]}",
+                                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                                  JSON_DATA_OBJECT_KEY, "f1.txt",
+                                  JSON_ACCESS_KEY,      perm);
+
+    ck_assert_int_eq(json_equal(results2, expected2), 1);
+    ck_assert_int_eq(error2.code, 0);
+
+    // With AVUs
+    baton_error_t error3;
+    json_t *results3 = list_path(conn, &rods_obj_path, PRINT_ACL | PRINT_AVU,
+                                 &error3);
+    json_t *expected3 = json_pack("{s:s, s:s, s:[O], s:[O]}",
+                                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                                  JSON_DATA_OBJECT_KEY, "f1.txt",
+                                  JSON_ACCESS_KEY,      perm,
+                                  JSON_AVUS_KEY,        avu);
+
+    ck_assert_int_eq(json_equal(results3, expected3), 1);
+    ck_assert_int_eq(error3.code, 0);
+
+    json_decref(results1);
+    json_decref(expected1);
+
+    json_decref(results2);
+    json_decref(expected2);
+
+    json_decref(results3);
+    json_decref(expected3);
+
+    json_decref(perm);
+    json_decref(avu);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -194,7 +308,7 @@ START_TEST(test_list_coll) {
                      EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_path(conn, &rods_path, &error);
+    json_t *results = list_path(conn, &rods_path, PRINT_ACL, &error);
 
     char a[MAX_PATH_LEN];
     char b[MAX_PATH_LEN];
@@ -203,24 +317,48 @@ START_TEST(test_list_coll) {
     snprintf(b, MAX_PATH_LEN, "%s/b", rods_path.outPath);
     snprintf(c, MAX_PATH_LEN, "%s/c", rods_path.outPath);
 
+    json_t *perms = json_pack("{s:s, s:s}",
+                              JSON_OWNER_KEY, env.rodsUserName,
+                              JSON_LEVEL_KEY, ACCESS_OWN);
     json_t *expected =
-        json_pack("[{s:s, s:s}, {s:s, s:s}, {s:s, s:s}"
-                  " {s:s}, {s:s}, {s:s}]",
-                  "collection", rods_path.outPath,
-                  "data_object", "f1.txt",
-                  "collection", rods_path.outPath,
-                  "data_object", "f2.txt",
-                  "collection", rods_path.outPath,
-                  "data_object", "f3.txt",
-                  "collection", a,
-                  "collection", b,
-                  "collection", c);
+        json_pack("[{s:s,      s:[o]},"  // base collection
+                  " {s:s, s:s, s:[o]},"  // f1.txt
+                  " {s:s, s:s, s:[o]},"  // f2.txt
+                  " {s:s, s:s, s:[o]},"  // f3.txt
+                  " {s:s, s:[o]},"       // a
+                  " {s:s, s:[o]},"       // b
+                  " {s:s, s:[o]}]",      // c
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_ACCESS_KEY,      perms,
 
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "f1.txt",
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "f2.txt",
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "f3.txt",
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  a,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  b,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  c,
+                  JSON_ACCESS_KEY,      perms);
+    ck_assert_ptr_ne(NULL, results);
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -249,8 +387,24 @@ START_TEST(test_make_query_input) {
 }
 END_TEST
 
-// Can we list metadata on a data object?
-START_TEST(test_list_metadata_obj) {
+// Do we fail to list the ACL of a non-existant path?
+START_TEST(test_list_permissions_missing_path) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char *path = "no such path";
+    rodsPath_t rods_path;
+    baton_error_t error;
+    resolve_rods_path(conn, &env, &rods_path, path);
+    ck_assert_ptr_eq(list_permissions(conn, &rods_path, &error), NULL);
+    ck_assert_int_ne(error.code, 0);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we list the ACL of an object?
+START_TEST(test_list_permissions_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -264,17 +418,84 @@ START_TEST(test_list_metadata_obj) {
                      EXIST_ST);
 
     baton_error_t error;
+    json_t *results = list_permissions(conn, &rods_path, &error);
+    json_t *expected = json_pack("[{s:s, s:s}]",
+                                 JSON_OWNER_KEY, env.rodsUserName,
+                                 JSON_LEVEL_KEY, ACCESS_OWN);
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we list the ACL of a collection?
+START_TEST(test_list_permissions_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_permissions(conn, &rods_path, &error);
+    json_t *expected = json_pack("[{s:s, s:s}]",
+                                 JSON_OWNER_KEY, env.rodsUserName,
+                                 JSON_LEVEL_KEY, ACCESS_OWN);
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+
+// Can we list metadata on a data object?
+START_TEST(test_list_metadata_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char *no_path = "no such path";
+    rodsPath_t no_rods_path;
+    baton_error_t no_path_error;
+    resolve_rods_path(conn, &env, &no_rods_path, no_path);
+    ck_assert_ptr_eq(list_metadata(conn, &no_rods_path, NULL, &no_path_error),
+                     NULL);
+    ck_assert_int_ne(no_path_error.code, 0);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
     json_t *results = list_metadata(conn, &rods_path, NULL, &error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
-                                 "attribute", "attr1",
-                                 "value", "value1",
-                                 "units", "units1");
+                                 JSON_ATTRIBUTE_KEY, "attr1",
+                                 JSON_VALUE_KEY,     "value1",
+                                 JSON_UNITS_KEY,     "units1");
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -295,15 +516,17 @@ START_TEST(test_list_metadata_coll) {
     baton_error_t error;
     json_t *results = list_metadata(conn, &rods_path, NULL, &error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
-                                 "attribute", "attr2",
-                                 "value", "value2",
-                                 "units", "units2");
+                                 JSON_ATTRIBUTE_KEY, "attr2",
+                                 JSON_VALUE_KEY,     "value2",
+                                 JSON_UNITS_KEY,     "units2");
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -316,31 +539,39 @@ START_TEST(test_search_metadata_obj) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     json_t *avu = json_pack("{s:s, s:s}",
-                            "attribute", "attr1",
-                            "value", "value1");
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              "collection", rods_root,
-                              "avus", avu);
+                              JSON_COLLECTION_KEY, rods_root,
+                              JSON_AVUS_KEY,       avu);
+
+    baton_error_t expected_error1;
+    search_metadata(conn, NULL, NULL, PRINT_AVU, &expected_error1);
+    ck_assert_int_ne(expected_error1.code, 0);
+
+    baton_error_t expected_error2;
+    search_metadata(conn, json_pack("[]"), NULL, PRINT_AVU, &expected_error2);
+    ck_assert_int_ne(expected_error2.code, 0);
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, &error);
+    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
     ck_assert_int_eq(json_array_size(results), 12);
-
-    const char *key1 = "collection";
-    const char *key2 = "data_object";
 
     for (size_t i = 0; i < 12; i++) {
         json_t *obj = json_array_get(results, i);
-        ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
-        ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
     }
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
-// Can we search for data objects by their metadata, limiting scope by path?
+// Can we search for data objects by their metadata, limiting scope by
+// path?
 START_TEST(test_search_metadata_path_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -351,27 +582,75 @@ START_TEST(test_search_metadata_path_obj) {
     snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_root);
 
     json_t *avu = json_pack("{s:s, s:s}",
-                            "attribute", "attr1",
-                            "value", "value1");
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              "collection", search_root,
-                              "avus", avu);
+                              JSON_COLLECTION_KEY, search_root,
+                              JSON_AVUS_KEY,       avu);
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, &error);
+    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
     ck_assert_int_eq(json_array_size(results), 3);
-
-    const char *key1 = "collection";
-    const char *key2 = "data_object";
 
     for (size_t i = 0; i < 3; i++) {
         json_t *obj = json_array_get(results, i);
-        ck_assert_ptr_ne(json_object_get(obj, key1), NULL);
-        ck_assert_ptr_ne(json_object_get(obj, key2), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
     }
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we search for data objects by their metadata, limited by
+// permission?
+START_TEST(test_search_metadata_perm_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t mod_error;
+    init_baton_error(&mod_error);
+    int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
+                                ACCESS_LEVEL_READ, &mod_error);
+    ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(mod_error.code, 0);
+
+    json_t *avu = json_pack("{s:s, s:s}",
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1");
+    json_t *perm = json_pack("{s:s:, s:s}",
+                             JSON_OWNER_KEY, "public",
+                             JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
+
+    json_t *query = json_pack("{s:[o], s:[o]}",
+                              JSON_AVUS_KEY,   avu,
+                              JSON_ACCESS_KEY, perm);
+
+    baton_error_t error;
+    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(json_array_size(results), 1);
+
+    json_t *obj = json_array_get(results, 0);
+    ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
+    ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
+
+    json_decref(results);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -384,23 +663,25 @@ START_TEST(test_search_metadata_coll) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     json_t *avu = json_pack("{s:s, s:s}",
-                            "attribute", "attr2",
-                            "value", "value2");
+                            JSON_ATTRIBUTE_KEY, "attr2",
+                            JSON_VALUE_KEY,     "value2");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              "collection", rods_root,
-                              "avus", avu);
+                              JSON_COLLECTION_KEY, rods_root,
+                              JSON_AVUS_KEY,       avu);
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, &error);
+    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
     ck_assert_int_eq(json_array_size(results), 3);
     for (size_t i = 0; i < 3; i++) {
         json_t *coll = json_array_get(results, i);
-        ck_assert_ptr_ne(json_object_get(coll, "collection"), NULL);
-        ck_assert_ptr_eq(json_object_get(coll, "data_object"), NULL);
+        ck_assert_ptr_ne(json_object_get(coll, JSON_COLLECTION_KEY), NULL);
+        ck_assert_ptr_eq(json_object_get(coll, JSON_DATA_OBJECT_KEY), NULL);
     }
     ck_assert_int_eq(error.code, 0);
 
     json_decref(results);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -418,22 +699,60 @@ START_TEST(test_add_metadata_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
                      EXIST_ST);
 
-    baton_error_t error;
-    int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
-                             "test_value", "test_units", &error);
-    ck_assert_int_eq(rv, 0);
+    // Bad call with no attr
+    baton_error_t expected_error1;
+    int fail_rv1 = modify_metadata(conn, &rods_path, META_ADD, NULL,
+                                   "test_value", "test_units",
+                                   &expected_error1);
+    ck_assert_int_ne(fail_rv1, 0);
+    ck_assert_int_ne(expected_error1.code, 0);
 
-    json_t *results = list_metadata(conn, &rods_path, "test_attr", &error);
+    // Bad call with empty attr
+    baton_error_t expected_error2;
+    int fail_rv2 = modify_metadata(conn, &rods_path, META_ADD, "",
+                                   "test_value", "test_units",
+                                   &expected_error2);
+    ck_assert_int_ne(fail_rv2, 0);
+    ck_assert_int_ne(expected_error2.code, 0);
+
+    // Bad call with no value
+    baton_error_t expected_error3;
+    int fail_rv3 = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
+                                   NULL, "test_units",
+                                   &expected_error3);
+    ck_assert_int_ne(fail_rv3, 0);
+    ck_assert_int_ne(expected_error3.code, 0);
+
+    // Bad call with empty value
+    baton_error_t expected_error4;
+    int fail_rv4 = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
+                                   "", "test_units",
+                                   &expected_error4);
+    ck_assert_int_ne(fail_rv4, 0);
+    ck_assert_int_ne(expected_error4.code, 0);
+
+    baton_error_t error;
+    init_baton_error(&error);
+    int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
+                             "test_value", "test_units",
+                             &error);
+    ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(error.code, 0);
+
+    baton_error_t list_error;
+    json_t *results = list_metadata(conn, &rods_path, "test_attr", &list_error);
     json_t *expected = json_pack("[{s:s, s:s, s:s}]",
-                                 "attribute", "test_attr",
-                                 "value", "test_value",
-                                 "units", "test_units");
+                                 JSON_ATTRIBUTE_KEY, "test_attr",
+                                 JSON_VALUE_KEY,     "test_value",
+                                 JSON_UNITS_KEY,     "test_units");
 
     ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(list_error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -452,18 +771,23 @@ START_TEST(test_remove_metadata_obj) {
                      EXIST_ST);
 
     baton_error_t error;
-    int rv = modify_metadata(conn, &rods_path, META_REM, "attr1",
-                             "value1", "units1", &error);
+    init_baton_error(&error);
+    int rv = modify_metadata(conn, &rods_path, META_REM, "attr1", "value1",
+                             "units1", &error);
     ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(error.code, 0);
 
-    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    baton_error_t list_error;
+    json_t *results = list_metadata(conn, &rods_path, NULL, &list_error);
     json_t *expected = json_array(); // Empty
 
     ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(list_error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -481,23 +805,53 @@ START_TEST(test_add_json_metadata_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
                      EXIST_ST);
 
-    json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            "attribute", "test_attr",
-                            "value", "test_value",
-                            "units", "test_units");
-    baton_error_t error;
-    int rv = modify_json_metadata(conn, &rods_path, META_ADD, avu, &error);
-    ck_assert_int_eq(rv, 0);
+    // Bad AVU; not a JSON object
+    json_t *bad_avu1 = json_pack("[]");
+    baton_error_t expected_error1;
+    int fail_rv1 = modify_json_metadata(conn, &rods_path, META_ADD, bad_avu1,
+                                        &expected_error1);
+    ck_assert_int_ne(fail_rv1, 0);
+    ck_assert_int_ne(expected_error1.code, 0);
 
-    json_t *results = list_metadata(conn, &rods_path, "test_attr", &error);
+    // Bad AVU with no attribute
+    json_t *bad_avu2 = json_pack("{s:s}", JSON_VALUE_KEY, "test_value");
+    baton_error_t expected_error2;
+    int fail_rv2 = modify_json_metadata(conn, &rods_path, META_ADD, bad_avu2,
+                                        &expected_error2);
+    ck_assert_int_ne(fail_rv2, 0);
+    ck_assert_int_ne(expected_error2.code, 0);
+
+    // Bad AVU with no value
+    json_t *bad_avu3 = json_pack("{s:s}", JSON_ATTRIBUTE_KEY, "test_attr");
+    baton_error_t expected_error3;
+    int fail_rv3 = modify_json_metadata(conn, &rods_path, META_ADD, bad_avu3,
+                                        &expected_error3);
+    ck_assert_int_ne(fail_rv3, 0);
+    ck_assert_int_ne(expected_error3.code, 0);
+
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            JSON_ATTRIBUTE_KEY, "test_attr",
+                            JSON_VALUE_KEY,     "test_value",
+                            JSON_UNITS_KEY,     "test_units");
+    baton_error_t error;
+    modify_json_metadata(conn, &rods_path, META_ADD, avu, &error);
+    ck_assert_int_eq(error.code, 0);
+
+    baton_error_t list_error;
+    json_t *results = list_metadata(conn, &rods_path, "test_attr", &list_error);
     json_t *expected = json_array();
     json_array_append_new(expected, avu);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(list_error.code, 0);
 
+    json_decref(bad_avu1);
+    json_decref(bad_avu2);
+    json_decref(bad_avu3);
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -516,21 +870,139 @@ START_TEST(test_remove_json_metadata_obj) {
                      EXIST_ST);
 
     json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            "attribute", "attr1",
-                            "value", "value1",
-                            "units", "units1");
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1",
+                            JSON_UNITS_KEY,     "units1");
     baton_error_t error;
-    int rv = modify_json_metadata(conn, &rods_path, META_REM, avu, &error);
-    ck_assert_int_eq(rv, 0);
+    modify_json_metadata(conn, &rods_path, META_REM, avu, &error);
+    ck_assert_int_eq(error.code, 0);
 
-    json_t *results = list_metadata(conn, &rods_path, NULL, &error);
+    baton_error_t list_error;
+    json_t *results = list_metadata(conn, &rods_path, NULL, &list_error);
     json_t *expected = json_array(); // Empty
 
     ck_assert_int_eq(json_equal(results, expected), 1);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(list_error.code, 0);
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we change permissions on a data object?
+START_TEST(test_modify_permissions_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t mod_error;
+    init_baton_error(&mod_error);
+    int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
+                                ACCESS_LEVEL_READ, &mod_error);
+    ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(mod_error.code, 0);
+
+    json_t *expected = json_pack("{s:s, s:s}",
+                                 JSON_OWNER_KEY, "public",
+                                 JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
+
+    baton_error_t list_error;
+    json_t *acl = list_permissions(conn, &rods_path, &list_error);
+    ck_assert_int_eq(list_error.code, 0);
+
+    int num_elts = json_array_size(acl);
+    ck_assert_int_ne(num_elts, 0);
+
+    int found = 0;
+
+    for (int i = 0; i < num_elts; i++) {
+        json_t *elt = json_array_get(acl, i);
+
+        ck_assert(json_is_object(elt));
+        if (json_equal(expected, elt)) found = 1;
+    }
+
+    ck_assert_int_eq(found, 1);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we change JSON permissions on a data object?
+START_TEST(test_modify_json_permissions_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    json_t *bad_perm1 = json_pack("{s:s}", JSON_OWNER_KEY, "public");
+    baton_error_t expected_error1;
+    int fail_rv1 = modify_json_permissions(conn, &rods_path, NO_RECURSE,
+                                           bad_perm1, &expected_error1);
+    ck_assert_int_ne(fail_rv1, 0);
+    ck_assert_int_ne(expected_error1.code, 0);
+
+    json_t *bad_perm2 = json_pack("{s:s}", JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
+    baton_error_t expected_error2;
+    int fail_rv2 = modify_json_permissions(conn, &rods_path, NO_RECURSE,
+                                           bad_perm2, &expected_error2);
+    
+    ck_assert_int_ne(expected_error2.code, 0);
+    ck_assert_int_ne(fail_rv2, 0);
+    json_t *perm = json_pack("{s:s, s:s}",
+                             JSON_OWNER_KEY, "public",
+                             JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
+
+    baton_error_t error;
+    int rv = modify_json_permissions(conn, &rods_path, NO_RECURSE, perm,
+                                     &error);
+    ck_assert_int_eq(rv, 0);
+    ck_assert_int_eq(error.code, 0);
+
+    json_t *expected = json_pack("{s:s, s:s}",
+                                 JSON_OWNER_KEY, "public",
+                                 JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
+
+    baton_error_t list_error;
+    json_t *acl = list_permissions(conn, &rods_path, &list_error);
+    ck_assert_int_eq(list_error.code, 0);
+
+    int num_elts = json_array_size(acl);
+    ck_assert_int_ne(num_elts, 0);
+
+    int found = 0;
+
+    for (int i = 0; i < num_elts; i++) {
+        json_t *elt = json_array_get(acl, i);
+
+        ck_assert(json_is_object(elt));
+        if (json_equal(expected, elt)) found = 1;
+    }
+
+    ck_assert_int_eq(found, 1);
+
+    json_decref(bad_perm1);
+    json_decref(bad_perm2);
+    json_decref(perm);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -550,11 +1022,10 @@ START_TEST(test_rods_path_to_json_obj) {
 
     json_t *path = data_object_path_to_json(rods_path.outPath);
     json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            "attribute", "attr1",
-                            "value", "value1",
-                            "units", "units1");
-    json_t *expected = json_pack("{s:[o]}",
-                                 "avus", avu);
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1",
+                            JSON_UNITS_KEY,     "units1");
+    json_t *expected = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
     json_object_update(expected, path);
 
     json_t *obj = rods_path_to_json(conn, &rods_path);
@@ -562,6 +1033,8 @@ START_TEST(test_rods_path_to_json_obj) {
 
     json_decref(obj);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -581,11 +1054,10 @@ START_TEST(test_rods_path_to_json_coll) {
 
     json_t *path = collection_path_to_json(rods_path.outPath);
     json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            "attribute", "attr2",
-                            "value", "value2",
-                            "units", "units2");
-    json_t *expected = json_pack("{s:[o]}",
-                                 "avus", avu);
+                            JSON_ATTRIBUTE_KEY, "attr2",
+                            JSON_VALUE_KEY,     "value2",
+                            JSON_UNITS_KEY,     "units2");
+    json_t *expected = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
     json_object_update(expected, path);
 
     json_t *coll = rods_path_to_json(conn, &rods_path);
@@ -593,34 +1065,159 @@ START_TEST(test_rods_path_to_json_coll) {
 
     json_decref(coll);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
 // Can we convert JSON representation to a useful path string?
 START_TEST(test_json_to_path) {
     const char *coll_path = "/a/b/c";
-    json_t *coll = json_pack("{s:s}", "collection", coll_path);
-    baton_error_t error_col;
-    ck_assert_str_eq(json_to_path(coll, &error_col), coll_path);
-    ck_assert_int_eq(error_col.code, 0);
-    json_decref(coll);
+    json_t *coll1 = json_pack("{s:s}", JSON_COLLECTION_KEY, coll_path);
+    baton_error_t error_coll1;
+    ck_assert_str_eq(json_to_path(coll1, &error_coll1), coll_path);
+    ck_assert_int_eq(error_coll1.code, 0);
+    json_decref(coll1);
+
+    // Collection not a string
+    json_t *coll2 = json_pack("{s: []}", JSON_COLLECTION_KEY);
+    baton_error_t error_coll2;
+    ck_assert_ptr_eq(json_to_path(coll2, &error_coll2), NULL);
+    ck_assert_int_ne(error_coll2.code, 0);
+    json_decref(coll2);
 
     const char *obj_path = "/a/b/c.txt";
-    json_t *obj = json_pack("{s:s, s:s}",
-                            "collection", "/a/b",
-                            "data_object", "c.txt");
-    baton_error_t error_obj;
-    ck_assert_str_eq(json_to_path(obj, &error_obj), obj_path);
-    ck_assert_int_eq(error_obj.code, 0);
-    json_decref(obj);
+    json_t *obj1 = json_pack("{s:s, s:s}",
+                             JSON_COLLECTION_KEY,  "/a/b",
+                             JSON_DATA_OBJECT_KEY, "c.txt");
+    baton_error_t error_obj1;
+    ck_assert_str_eq(json_to_path(obj1, &error_obj1), obj_path);
+    ck_assert_int_eq(error_obj1.code, 0);
+    json_decref(obj1);
+
+    // Slash-terminated collection
+    json_t *obj2 = json_pack("{s:s, s:s}",
+                             JSON_COLLECTION_KEY,  "/a/b/",
+                             JSON_DATA_OBJECT_KEY, "c.txt");
+    baton_error_t error_obj2;
+    ck_assert_str_eq(json_to_path(obj2, &error_obj2), obj_path);
+    ck_assert_int_eq(error_obj2.code, 0);
+    json_decref(obj2);
 
     // No collection key:value
-    json_t *malformed_obj = json_pack("{s:s}",
-                                      "data_object", "c.txt");
-    baton_error_t error;
-    ck_assert_ptr_eq(json_to_path(malformed_obj, &error), NULL);
-    ck_assert_int_ne(error.code, 0);
+    json_t *malformed_obj = json_pack("{s:s}", JSON_DATA_OBJECT_KEY, "c.txt");
+
+    baton_error_t error_obj3;
+    ck_assert_ptr_eq(json_to_path(malformed_obj, &error_obj3), NULL);
+    ck_assert_int_ne(error_obj3.code, 0);
     json_decref(malformed_obj);
+}
+END_TEST
+
+// Can we test JSON for the presence of an AVU?
+START_TEST(test_contains_avu) {
+    json_t *avu1 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "foo",
+                             JSON_VALUE_KEY,     "bar");
+    json_t *avu2 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "baz",
+                             JSON_VALUE_KEY,     "qux");
+    json_t *avu3 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "baz",
+                             JSON_VALUE_KEY,     "zab");
+
+    json_t *avus = json_pack("[o, o]", avu1, avu2);
+
+    ck_assert(contains_avu(avus, avu1));
+    ck_assert(contains_avu(avus, avu2));
+    ck_assert(!contains_avu(avus, avu3));
+
+    json_decref(avus);
+}
+END_TEST
+
+// Can we test for JSON representation of a collection?
+START_TEST(test_represents_collection) {
+    json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
+    json_t *obj = json_pack("{s:s, s:s}",
+                            JSON_COLLECTION_KEY, "foo",
+                            JSON_DATA_OBJECT_KEY, "bar");
+
+    ck_assert(represents_collection(col));
+    ck_assert(!represents_collection(obj));
+
+    json_decref(col);
+    json_decref(obj);
+}
+END_TEST
+
+// Can we test for JSON representation of a data object?
+START_TEST(test_represents_data_object) {
+    json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
+    json_t *obj = json_pack("{s:s, s:s}",
+                            JSON_COLLECTION_KEY, "foo",
+                            JSON_DATA_OBJECT_KEY, "bar");
+
+    ck_assert(!represents_data_object(col));
+    ck_assert(represents_data_object(obj));
+
+    json_decref(col);
+    json_decref(obj);
+}
+END_TEST
+
+// Can we build query JSON from strings?
+START_TEST(test_query_args_to_json) {
+    json_t *args1 = query_args_to_json("foo", "bar", NULL);
+    json_t *expected1 = json_pack("{s:[{s:s, s:s}]}",
+                                  JSON_AVUS_KEY,
+                                  JSON_ATTRIBUTE_KEY, "foo",
+                                  JSON_VALUE_KEY,     "bar");
+
+    ck_assert_int_eq(json_equal(args1, expected1), 1);
+
+    json_t *args2 = query_args_to_json("foo", "bar", "baz");
+
+    json_t *expected2 = json_pack("{s:s, s:[{s:s, s:s}]}",
+                                  JSON_COLLECTION_KEY, "baz",
+                                  JSON_AVUS_KEY,
+                                  JSON_ATTRIBUTE_KEY, "foo",
+                                  JSON_VALUE_KEY,     "bar");
+
+    ck_assert_int_eq(json_equal(args2, expected2), 1);
+
+    json_decref(args1);
+    json_decref(expected1);
+
+    json_decref(args2);
+    json_decref(expected2);
+}
+END_TEST
+
+// Can we get user information?
+START_TEST(test_get_user) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    baton_error_t expected_error;
+    init_baton_error(&expected_error);
+    json_t *bad_user = get_user(conn, "no_such_user", &expected_error);
+    ck_assert_int_ne(expected_error.code, 0);
+    ck_assert_ptr_eq(bad_user, NULL);
+
+    baton_error_t error;
+    init_baton_error(&error);
+    json_t *user = get_user(conn, "public", &error);
+
+    ck_assert_int_eq(error.code, 0);
+    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_NAME_KEY));
+    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ID_KEY));
+    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_TYPE_KEY));
+    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ZONE_KEY));
+
+    json_decref(user);
+
+    if (conn) rcDisconnect(conn);
 }
 END_TEST
 
@@ -628,8 +1225,12 @@ Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
     TCase *utilities_tests = tcase_create("utilities");
-    tcase_add_test(utilities_tests, test_starts_with);
-    tcase_add_test(utilities_tests, test_ends_with);
+    tcase_add_test(utilities_tests, test_str_equals);
+    tcase_add_test(utilities_tests, test_str_equals_ignore_case);
+    tcase_add_test(utilities_tests, test_str_starts_with);
+    tcase_add_test(utilities_tests, test_str_ends_with);
+    tcase_add_test(utilities_tests, test_parse_base_name);
+    tcase_add_test(utilities_tests, test_maybe_stdin);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);
@@ -641,24 +1242,40 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_resolve_rods_path);
     tcase_add_test(basic_tests, test_make_query_input);
 
+    tcase_add_test(basic_tests, test_list_missing_path);
     tcase_add_test(basic_tests, test_list_obj);
     tcase_add_test(basic_tests, test_list_coll);
+
+    tcase_add_test(basic_tests, test_list_permissions_missing_path);
+    tcase_add_test(basic_tests, test_list_permissions_obj);
+    tcase_add_test(basic_tests, test_list_permissions_coll);
+
     tcase_add_test(basic_tests, test_list_metadata_obj);
     tcase_add_test(basic_tests, test_list_metadata_coll);
 
     tcase_add_test(basic_tests, test_search_metadata_obj);
     tcase_add_test(basic_tests, test_search_metadata_coll);
     tcase_add_test(basic_tests, test_search_metadata_path_obj);
+    tcase_add_test(basic_tests, test_search_metadata_perm_obj);
 
     tcase_add_test(basic_tests, test_add_metadata_obj);
     tcase_add_test(basic_tests, test_remove_metadata_obj);
     tcase_add_test(basic_tests, test_add_json_metadata_obj);
     tcase_add_test(basic_tests, test_remove_json_metadata_obj);
 
+    tcase_add_test(basic_tests, test_modify_permissions_obj);
+    tcase_add_test(basic_tests, test_modify_json_permissions_obj);
+
     tcase_add_test(basic_tests, test_rods_path_to_json_obj);
     tcase_add_test(basic_tests, test_rods_path_to_json_coll);
+    tcase_add_test(basic_tests, test_represents_collection);
+    tcase_add_test(basic_tests, test_represents_data_object);
 
     tcase_add_test(basic_tests, test_json_to_path);
+    tcase_add_test(basic_tests, test_contains_avu);
+    tcase_add_test(basic_tests, test_query_args_to_json);
+
+    tcase_add_test(basic_tests, test_get_user);
 
     suite_add_tcase(suite, utilities_tests);
     suite_add_tcase(suite, basic_tests);
@@ -667,6 +1284,8 @@ Suite *baton_suite(void) {
 }
 
 int main (void) {
+    zlog_init("test_zlog.conf");
+
     Suite *suite = baton_suite();
 
     SRunner *runner = srunner_create(suite);

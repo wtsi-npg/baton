@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,53 +17,50 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#include <assert.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 
 #include "rodsClient.h"
 #include "rodsPath.h"
+#include <jansson.h>
 #include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
 #include "json.h"
+#include "utilities.h"
 
 static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
+
 static char *USER_LOG_CONF_FILE = NULL;
 
-static int acl_flag;
-static int avu_flag;
 static int help_flag;
+static int recurse_flag;
 static int version_flag;
 
-int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
-                       char *zone_name, print_flags pflags);
+int do_modify_permissions(int argc, char *argv[], int optind,
+                          recursive_op recurse, FILE *input);
 
 int main(int argc, char *argv[]) {
-    print_flags pflags = PRINT_DEFAULT;
     int exit_status = 0;
-    char *zone_name = NULL;
     char *json_file = NULL;
     FILE *input = NULL;
 
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"acl",       no_argument, &acl_flag,     1},
-            {"avu",       no_argument, &avu_flag,     1},
             {"help",      no_argument, &help_flag,    1},
+            {"recurse",   no_argument, &recurse_flag, 1},
             {"version",   no_argument, &version_flag, 1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
             {"logconf",   required_argument, NULL, 'l'},
-            {"zone",      required_argument, NULL, 'z'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:l:z:",
+        int c = getopt_long_only(argc, argv, "f:l:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -78,10 +75,6 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE = optarg;
                 break;
 
-            case 'z':
-                zone_name = optarg;
-                break;
-
             case '?':
                 // getopt_long already printed an error message
                 break;
@@ -92,26 +85,23 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag) pflags = pflags | PRINT_ACL;
-    if (avu_flag) pflags = pflags | PRINT_AVU;
-
     if (help_flag) {
         puts("Name");
-        puts("    json-metaquery");
+        puts("    json-chmod");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metaquery [--file <JSON file>] [--zone <name>]");
+        puts("    json-chmod [--file <json file>]");
         puts("");
         puts("Description");
-        puts("    Finds items in iRODS by AVU, given a query constructed");
-        puts("from a JSON input file.");
+        puts("    Set permissions on collections and data objects");
+        puts("described in a JSON input file.");
         puts("");
-        puts("    --acl         Print access control lists in output.");
-        puts("    --avu         Print AVU lists in output.");
-        puts("    --file        The JSON file describing the query. Optional,");
-        puts("                  defaults to STDIN.");
-        puts("    --zone        The zone to search. Optional");
+        puts("    --file        The JSON file describing the data objects.");
+        puts("                  Optional, defaults to STDIN.");
+        puts("");
+        puts("    --recurse     Modify collection permissions recursively.");
+        puts("                  Optional, defaults to false.");
         puts("");
 
         exit(0);
@@ -131,15 +121,22 @@ int main(int argc, char *argv[]) {
     }
     else if (zlog_init(USER_LOG_CONF_FILE)) {
         fprintf(stderr, "Logging configuration failed "
-                    "(using user-defined configuration in '%s')\n",
-                    USER_LOG_CONF_FILE);
+                "(using user-defined configuration in '%s')\n",
+                USER_LOG_CONF_FILE);
     }
 
     declare_client_name(argv[0]);
 
     input = maybe_stdin(json_file);
-    int status = do_search_metadata(argc, argv, optind, input, zone_name,
-                                    pflags);
+    int status;
+
+    if (recurse_flag) {
+        status = do_modify_permissions(argc, argv, optind, RECURSE, input);
+    }
+    else {
+        status = do_modify_permissions(argc, argv, optind, NO_RECURSE, input);
+    }
+
     if (status != 0) exit_status = 5;
 
     zlog_fini();
@@ -153,23 +150,20 @@ error:
     exit(exit_status);
 }
 
-int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
-                       char *zone_name, print_flags pflags) {
-    int query_count = 0;
+int do_modify_permissions(int argc, char *argv[], int optind,
+                          recursive_op recurse, FILE *input) {
+    int path_count = 0;
     int error_count = 0;
-
-    char *err_name;
-    char *err_subname;
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
+    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
 
     while (!feof(input)) {
         json_error_t load_error;
-        json_t *target = json_loadf(input, jflags, &load_error);
+        json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
             if (!feof(input)) {
                 logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
@@ -179,29 +173,67 @@ int do_search_metadata(int argc, char *argv[], int optind, FILE *input,
             continue;
         }
 
-        baton_error_t error;
-        json_t *results = search_metadata(conn, target, zone_name, pflags,
-                                          &error);
-        if (error.code != 0) {
+        baton_error_t path_error;
+        char *path = json_to_path(target, &path_error);
+        path_count++;
+
+        if (path_error.code != 0) {
             error_count++;
-            add_error_value(target, &error);
-            print_json(target);
+            add_error_value(target, &path_error);
         }
         else {
-            print_json(results);
-            json_decref(results);
+            json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
+            if (perms) {
+                if (!json_is_array(perms)) {
+                    logmsg(ERROR, BATON_CAT,
+                           "Permissions data for %s is not in a JSON array",
+                           path);
+                    goto error;
+                }
+
+                rodsPath_t rods_path;
+                int status = resolve_rods_path(conn, &env, &rods_path, path);
+                if (status < 0) {
+                    error_count++;
+                    logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'",
+                           path);
+                }
+                else {
+                    for (size_t i = 0; i < json_array_size(perms); i++) {
+                        json_t *perm = json_array_get(perms, i);
+                        baton_error_t mod_error;
+                        modify_json_permissions(conn, &rods_path, recurse, perm,
+                                                &mod_error);
+
+                        if (mod_error.code != 0) {
+                            error_count++;
+                            add_error_value(target, &mod_error);
+                        }
+                    }
+                }
+
+                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+            }
         }
 
+        print_json(target);
         fflush(stdout);
         json_decref(target);
+        free(path);
     } // while
 
     rcDisconnect(conn);
 
-    return 0;
+    logmsg(DEBUG, BATON_CAT, "Processed %d paths with %d errors",
+           path_count, error_count);
+
+    return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
+
+    logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
+           path_count, error_count);
 
     return 1;
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
 #include "json.h"
 #include "utilities.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF;
+static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
 
 static char *USER_LOG_CONF_FILE = NULL;
 
@@ -134,6 +134,8 @@ int main(int argc, char *argv[]) {
                 USER_LOG_CONF_FILE);
     }
 
+    declare_client_name(argv[0]);
+
     switch (meta_op) {
         case META_ADD:
         case META_REM:
@@ -194,32 +196,37 @@ int do_modify_metadata(int argc, char *argv[], int optind,
         else {
             json_t *avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
-                logmsg(ERROR, BATON_CAT,
-                       "AVU data for %s is not in a JSON array", path);
-                goto error;
-            }
-
-            rodsPath_t rods_path;
-            int status = resolve_rods_path(conn, &env, &rods_path, path);
-            if (status < 0) {
                 error_count++;
-                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+                set_baton_error(&path_error, -1,
+                                "AVU data for %s is not in a JSON array", path);
+                add_error_value(target, &path_error);
             }
             else {
-                for (size_t i = 0; i < json_array_size(avus); i++) {
-                    json_t *avu = json_array_get(avus, i);
-                    baton_error_t mod_error;
-                    modify_json_metadata(conn, &rods_path, operation, avu,
-                                         &mod_error);
+                rodsPath_t rods_path;
+                int status = resolve_rods_path(conn, &env, &rods_path, path);
+                if (status < 0) {
+                    error_count++;
+                    set_baton_error(&path_error, status,
+                                    "Failed to resolve path '%s'", path);
+                    add_error_value(target, &path_error);
+                }
+                else {
+                    for (size_t i = 0; i < json_array_size(avus); i++) {
+                        json_t *avu = json_array_get(avus, i);
+                        baton_error_t mod_error;
+                        modify_json_metadata(conn, &rods_path, operation, avu,
+                                             &mod_error);
 
-                    if (mod_error.code != 0) {
-                        error_count++;
-                        add_error_value(target, &mod_error);
+                        // FIXME: this only records the last error
+                        if (mod_error.code != 0) {
+                            error_count++;
+                            add_error_value(target, &mod_error);
+                        }
                     }
                 }
-            }
 
-            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+            }
         }
 
         print_json(target);
