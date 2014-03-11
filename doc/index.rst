@@ -79,6 +79,7 @@ bidirectional communication via Unix pipes.
 
 For details of how errors are handled, see :ref:`representing_errors`.
 
+
 json-list
 ---------
 
@@ -88,8 +89,7 @@ Synopsis:
 
    $ echo '{"collection": "test"}' | json-list
 
-   $ echo '{"collection": "/unit/home/user/", \
-            "data_object": "a.txt"}' | json-list
+   $ echo '{"collection": "/unit/home/user/", "data_object": "a.txt"}' | json-list
 
 This program accepts JSON objects as described in
 :ref:`representing_paths` and prints results in the same format. If
@@ -102,28 +102,34 @@ or data object directly within the target.
 Options
 ^^^^^^^
 
-* ``--acl``
+.. program:: json-list
+.. option:: --acl
 
   Print access control lists in output, in the format described in
   :ref:`representing_path_permissions`.
 
-* ``--avu``
+.. program:: json-list
+.. option:: --avu
 
   Print AVU lists in output, in the format described in
   :ref:`representing_path_metadata`.
 
-* ``--file <file name>``
+.. program:: json-list
+.. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-* ``--help``
+.. program:: json-list
+.. option:: --help
 
   Prints command line help.
 
-* ``--unbuffered``
+.. program:: json-list
+.. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
 
 json-metalist
 -------------
@@ -136,8 +142,7 @@ Synopsis:
 
    $ echo '{"collection": "test"}' | json-metalist
 
-   $ echo '{"collection": "test", \
-            "data_object": "a.txt"}' | json-metalist
+   $ echo '{"collection": "test", "data_object": "a.txt"}' | json-metalist
 
    $ echo '{"collection": "test/c/"}' | json-metalist
 
@@ -148,18 +153,22 @@ metadata as described in :ref:`representing_path_metadata`.
 Options
 ^^^^^^^
 
-* ``--file <file name>``
+.. program:: json-metalist
+.. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-* ``--help``
+.. program:: json-metalist
+.. option:: --help
 
   Prints command line help.
 
-* ``--unbuffered``
+.. program:: json-metalist
+.. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
 
 json-metamod
 ------------
@@ -168,18 +177,13 @@ Synopsis:
 
 .. code-block:: sh
 
-   $ echo '{"collection": "test",  \
-            "data_object": "a.txt" \
-            "avus": [{"attribute": "x", "value": "y"},   \
-                     {"attribute": "m", "value": "n"}]}' \
-                | json-metamod --operation add
+   $ echo '{"collection": "test", "data_object": "a.txt",      \
+                  "avus": [{"attribute": "x", "value": "y"},   \
+                           {"attribute": "m", "value": "n"}]}' | json-metamod --operation add
 
-   $ echo '{"collection": "test",  \
-            "data_object": "a.txt" \
-            "avus": [{"attribute": "x", "value": "y"},   \
-                     {"attribute": "m", "value": "n"}]}' \
-                | json-metamod --operation rem
-
+   $ echo '{"collection": "test", "data_object": "a.txt",      \
+                  "avus": [{"attribute": "x", "value": "y"},   \
+                           {"attribute": "m", "value": "n"}]}' | json-metamod --operation rem
 
 This program accepts JSON objects as described in
 :ref:`representing_paths` and adds or removes matching metadata as
@@ -188,22 +192,27 @@ described in :ref:`representing_path_metadata`.
 Options
 ^^^^^^^
 
-* ``--file <file name>``
+.. program:: json-metamod
+.. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-* ``--help``
+.. program:: json-metamod
+.. option:: --help
 
   Prints command line help.
 
-* ``--operation <operation name>``
+.. program:: json-metamod
+.. option:: --operation <operation name>
 
   The operation to perform; one of ``add`` or ``remove``.
 
-* ``--unbuffered``
+.. program:: json-metamod
+.. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
 
 json-metaquery
 --------------
@@ -218,13 +227,11 @@ Synopsis:
 
    $ echo '{"avus": [{"attribute": "x", "value": "y"}]}' | json-metaquery
 
-   $ echo '{"avus": [{"attribute": "x", "value": "y"}, \
+   $ echo '{"avus": [{"attribute": "x", "value": "y"},   \
                      {"attribute": "m", "value": "n"}]}' | json-metaquery
 
-   $ echo '{"avus": [{"attribute": "v", "value": "100", \
-                      "operator": "n<"},                \
-                     {"attribute": "w", "value": "n%",  \
-                      "operator": "like"}]}' | json-metaquery
+   $ echo '{"avus": [{"attribute": "v", "value": "100", "operator": "n<"},    \
+                     {"attribute": "w", "value": "n%", "operator": "like"}]}' | json-metaquery
 
 This program accepts JSON objects as described in
 :ref:`representing_query_metadata` and prints results in the format
@@ -233,41 +240,81 @@ optional ``collection`` property which limits the scope of the
 associated metadata query to returning only those results that lie
 somewhere under that collection.
 
+
+Options
+^^^^^^^
+
+.. program:: json-metaquery
+.. option:: --acl
+
+  Print access control lists in output, in the format described in
+  :ref:`representing_path_permissions`.
+
+.. program:: json-metaquery
+.. option:: --avu
+
+  Print AVU lists in output, in the format described in
+  :ref:`representing_path_metadata`.
+
+.. program:: json-metaquery
+.. option:: --file <file name>
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+.. program:: json-metaquery
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: json-metaquery
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: json-metaquery
+.. option:: --zone <zone name>
+
+   Query in a specific zone.
+
+
 json-chmod
 ----------
 
 .. code-block:: sh
 
-   $ echo '{"collection": "test",
-            "access": [{"owner": "public", "level": "null"},  \
-                       {"owner": "admin",  "level": "own"}]}' \
-                | json-chmod --recurse
+   $ echo '{"collection": "test",                                 \
+                "access": [{"owner": "public", "level": "null"},  \
+                           {"owner": "admin",  "level": "own"}]}' | json-chmod --recurse
 
-   $ echo '{"collection": "test",  \
-            "data_object": "a.txt" \
-            "access": [{"owner": "oscar",  "level": "read"},    \
-                       {"owner": "victor", "level": "write"}]}' \
-                | json-chmod
+   $ echo '{"collection": "test", "data_object": "a.txt"            \
+                "access": [{"owner": "oscar",  "level": "read"},    \
+                           {"owner": "victor", "level": "write"}]}' | json-chmod
 
 Options
 ^^^^^^^
 
-* ``--file <file name>``
+.. program:: json-chmod
+.. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-* ``--help``
+.. program:: json-chmod
+.. option:: --help
 
   Prints command line help.
 
-* ``--recurse``
+.. program:: json-chmod
+.. option:: --recurse
 
   Recurse into collections. Defaults to false.
 
-* ``--unbuffered``
+.. program:: json-chmod
+.. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
 
 .. _representing_paths:
 
@@ -313,6 +360,7 @@ objects and collection contents.
 baton ignores JSON properties that it does not recognise, therefore it
 is harmless to include extra properties in program input.
 
+
 .. _representing_metadata:
 
 Representing metadata
@@ -333,12 +381,13 @@ values associated with all of these properties are strings.
 .. code-block:: json
 
    {"collection": "/unit/home/user",
-    "avus": [{"attribute": "a", "value": "b", "units": "c"},
-             {"attribute": "m", "value": "n"},
-             {"attribute": "x", "value": "y", "units": "z"}]}
+          "avus": [{"attribute": "a", "value": "b", "units": "c"},
+                   {"attribute": "m", "value": "n"},
+                   {"attribute": "x", "value": "y", "units": "z"}]}
 
 Any path that has no metadata may have an ``avus`` property with an
 empty JSON array as its value.
+
 
 .. _representing_query_metadata:
 
@@ -392,6 +441,7 @@ This is equivalent to a query using the iRODS ``imeta`` program of::
 
   a = b and x n< y
 
+
 .. _representing_permissions:
 
 Representing Access Control Lists
@@ -410,8 +460,8 @@ and a ``level`` property.
 .. code-block:: json
 
    {"collection": "/unit/home/user",
-    "access": [{"owner": "user",   "level": "own"},
-               {"owner": "public", "level": "read"}]}
+        "access": [{"owner": "user",   "level": "own"},
+                   {"owner": "public", "level": "read"}]}
 
 The value associated with the ``owner`` property must be an iRODS user
 or group name. The value associated with the ``level`` property must
@@ -434,12 +484,186 @@ possible) and an error message under a ``message`` property.
 .. code-block:: json
 
    {"collection": "test",
-    "error": {"code": -310000,
-              "message": "Path '/unit/home/user/test' does not \
-   exist (or lacks access permission)"}}
+         "error": {"code": -310000,
+                   "message": "Path '/unit/home/user/test' does not exist (or lacks access permission)"}}
 
 In this way, errors remain associated with the inputs that caused
 them.
+
+
+The ``baton`` Cookbook
+======================
+
+``baton`` benefits from the `lightweight command-line JSON processor
+'jq' <http://stedolan.github.io/jq/>`_ . In the following examples,
+``jq`` is used to ease the *de novo* creation of JSON in the shell and
+to process the results returned by ``baton``.
+
+.. topic:: List the contents of the current working collection
+
+   List the contents of the current working collection as flat paths
+   suitable for passing to standard Unix filters.
+
+.. code-block:: sh
+
+   jq -n '{collection: "."}' | json-list | jq -r '.[] | .collection + "/" + .data_object'
+
+Result:
+
+.. code-block:: sh
+
+    /unit/home/user/data/
+    /unit/home/user/data/f1.txt
+    /unit/home/user/data/f2.txt
+    /unit/home/user/data/f3.txt
+    /unit/home/user/data/a/
+    /unit/home/user/data/b/
+    /unit/home/user/data/c/
+
+
+.. topic:: List the contents of a collection by metadata I
+
+   List all the collections and data objects located directly within
+   the collection ``data``, that have the attribute ``attr_a``
+   somewhere in their AVUs:
+
+.. code-block:: sh
+
+   jq -n '{collection: "data"}' | json-list --avu | jq 'map(select(.avus[] | select(.attribute == "attr_a")))'
+
+Result:
+
+.. code-block:: json
+
+    [
+      {
+        "avus": [
+          {
+            "value": "value_b",
+            "attribute": "attr_b"
+          },
+          {
+            "value": "value_a",
+            "attribute": "attr_a"
+          },
+          {
+            "value": "value_c",
+            "attribute": "attr_c"
+          }
+        ],
+        "data_object": "f1.txt",
+        "collection": "/unit/home/user/data"
+      }
+    ]
+
+.. topic:: List the contents of a collection by metadata II
+
+   A similar operation to the previous one, except using an iRODS
+   query with scope limited to the collection ``data`` or its
+   subcollections, recursively.
+
+.. code-block:: sh
+
+   jq -n '{collection: "data", avus: [{attribute: "attr_a", value: "%", operator: "like"}]}' | json-metaquery --avu | jq '.'
+
+
+.. code-block:: json
+
+    [
+      {
+        "avus": [
+          {
+            "value": "value_b",
+            "attribute": "attr_b"
+          },
+          {
+            "value": "value_a",
+            "attribute": "attr_a"
+          },
+          {
+            "value": "value_c",
+            "attribute": "attr_c"
+          }
+        ],
+        "data_object": "f1.txt",
+        "collection": "/unit/home/user/data"
+      }
+    ]
+
+
+.. topic:: List the metadata on data objects
+
+   List the metadata on all data objects in the collection ``data``:
+
+.. code-block:: sh
+
+    jq -n '{collection: "data"}' | json-list --avu | jq 'map(select(.data_object))[]'
+
+.. code-block:: json
+
+    {
+      "avus": [
+        {
+          "value": "value_b",
+          "attribute": "attr_b"
+        },
+        {
+          "value": "value_a",
+          "attribute": "attr_a"
+        },
+        {
+          "value": "value_c",
+          "attribute": "attr_c"
+        }
+      ],
+      "data_object": "f1.txt",
+      "collection": "/unit/home/user/data"
+    }
+    {
+      "avus": [
+        {
+          "value": "value_c",
+          "attribute": "attr_c"
+        }
+      ],
+      "data_object": "f2.txt",
+      "collection": "/unit/home/user/data"
+    }
+    {
+      "avus": [
+        {
+          "value": "value_c",
+          "attribute": "attr_c"
+        }
+      ],
+      "data_object": "f3.txt",
+      "collection": "/unit/home/user/data"
+    }
+
+
+.. topic:: Run a simple iRODS metadata query
+
+   Run a simple iRODS metadata query for collections and data objects
+   having both 'attr_a' = 'value_a' and 'attr_c' == 'value_c'. The
+   final pass through ``jq`` simply pretty-prints the result. The
+   result contains no AVU information because the ``--avu`` argument
+   to ``json-metaquery`` was not used:
+
+.. code-block:: sh
+
+   jq -n '{avus: [{attribute: "attr_a", value: "value_a"},   \
+                  {attribute: "attr_c", value: "value_c"}]}' | json-metaquery | jq '.'
+
+Result:
+
+.. code-block:: json
+
+    [
+      {
+        "data_object": "f1.txt",
+        "collection": "/unit/home/user/data"
+      }
+    ]
 
 ..
    .. doxygenfile:: baton.h
