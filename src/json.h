@@ -34,6 +34,20 @@ int add_error_value(json_t *object, baton_error_t *error);
 
 json_t *error_to_json(baton_error_t *error);
 
+json_t *get_avus(json_t *object, baton_error_t *error);
+
+const char *get_avu_attribute(json_t *avu, baton_error_t *error);
+
+const char *get_avu_value(json_t *avu, baton_error_t *error);
+
+const char *get_avu_units(json_t *avu, baton_error_t *error);
+
+const char *get_avu_operator(json_t *avu, baton_error_t *error);
+
+const char *get_access_owner(json_t *access, baton_error_t *error);
+
+const char *get_access_level(json_t *access, baton_error_t *error);
+
 int contains_avu(json_t *avus, json_t *avu);
 
 int represents_collection(json_t *object);

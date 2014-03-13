@@ -57,11 +57,16 @@
 #define JSON_ATTRIBUTE_KEY "attribute"
 #define JSON_VALUE_KEY     "value"
 #define JSON_UNITS_KEY     "units"
-#define JSON_AVUS_KEY      "avus"
 #define JSON_OPERATOR_KEY  "operator"
+#define JSON_AVUS_KEY      "avus"
 #define JSON_ACCESS_KEY    "access"
 #define JSON_OWNER_KEY     "owner"
 #define JSON_LEVEL_KEY     "level"
+
+#define JSON_ATTRIBUTE_SHORT_KEY "a"
+#define JSON_VALUE_SHORT_KEY     "v"
+#define JSON_UNITS_SHORT_KEY     "u"
+#define JSON_OPERATOR_SHORT_KEY  "o"
 
 #define JSON_USER_NAME_KEY "user_name"
 #define JSON_USER_ID_KEY   "user_id"

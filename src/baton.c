@@ -557,17 +557,11 @@ error:
 
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
                         print_flags flags, baton_error_t *error) {
-    init_baton_error(error);
-
     json_t *results      = NULL;
     json_t *collections  = NULL;
     json_t *data_objects = NULL;
 
-    if (!json_is_object(query)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid query: not a JSON object");
-        goto error;
-    }
+    init_baton_error(error);
 
     query = map_access_args(conn, query, error);
     if (error->code != 0) goto error;
@@ -649,12 +643,8 @@ static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
         query_in = prepare_path_search(query_in, json_string_value(root_path));
     }
 
-    json_t *avus = json_object_get(query, JSON_AVUS_KEY);
-    if (!json_is_array(avus)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVUs: not a JSON array");
-        goto error;
-    }
+    json_t *avus = get_avus(query, error);
+    if (error->code != 0) goto error;
 
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
     if (error->code != 0) goto error;
@@ -701,7 +691,7 @@ static genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
     }
 
     for (int i = 0; i < num_clauses; i++) {
-        const json_t *access = json_array_get(mapped_acl, i);
+        json_t *access = json_array_get(mapped_acl, i);
         if (!json_is_object(access)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid permissions specification at position "
@@ -709,22 +699,11 @@ static genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
             goto error;
         }
 
-        json_t *owner = json_object_get(access, JSON_OWNER_KEY);
-        json_t *level = json_object_get(access, JSON_LEVEL_KEY);
+        const char *owner_id = get_access_owner(access, error);
+        if (error->code != 0) goto error;
 
-        if (!json_is_string(owner)) {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid owner: not a JSON string");
-            goto error;
-        }
-        if (!json_is_string(level)) {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid access level: not a JSON string");
-            goto error;
-        }
-
-        const char *owner_id     = json_string_value(owner);
-        const char *access_level = json_string_value(level);
+        const char *access_level = get_access_level(access, error);
+        if (error->code != 0) goto error;
 
         query_in = prepare(query_in, owner_id, access_level);
     }
@@ -743,7 +722,7 @@ static genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
     int num_clauses = json_array_size(avus);
 
     for (int i = 0; i < num_clauses; i++) {
-        const json_t *avu = json_array_get(avus, i);
+        json_t *avu = json_array_get(avus, i);
         if (!json_is_object(avu)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid AVU at position %d of %d: ",
@@ -751,34 +730,22 @@ static genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
             goto error;
         }
 
-        json_t *attr  = json_object_get(avu, JSON_ATTRIBUTE_KEY);
-        json_t *value = json_object_get(avu, JSON_VALUE_KEY);
-        json_t *oper  = json_object_get(avu, JSON_OPERATOR_KEY);
+        const char *attr_name = get_avu_attribute(avu, error);
+        if (error->code != 0) goto error;
 
-        if (!json_is_string(attr)) {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid attribute: not a JSON string");
-            goto error;
-        }
-        if (!json_is_string(value)) {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid value: not a JSON string");
-            goto error;
-        }
-        if (oper && !json_is_string(oper)) {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid operator: not a JSON string");
-            goto error;
+        const char *attr_value = get_avu_value(avu, error);
+        if (error->code != 0) goto error;
+
+        const char *oper = get_avu_operator(avu, error);
+        if (error->code != 0) goto error;
+
+        if (!oper) {
+            oper = SEARCH_OP_EQUALS;
         }
 
-        const char *attr_name  = json_string_value(attr);
-        const char *attr_value = json_string_value(value);
-        const char *attr_oper  = oper ? json_string_value(oper) :
-            SEARCH_OP_EQUALS;
-
-        if (str_equals_ignore_case(attr_oper, SEARCH_OP_EQUALS) ||
-            str_equals_ignore_case(attr_oper, SEARCH_OP_LIKE)) {
-            prepare(query_in, attr_name, attr_value, attr_oper);
+        if (str_equals_ignore_case(oper, SEARCH_OP_EQUALS) ||
+            str_equals_ignore_case(oper, SEARCH_OP_LIKE)) {
+            prepare(query_in, attr_name, attr_value, oper);
         }
         else {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -860,34 +827,20 @@ error:
 }
 
 int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                            recursive_op recurse, json_t *perm,
+                            recursive_op recurse, json_t *access,
                             baton_error_t *error) {
     char *owner_specifier = NULL;
     char *access_level    = NULL;
     init_baton_error(error);
 
-    if (!json_is_object(perm)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid permissions specifiction: not a JSON object");
-        goto error;
-    }
+    const char *owner = get_access_owner(access, error);
+    if (error->code != 0) goto error;
 
-    json_t *owner = json_object_get(perm, JSON_OWNER_KEY);
-    json_t *level = json_object_get(perm, JSON_LEVEL_KEY);
+    const char *level = get_access_level(access, error);
+    if (error->code != 0) goto error;
 
-    if (!json_is_string(owner)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid owner: not a JSON string");
-        goto error;
-    }
-    if (!json_is_string(level)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid access level: not a JSON string");
-        goto error;
-    }
-
-    owner_specifier = copy_str(json_string_value(owner));
-    access_level    = copy_str(json_string_value(level));
+    owner_specifier = copy_str(owner);
+    access_level    = copy_str(level);
 
     int status = modify_permissions(conn, rods_path, recurse, owner_specifier,
                                     access_level, error);
@@ -1004,48 +957,21 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     char *attr_units = NULL;
     init_baton_error(error);
 
-    if (!json_is_object(avu)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: not a JSON object");
-        goto error;
-    }
+    const char *attr = get_avu_attribute(avu, error);
+    if (error->code != 0) goto error;
 
-    json_t *attr  = json_object_get(avu, JSON_ATTRIBUTE_KEY);
-    json_t *value = json_object_get(avu, JSON_VALUE_KEY);
-    json_t *units = json_object_get(avu, JSON_UNITS_KEY);
+    const char *value = get_avu_value(avu, error);
+    if (error->code != 0) goto error;
 
-    if (!attr) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: attribute property is missing");
-        goto error;
-    }
-    if (!value) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: value property is missing");
-        goto error;
-    }
-    if (!json_is_string(attr)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid attribute: not a JSON string");
-        goto error;
-    }
-    if (!json_is_string(value)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid value: not a JSON string");
-        goto error;
-    }
-    if (units && !json_is_string(units)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid units: not a JSON string");
-        goto error;
-    }
+    const char *units = get_avu_units(avu, error);
+    if (error->code != 0) goto error;
 
-    if (attr)  attr_name  = copy_str(json_string_value(attr));
-    if (value) attr_value = copy_str(json_string_value(value));
+    attr_name  = copy_str(attr);
+    attr_value = copy_str(value);
 
     // Units are optional
     if (units) {
-        attr_units = copy_str(json_string_value(units));
+        attr_units = copy_str(units);
     }
     else {
         attr_units = calloc(1, sizeof (char));
@@ -1566,14 +1492,9 @@ static json_t *map_access_args(rcComm_t *conn, json_t *query,
             }
 
             // Map user name to user_id
-            json_t *owner = json_object_get(access, JSON_OWNER_KEY);
-            if (!json_is_string(owner)) {
-                set_baton_error(error, CAT_INVALID_ARGUMENT,
-                                "Invalid owner: not a JSON string");
-                goto error;
-            }
+            const char *owner_name = get_access_owner(access, error);
+            if (error->code != 0) goto error;
 
-            const char *owner_name = json_string_value(owner);
             logmsg(DEBUG, BATON_CAT, "Getting user information for '%s'",
                    owner_name);
             user_info = get_user(conn, owner_name, error);
@@ -1588,15 +1509,10 @@ static json_t *map_access_args(rcComm_t *conn, json_t *query,
             json_decref(user_info);
 
             // Map CLI access level to iCAT access type token
-            json_t *level = json_object_get(access, JSON_LEVEL_KEY);
-            if (!json_is_string(level)) {
-                set_baton_error(error, CAT_INVALID_ARGUMENT,
-                                "Invalid access level: not a JSON string");
-                goto error;
-            }
+            const char *access_level = get_access_level(access, error);
+            if (error->code != 0) goto error;
 
-            const char *access_level = json_string_value(level);
-            const char *icat_level  = map_access_level(access_level, error);
+            const char *icat_level = map_access_level(access_level, error);
             if (error->code != 0) goto error;
 
             logmsg(DEBUG, BATON_CAT, "Mapped access level '%s' to ICAT '%s'",
