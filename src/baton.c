@@ -71,6 +71,15 @@ static genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
                                        rodsPath_t *rods_path,
                                        const char *attr_name);
 
+static genQueryInp_t *prepare_obj_timestamp_list(genQueryInp_t *query_in,
+                                                 rodsPath_t *rods_path);
+
+static genQueryInp_t *prepare_col_timestamp_list(genQueryInp_t *query_in,
+                                                 rodsPath_t *rods_path);
+
+
+
+
 static genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
                                            rodsPath_t *rods_path);
 
@@ -116,6 +125,12 @@ static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                baton_error_t *error);
+
+static json_t *add_timestamps_json_array(rcComm_t *conn, json_t *array,
+                                         baton_error_t *error);
+
+static json_t *add_timestamps_json_object(rcComm_t *conn, json_t *target,
+                                          baton_error_t *error);
 
 static json_t *add_acl_json_array(rcComm_t *conn, json_t *target,
                                   baton_error_t *error);
@@ -375,6 +390,10 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                 results = add_avus_json_object(conn, results, error);
                 if (error->code != 0) goto error;
             }
+            if (flags & PRINT_TIMESTAMP) {
+                results = add_timestamps_json_object(conn, results, error);
+                if (error->code != 0) goto error;
+            }
 
             break;
 
@@ -390,6 +409,10 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
             }
             if (flags & PRINT_AVU) {
                 results = add_avus_json_array(conn, results, error);
+                if (error->code != 0) goto error;
+            }
+            if (flags & PRINT_TIMESTAMP) {
+                results = add_timestamps_json_array(conn, results, error);
                 if (error->code != 0) goto error;
             }
 
@@ -423,7 +446,7 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
           .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY  } };
 
     genQueryInp_t *query_in = NULL;
-    json_t *results = NULL;
+    json_t *results         = NULL;
     int max_rows = 10;
     init_baton_error(error);
 
@@ -607,6 +630,10 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         results = add_avus_json_array(conn, results, error);
         if (error->code != 0) goto error;
     }
+    if (flags & PRINT_TIMESTAMP) {
+        results = add_timestamps_json_array(conn, results, error);
+        if (error->code != 0) goto error;
+    }
 
     return results;
 
@@ -616,6 +643,86 @@ error:
     if (results)      json_decref(results);
     if (collections)  json_decref(collections);
     if (data_objects) json_decref(data_objects);
+
+    return NULL;
+}
+
+json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error) {
+    query_format_in_t obj_format =
+        { .num_columns = 2,
+          .columns     = { COL_D_CREATE_TIME, COL_D_MODIFY_TIME },
+          .labels      = { JSON_CREATED_KEY, JSON_MODIFIED_KEY } };
+    query_format_in_t col_format =
+        { .num_columns = 2,
+          .columns     = { COL_COLL_CREATE_TIME, COL_COLL_MODIFY_TIME },
+          .labels      = { JSON_CREATED_KEY, JSON_MODIFIED_KEY } };
+
+    genQueryInp_t *query_in = NULL;
+    json_t *results         = NULL;
+    json_t *timestamps      = NULL;
+    int max_rows = 10;
+    init_baton_error(error);
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+
+    }
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
+                   rods_path->outPath);
+            query_in = make_query_input(max_rows, obj_format.num_columns,
+                                        obj_format.columns);
+            query_in = prepare_obj_timestamp_list(query_in, rods_path);
+            break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
+                   rods_path->outPath);
+            query_in = make_query_input(max_rows, col_format.num_columns,
+                                        col_format.columns);
+            query_in = prepare_col_timestamp_list(query_in, rods_path);
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list timestamps of '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    results = do_query(conn, query_in, obj_format.labels, error);
+    if (error->code != 0) goto error;
+
+    if (json_array_size(results) != 1) {
+        set_baton_error(error, -1, "Expected 1 timestamp result but found %d",
+                        json_array_size(results));
+        goto error;
+    }
+
+    timestamps = json_incref(json_array_get(results, 0));
+    json_array_clear(results);
+    json_decref(results);
+    results = NULL; // Explictly set to NULL to avoid double-free on error
+
+    logmsg(DEBUG, BATON_CAT, "Obtained timestamps of '%s'", rods_path->outPath);
+    free_query_input(query_in);
+
+    return timestamps;
+
+error:
+    logmsg(ERROR, BATON_CAT, "Failed to list timestamps of '%s': error %d %s",
+           rods_path->outPath, error->code, error->message);
+
+    if (query_in) free_query_input(query_in);
+    if (timestamps) json_decref(timestamps);
+    if (results) json_decref(results);
 
     return NULL;
 }
@@ -643,17 +750,30 @@ static json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
         query_in = prepare_path_search(query_in, json_string_value(root_path));
     }
 
+    // AVUs are mandatory for searches
     json_t *avus = get_avus(query, error);
     if (error->code != 0) goto error;
 
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
     if (error->code != 0) goto error;
 
-    json_t *acl = json_object_get(query, JSON_ACCESS_KEY);
-    if (acl) {
+    // ACL is optional
+    if (has_acl(query)) {
+        json_t *acl = get_acl(query, error);
+        if (error->code != 0) goto error;
+
         query_in = prepare_json_acl_search(query_in, acl, prepare_acl, error);
         if (error->code != 0) goto error;
     }
+
+    // Timestamp is optional
+    // if (has_timestamp(query)) {
+    //     json_t *timestamp = get_timestamp(query, error);
+    //     if (error->code != 0) goto error;
+    //
+    //     query_in = prepare_timestamp_search(query_in, timestamp, error);
+    //     if (error->code != 0) goto error;
+    // }
 
     if (zone_name) {
         logmsg(TRACE, BATON_CAT, "Setting zone to '%s'", zone_name);
@@ -1473,13 +1593,9 @@ static json_t *map_access_args(rcComm_t *conn, json_t *query,
                                baton_error_t *error) {
     json_t *user_info = NULL;
 
-    json_t *acl = json_object_get(query, JSON_ACCESS_KEY);
-    if (acl) {
-        if (!json_is_array(acl)) {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid ACL: not a JSON array");
-            goto error;
-        }
+    if (has_acl(query)) {
+        json_t *acl = get_acl(query, error);
+        if (error->code != 0) goto error;
 
         int num_elts = json_array_size(acl);
         for (int i = 0; i < num_elts; i++) {
@@ -1658,6 +1774,68 @@ error:
     return NULL;
 }
 
+static json_t *add_timestamps_json_object(rcComm_t *conn, json_t *object,
+                                          baton_error_t *error) {
+    rodsPath_t rods_path;
+    char *path = NULL;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON object");
+        goto error;
+    }
+
+    path = json_to_path(object, error);
+    if (error->code != 0) goto error;
+
+    int status = set_rods_path(conn, &rods_path, path);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
+        goto error;
+    }
+
+    json_t *timestamps = list_timestamps(conn, &rods_path, error);
+    if (error->code != 0) goto error;
+
+    add_timestamps(object, timestamps, error);
+    if (error->code != 0) goto error;
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return object;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return NULL;
+}
+
+static json_t *add_timestamps_json_array(rcComm_t *conn, json_t *array,
+                                         baton_error_t *error) {
+    if (!json_is_array(array)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON array");
+        goto error;
+    }
+
+    for (size_t i = 0; i < json_array_size(array); i++) {
+        json_t *item = json_array_get(array, i);
+        add_timestamps_json_object(conn, item, error);
+        if (error->code != 0) goto error;
+    }
+
+    return array;
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return NULL;
+}
+
 static json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
                                    baton_error_t *error) {
     if (!json_is_array(array)) {
@@ -1780,6 +1958,28 @@ error:
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return NULL;
+}
+
+static genQueryInp_t *prepare_obj_timestamp_list(genQueryInp_t *query_in,
+                                                 rodsPath_t *rods_path) {
+    char *data_id = rods_path->dataId;
+    query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = data_id };
+
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { di });
+}
+
+static genQueryInp_t *prepare_col_timestamp_list(genQueryInp_t *query_in,
+                                                 rodsPath_t *rods_path) {
+    char *path = rods_path->outPath;
+    query_cond_t cn = { .column   = COL_COLL_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = path };
+
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { cn });
 }
 
 static genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,

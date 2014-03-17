@@ -62,11 +62,17 @@
 #define JSON_ACCESS_KEY    "access"
 #define JSON_OWNER_KEY     "owner"
 #define JSON_LEVEL_KEY     "level"
+#define JSON_TIMESTAMP_KEY "timestamp"
+#define JSON_CREATED_KEY   "created"
+#define JSON_MODIFIED_KEY  "modified"
 
 #define JSON_ATTRIBUTE_SHORT_KEY "a"
 #define JSON_VALUE_SHORT_KEY     "v"
 #define JSON_UNITS_SHORT_KEY     "u"
 #define JSON_OPERATOR_SHORT_KEY  "o"
+#define JSON_TIMESTAMP_SHORT_KEY "t"
+#define JSON_CREATED_SHORT_KEY   "c"
+#define JSON_MODIFIED_SHORT_KEY  "m"
 
 #define JSON_USER_NAME_KEY "user_name"
 #define JSON_USER_ID_KEY   "user_id"
@@ -95,13 +101,15 @@ typedef enum {
 
 typedef enum {
     /** Print minimal collections and data object */
-    PRINT_DEFAULT = 0,
+    PRINT_DEFAULT   = 0,
     /** Print AVUs on collections and data objects */
-    PRINT_AVU     = 1 << 0,
+    PRINT_AVU       = 1 << 0,
     /** Print ACLs on collections and data objects */
-    PRINT_ACL     = 1 << 2,
+    PRINT_ACL       = 1 << 2,
+    /** Print timestamps on collections and data objects */
+    PRINT_TIMESTAMP = 1 << 3,
     /** Pretty-print JSON */
-    PRINT_PRETTY  = 1 << 3
+    PRINT_PRETTY    = 1 << 4
 } print_flags;
 
 /**
@@ -282,6 +290,9 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
  */
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                   baton_error_t *error);
+
+json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error);
 
 /**
  * Return a JSON representation of the access control list of a

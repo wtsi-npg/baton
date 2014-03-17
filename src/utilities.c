@@ -164,3 +164,36 @@ error:
 
     return NULL;
 }
+
+const char *format_timestamp(const char *timestamp, const char *format) {
+    int buffer_len = 32;
+
+    char *buffer = calloc(buffer_len, sizeof (char));
+    if (!buffer) {
+        logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
+               errno, strerror(errno));
+        goto error;
+    }
+
+    int base = 10;
+
+    errno = 0;
+    time_t time = strtoul(timestamp, NULL, base);
+    if (errno != 0) {
+        logmsg(ERROR, BATON_CAT,
+               "Failed to convert timestamp '%s' to a number: error %d %s",
+               timestamp, errno, strerror(errno));
+        goto error;
+    }
+
+    struct tm *tm = gmtime(&time);
+    strftime(buffer, buffer_len, format, tm);
+
+    logmsg(DEBUG, BATON_CAT, "Converted timestamp '%s' to '%s'",
+           timestamp, buffer);
+
+    return buffer;
+
+error:
+    return NULL;
+}

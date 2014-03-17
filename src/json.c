@@ -22,13 +22,35 @@
 #include <libgen.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <jansson.h>
 
 #include "json.h"
 #include "utilities.h"
 
+static json_t *get_json_value(json_t *object, const char *name,
+                              const char *key, const char *short_key,
+                              baton_error_t *error);
+
+static json_t *get_opt_json_value(json_t *object, const char *name,
+                                  const char *key, const char *short_key,
+                                  baton_error_t *error);
+
+static const char *get_string_value(json_t *object, const char *name,
+                                    const char *key,
+                                    const char *short_key,
+                                    baton_error_t *error);
+
+static const char *get_opt_string_value(json_t *object, const char *name,
+                                        const char *key,
+                                        const char *short_key,
+                                        baton_error_t *error);
+
 static int has_string_value(json_t *json, const char *key);
+
+static json_t *map_to_is8601(json_t *object, const char *key,
+                             baton_error_t *error);
 
 json_t *error_to_json(baton_error_t *error) {
     return json_pack("{s:s, s:i}",
@@ -41,21 +63,24 @@ int add_error_value(json_t *object, baton_error_t *error) {
     return json_object_set_new(object, JSON_ERROR_KEY, err);
 }
 
+json_t *get_acl(json_t *object, baton_error_t *error) {
+    json_t *acl = get_json_value(object, "path spec", JSON_ACCESS_KEY, NULL,
+                                 error);
+    if (!json_is_array(acl)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid ACL: not a JSON array");
+        goto error;
+    }
+
+    return acl;
+
+error:
+    return NULL;
+}
+
 json_t *get_avus(json_t *object, baton_error_t *error) {
-    if (!json_is_object(object)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid iRODS path spec: not a JSON object");
-        goto error;
-    }
-
-    json_t *avus = json_object_get(object, JSON_AVUS_KEY);
-
-    if (!avus) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid iRODS path spec: avus property is missing");
-        goto error;
-    }
-
+    json_t *avus = get_json_value(object, "path spec", JSON_AVUS_KEY, NULL,
+                                  error);
     if (!json_is_array(avus)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid avus attribute: not a JSON array");
@@ -68,168 +93,66 @@ error:
     return NULL;
 }
 
-const char *get_avu_attribute(json_t *avu, baton_error_t *error) {
-    if (!json_is_object(avu)) {
+json_t *get_timestamp(json_t *object, baton_error_t *error) {
+    json_t *stamp = get_opt_json_value(object, "path spec", JSON_TIMESTAMP_KEY,
+                                       JSON_TIMESTAMP_SHORT_KEY, error);
+
+    if (json_is_object(stamp)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: not a JSON object");
+                        "Invalid iRODS timestamp spec: not a JSON object");
         goto error;
     }
 
-    json_t *attr = json_object_get(avu, JSON_ATTRIBUTE_KEY);
-    if (!attr) attr = json_object_get(avu, JSON_ATTRIBUTE_SHORT_KEY);
-
-    if (!attr) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: attribute property is missing");
-        goto error;
-    }
-
-    if (!json_is_string(attr)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU attribute: not a JSON string");
-        goto error;
-    }
-
-    return json_string_value(attr);
+    return stamp;
 
 error:
     return NULL;
+}
+
+const char* get_timestamp_created(json_t *timestamp, baton_error_t *error) {
+    return get_string_value(timestamp, "timestamp spec", JSON_CREATED_KEY,
+                            JSON_CREATED_SHORT_KEY, error);
+}
+
+const char* get_timestamp_modified(json_t *timestamp, baton_error_t *error) {
+    return get_string_value(timestamp, "timestamp spec", JSON_MODIFIED_KEY,
+                            JSON_MODIFIED_SHORT_KEY, error);
+}
+
+const char *get_avu_attribute(json_t *avu, baton_error_t *error) {
+    return get_string_value(avu, "AVU", JSON_ATTRIBUTE_KEY,
+                            JSON_ATTRIBUTE_SHORT_KEY, error);
 }
 
 const char *get_avu_value(json_t *avu, baton_error_t *error) {
-    if (!json_is_object(avu)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: not a JSON object");
-        goto error;
-    }
-
-    json_t *value = json_object_get(avu, JSON_VALUE_KEY);
-    if (!value) value = json_object_get(avu, JSON_VALUE_SHORT_KEY);
-
-    if (!value) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: value property is missing");
-        goto error;
-    }
-
-    if (!json_is_string(value)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU value: not a JSON string");
-        goto error;
-    }
-
-    return json_string_value(value);
-
-error:
-    return NULL;
+    return get_string_value(avu, "AVU", JSON_VALUE_KEY,
+                            JSON_VALUE_SHORT_KEY, error);
 }
 
 const char *get_avu_units(json_t *avu, baton_error_t *error) {
-    if (!json_is_object(avu)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: not a JSON object");
-        goto error;
-    }
-
-    const char* units_str = NULL;
-
-    json_t *units = json_object_get(avu, JSON_UNITS_KEY);
-    if (!units) units = json_object_get(avu, JSON_UNITS_SHORT_KEY);
-
-    if (units && !json_is_string(units)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU units: not a JSON string");
-        goto error;
-    }
-
-    if (units) {
-        units_str = json_string_value(units);
-    }
-
-    return units_str;
-
-error:
-    return NULL;
+    return get_opt_string_value(avu, "AVU", JSON_UNITS_KEY,
+                                JSON_UNITS_SHORT_KEY, error);
 }
 
 const char *get_avu_operator(json_t *avu, baton_error_t *error) {
-    if (!json_is_object(avu)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: not a JSON object");
-        goto error;
-    }
-
-    const char* oper_str = NULL;
-
-    json_t *oper = json_object_get(avu, JSON_OPERATOR_KEY);
-    if (!oper) oper = json_object_get(avu, JSON_OPERATOR_SHORT_KEY);
-
-    if (oper && !json_is_string(oper)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU operator: not a JSON string");
-        goto error;
-    }
-
-    if (oper) {
-        oper_str = json_string_value(oper);
-    }
-
-    return oper_str;
-
-error:
-    return NULL;
+    return get_opt_string_value(avu, "AVU", JSON_OPERATOR_KEY,
+                                JSON_OPERATOR_SHORT_KEY, error);
 }
 
 const char *get_access_owner(json_t *access, baton_error_t *error) {
-    if (!json_is_object(access)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid permissions specification: not a JSON object");
-        goto error;
-    }
-
-    json_t *owner = json_object_get(access, JSON_OWNER_KEY);
-
-    if (!owner) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid access: owner property is missing");
-        goto error;
-    }
-    if (!json_is_string(owner)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid owner: not a JSON string");
-        goto error;
-    }
-
-    return json_string_value(owner);
-
-error:
-    return NULL;
+    return get_string_value(access, "access spec", JSON_OWNER_KEY, NULL, error);
 }
 
 const char *get_access_level(json_t *access, baton_error_t *error) {
-    if (!json_is_object(access)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid permissions specification: not a JSON object");
-        goto error;
-    }
+    return get_string_value(access, "access spec", JSON_LEVEL_KEY, NULL, error);
+}
 
-    json_t *level = json_object_get(access, JSON_LEVEL_KEY);
+int has_acl(json_t *object) {
+    return json_object_get(object, JSON_ACCESS_KEY) != NULL;
+}
 
-    if (!level) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid access: level property is missing");
-        goto error;
-    }
-    if (!json_is_string(level)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid level: not a JSON string");
-        goto error;
-    }
-
-    return json_string_value(level);
-
-error:
-    return NULL;
+int has_timestamp(json_t *object) {
+    return json_object_get(object, JSON_TIMESTAMP_KEY) != NULL;
 }
 
 int contains_avu(json_t *avus, json_t *avu) {
@@ -254,6 +177,27 @@ int represents_collection(json_t *object) {
 int represents_data_object(json_t *object) {
     return (has_string_value(object, JSON_COLLECTION_KEY) &&
             has_string_value(object, JSON_DATA_OBJECT_KEY));
+}
+
+int add_timestamps(json_t *object, json_t *timestamps, baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add timestamp data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    timestamps = map_to_is8601(timestamps, JSON_CREATED_KEY, error);
+    if (error->code != 0) goto error;
+
+    timestamps = map_to_is8601(timestamps, JSON_MODIFIED_KEY, error);
+    if (error->code != 0) goto error;
+
+    return json_object_set_new(object, JSON_TIMESTAMP_KEY, timestamps);
+
+error:
+    logmsg(ERROR, BATON_CAT, error->message);
+
+    return error->code;
 }
 
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error) {
@@ -419,6 +363,52 @@ void print_json(json_t *json) {
     return;
 }
 
+static json_t *get_json_value(json_t *object, const char *name,
+                              const char *key, const char *short_key,
+                              baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    json_t *value = json_object_get(object, key);
+    if (!value && short_key) {
+        value = json_object_get(object, short_key);
+    }
+
+    if (!value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid iRODS %s: %s property is missing", name, key);
+        goto error;
+    }
+
+    return value;
+
+error:
+    return NULL;
+}
+
+static json_t *get_opt_json_value(json_t *object, const char *name,
+                                  const char *key, const char *short_key,
+                                  baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    json_t *value = json_object_get(object, key);
+    if (!value && short_key) {
+        value = json_object_get(object, short_key);
+    }
+
+    return value;
+
+error:
+    return NULL;
+}
+
 static int has_string_value(json_t *json, const char *key) {
     int result = 0;
 
@@ -428,4 +418,85 @@ static int has_string_value(json_t *json, const char *key) {
     }
 
     return result;
+}
+
+static const char *get_string_value(json_t *object, const char *name,
+                                    const char *key, const char *short_key,
+                                    baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    json_t *value = json_object_get(object, key);
+    if (!value && short_key) {
+        value = json_object_get(object, short_key);
+    }
+
+    if (!value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid iRODS %s: %s property is missing", name, key);
+        goto error;
+    }
+
+    if (!json_is_string(value)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s %s: not a JSON string", name, key);
+        goto error;
+    }
+
+    return json_string_value(value);
+
+error:
+    return NULL;
+}
+
+static const char *get_opt_string_value(json_t *object, const char *name,
+                                        const char *key, const char *short_key,
+                                        baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    const char *str = NULL;
+
+    json_t *value = json_object_get(object, key);
+    if (!value && short_key) {
+        value = json_object_get(object, short_key);
+    }
+
+    if (value && !json_is_string(value)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s %s: not a JSON string", name, key);
+        goto error;
+    }
+
+    if (value) {
+        str = json_string_value(value);
+    }
+
+    return str;
+
+error:
+    return NULL;
+}
+
+static json_t *map_to_is8601(json_t *object, const char *key,
+                             baton_error_t *error) {
+    const char *format = "%Y-%m-%dT%H:%M:%S";
+    const char *stamp = get_string_value(object, "timestamp", key, NULL, error);
+    if (error->code != 0) goto error;
+
+    const char *iso8601 = format_timestamp(stamp, format);
+
+    json_object_del(object, key);
+    json_object_set_new(object, key, json_string(iso8601));
+
+    return object;
+
+error:
+    return NULL;
 }
