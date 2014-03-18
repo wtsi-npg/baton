@@ -52,7 +52,9 @@ const char *get_access_level(json_t *access, baton_error_t *error);
 
 int has_acl(json_t *object);
 
-int has_timestamp(json_t *object);
+int has_created_timestamp(json_t *object);
+
+int has_modified_timestamp(json_t *object);
 
 int contains_avu(json_t *avus, json_t *avu);
 
@@ -64,7 +66,10 @@ int add_metadata(json_t *object, json_t *avus, baton_error_t *error);
 
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
 
-int add_timestamps(json_t *object, json_t *perms, baton_error_t *error);
+int add_timestamps(json_t *object, json_t *timestamps, baton_error_t *error);
+
+json_t *format_timestamps(json_t *timestamps, const char *format,
+                          baton_error_t *error);
 
 json_t *data_object_parts_to_json(const char *coll_name, const char *data_name);
 

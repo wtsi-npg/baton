@@ -77,6 +77,6 @@ const char *parse_base_name(const char *path);
 
 FILE *maybe_stdin(const char *path);
 
-const char *format_timestamp(const char *timestamp, const char *format);
+char *format_timestamp(const char *timestamp, const char *format);
 
 #endif // _BATON_UTILITIES_H

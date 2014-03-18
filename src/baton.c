@@ -1778,6 +1778,8 @@ static json_t *add_timestamps_json_object(rcComm_t *conn, json_t *object,
                                           baton_error_t *error) {
     rodsPath_t rods_path;
     char *path = NULL;
+    json_t *raw_timestamps = NULL;
+    json_t *iso_timestamps = NULL;
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -1794,14 +1796,20 @@ static json_t *add_timestamps_json_object(rcComm_t *conn, json_t *object,
         goto error;
     }
 
-    json_t *timestamps = list_timestamps(conn, &rods_path, error);
+    raw_timestamps = list_timestamps(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
-    add_timestamps(object, timestamps, error);
+    iso_timestamps = format_timestamps(raw_timestamps, ISO8601_FORMAT, error);
+    if (error->code != 0) goto error;
+
+    add_timestamps(object, iso_timestamps, error);
     if (error->code != 0) goto error;
 
     if (path) free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    json_decref(raw_timestamps);
+    json_decref(iso_timestamps);
 
     return object;
 
@@ -1810,6 +1818,9 @@ error:
 
     if (path) free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    if (raw_timestamps) json_decref(raw_timestamps);
+    if (iso_timestamps) json_decref(iso_timestamps);
 
     return NULL;
 }

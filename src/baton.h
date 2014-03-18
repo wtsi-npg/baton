@@ -79,6 +79,8 @@
 #define JSON_USER_TYPE_KEY "user_type"
 #define JSON_USER_ZONE_KEY "user_zone"
 
+#define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
+
 /**
  *  @enum metadata_op
  *  @brief AVU metadata operations.

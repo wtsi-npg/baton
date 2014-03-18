@@ -33,9 +33,9 @@ static json_t *get_json_value(json_t *object, const char *name,
                               const char *key, const char *short_key,
                               baton_error_t *error);
 
-static json_t *get_opt_json_value(json_t *object, const char *name,
-                                  const char *key, const char *short_key,
-                                  baton_error_t *error);
+/* static json_t *get_opt_json_value(json_t *object, const char *name, */
+/*                                   const char *key, const char *short_key, */
+/*                                   baton_error_t *error); */
 
 static const char *get_string_value(json_t *object, const char *name,
                                     const char *key,
@@ -49,13 +49,17 @@ static const char *get_opt_string_value(json_t *object, const char *name,
 
 static int has_string_value(json_t *json, const char *key);
 
-static json_t *map_to_is8601(json_t *object, const char *key,
-                             baton_error_t *error);
-
 json_t *error_to_json(baton_error_t *error) {
-    return json_pack("{s:s, s:i}",
-                     JSON_ERROR_MSG_KEY , error->message,
-                     JSON_ERROR_CODE_KEY, error->code);
+    json_t *err = json_pack("{s:s, s:i}",
+                            JSON_ERROR_MSG_KEY , error->message,
+                            JSON_ERROR_CODE_KEY, error->code);
+
+    if (!err) {
+        logmsg(ERROR, BATON_CAT, "Failed to pack error '%s' as JSON",
+               error->message);
+    }
+
+    return err;
 }
 
 int add_error_value(json_t *object, baton_error_t *error) {
@@ -93,29 +97,13 @@ error:
     return NULL;
 }
 
-json_t *get_timestamp(json_t *object, baton_error_t *error) {
-    json_t *stamp = get_opt_json_value(object, "path spec", JSON_TIMESTAMP_KEY,
-                                       JSON_TIMESTAMP_SHORT_KEY, error);
-
-    if (json_is_object(stamp)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid iRODS timestamp spec: not a JSON object");
-        goto error;
-    }
-
-    return stamp;
-
-error:
-    return NULL;
-}
-
-const char* get_timestamp_created(json_t *timestamp, baton_error_t *error) {
-    return get_string_value(timestamp, "timestamp spec", JSON_CREATED_KEY,
+const char* get_created_timestamp(json_t *object, baton_error_t *error) {
+    return get_string_value(object, "path spec", JSON_CREATED_KEY,
                             JSON_CREATED_SHORT_KEY, error);
 }
 
-const char* get_timestamp_modified(json_t *timestamp, baton_error_t *error) {
-    return get_string_value(timestamp, "timestamp spec", JSON_MODIFIED_KEY,
+const char* get_modified_timestamp(json_t *object, baton_error_t *error) {
+    return get_string_value(object, "path spec", JSON_MODIFIED_KEY,
                             JSON_MODIFIED_SHORT_KEY, error);
 }
 
@@ -151,7 +139,11 @@ int has_acl(json_t *object) {
     return json_object_get(object, JSON_ACCESS_KEY) != NULL;
 }
 
-int has_timestamp(json_t *object) {
+int has_created_timestamp(json_t *object) {
+    return json_object_get(object, JSON_TIMESTAMP_KEY) != NULL;
+}
+
+int has_modified_timestamp(json_t *object) {
     return json_object_get(object, JSON_TIMESTAMP_KEY) != NULL;
 }
 
@@ -179,6 +171,38 @@ int represents_data_object(json_t *object) {
             has_string_value(object, JSON_DATA_OBJECT_KEY));
 }
 
+json_t *format_timestamps(json_t *timestamps, const char *format,
+                          baton_error_t *error) {
+    const char *raw_created  = NULL;
+    const char *raw_modified = NULL;
+
+    raw_created  = get_created_timestamp(timestamps, error);
+    raw_modified = get_modified_timestamp(timestamps, error);
+
+    char *fmt_created  = format_timestamp(raw_created, format);
+    char *fmt_modified = format_timestamp(raw_modified, format);
+
+    json_t *result = json_pack("{s:s, s:s}",
+                               JSON_CREATED_KEY,  fmt_created,
+                               JSON_MODIFIED_KEY, fmt_modified);
+    if (!result) {
+        set_baton_error(error, -1, "Failed to pack timestamps; created: '%s', "
+                        "modified: '%s' as JSON", fmt_created, fmt_modified);
+        goto error;
+    }
+
+    free(fmt_created);
+    free(fmt_modified);
+
+    return result;
+
+error:
+    if (fmt_created)  free(fmt_created);
+    if (fmt_modified) free(fmt_modified);
+
+    return NULL;
+}
+
 int add_timestamps(json_t *object, json_t *timestamps, baton_error_t *error) {
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add timestamp data: "
@@ -186,17 +210,9 @@ int add_timestamps(json_t *object, json_t *timestamps, baton_error_t *error) {
         goto error;
     }
 
-    timestamps = map_to_is8601(timestamps, JSON_CREATED_KEY, error);
-    if (error->code != 0) goto error;
-
-    timestamps = map_to_is8601(timestamps, JSON_MODIFIED_KEY, error);
-    if (error->code != 0) goto error;
-
-    return json_object_set_new(object, JSON_TIMESTAMP_KEY, timestamps);
+    return json_object_update(object, timestamps);
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     return error->code;
 }
 
@@ -210,9 +226,7 @@ int add_metadata(json_t *object, json_t *avus, baton_error_t *error) {
     return json_object_set_new(object, JSON_AVUS_KEY, avus);
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
-    return -1;
+    return error->code;
 }
 
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error) {
@@ -225,9 +239,7 @@ int add_permissions(json_t *object, json_t *perms, baton_error_t *error) {
     return json_object_set_new(object, JSON_ACCESS_KEY, perms);
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
-    return -1;
+    return error->code;
 }
 
 json_t *data_object_parts_to_json(const char *coll_name,
@@ -350,8 +362,6 @@ char *json_to_path(json_t *object, baton_error_t *error) {
     return path;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     return NULL;
 }
 
@@ -389,25 +399,25 @@ error:
     return NULL;
 }
 
-static json_t *get_opt_json_value(json_t *object, const char *name,
-                                  const char *key, const char *short_key,
-                                  baton_error_t *error) {
-    if (!json_is_object(object)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid %s: not a JSON object", name);
-        goto error;
-    }
+/* static json_t *get_opt_json_value(json_t *object, const char *name, */
+/*                                   const char *key, const char *short_key, */
+/*                                   baton_error_t *error) { */
+/*     if (!json_is_object(object)) { */
+/*         set_baton_error(error, CAT_INVALID_ARGUMENT, */
+/*                         "Invalid %s: not a JSON object", name); */
+/*         goto error; */
+/*     } */
 
-    json_t *value = json_object_get(object, key);
-    if (!value && short_key) {
-        value = json_object_get(object, short_key);
-    }
+/*     json_t *value = json_object_get(object, key); */
+/*     if (!value && short_key) { */
+/*         value = json_object_get(object, short_key); */
+/*     } */
 
-    return value;
+/*     return value; */
 
-error:
-    return NULL;
-}
+/* error: */
+/*     return NULL; */
+/* } */
 
 static int has_string_value(json_t *json, const char *key) {
     int result = 0;
@@ -479,23 +489,6 @@ static const char *get_opt_string_value(json_t *object, const char *name,
     }
 
     return str;
-
-error:
-    return NULL;
-}
-
-static json_t *map_to_is8601(json_t *object, const char *key,
-                             baton_error_t *error) {
-    const char *format = "%Y-%m-%dT%H:%M:%S";
-    const char *stamp = get_string_value(object, "timestamp", key, NULL, error);
-    if (error->code != 0) goto error;
-
-    const char *iso8601 = format_timestamp(stamp, format);
-
-    json_object_del(object, key);
-    json_object_set_new(object, key, json_string(iso8601));
-
-    return object;
 
 error:
     return NULL;

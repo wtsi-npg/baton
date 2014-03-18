@@ -165,7 +165,7 @@ error:
     return NULL;
 }
 
-const char *format_timestamp(const char *timestamp, const char *format) {
+char *format_timestamp(const char *timestamp, const char *format) {
     int buffer_len = 32;
 
     char *buffer = calloc(buffer_len, sizeof (char));
