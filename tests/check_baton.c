@@ -279,6 +279,23 @@ START_TEST(test_list_obj) {
     ck_assert_int_eq(json_equal(results3, expected3), 1);
     ck_assert_int_eq(error3.code, 0);
 
+    // With timestamps
+    baton_error_t error4;
+    json_t *results4 = list_path(conn, &rods_obj_path,
+                                 PRINT_ACL | PRINT_AVU | PRINT_TIMESTAMP,
+                                 &error4);
+    ck_assert_int_eq(error4.code, 0);
+
+    json_t *timestamps = json_object_get(results4, JSON_TIMESTAMP_KEY);
+    ck_assert(json_is_array(timestamps));
+    ck_assert_int_eq(json_array_size(timestamps), 2);
+
+    for (size_t i = 0; i < 2; i++) {
+        json_t *timestamp = json_array_get(timestamps, i);
+        ck_assert(json_object_get(timestamp, JSON_CREATED_KEY) ||
+                  json_object_get(timestamp, JSON_MODIFIED_KEY));
+    }
+
     json_decref(results1);
     json_decref(expected1);
 
@@ -287,6 +304,8 @@ START_TEST(test_list_obj) {
 
     json_decref(results3);
     json_decref(expected3);
+
+    json_decref(results4);
 
     json_decref(perm);
     json_decref(avu);
@@ -525,6 +544,62 @@ START_TEST(test_list_metadata_coll) {
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_list_timestamps_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_timestamps(conn, &rods_path, &error);
+
+    ck_assert_int_eq(error.code, 0);
+    ck_assert(json_is_object(results));
+    ck_assert_int_eq(json_object_size(results), 2);
+    ck_assert(json_object_get(results, JSON_CREATED_KEY));
+    ck_assert(json_object_get(results, JSON_MODIFIED_KEY));
+
+    json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_list_timestamps_coll) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_timestamps(conn, &rods_path, &error);
+
+    print_json(results);
+
+    ck_assert_int_eq(error.code, 0);
+    ck_assert(json_is_object(results));
+    ck_assert_int_eq(json_object_size(results), 2);
+    ck_assert(json_object_get(results, JSON_CREATED_KEY));
+    ck_assert(json_object_get(results, JSON_MODIFIED_KEY));
+
+    json_decref(results);
 
     if (conn) rcDisconnect(conn);
 }
@@ -963,7 +1038,7 @@ START_TEST(test_modify_json_permissions_obj) {
     baton_error_t expected_error2;
     int fail_rv2 = modify_json_permissions(conn, &rods_path, NO_RECURSE,
                                            bad_perm2, &expected_error2);
-    
+
     ck_assert_int_ne(expected_error2.code, 0);
     ck_assert_int_ne(fail_rv2, 0);
     json_t *perm = json_pack("{s:s, s:s}",
@@ -1252,6 +1327,9 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_list_metadata_obj);
     tcase_add_test(basic_tests, test_list_metadata_coll);
+
+    tcase_add_test(basic_tests, test_list_timestamps_obj);
+    tcase_add_test(basic_tests, test_list_timestamps_coll);
 
     tcase_add_test(basic_tests, test_search_metadata_obj);
     tcase_add_test(basic_tests, test_search_metadata_coll);

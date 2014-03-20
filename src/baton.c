@@ -669,7 +669,6 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
                         "Path '%s' does not exist "
                         "(or lacks access permission)", rods_path->outPath);
         goto error;
-
     }
 
     switch (rods_path->objType) {
@@ -709,7 +708,6 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
     timestamps = json_incref(json_array_get(results, 0));
     json_array_clear(results);
     json_decref(results);
-    results = NULL; // Explictly set to NULL to avoid double-free on error
 
     logmsg(DEBUG, BATON_CAT, "Obtained timestamps of '%s'", rods_path->outPath);
     free_query_input(query_in);
@@ -720,9 +718,9 @@ error:
     logmsg(ERROR, BATON_CAT, "Failed to list timestamps of '%s': error %d %s",
            rods_path->outPath, error->code, error->message);
 
-    if (query_in) free_query_input(query_in);
+    if (query_in)   free_query_input(query_in);
     if (timestamps) json_decref(timestamps);
-    if (results) json_decref(results);
+    if (results)    json_decref(results);
 
     return NULL;
 }
@@ -1779,7 +1777,6 @@ static json_t *add_timestamps_json_object(rcComm_t *conn, json_t *object,
     rodsPath_t rods_path;
     char *path = NULL;
     json_t *raw_timestamps = NULL;
-    json_t *iso_timestamps = NULL;
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -1799,17 +1796,18 @@ static json_t *add_timestamps_json_object(rcComm_t *conn, json_t *object,
     raw_timestamps = list_timestamps(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
-    iso_timestamps = format_timestamps(raw_timestamps, ISO8601_FORMAT, error);
+    const char *created = get_created_timestamp(raw_timestamps, error);
+    if (error->code != 0) goto error;
+    const char *modified = get_modified_timestamp(raw_timestamps, error);
     if (error->code != 0) goto error;
 
-    add_timestamps(object, iso_timestamps, error);
+    add_timestamps(object, created, modified, error);
     if (error->code != 0) goto error;
 
     if (path) free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     json_decref(raw_timestamps);
-    json_decref(iso_timestamps);
 
     return object;
 
@@ -1818,9 +1816,7 @@ error:
 
     if (path) free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-
     if (raw_timestamps) json_decref(raw_timestamps);
-    if (iso_timestamps) json_decref(iso_timestamps);
 
     return NULL;
 }

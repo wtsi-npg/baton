@@ -38,6 +38,10 @@ json_t *get_acl(json_t *object, baton_error_t *error);
 
 json_t *get_avus(json_t *object, baton_error_t *error);
 
+const char *get_created_timestamp(json_t *object, baton_error_t *error);
+
+const char *get_modified_timestamp(json_t *object, baton_error_t *error);
+
 const char *get_avu_attribute(json_t *avu, baton_error_t *error);
 
 const char *get_avu_value(json_t *avu, baton_error_t *error);
@@ -66,10 +70,11 @@ int add_metadata(json_t *object, json_t *avus, baton_error_t *error);
 
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
 
-int add_timestamps(json_t *object, json_t *timestamps, baton_error_t *error);
+int add_timestamps(json_t *object, const char *created, const char *modified,
+                   baton_error_t *error);
 
-json_t *format_timestamps(json_t *timestamps, const char *format,
-                          baton_error_t *error);
+json_t *make_timestamp(const char* key, const char *value, const char *format,
+                       baton_error_t *error);
 
 json_t *data_object_parts_to_json(const char *coll_name, const char *data_name);
 

@@ -139,12 +139,16 @@ int has_acl(json_t *object) {
     return json_object_get(object, JSON_ACCESS_KEY) != NULL;
 }
 
-int has_created_timestamp(json_t *object) {
+int has_timestamps(json_t *object) {
     return json_object_get(object, JSON_TIMESTAMP_KEY) != NULL;
 }
 
+int has_created_timestamp(json_t *object) {
+    return json_object_get(object, JSON_CREATED_KEY) != NULL;
+}
+
 int has_modified_timestamp(json_t *object) {
-    return json_object_get(object, JSON_TIMESTAMP_KEY) != NULL;
+    return json_object_get(object, JSON_MODIFIED_KEY) != NULL;
 }
 
 int contains_avu(json_t *avus, json_t *avu) {
@@ -171,46 +175,53 @@ int represents_data_object(json_t *object) {
             has_string_value(object, JSON_DATA_OBJECT_KEY));
 }
 
-json_t *format_timestamps(json_t *timestamps, const char *format,
-                          baton_error_t *error) {
-    const char *raw_created  = NULL;
-    const char *raw_modified = NULL;
+json_t *make_timestamp(const char* key, const char *value, const char *format,
+                       baton_error_t *error) {
+    char *formatted = format_timestamp(value, format);
 
-    raw_created  = get_created_timestamp(timestamps, error);
-    raw_modified = get_modified_timestamp(timestamps, error);
-
-    char *fmt_created  = format_timestamp(raw_created, format);
-    char *fmt_modified = format_timestamp(raw_modified, format);
-
-    json_t *result = json_pack("{s:s, s:s}",
-                               JSON_CREATED_KEY,  fmt_created,
-                               JSON_MODIFIED_KEY, fmt_modified);
+    json_t *result = json_pack("{s:s}", key, formatted);
     if (!result) {
-        set_baton_error(error, -1, "Failed to pack timestamps; created: '%s', "
-                        "modified: '%s' as JSON", fmt_created, fmt_modified);
+        set_baton_error(error, -1,
+                        "Failed to pack timestamp '%s': '%s' as JSON",
+                        key, value);
         goto error;
     }
 
-    free(fmt_created);
-    free(fmt_modified);
+    free(formatted);
 
     return result;
 
 error:
-    if (fmt_created)  free(fmt_created);
-    if (fmt_modified) free(fmt_modified);
+    if (formatted) free(formatted);
 
     return NULL;
 }
 
-int add_timestamps(json_t *object, json_t *timestamps, baton_error_t *error) {
+int add_timestamps(json_t *object, const char *created, const char *modified,
+                   baton_error_t *error) {
+    json_t *iso_created  = NULL;
+    json_t *iso_modified = NULL;
+
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add timestamp data: "
                         "target not a JSON object");
         goto error;
     }
 
-    return json_object_update(object, timestamps);
+    iso_created = make_timestamp(JSON_CREATED_KEY, created,
+                                 ISO8601_FORMAT, error);
+    if (error->code != 0) goto error;
+
+    iso_modified = make_timestamp(JSON_MODIFIED_KEY, modified,
+                                  ISO8601_FORMAT, error);
+    if (error->code != 0) goto error;
+
+    json_t *timestamps = json_pack("[o, o]", iso_created, iso_modified);
+    if (!timestamps) {
+        logmsg(ERROR, BATON_CAT, "Failed to pack timestamp array");
+    }
+
+    return json_object_set_new(object, JSON_TIMESTAMP_KEY, timestamps);
 
 error:
     return error->code;
