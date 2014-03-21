@@ -38,6 +38,7 @@ static char *USER_LOG_CONF_FILE = NULL;
 static int acl_flag;
 static int avu_flag;
 static int help_flag;
+static int timestamp_flag;
 static int unbuffered_flag;
 static int version_flag;
 
@@ -55,6 +56,7 @@ int main(int argc, char *argv[]) {
             {"acl",        no_argument, &acl_flag,        1},
             {"avu",        no_argument, &avu_flag,        1},
             {"help",       no_argument, &help_flag,       1},
+            {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
@@ -89,8 +91,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag) pflags = pflags | PRINT_ACL;
-    if (avu_flag) pflags = pflags | PRINT_AVU;
+    if (acl_flag) pflags       = pflags | PRINT_ACL;
+    if (avu_flag) pflags       = pflags | PRINT_AVU;
+    if (timestamp_flag) pflags = pflags | PRINT_TIMESTAMP;
 
     if (help_flag) {
         puts("Name");
@@ -108,6 +111,7 @@ int main(int argc, char *argv[]) {
         puts("    --avu         Print AVU lists in output.");
         puts("    --file        The JSON file describing the data objects and");
         puts("                  collections. Optional, defaults to STDIN.");
+        puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("");
 

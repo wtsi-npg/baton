@@ -34,6 +34,32 @@ int add_error_value(json_t *object, baton_error_t *error);
 
 json_t *error_to_json(baton_error_t *error);
 
+json_t *get_acl(json_t *object, baton_error_t *error);
+
+json_t *get_avus(json_t *object, baton_error_t *error);
+
+const char *get_created_timestamp(json_t *object, baton_error_t *error);
+
+const char *get_modified_timestamp(json_t *object, baton_error_t *error);
+
+const char *get_avu_attribute(json_t *avu, baton_error_t *error);
+
+const char *get_avu_value(json_t *avu, baton_error_t *error);
+
+const char *get_avu_units(json_t *avu, baton_error_t *error);
+
+const char *get_avu_operator(json_t *avu, baton_error_t *error);
+
+const char *get_access_owner(json_t *access, baton_error_t *error);
+
+const char *get_access_level(json_t *access, baton_error_t *error);
+
+int has_acl(json_t *object);
+
+int has_created_timestamp(json_t *object);
+
+int has_modified_timestamp(json_t *object);
+
 int contains_avu(json_t *avus, json_t *avu);
 
 int represents_collection(json_t *object);
@@ -43,6 +69,12 @@ int represents_data_object(json_t *object);
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error);
 
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
+
+int add_timestamps(json_t *object, const char *created, const char *modified,
+                   baton_error_t *error);
+
+json_t *make_timestamp(const char* key, const char *value, const char *format,
+                       baton_error_t *error);
 
 json_t *data_object_parts_to_json(const char *coll_name, const char *data_name);
 
