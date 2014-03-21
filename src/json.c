@@ -72,7 +72,8 @@ json_t *get_acl(json_t *object, baton_error_t *error) {
                                  error);
     if (!json_is_array(acl)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid ACL: not a JSON array");
+                        "Invalid '%s' attribute: not a JSON array",
+                        JSON_ACCESS_KEY);
         goto error;
     }
 
@@ -87,11 +88,28 @@ json_t *get_avus(json_t *object, baton_error_t *error) {
                                   error);
     if (!json_is_array(avus)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid avus attribute: not a JSON array");
+                        "Invalid '%s' attribute: not a JSON array",
+                        JSON_AVUS_KEY);
         goto error;
     }
 
     return avus;
+
+error:
+    return NULL;
+}
+
+json_t *get_timestamps(json_t *object, baton_error_t *error) {
+    json_t *timestamps = get_json_value(object, "path spec", JSON_TIMESTAMP_KEY,
+                                        NULL, error);
+    if (!json_is_array(timestamps)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid '%s' attribute: not a JSON array",
+                        JSON_TIMESTAMP_KEY);
+        goto error;
+    }
+
+    return timestamps;
 
 error:
     return NULL;

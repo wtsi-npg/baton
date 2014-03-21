@@ -38,6 +38,8 @@ json_t *get_acl(json_t *object, baton_error_t *error);
 
 json_t *get_avus(json_t *object, baton_error_t *error);
 
+json_t *get_timestamps(json_t *object, baton_error_t *error);
+
 const char *get_created_timestamp(json_t *object, baton_error_t *error);
 
 const char *get_modified_timestamp(json_t *object, baton_error_t *error);
@@ -55,6 +57,8 @@ const char *get_access_owner(json_t *access, baton_error_t *error);
 const char *get_access_level(json_t *access, baton_error_t *error);
 
 int has_acl(json_t *object);
+
+int has_timestamps(json_t *object);
 
 int has_created_timestamp(json_t *object);
 
