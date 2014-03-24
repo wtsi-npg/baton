@@ -30,13 +30,82 @@
 #define JSON_ERROR_CODE_KEY  "code"
 #define JSON_ERROR_MSG_KEY   "message"
 
+#define JSON_ATTRIBUTE_KEY "attribute"
+#define JSON_VALUE_KEY     "value"
+#define JSON_UNITS_KEY     "units"
+#define JSON_OPERATOR_KEY  "operator"
+#define JSON_AVUS_KEY      "avus"
+#define JSON_ACCESS_KEY    "access"
+#define JSON_OWNER_KEY     "owner"
+#define JSON_LEVEL_KEY     "level"
+#define JSON_TIMESTAMP_KEY "timestamp"
+#define JSON_CREATED_KEY   "created"
+#define JSON_MODIFIED_KEY  "modified"
+
+#define JSON_ATTRIBUTE_SHORT_KEY "a"
+#define JSON_VALUE_SHORT_KEY     "v"
+#define JSON_UNITS_SHORT_KEY     "u"
+#define JSON_OPERATOR_SHORT_KEY  "o"
+#define JSON_TIMESTAMP_SHORT_KEY "t"
+#define JSON_CREATED_SHORT_KEY   "c"
+#define JSON_MODIFIED_SHORT_KEY  "m"
+
+#define JSON_USER_NAME_KEY "user_name"
+#define JSON_USER_ID_KEY   "user_id"
+#define JSON_USER_TYPE_KEY "user_type"
+#define JSON_USER_ZONE_KEY "user_zone"
+
+/**
+ * Add a new property containing error information to a JSON object.
+ *
+ * @param[in] object         A JSON object to modify.
+ * @param[in] error          An error report struct.
+ *
+ * @return 0 on success, -1 on error.
+ */
 int add_error_value(json_t *object, baton_error_t *error);
 
+/**
+ * Convert error information to a JSON object.
+ *
+ * @param[in] error          An error report struct.
+ *
+ * @return A JSON object on success, NULL on error.
+ */
 json_t *error_to_json(baton_error_t *error);
 
+/**
+ * Return a JSON array representing an ACL from a JSON object
+ * representing an iRODS path.
+ *
+ * @param[in]                A JSON object.
+ * @param[out] error         An error report struct.
+ *
+ * @return A JSON array on success, NULL on error.
+ */
 json_t *get_acl(json_t *object, baton_error_t *error);
 
+/**
+ * Return a JSON array representing an AVUs from a JSON object
+ * representing an iRODS path.
+ *
+ * @param[in]                A JSON object.
+ * @param[out] error         An error report struct.
+ *
+ * @return A JSON array on success, NULL on error.
+ */
 json_t *get_avus(json_t *object, baton_error_t *error);
+
+/**
+ * Return a JSON array representing timestamps from a JSON object
+ * representing an iRODS path.
+ *
+ * @param[in]                A JSON object.
+ * @param[out] error         An error report struct.
+ *
+ * @return A JSON array on success, NULL on error.
+ */
+json_t *get_timestamps(json_t *object, baton_error_t *error);
 
 const char *get_created_timestamp(json_t *object, baton_error_t *error);
 
@@ -55,6 +124,8 @@ const char *get_access_owner(json_t *access, baton_error_t *error);
 const char *get_access_level(json_t *access, baton_error_t *error);
 
 int has_acl(json_t *object);
+
+int has_timestamps(json_t *object);
 
 int has_created_timestamp(json_t *object);
 
