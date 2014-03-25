@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <xlocale.h>
 
 #include <zlog.h>
 
@@ -165,7 +167,7 @@ error:
     return NULL;
 }
 
-char *format_timestamp(const char *timestamp, const char *format) {
+char *format_timestamp(const char *raw_timestamp, const char *format) {
     int buffer_len = 32;
 
     char *buffer = calloc(buffer_len, sizeof (char));
@@ -176,24 +178,62 @@ char *format_timestamp(const char *timestamp, const char *format) {
     }
 
     int base = 10;
-
     errno = 0;
-    time_t time = strtoul(timestamp, NULL, base);
+    time_t time = strtoul(raw_timestamp, NULL, base);
     if (errno != 0) {
         logmsg(ERROR, BATON_CAT,
                "Failed to convert timestamp '%s' to a number: error %d %s",
-               timestamp, errno, strerror(errno));
+               raw_timestamp, errno, strerror(errno));
         goto error;
     }
 
-    struct tm *tm = gmtime(&time);
-    strftime(buffer, buffer_len, format, tm);
+    struct tm tm;
+    gmtime_r(&time, &tm);
+
+    int status = strftime(buffer, buffer_len, format, &tm);
+    if (status == 0) {
+        logmsg(ERROR, BATON_CAT,
+               "Failed to format timestamp '%s' as an ISO date time: "
+               "error %d %s", raw_timestamp, errno, strerror(errno));
+        goto error;
+    }
 
     logmsg(DEBUG, BATON_CAT, "Converted timestamp '%s' to '%s'",
-           timestamp, buffer);
+           raw_timestamp, buffer);
 
     return buffer;
 
 error:
+    if (buffer) free(buffer);
+
+    return NULL;
+}
+
+char *parse_timestamp(const char *timestamp, const char *format) {
+    int buffer_len = 32;
+
+    char *buffer = calloc(buffer_len, sizeof (char));
+    if (!buffer) {
+        logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
+               errno, strerror(errno));
+        goto error;
+    }
+
+    struct tm tm;
+    char *rest = strptime_l(timestamp, format, &tm, NULL);
+    if (!rest) {
+        logmsg(ERROR, BATON_CAT, "Failed to parse ISO date time '%s'",
+               timestamp);
+        goto error;
+    }
+
+    time_t time = timegm(&tm);
+    snprintf(buffer, buffer_len, "%ld", time);
+
+    return buffer;
+
+error:
+    if (buffer) free(buffer);
+
     return NULL;
 }

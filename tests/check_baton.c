@@ -144,6 +144,22 @@ START_TEST(test_maybe_stdin) {
 }
 END_TEST
 
+START_TEST(test_format_timestamp) {
+    char *formatted = format_timestamp("01375107252", ISO8601_FORMAT);
+    ck_assert_str_eq(formatted, "2013-07-29T14:14:12");
+
+    free(formatted);
+}
+END_TEST
+
+START_TEST(test_parse_timestamp) {
+    char *parsed = parse_timestamp("2013-07-29T14:14:12", ISO8601_FORMAT);
+    ck_assert_str_eq(parsed, "1375107252");
+
+    free(parsed);
+}
+END_TEST
+
 // Can we log in?
 START_TEST(test_rods_login) {
     rodsEnv env;
@@ -591,8 +607,6 @@ START_TEST(test_list_timestamps_coll) {
     baton_error_t error;
     json_t *results = list_timestamps(conn, &rods_path, &error);
 
-    print_json(results);
-
     ck_assert_int_eq(error.code, 0);
     ck_assert(json_is_object(results));
     ck_assert_int_eq(json_object_size(results), 2);
@@ -639,6 +653,7 @@ START_TEST(test_search_metadata_obj) {
     }
     ck_assert_int_eq(error.code, 0);
 
+    json_decref(query);
     json_decref(results);
 
     if (conn) rcDisconnect(conn);
@@ -665,6 +680,7 @@ START_TEST(test_search_metadata_path_obj) {
 
     baton_error_t error;
     json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    ck_assert_int_eq(error.code, 0);
     ck_assert_int_eq(json_array_size(results), 3);
 
     for (size_t i = 0; i < 3; i++) {
@@ -672,8 +688,8 @@ START_TEST(test_search_metadata_path_obj) {
         ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
         ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
     }
-    ck_assert_int_eq(error.code, 0);
 
+    json_decref(query);
     json_decref(results);
 
     if (conn) rcDisconnect(conn);
@@ -723,7 +739,83 @@ START_TEST(test_search_metadata_perm_obj) {
     ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
     ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
 
+    json_decref(query);
     json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_search_metadata_tps_obj) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    baton_error_t ts_error;
+    json_t *current_tps = list_timestamps(conn, &rods_path, &ts_error);
+    ck_assert_int_eq(ts_error.code, 0);
+
+    const char *raw_created = get_created_timestamp(current_tps, &ts_error);
+    ck_assert_int_eq(ts_error.code, 0);
+
+    char *iso_created = format_timestamp(raw_created, ISO8601_FORMAT);
+
+    // Should not find any results for data objects created before the
+    // root collection of the test data was created
+    json_t *created_lt = json_pack("{s:s, s:s}",
+                                   JSON_CREATED_KEY,  iso_created,
+                                   JSON_OPERATOR_KEY, SEARCH_OP_NUM_LT);
+    json_t *query_lt = json_pack("{s:[], s:s, s:[o]}",
+                                 JSON_AVUS_KEY,
+                                 JSON_COLLECTION_KEY, rods_root,
+                                 JSON_TIMESTAMP_KEY,  created_lt);
+
+    baton_error_t error_lt;
+    json_t *results_lt = search_metadata(conn, query_lt, NULL, PRINT_DEFAULT,
+                                         &error_lt);
+    ck_assert_int_eq(error_lt.code, 0);
+    ck_assert_int_eq(json_array_size(results_lt), 0);
+
+    // Should find all files because they must be created at, or after
+    // the time their containing collection was created
+    json_t *created_ge = json_pack("{s:s, s:s}",
+                                   JSON_CREATED_KEY,  iso_created,
+                                   JSON_OPERATOR_KEY, SEARCH_OP_NUM_LE);
+    json_t *query_ge = json_pack("{s:[], s:s, s:[o]}",
+                                 JSON_AVUS_KEY,
+                                 JSON_COLLECTION_KEY, rods_root,
+                                 JSON_TIMESTAMP_KEY,  created_ge);
+
+    baton_error_t error_ge;
+    json_t *results_ge = search_metadata(conn, query_ge, NULL, PRINT_DEFAULT,
+                                         &error_ge);
+    ck_assert_int_eq(error_ge.code, 0);
+    ck_assert_int_eq(json_array_size(results_ge), 28);
+
+    int num_colls = 0;
+    int num_objs  = 0;
+    int i;
+    json_t *elt;
+
+    json_array_foreach(results_ge, i, elt) {
+        if (represents_collection(elt))  num_colls++;
+        if (represents_data_object(elt)) num_objs++;
+    }
+
+    ck_assert_int_eq(num_colls, 10);
+    ck_assert_int_eq(num_objs,  18); // Includes some .gitignore files
+
+    free(iso_created);
+
+    json_decref(current_tps);
+    json_decref(query_ge);
+    json_decref(results_ge);
 
     if (conn) rcDisconnect(conn);
 }
@@ -754,6 +846,7 @@ START_TEST(test_search_metadata_coll) {
     }
     ck_assert_int_eq(error.code, 0);
 
+    json_decref(query);
     json_decref(results);
 
     if (conn) rcDisconnect(conn);
@@ -923,6 +1016,7 @@ START_TEST(test_add_json_metadata_obj) {
     json_decref(bad_avu1);
     json_decref(bad_avu2);
     json_decref(bad_avu3);
+    json_decref(avu);
     json_decref(results);
     json_decref(expected);
 
@@ -959,6 +1053,7 @@ START_TEST(test_remove_json_metadata_obj) {
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(list_error.code, 0);
 
+    json_decref(avu);
     json_decref(results);
     json_decref(expected);
 
@@ -1008,6 +1103,9 @@ START_TEST(test_modify_permissions_obj) {
     }
 
     ck_assert_int_eq(found, 1);
+
+    json_decref(expected);
+    json_decref(acl);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1076,6 +1174,8 @@ START_TEST(test_modify_json_permissions_obj) {
     json_decref(bad_perm1);
     json_decref(bad_perm2);
     json_decref(perm);
+    json_decref(expected);
+    json_decref(acl);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1106,8 +1206,8 @@ START_TEST(test_rods_path_to_json_obj) {
     json_t *obj = rods_path_to_json(conn, &rods_path);
     ck_assert_int_eq(json_equal(obj, expected), 1);
 
-    json_decref(obj);
     json_decref(expected);
+    json_decref(obj);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1138,8 +1238,8 @@ START_TEST(test_rods_path_to_json_coll) {
     json_t *coll = rods_path_to_json(conn, &rods_path);
     ck_assert_int_eq(json_equal(coll, expected), 1);
 
-    json_decref(coll);
     json_decref(expected);
+    json_decref(coll);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1306,6 +1406,8 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_str_ends_with);
     tcase_add_test(utilities_tests, test_parse_base_name);
     tcase_add_test(utilities_tests, test_maybe_stdin);
+    tcase_add_test(utilities_tests, test_format_timestamp);
+    tcase_add_test(utilities_tests, test_parse_timestamp);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);
@@ -1335,6 +1437,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_search_metadata_coll);
     tcase_add_test(basic_tests, test_search_metadata_path_obj);
     tcase_add_test(basic_tests, test_search_metadata_perm_obj);
+    tcase_add_test(basic_tests, test_search_metadata_tps_obj);
 
     tcase_add_test(basic_tests, test_add_metadata_obj);
     tcase_add_test(basic_tests, test_remove_metadata_obj);

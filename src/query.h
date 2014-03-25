@@ -72,6 +72,10 @@ typedef genQueryInp_t *(*prepare_acl_search_cb) (genQueryInp_t *query_in,
                                                  const char *user_id,
                                                  const char *access_level);
 
+typedef genQueryInp_t *(*prepare_tps_search_cb) (genQueryInp_t *query_in,
+                                                 const char *raw_timestamp,
+                                                 const char *operator);
+
 /**
  * Log the current iRODS error stack through the underlying logging
  * mechanism.
@@ -157,11 +161,11 @@ genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
 genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path);
 
-genQueryInp_t *prepare_obj_timestamp_list(genQueryInp_t *query_in,
-                                          rodsPath_t *rods_path);
+genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
+                                    rodsPath_t *rods_path);
 
-genQueryInp_t *prepare_col_timestamp_list(genQueryInp_t *query_in,
-                                          rodsPath_t *rods_path);
+genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
+                                    rodsPath_t *rods_path);
 
 genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
@@ -180,6 +184,14 @@ genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
 genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
                                       const char *user_id,
                                       const char *access_level);
+
+genQueryInp_t *prepare_obj_tps_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator);
+
+genQueryInp_t *prepare_col_tps_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator);
 
 genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
                                    const char *root_path);

@@ -23,8 +23,8 @@
 
 #include "baton.h"
 
-#define JSON_DATA_OBJECT_KEY "data_object"
-#define JSON_COLLECTION_KEY  "collection"
+#define JSON_DATA_OBJECT_KEY       "data_object"
+#define JSON_COLLECTION_KEY        "collection"
 
 #define JSON_ERROR_KEY       "error"
 #define JSON_ERROR_CODE_KEY  "code"
@@ -42,13 +42,15 @@
 #define JSON_CREATED_KEY   "created"
 #define JSON_MODIFIED_KEY  "modified"
 
-#define JSON_ATTRIBUTE_SHORT_KEY "a"
-#define JSON_VALUE_SHORT_KEY     "v"
-#define JSON_UNITS_SHORT_KEY     "u"
-#define JSON_OPERATOR_SHORT_KEY  "o"
-#define JSON_TIMESTAMP_SHORT_KEY "t"
-#define JSON_CREATED_SHORT_KEY   "c"
-#define JSON_MODIFIED_SHORT_KEY  "m"
+#define JSON_DATA_OBJECT_SHORT_KEY "o"
+#define JSON_COLLECTION_SHORT_KEY  "c"
+#define JSON_ATTRIBUTE_SHORT_KEY   "a"
+#define JSON_VALUE_SHORT_KEY       "v"
+#define JSON_UNITS_SHORT_KEY       "u"
+#define JSON_OPERATOR_SHORT_KEY    "o"
+#define JSON_TIMESTAMP_SHORT_KEY   "t"
+#define JSON_CREATED_SHORT_KEY     "c"
+#define JSON_MODIFIED_SHORT_KEY    "m"
 
 #define JSON_USER_NAME_KEY "user_name"
 #define JSON_USER_ID_KEY   "user_id"
@@ -122,6 +124,8 @@ const char *get_avu_operator(json_t *avu, baton_error_t *error);
 const char *get_access_owner(json_t *access, baton_error_t *error);
 
 const char *get_access_level(json_t *access, baton_error_t *error);
+
+const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error);
 
 int has_acl(json_t *object);
 

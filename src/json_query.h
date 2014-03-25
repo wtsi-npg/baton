@@ -54,6 +54,9 @@ void log_json_error(log_level level, const char *category,
  * @param[in]  prepare_acl   Callback to add any ACL-fetching clauses to the
  *                           query. Used in cases where the search results
  *                           should include ACLs.
+ * @param[in]  prepare_tps   Callback to add any timestamp clauses to the
+ *                           query. Used in cases where the search results
+ *                           should include timestamps.
  * @param[in,out] error      An error report struct.
  *
  * @return A newly constructed JSON array of objects, one per result row. The
@@ -63,6 +66,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   query_format_in_t *format,
                   prepare_avu_search_cb prepare_avu,
                   prepare_acl_search_cb prepare_acl,
+                  prepare_tps_search_cb prepare_tps,
                   baton_error_t *error);
 
 /**
@@ -115,7 +119,8 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
  * Build a query to search by ACL.
  *
  * @param[out]  query_in     A query input.
- * @param[in]   avus         A JSON representation of ACLs.
+ * @param[in]   avus         A JSON representation of ACLs. These must be
+ *                           a JSON array of permission objects.
  * @param[in]   prepare      Callback to add any ACL-searching clauses to the
  *                           query.
  * @param[in,out] error      An error report struct.
@@ -127,11 +132,28 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
                                        prepare_acl_search_cb prepare,
                                        baton_error_t *error);
 
-json_t *add_timestamps_json_array(rcComm_t *conn, json_t *array,
-                                  baton_error_t *error);
+/**
+ * Build a query to search by timestamp(s).
+ *
+ * @param[out]  query_in     A query input.
+ * @param[in]   timestamps   A JSON representation of timestamps. These must
+                             be a JSON array of timestamp objects.
+ * @param[in]   prepare      Callback to add any timestamp-searching clauses
+ *                           to the query.
+ * @param[in,out] error      An error report struct.
+ *
+ * @return A modified query input with timestamp-searching clauses added.
+ */
+genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
+                                       json_t *timestamp,
+                                       prepare_tps_search_cb prepare,
+                                       baton_error_t *error);
 
-json_t *add_timestamps_json_object(rcComm_t *conn, json_t *target,
-                                   baton_error_t *error);
+json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
+                           baton_error_t *error);
+
+json_t *add_tps_json_object(rcComm_t *conn, json_t *target,
+                            baton_error_t *error);
 
 json_t *add_acl_json_array(rcComm_t *conn, json_t *target,
                            baton_error_t *error);

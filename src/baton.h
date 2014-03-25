@@ -97,6 +97,14 @@ typedef struct mod_metadata_in {
  */
 int is_irods_available();
 
+/**
+ * Set the SP_OPTION environment variable so that the 'ips' command
+ * knows the name of a client program.
+ *
+ * @param[in] name The client name.
+ *
+ * @return The return value of 'setenv'.
+ */
 int declare_client_name(const char *name);
 
 /**
@@ -178,6 +186,18 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                   baton_error_t *error);
 
+
+/**
+ * Return a JSON representation of the created and modified timestamps
+ * of a resolved iRODS path (data object or collection).
+ *
+ * @param[in]  conn      An open iRODS connection.
+ * @param[in]  rodspath  An iRODS path.
+ * @param[out] error     An error report struct.
+ *
+ * @return A new struct representing the timestamps, which must be
+ * freed by the caller.
+ */
 json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
                         baton_error_t *error);
 
