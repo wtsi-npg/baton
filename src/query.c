@@ -61,10 +61,10 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     query_in->continueInx   = 0;
     query_in->condInput.len = 0;
 
-    int *query_cond_indices = calloc(MAX_NUM_CONDITIONALS, sizeof (int));
+    int *query_cond_indices = calloc(MAX_NUM_CONDITIONS, sizeof (int));
     if (!query_cond_indices) goto error;
 
-    char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));
+    char **query_cond_values = calloc(MAX_NUM_CONDITIONS, sizeof (char *));
     if (!query_cond_values) goto error;
 
     query_in->sqlCondInp.inx   = query_cond_indices;
@@ -126,7 +126,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
         const char *operator = conds[i].operator;
         const char *name     = conds[i].value;
 
-        logmsg(DEBUG, BATON_CAT, "Adding conditional %d of %d: %s %s",
+        logmsg(DEBUG, BATON_CAT, "Adding condition %d of %d: %s %s",
                1, num_conds, name, operator);
 
         int expr_size = strlen(name) + strlen(operator) + 3 + 1;
@@ -136,7 +136,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
         snprintf(expr, expr_size, "%s '%s'", operator, name);
 
         logmsg(DEBUG, BATON_CAT,
-               "Added conditional %d of %d: %s, len %d, op: %s, "
+               "Added condition %d of %d: %s, len %d, op: %s, "
                "total len %d [%s]",
                i, num_conds, name, strlen(name), operator, expr_size, expr);
 

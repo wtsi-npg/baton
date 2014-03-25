@@ -300,7 +300,7 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
     return query_in;
 
 error:
-    return NULL;
+    return query_in;
 }
 
 genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
@@ -345,7 +345,7 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
     return query_in;
 
 error:
-    return NULL;
+    return query_in;
 }
 
 genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
@@ -358,7 +358,7 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
         json_t *tp = json_array_get(timestamps, i);
         if (!json_is_object(tp)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid timestamp at position %d of %d: ",
+                            "Invalid timestamp at position %d of %d: "
                             "not a JSON object", i, num_clauses);
             goto error;
         }
@@ -375,6 +375,13 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
             }
 
             char *raw_created = parse_timestamp(created, ISO8601_FORMAT);
+            if (!raw_created) {
+                set_baton_error(error, CAT_INVALID_ARGUMENT,
+                                "Invalid timestamp at position %d of %d, "
+                                "could not be parsed: '%s'", i, num_clauses,
+                                created);
+                goto error;
+            }
 
             prepare(query_in, raw_created, oper);
         }
@@ -383,7 +390,7 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
     return query_in;
 
 error:
-    return NULL;
+    return query_in;
 }
 
 json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
@@ -426,8 +433,6 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     return object;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (raw_timestamps)        json_decref(raw_timestamps);
@@ -452,8 +457,6 @@ json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     return NULL;
 }
 
@@ -489,8 +492,6 @@ json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
     return object;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
@@ -514,8 +515,6 @@ json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     return NULL;
 }
 

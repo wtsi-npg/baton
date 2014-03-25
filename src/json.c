@@ -252,7 +252,8 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
 
     json_t *timestamps = json_pack("[o, o]", iso_created, iso_modified);
     if (!timestamps) {
-        logmsg(ERROR, BATON_CAT, "Failed to pack timestamp array");
+        set_baton_error(error, -1, "Failed to pack timestamp array");
+        goto error;
     }
 
     return json_object_set_new(object, JSON_TIMESTAMP_KEY, timestamps);

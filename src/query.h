@@ -25,8 +25,8 @@
 
 #include "utilities.h"
 
-#define MAX_NUM_COLUMNS       128
-#define MAX_NUM_CONDITIONALS  32
+#define MAX_NUM_COLUMNS     128
+#define MAX_NUM_CONDITIONS   32
 
 #define SEARCH_OP_EQUALS "="
 #define SEARCH_OP_LIKE   "like"
@@ -116,11 +116,11 @@ void free_query_input(genQueryInp_t *query_in);
 void free_query_output(genQueryOut_t *query_out);
 
 /**
- * Append a new array of conditionals to an existing query.
+ * Append a new array of conditions to an existing query.
  *
  * @param[in] query_in       The query to free.
- * @param[in] num_conds      The number of conditionals to append.
- * @param[in] conds          An array of conditionals to append.
+ * @param[in] num_conds      The number of conditions to append.
+ * @param[in] conds          An array of conditions to append.
  *
  * @return The modified query.
  */
