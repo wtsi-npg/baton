@@ -79,4 +79,6 @@ FILE *maybe_stdin(const char *path);
 
 char *format_timestamp(const char *timestamp, const char *format);
 
+char *parse_timestamp(const char *timestamp, const char *format);
+
 #endif // _BATON_UTILITIES_H

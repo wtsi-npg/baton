@@ -25,8 +25,8 @@
 
 #include "utilities.h"
 
-#define MAX_NUM_COLUMNS       128
-#define MAX_NUM_CONDITIONALS  32
+#define MAX_NUM_COLUMNS     128
+#define MAX_NUM_CONDITIONS   32
 
 #define SEARCH_OP_EQUALS "="
 #define SEARCH_OP_LIKE   "like"
@@ -72,6 +72,10 @@ typedef genQueryInp_t *(*prepare_acl_search_cb) (genQueryInp_t *query_in,
                                                  const char *user_id,
                                                  const char *access_level);
 
+typedef genQueryInp_t *(*prepare_tps_search_cb) (genQueryInp_t *query_in,
+                                                 const char *raw_timestamp,
+                                                 const char *operator);
+
 /**
  * Log the current iRODS error stack through the underlying logging
  * mechanism.
@@ -112,11 +116,11 @@ void free_query_input(genQueryInp_t *query_in);
 void free_query_output(genQueryOut_t *query_out);
 
 /**
- * Append a new array of conditionals to an existing query.
+ * Append a new array of conditions to an existing query.
  *
  * @param[in] query_in       The query to free.
- * @param[in] num_conds      The number of conditionals to append.
- * @param[in] conds          An array of conditionals to append.
+ * @param[in] num_conds      The number of conditions to append.
+ * @param[in] conds          An array of conditions to append.
  *
  * @return The modified query.
  */
@@ -157,11 +161,11 @@ genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
 genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path);
 
-genQueryInp_t *prepare_obj_timestamp_list(genQueryInp_t *query_in,
-                                          rodsPath_t *rods_path);
+genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
+                                    rodsPath_t *rods_path);
 
-genQueryInp_t *prepare_col_timestamp_list(genQueryInp_t *query_in,
-                                          rodsPath_t *rods_path);
+genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
+                                    rodsPath_t *rods_path);
 
 genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
@@ -180,6 +184,14 @@ genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
 genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
                                       const char *user_id,
                                       const char *access_level);
+
+genQueryInp_t *prepare_obj_tps_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator);
+
+genQueryInp_t *prepare_col_tps_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator);
 
 genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
                                    const char *root_path);

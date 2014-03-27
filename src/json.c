@@ -33,10 +33,6 @@ static json_t *get_json_value(json_t *object, const char *name,
                               const char *key, const char *short_key,
                               baton_error_t *error);
 
-/* static json_t *get_opt_json_value(json_t *object, const char *name, */
-/*                                   const char *key, const char *short_key, */
-/*                                   baton_error_t *error); */
-
 static const char *get_string_value(json_t *object, const char *name,
                                     const char *key,
                                     const char *short_key,
@@ -47,7 +43,8 @@ static const char *get_opt_string_value(json_t *object, const char *name,
                                         const char *short_key,
                                         baton_error_t *error);
 
-static int has_string_value(json_t *json, const char *key);
+static int has_json_str_value(json_t *object, const char *key,
+                              const char *short_key);
 
 json_t *error_to_json(baton_error_t *error) {
     json_t *err = json_pack("{s:s, s:i}",
@@ -115,6 +112,16 @@ error:
     return NULL;
 }
 
+const char* get_collection_value(json_t *object, baton_error_t *error) {
+    return get_string_value(object, "path spec", JSON_COLLECTION_KEY,
+                            JSON_COLLECTION_SHORT_KEY, error);
+}
+
+const char* get_data_object_value(json_t *object, baton_error_t *error) {
+    return get_opt_string_value(object, "path spec", JSON_DATA_OBJECT_KEY,
+                                JSON_DATA_OBJECT_SHORT_KEY, error);
+}
+
 const char* get_created_timestamp(json_t *object, baton_error_t *error) {
     return get_string_value(object, "path spec", JSON_CREATED_KEY,
                             JSON_CREATED_SHORT_KEY, error);
@@ -153,6 +160,11 @@ const char *get_access_level(json_t *access, baton_error_t *error) {
     return get_string_value(access, "access spec", JSON_LEVEL_KEY, NULL, error);
 }
 
+const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
+    return get_opt_string_value(timestamp, "timestamp", JSON_OPERATOR_KEY,
+                                JSON_OPERATOR_SHORT_KEY, error);
+}
+
 int has_acl(json_t *object) {
     return json_object_get(object, JSON_ACCESS_KEY) != NULL;
 }
@@ -184,13 +196,17 @@ int contains_avu(json_t *avus, json_t *avu) {
 }
 
 int represents_collection(json_t *object) {
-    return (has_string_value(object, JSON_COLLECTION_KEY) &&
-            !has_string_value(object, JSON_DATA_OBJECT_KEY));
+    return (has_json_str_value(object, JSON_COLLECTION_KEY,
+                               JSON_COLLECTION_SHORT_KEY) &&
+            !has_json_str_value(object, JSON_DATA_OBJECT_KEY,
+                                JSON_DATA_OBJECT_SHORT_KEY));
 }
 
 int represents_data_object(json_t *object) {
-    return (has_string_value(object, JSON_COLLECTION_KEY) &&
-            has_string_value(object, JSON_DATA_OBJECT_KEY));
+    return (has_json_str_value(object, JSON_COLLECTION_KEY,
+                               JSON_COLLECTION_SHORT_KEY) &&
+            has_json_str_value(object, JSON_DATA_OBJECT_KEY,
+                               JSON_DATA_OBJECT_SHORT_KEY));
 }
 
 json_t *make_timestamp(const char* key, const char *value, const char *format,
@@ -236,7 +252,8 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
 
     json_t *timestamps = json_pack("[o, o]", iso_created, iso_modified);
     if (!timestamps) {
-        logmsg(ERROR, BATON_CAT, "Failed to pack timestamp array");
+        set_baton_error(error, -1, "Failed to pack timestamp array");
+        goto error;
     }
 
     return json_object_set_new(object, JSON_TIMESTAMP_KEY, timestamps);
@@ -342,24 +359,15 @@ char *json_to_path(json_t *object, baton_error_t *error) {
     char *path;
     init_baton_error(error);
 
-    json_t *coll = json_object_get(object, JSON_COLLECTION_KEY);
-    json_t *data = json_object_get(object, JSON_DATA_OBJECT_KEY);
-    if (!coll) {
-        set_baton_error(error, -1, "collection value was missing");
-        goto error;
-    }
-    if (!json_is_string(coll)) {
-        set_baton_error(error, -1,  "collection value was not a string");
-        goto error;
-    }
+    const char *collection = get_collection_value(object, error);
+    if (error->code != 0) goto error;
 
-    const char *collection = json_string_value(coll);
-
-    if (!data) {
+    if (!represents_data_object(object)) {
         path = copy_str(collection);
     }
     else {
-        const char *data_object = json_string_value(data);
+        const char *data_object = get_data_object_value(object, error);
+
         size_t clen = strlen(collection);
         size_t dlen = strlen(data_object);
         size_t len = clen + dlen + 1;
@@ -428,37 +436,6 @@ error:
     return NULL;
 }
 
-/* static json_t *get_opt_json_value(json_t *object, const char *name, */
-/*                                   const char *key, const char *short_key, */
-/*                                   baton_error_t *error) { */
-/*     if (!json_is_object(object)) { */
-/*         set_baton_error(error, CAT_INVALID_ARGUMENT, */
-/*                         "Invalid %s: not a JSON object", name); */
-/*         goto error; */
-/*     } */
-
-/*     json_t *value = json_object_get(object, key); */
-/*     if (!value && short_key) { */
-/*         value = json_object_get(object, short_key); */
-/*     } */
-
-/*     return value; */
-
-/* error: */
-/*     return NULL; */
-/* } */
-
-static int has_string_value(json_t *json, const char *key) {
-    int result = 0;
-
-    if (json_is_object(json)) {
-        json_t *value = json_object_get(json, key);
-        if (json_is_string(value)) result = 1;
-    }
-
-    return result;
-}
-
 static const char *get_string_value(json_t *object, const char *name,
                                     const char *key, const char *short_key,
                                     baton_error_t *error) {
@@ -521,4 +498,19 @@ static const char *get_opt_string_value(json_t *object, const char *name,
 
 error:
     return NULL;
+}
+
+static int has_json_str_value(json_t *object, const char *key,
+                              const char *short_key) {
+    json_t *value = NULL;
+
+    if (json_is_object(object)) {
+        value = json_object_get(object, key);
+
+        if (!value && short_key) {
+            value = json_object_get(object, short_key);
+        }
+    }
+
+    return value && json_is_string(value);
 }

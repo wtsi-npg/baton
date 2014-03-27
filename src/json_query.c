@@ -36,6 +36,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   query_format_in_t *format,
                   prepare_avu_search_cb prepare_avu,
                   prepare_acl_search_cb prepare_acl,
+                  prepare_tps_search_cb prepare_tps,
                   baton_error_t *error) {
     // This appears to be the maximum number of rows returned per
     // result chunk
@@ -72,13 +73,13 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     }
 
     // Timestamp is optional
-    // if (has_timestamp(query)) {
-    //     json_t *timestamp = get_timestamp(query, error);
-    //     if (error->code != 0) goto error;
-    //
-    //     query_in = prepare_timestamp_search(query_in, timestamp, error);
-    //     if (error->code != 0) goto error;
-    // }
+    if (has_timestamps(query)) {
+        json_t *tps = get_timestamps(query, error);
+        if (error->code != 0) goto error;
+
+        query_in = prepare_json_tps_search(query_in, tps, prepare_tps, error);
+        if (error->code != 0) goto error;
+    }
 
     if (zone_name) {
         logmsg(TRACE, BATON_CAT, "Setting zone to '%s'", zone_name);
@@ -106,7 +107,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
     char *err_name;
     char *err_subname;
     genQueryOut_t *query_out = NULL;
-    int chunk_num = 0;
+    int chunk_num     = 0;
     int continue_flag = 0;
 
     json_t *results = json_array();
@@ -195,7 +196,7 @@ error:
     }
 
     if (query_out) free_query_output(query_out);
-    if (results) json_decref(results);
+    if (results)   json_decref(results);
 
     return NULL;
 }
@@ -299,8 +300,7 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
     return query_in;
 
 error:
-
-    return NULL;
+    return query_in;
 }
 
 genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
@@ -345,14 +345,58 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
     return query_in;
 
 error:
-
-    return NULL;
+    return query_in;
 }
 
-json_t *add_timestamps_json_object(rcComm_t *conn, json_t *object,
-                                   baton_error_t *error) {
+genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
+                                       json_t *timestamps,
+                                       prepare_tps_search_cb prepare,
+                                       baton_error_t *error) {
+    int num_clauses = json_array_size(timestamps);
+
+    for (int i = 0; i < num_clauses; i++) {
+        json_t *tp = json_array_get(timestamps, i);
+        if (!json_is_object(tp)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid timestamp at position %d of %d: "
+                            "not a JSON object", i, num_clauses);
+            goto error;
+        }
+
+        if (has_created_timestamp(tp)) {
+            const char *created = get_created_timestamp(tp, error);
+            if (error->code != 0) goto error;
+
+            const char *oper = get_timestamp_operator(tp, error);
+            if (error->code != 0) goto error;
+
+            if (!oper) {
+                oper = SEARCH_OP_EQUALS;
+            }
+
+            char *raw_created = parse_timestamp(created, ISO8601_FORMAT);
+            if (!raw_created) {
+                set_baton_error(error, CAT_INVALID_ARGUMENT,
+                                "Invalid timestamp at position %d of %d, "
+                                "could not be parsed: '%s'", i, num_clauses,
+                                created);
+                goto error;
+            }
+
+            prepare(query_in, raw_created, oper);
+        }
+     }
+
+    return query_in;
+
+error:
+    return query_in;
+}
+
+json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
+                            baton_error_t *error) {
     rodsPath_t rods_path;
-    char *path = NULL;
+    char *path             = NULL;
     json_t *raw_timestamps = NULL;
 
     if (!json_is_object(object)) {
@@ -381,7 +425,7 @@ json_t *add_timestamps_json_object(rcComm_t *conn, json_t *object,
     add_timestamps(object, created, modified, error);
     if (error->code != 0) goto error;
 
-    if (path) free(path);
+    if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     json_decref(raw_timestamps);
@@ -389,17 +433,15 @@ json_t *add_timestamps_json_object(rcComm_t *conn, json_t *object,
     return object;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
-    if (path) free(path);
+    if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-    if (raw_timestamps) json_decref(raw_timestamps);
+    if (raw_timestamps)        json_decref(raw_timestamps);
 
     return NULL;
 }
 
-json_t *add_timestamps_json_array(rcComm_t *conn, json_t *array,
-                                  baton_error_t *error) {
+json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
+                           baton_error_t *error) {
     if (!json_is_array(array)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid target: not a JSON array");
@@ -408,15 +450,13 @@ json_t *add_timestamps_json_array(rcComm_t *conn, json_t *array,
 
     for (size_t i = 0; i < json_array_size(array); i++) {
         json_t *item = json_array_get(array, i);
-        add_timestamps_json_object(conn, item, error);
+        add_tps_json_object(conn, item, error);
         if (error->code != 0) goto error;
     }
 
     return array;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     return NULL;
 }
 
@@ -446,20 +486,17 @@ json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
     add_metadata(object, avus, error);
     if (error->code != 0) goto error;
 
-    if (path) free(path);
+    if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return object;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
-    if (path) free(path);
+    if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return NULL;
 }
-
 
 json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
                             baton_error_t *error) {
@@ -478,8 +515,6 @@ json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     return NULL;
 }
 
@@ -509,15 +544,13 @@ json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
     add_permissions(object, perms, error);
     if (error->code != 0) goto error;
 
-    if (path) free(path);
+    if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return object;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
-    if (path) free(path);
+    if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return NULL;
@@ -540,7 +573,5 @@ json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, BATON_CAT, error->message);
-
     return NULL;
 }

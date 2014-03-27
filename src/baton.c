@@ -267,7 +267,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                 if (error->code != 0) goto error;
             }
             if (flags & PRINT_TIMESTAMP) {
-                results = add_timestamps_json_object(conn, results, error);
+                results = add_tps_json_object(conn, results, error);
                 if (error->code != 0) goto error;
             }
 
@@ -288,7 +288,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                 if (error->code != 0) goto error;
             }
             if (flags & PRINT_TIMESTAMP) {
-                results = add_timestamps_json_array(conn, results, error);
+                results = add_tps_json_array(conn, results, error);
                 if (error->code != 0) goto error;
             }
 
@@ -479,7 +479,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
 
     collections = do_search(conn, zone_name, query, &col_format,
                             prepare_col_avu_search, prepare_col_acl_search,
-                            error);
+                            prepare_col_tps_search, error);
     if (error->code != 0) goto error;
 
     logmsg(TRACE, BATON_CAT, "Searching for data objects ...");
@@ -490,12 +490,22 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
 
     data_objects = do_search(conn, zone_name, query, &obj_format,
                              prepare_obj_avu_search, prepare_obj_acl_search,
-                             error);
+                             prepare_obj_tps_search, error);
     if (error->code != 0) goto error;
 
-    json_array_extend(results, collections); // TODO: check return value
+    int status = json_array_extend(results, collections);
+    if (status != 0) {
+        set_baton_error(error, status, "Failed to add collection results");
+        goto error;
+    }
+
+    status = json_array_extend(results, data_objects);
+    if (status != 0) {
+        set_baton_error(error, status, "Failed to add data object results");
+        goto error;
+    }
+
     json_decref(collections);
-    json_array_extend(results, data_objects); // TODO: check return value
     json_decref(data_objects);
 
     if (flags & PRINT_ACL) {
@@ -507,7 +517,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         if (error->code != 0) goto error;
     }
     if (flags & PRINT_TIMESTAMP) {
-        results = add_timestamps_json_array(conn, results, error);
+        results = add_tps_json_array(conn, results, error);
         if (error->code != 0) goto error;
     }
 
@@ -553,7 +563,7 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
                    rods_path->outPath);
             query_in = make_query_input(max_rows, obj_format.num_columns,
                                         obj_format.columns);
-            query_in = prepare_obj_timestamp_list(query_in, rods_path);
+            query_in = prepare_obj_tps_list(query_in, rods_path);
             break;
 
         case COLL_OBJ_T:
@@ -561,7 +571,7 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
                    rods_path->outPath);
             query_in = make_query_input(max_rows, col_format.num_columns,
                                         col_format.columns);
-            query_in = prepare_col_timestamp_list(query_in, rods_path);
+            query_in = prepare_col_tps_list(query_in, rods_path);
             break;
 
         default:
@@ -712,7 +722,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
         set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_name was null");
         goto error;
     }
-    if (strlen(attr_name) == 0) {
+    if (strnlen(attr_name, MAX_NAME_LEN) == 0) {
         set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_name was empty");
         goto error;
     }
@@ -721,7 +731,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
         set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_value was null");
         goto error;
     }
-    if (strlen(attr_value) == 0) {
+    if (strnlen(attr_value, MAX_NAME_LEN) == 0) {
         set_baton_error(error, CAT_INVALID_ARGUMENT, "attr_value was empty");
         goto error;
     }

@@ -61,10 +61,10 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     query_in->continueInx   = 0;
     query_in->condInput.len = 0;
 
-    int *query_cond_indices = calloc(MAX_NUM_CONDITIONALS, sizeof (int));
+    int *query_cond_indices = calloc(MAX_NUM_CONDITIONS, sizeof (int));
     if (!query_cond_indices) goto error;
 
-    char **query_cond_values = calloc(MAX_NUM_CONDITIONALS, sizeof (char *));
+    char **query_cond_values = calloc(MAX_NUM_CONDITIONS, sizeof (char *));
     if (!query_cond_values) goto error;
 
     query_in->sqlCondInp.inx   = query_cond_indices;
@@ -126,7 +126,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
         const char *operator = conds[i].operator;
         const char *name     = conds[i].value;
 
-        logmsg(DEBUG, BATON_CAT, "Adding conditional %d of %d: %s %s",
+        logmsg(DEBUG, BATON_CAT, "Adding condition %d of %d: %s %s",
                1, num_conds, name, operator);
 
         int expr_size = strlen(name) + strlen(operator) + 3 + 1;
@@ -136,7 +136,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
         snprintf(expr, expr_size, "%s '%s'", operator, name);
 
         logmsg(DEBUG, BATON_CAT,
-               "Added conditional %d of %d: %s, len %d, op: %s, "
+               "Added condition %d of %d: %s, len %d, op: %s, "
                "total len %d [%s]",
                i, num_conds, name, strlen(name), operator, expr_size, expr);
 
@@ -252,24 +252,22 @@ genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, tn });
 }
 
-genQueryInp_t *prepare_obj_timestamp_list(genQueryInp_t *query_in,
-                                          rodsPath_t *rods_path) {
+genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
+                                    rodsPath_t *rods_path) {
     char *data_id = rods_path->dataId;
     query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = data_id };
-
     int num_conds = 1;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { di });
 }
 
-genQueryInp_t *prepare_col_timestamp_list(genQueryInp_t *query_in,
-                                          rodsPath_t *rods_path) {
+genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
+                                    rodsPath_t *rods_path) {
     char *path = rods_path->outPath;
     query_cond_t cn = { .column   = COL_COLL_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = path };
-
     int num_conds = 1;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { cn });
 }
@@ -334,6 +332,26 @@ genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
     int num_conds = 3;
     return add_query_conds(query_in, num_conds,
                            (query_cond_t []) { tn, ui, al });
+}
+
+genQueryInp_t *prepare_obj_tps_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator) {
+    query_cond_t ts = { .column   = COL_D_CREATE_TIME,
+                        .operator = operator,
+                        .value    = raw_timestamp };
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+}
+
+genQueryInp_t *prepare_col_tps_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator) {
+    query_cond_t ts = { .column   = COL_COLL_CREATE_TIME,
+                        .operator = operator,
+                        .value    = raw_timestamp };
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
 genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
