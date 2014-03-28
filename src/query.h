@@ -39,6 +39,8 @@
 #define SEARCH_OP_NUM_GE "n>="
 #define SEARCH_OP_NUM_LE "n<="
 
+#define DEFAULT_REPL_NUM "0"
+
 #define ACCESS_NAMESPACE   "access_type"
 #define ACCESS_LEVEL_NULL  "null"
 #define ACCESS_LEVEL_OWN   "own"

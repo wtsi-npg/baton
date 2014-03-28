@@ -18,13 +18,15 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+// For strptime
+#include <config.h>
+
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <xlocale.h>
 
 #include <zlog.h>
 
@@ -220,7 +222,7 @@ char *parse_timestamp(const char *timestamp, const char *format) {
     }
 
     struct tm tm;
-    char *rest = strptime_l(timestamp, format, &tm, NULL);
+    char *rest = strptime(timestamp, format, &tm);
     if (!rest) {
         logmsg(ERROR, BATON_CAT, "Failed to parse ISO date time '%s'",
                timestamp);

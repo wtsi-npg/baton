@@ -258,8 +258,11 @@ genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
     query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = data_id };
-    int num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { di });
+    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = DEFAULT_REPL_NUM };
+    int num_conds = 2;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { di, rn });
 }
 
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
@@ -340,8 +343,11 @@ genQueryInp_t *prepare_obj_tps_search(genQueryInp_t *query_in,
     query_cond_t ts = { .column   = COL_D_CREATE_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
-    int num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = DEFAULT_REPL_NUM };
+    int num_conds = 2;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
 }
 
 genQueryInp_t *prepare_col_tps_search(genQueryInp_t *query_in,

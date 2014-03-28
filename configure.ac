@@ -1,6 +1,7 @@
 AC_INIT([baton], m4_esyscmd([git describe --dirty | tr -d '\012']), [kdj@sanger.ac.uk])
 
 AC_PREREQ(2.68)
+AC_USE_SYSTEM_EXTENSIONS
 
 AM_INIT_AUTOMAKE([foreign -Wall -Werror]) # Must precede AC_PROG_CC
 
