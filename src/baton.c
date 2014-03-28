@@ -582,9 +582,14 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
             goto error;
     }
 
+    addKeyVal(&query_in->condInput, ZONE_KW, rods_path->outPath);
+    logmsg(DEBUG, BATON_CAT, "Using zone hint '%s'", rods_path->outPath);
     results = do_query(conn, query_in, obj_format.labels, error);
     if (error->code != 0) goto error;
 
+    // We limit the query to replicate number 0, so we should see only
+    // one result. I don't know whether replicate 0 can ever be
+    // removed.
     if (json_array_size(results) != 1) {
         set_baton_error(error, -1, "Expected 1 timestamp result but found %d",
                         json_array_size(results));
