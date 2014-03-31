@@ -41,6 +41,7 @@
 #define JSON_TIMESTAMP_KEY "timestamp"
 #define JSON_CREATED_KEY   "created"
 #define JSON_MODIFIED_KEY  "modified"
+#define JSON_SIZE_KEY      "size"
 
 #define JSON_DATA_OBJECT_SHORT_KEY "o"
 #define JSON_COLLECTION_SHORT_KEY  "c"

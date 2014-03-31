@@ -38,6 +38,8 @@
 
 #define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
 
+#define FILE_SIZE_UNITS "KB"
+
 /**
  *  @enum metadata_op
  *  @brief AVU metadata operations.
@@ -67,8 +69,10 @@ typedef enum {
     PRINT_ACL       = 1 << 2,
     /** Print timestamps on collections and data objects */
     PRINT_TIMESTAMP = 1 << 3,
+    /** Print file sizes for data objects */
+    PRINT_SIZE      = 1 << 4,
     /** Pretty-print JSON */
-    PRINT_PRETTY    = 1 << 4
+    PRINT_PRETTY    = 1 << 5
 } print_flags;
 
 /**
