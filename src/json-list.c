@@ -126,13 +126,13 @@ int main(int argc, char *argv[]) {
     if (!USER_LOG_CONF_FILE) {
         if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
             fprintf(stderr, "Logging configuration failed "
-                    "(using system-defined configuration in '%s')\n",
+                    "(for system-defined configuration in '%s')\n",
                     SYSTEM_LOG_CONF_FILE);
         }
     }
     else if (zlog_init(USER_LOG_CONF_FILE)) {
         fprintf(stderr, "Logging configuration failed "
-                "(using user-defined configuration in '%s')\n",
+                "(for user-defined configuration in '%s')\n",
                 USER_LOG_CONF_FILE);
     }
 
