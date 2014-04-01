@@ -384,6 +384,7 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
             }
 
             prepare(query_in, raw_created, oper);
+            free(raw_created);
         }
      }
 

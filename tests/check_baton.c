@@ -264,9 +264,10 @@ START_TEST(test_list_obj) {
     // Default representation
     baton_error_t error1;
     json_t *results1 = list_path(conn, &rods_obj_path, PRINT_DEFAULT, &error1);
-    json_t *expected1 = json_pack("{s:s, s:s}",
+    json_t *expected1 = json_pack("{s:s, s:s, s:s}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
-                                  JSON_DATA_OBJECT_KEY, "f1.txt");
+                                  JSON_DATA_OBJECT_KEY, "f1.txt",
+                                  JSON_SIZE_KEY,        "0");
 
     ck_assert_int_eq(json_equal(results1, expected1), 1);
     ck_assert_int_eq(error1.code, 0);
@@ -274,9 +275,10 @@ START_TEST(test_list_obj) {
     // With ACL
     baton_error_t error2;
     json_t *results2 = list_path(conn, &rods_obj_path, PRINT_ACL, &error2);
-    json_t *expected2 = json_pack("{s:s, s:s, s:[O]}",
+    json_t *expected2 = json_pack("{s:s, s:s, s:s, s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
+                                  JSON_SIZE_KEY,        "0",
                                   JSON_ACCESS_KEY,      perm);
 
     ck_assert_int_eq(json_equal(results2, expected2), 1);
@@ -286,11 +288,13 @@ START_TEST(test_list_obj) {
     baton_error_t error3;
     json_t *results3 = list_path(conn, &rods_obj_path, PRINT_ACL | PRINT_AVU,
                                  &error3);
-    json_t *expected3 = json_pack("{s:s, s:s, s:[O], s:[O]}",
+    json_t *expected3 = json_pack("{s:s, s:s, s:s, s:[O], s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
+                                  JSON_SIZE_KEY,        "0",
                                   JSON_ACCESS_KEY,      perm,
-                                  JSON_AVUS_KEY,        avu);
+                                  JSON_AVUS_KEY,        avu,
+                                  JSON_SIZE_KEY,        "0");
 
     ck_assert_int_eq(json_equal(results3, expected3), 1);
     ck_assert_int_eq(error3.code, 0);

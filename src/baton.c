@@ -54,6 +54,9 @@ static const char *map_access_level(const char *access_level,
 
 static const char *revmap_access_level(const char *icat_level);
 
+static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
+                                baton_error_t *error);
+
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                baton_error_t *error);
 
@@ -255,7 +258,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
         case DATA_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
-            results = data_object_path_to_json(rods_path->outPath);
+            results = list_data_object(conn, rods_path, error);
             if (error->code != 0) goto error;
 
             if (flags & PRINT_ACL) {
@@ -484,9 +487,10 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
 
     logmsg(TRACE, BATON_CAT, "Searching for data objects ...");
     query_format_in_t obj_format =
-        { .num_columns = 2,
-          .columns     = { COL_COLL_NAME, COL_DATA_NAME},
-          .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY } };
+        { .num_columns = 3,
+          .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
+          .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
+                           JSON_SIZE_KEY} };
 
     data_objects = do_search(conn, zone_name, query, &obj_format,
                              prepare_obj_avu_search, prepare_obj_acl_search,
@@ -899,6 +903,47 @@ error:
            rods_path->outPath);
 
     if (result) json_decref(result);
+
+    return NULL;
+}
+
+static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
+                                baton_error_t *error) {
+    query_format_in_t obj_format =
+        { .num_columns  = 3,
+          .columns      = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
+          .labels       = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
+                            JSON_SIZE_KEY } };
+
+    genQueryInp_t *query_in = NULL;
+    json_t *results = NULL;
+    int max_rows = 10;
+    init_baton_error(error);
+
+    query_in = make_query_input(max_rows, obj_format.num_columns,
+                                obj_format.columns);
+    query_in = prepare_obj_list(query_in, rods_path, NULL);
+
+    results = do_query(conn, query_in, obj_format.labels, error);
+    if (error->code != 0) goto error;
+
+    if (json_array_size(results) != 1) {
+        set_baton_error(error, -1, "Expected 1 data object result but found %d",
+                        json_array_size(results));
+        goto error;
+    }
+
+    json_t *data_object = json_incref(json_array_get(results, 0));
+    json_array_clear(results);
+    json_decref(results);
+
+    if (query_in) free_query_input(query_in);
+
+    return data_object;
+
+error:
+    if (query_in) free_query_input(query_in);
+    if (results)  json_decref(results);
 
     return NULL;
 }
