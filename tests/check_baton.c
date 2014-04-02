@@ -264,10 +264,10 @@ START_TEST(test_list_obj) {
     // Default representation
     baton_error_t error1;
     json_t *results1 = list_path(conn, &rods_obj_path, PRINT_DEFAULT, &error1);
-    json_t *expected1 = json_pack("{s:s, s:s, s:s}",
+    json_t *expected1 = json_pack("{s:s, s:s, s:i}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
-                                  JSON_SIZE_KEY,        "0");
+                                  JSON_SIZE_KEY,        0);
 
     ck_assert_int_eq(json_equal(results1, expected1), 1);
     ck_assert_int_eq(error1.code, 0);
@@ -275,10 +275,10 @@ START_TEST(test_list_obj) {
     // With ACL
     baton_error_t error2;
     json_t *results2 = list_path(conn, &rods_obj_path, PRINT_ACL, &error2);
-    json_t *expected2 = json_pack("{s:s, s:s, s:s, s:[O]}",
+    json_t *expected2 = json_pack("{s:s, s:s, s:i, s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
-                                  JSON_SIZE_KEY,        "0",
+                                  JSON_SIZE_KEY,        0,
                                   JSON_ACCESS_KEY,      perm);
 
     ck_assert_int_eq(json_equal(results2, expected2), 1);
@@ -288,13 +288,12 @@ START_TEST(test_list_obj) {
     baton_error_t error3;
     json_t *results3 = list_path(conn, &rods_obj_path, PRINT_ACL | PRINT_AVU,
                                  &error3);
-    json_t *expected3 = json_pack("{s:s, s:s, s:s, s:[O], s:[O]}",
+    json_t *expected3 = json_pack("{s:s, s:s, s:i, s:[O], s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
-                                  JSON_SIZE_KEY,        "0",
+                                  JSON_SIZE_KEY,        0,
                                   JSON_ACCESS_KEY,      perm,
-                                  JSON_AVUS_KEY,        avu,
-                                  JSON_SIZE_KEY,        "0");
+                                  JSON_AVUS_KEY,        avu);
 
     ck_assert_int_eq(json_equal(results3, expected3), 1);
     ck_assert_int_eq(error3.code, 0);
@@ -306,7 +305,7 @@ START_TEST(test_list_obj) {
                                  &error4);
     ck_assert_int_eq(error4.code, 0);
 
-    json_t *timestamps = json_object_get(results4, JSON_TIMESTAMP_KEY);
+    json_t *timestamps = json_object_get(results4, JSON_TIMESTAMPS_KEY);
     ck_assert(json_is_array(timestamps));
     ck_assert_int_eq(json_array_size(timestamps), 2);
 
@@ -360,26 +359,29 @@ START_TEST(test_list_coll) {
                               JSON_OWNER_KEY, env.rodsUserName,
                               JSON_LEVEL_KEY, ACCESS_OWN);
     json_t *expected =
-        json_pack("[{s:s,      s:[o]},"  // base collection
-                  " {s:s, s:s, s:[o]},"  // f1.txt
-                  " {s:s, s:s, s:[o]},"  // f2.txt
-                  " {s:s, s:s, s:[o]},"  // f3.txt
-                  " {s:s, s:[o]},"       // a
-                  " {s:s, s:[o]},"       // b
-                  " {s:s, s:[o]}]",      // c
+        json_pack("[{s:s,           s:[o]},"  // base collection
+                  " {s:s, s:s, s:i, s:[o]},"  // f1.txt
+                  " {s:s, s:s, s:i, s:[o]},"  // f2.txt
+                  " {s:s, s:s, s:i, s:[o]},"  // f3.txt
+                  " {s:s, s:[o]},"            // a
+                  " {s:s, s:[o]},"            // b
+                  " {s:s, s:[o]}]",           // c
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_ACCESS_KEY,      perms,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f1.txt",
+                  JSON_SIZE_KEY,        0,
                   JSON_ACCESS_KEY,      perms,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f2.txt",
+                  JSON_SIZE_KEY,        0,
                   JSON_ACCESS_KEY,      perms,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f3.txt",
+                  JSON_SIZE_KEY,        0,
                   JSON_ACCESS_KEY,      perms,
 
                   JSON_COLLECTION_KEY,  a,
@@ -390,6 +392,10 @@ START_TEST(test_list_coll) {
 
                   JSON_COLLECTION_KEY,  c,
                   JSON_ACCESS_KEY,      perms);
+
+    print_json(expected);
+    print_json(results);
+
     ck_assert_ptr_ne(NULL, results);
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
@@ -778,7 +784,7 @@ START_TEST(test_search_metadata_tps_obj) {
     json_t *query_lt = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_root,
-                                 JSON_TIMESTAMP_KEY,  created_lt);
+                                 JSON_TIMESTAMPS_KEY,  created_lt);
 
     baton_error_t error_lt;
     json_t *results_lt = search_metadata(conn, query_lt, NULL, PRINT_DEFAULT,
@@ -794,7 +800,7 @@ START_TEST(test_search_metadata_tps_obj) {
     json_t *query_ge = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_root,
-                                 JSON_TIMESTAMP_KEY,  created_ge);
+                                 JSON_TIMESTAMPS_KEY,  created_ge);
 
     baton_error_t error_ge;
     json_t *results_ge = search_metadata(conn, query_ge, NULL, PRINT_DEFAULT,

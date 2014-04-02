@@ -337,7 +337,7 @@ genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
                            (query_cond_t []) { tn, ui, al });
 }
 
-genQueryInp_t *prepare_obj_tps_search(genQueryInp_t *query_in,
+genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator) {
     query_cond_t ts = { .column   = COL_D_CREATE_TIME,
@@ -350,10 +350,33 @@ genQueryInp_t *prepare_obj_tps_search(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
 }
 
-genQueryInp_t *prepare_col_tps_search(genQueryInp_t *query_in,
+genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator) {
+    query_cond_t ts = { .column   = COL_D_MODIFY_TIME,
+                        .operator = operator,
+                        .value    = raw_timestamp };
+    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = DEFAULT_REPL_NUM };
+    int num_conds = 2;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
+}
+
+genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator) {
     query_cond_t ts = { .column   = COL_COLL_CREATE_TIME,
+                        .operator = operator,
+                        .value    = raw_timestamp };
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+}
+
+genQueryInp_t *prepare_col_mod_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator) {
+    query_cond_t ts = { .column   = COL_COLL_MODIFY_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
     int num_conds = 1;

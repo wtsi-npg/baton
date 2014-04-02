@@ -97,12 +97,13 @@ error:
 }
 
 json_t *get_timestamps(json_t *object, baton_error_t *error) {
-    json_t *timestamps = get_json_value(object, "path spec", JSON_TIMESTAMP_KEY,
-                                        JSON_TIMESTAMP_SHORT_KEY, error);
+    json_t *timestamps = get_json_value(object, "path spec",
+                                        JSON_TIMESTAMPS_KEY,
+                                        JSON_TIMESTAMPS_SHORT_KEY, error);
     if (!json_is_array(timestamps)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON array",
-                        JSON_TIMESTAMP_KEY);
+                        JSON_TIMESTAMPS_KEY);
         goto error;
     }
 
@@ -259,7 +260,7 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
         goto error;
     }
 
-    return json_object_set_new(object, JSON_TIMESTAMP_KEY, timestamps);
+    return json_object_set_new(object, JSON_TIMESTAMPS_KEY, timestamps);
 
 error:
     return error->code;

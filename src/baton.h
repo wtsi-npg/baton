@@ -190,7 +190,6 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                   baton_error_t *error);
 
-
 /**
  * Return a JSON representation of the created and modified timestamps
  * of a resolved iRODS path (data object or collection).
