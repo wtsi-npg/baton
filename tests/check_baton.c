@@ -393,9 +393,6 @@ START_TEST(test_list_coll) {
                   JSON_COLLECTION_KEY,  c,
                   JSON_ACCESS_KEY,      perms);
 
-    print_json(expected);
-    print_json(results);
-
     ck_assert_ptr_ne(NULL, results);
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
