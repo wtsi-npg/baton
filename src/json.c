@@ -97,12 +97,13 @@ error:
 }
 
 json_t *get_timestamps(json_t *object, baton_error_t *error) {
-    json_t *timestamps = get_json_value(object, "path spec", JSON_TIMESTAMP_KEY,
-                                        NULL, error);
+    json_t *timestamps = get_json_value(object, "path spec",
+                                        JSON_TIMESTAMPS_KEY,
+                                        JSON_TIMESTAMPS_SHORT_KEY, error);
     if (!json_is_array(timestamps)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON array",
-                        JSON_TIMESTAMP_KEY);
+                        JSON_TIMESTAMPS_KEY);
         goto error;
     }
 
@@ -170,15 +171,18 @@ int has_acl(json_t *object) {
 }
 
 int has_timestamps(json_t *object) {
-    return json_object_get(object, JSON_TIMESTAMP_KEY) != NULL;
+  baton_error_t error;
+  init_baton_error(&error); // Ignore error
+
+  return get_timestamps(object, &error) != NULL;
 }
 
 int has_created_timestamp(json_t *object) {
-    return json_object_get(object, JSON_CREATED_KEY) != NULL;
+  return has_json_str_value(object, JSON_CREATED_KEY, JSON_CREATED_SHORT_KEY);
 }
 
 int has_modified_timestamp(json_t *object) {
-    return json_object_get(object, JSON_MODIFIED_KEY) != NULL;
+  return has_json_str_value(object, JSON_MODIFIED_KEY, JSON_MODIFIED_SHORT_KEY);
 }
 
 int contains_avu(json_t *avus, json_t *avu) {
@@ -256,7 +260,7 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
         goto error;
     }
 
-    return json_object_set_new(object, JSON_TIMESTAMP_KEY, timestamps);
+    return json_object_set_new(object, JSON_TIMESTAMPS_KEY, timestamps);
 
 error:
     return error->code;

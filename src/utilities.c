@@ -232,6 +232,8 @@ char *parse_timestamp(const char *timestamp, const char *format) {
     time_t time = timegm(&tm);
     snprintf(buffer, buffer_len, "%ld", time);
 
+    logmsg(DEBUG, BATON_CAT, "Parsed timestamp '%s' to '%ld'", timestamp, time);
+
     return buffer;
 
 error:

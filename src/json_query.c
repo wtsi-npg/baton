@@ -36,15 +36,14 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   query_format_in_t *format,
                   prepare_avu_search_cb prepare_avu,
                   prepare_acl_search_cb prepare_acl,
-                  prepare_tps_search_cb prepare_tps,
+                  prepare_tps_search_cb prepare_cre,
+                  prepare_tps_search_cb prepare_mod,
                   baton_error_t *error) {
-    // This appears to be the maximum number of rows returned per
-    // result chunk
-    int max_rows = 10;
     genQueryInp_t *query_in = NULL;
     json_t *items           = NULL;
 
-    query_in = make_query_input(max_rows, format->num_columns, format->columns);
+    query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns,
+                                format->columns);
 
     json_t *root_path = json_object_get(query, JSON_COLLECTION_KEY);
     if (root_path) {
@@ -77,7 +76,8 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
         json_t *tps = get_timestamps(query, error);
         if (error->code != 0) goto error;
 
-        query_in = prepare_json_tps_search(query_in, tps, prepare_tps, error);
+        query_in = prepare_json_tps_search(query_in, tps, prepare_cre,
+                                           prepare_mod, error);
         if (error->code != 0) goto error;
     }
 
@@ -350,7 +350,8 @@ error:
 
 genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        json_t *timestamps,
-                                       prepare_tps_search_cb prepare,
+                                       prepare_tps_search_cb prepare_cre,
+                                       prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error) {
     int num_clauses = json_array_size(timestamps);
 
@@ -363,30 +364,46 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
             goto error;
         }
 
-        if (has_created_timestamp(tp)) {
-            const char *created = get_created_timestamp(tp, error);
-            if (error->code != 0) goto error;
+        const char *oper = get_timestamp_operator(tp, error);
+        if (error->code != 0) goto error;
 
-            const char *oper = get_timestamp_operator(tp, error);
-            if (error->code != 0) goto error;
-
-            if (!oper) {
-                oper = SEARCH_OP_EQUALS;
-            }
-
-            char *raw_created = parse_timestamp(created, ISO8601_FORMAT);
-            if (!raw_created) {
-                set_baton_error(error, CAT_INVALID_ARGUMENT,
-                                "Invalid timestamp at position %d of %d, "
-                                "could not be parsed: '%s'", i, num_clauses,
-                                created);
-                goto error;
-            }
-
-            prepare(query_in, raw_created, oper);
-            free(raw_created);
+        if (!oper) {
+            oper = SEARCH_OP_EQUALS;
         }
-     }
+
+        prepare_tps_search_cb prepare;
+        const char *iso_timestamp;
+
+        if (has_created_timestamp(tp)) {
+            prepare = prepare_cre;
+            iso_timestamp = get_created_timestamp(tp, error);
+            if (error->code != 0) goto error;
+        }
+        else if (has_modified_timestamp(tp)) {
+            prepare = prepare_mod;
+            iso_timestamp = get_modified_timestamp(tp, error);
+            if (error->code != 0) goto error;
+        }
+        else {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid timestamp at position %d of %d: "
+                            "missing created/modified property",
+                            i, num_clauses);
+            goto error;
+        }
+
+        char *raw_timestamp = parse_timestamp(iso_timestamp, ISO8601_FORMAT);
+        if (!raw_timestamp) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid timestamp at position %d of %d, "
+                            "could not be parsed: '%s'", i, num_clauses,
+                            raw_timestamp);
+            goto error;
+        }
+
+        prepare(query_in, raw_timestamp, oper);
+        free(raw_timestamp);
+    }
 
     return query_in;
 

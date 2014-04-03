@@ -208,11 +208,11 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error) {
                            JSON_USER_TYPE_KEY, JSON_USER_ZONE_KEY } };
 
     genQueryInp_t *query_in = NULL;
-    json_t *results = NULL;
-    json_t *user = NULL;
-    int max_rows = 10;
+    json_t *results         = NULL;
+    json_t *user            = NULL;
 
-    query_in = make_query_input(max_rows, format.num_columns, format.columns);
+    query_in = make_query_input(SEARCH_MAX_ROWS, format.num_columns,
+                                format.columns);
     query_in = prepare_user_search(query_in, user_name);
 
     results = do_query(conn, query_in, format.labels, error);
@@ -326,7 +326,6 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
 
     genQueryInp_t *query_in = NULL;
     json_t *results         = NULL;
-    int max_rows = 10;
     init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
@@ -340,7 +339,7 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
         case DATA_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
-            query_in = make_query_input(max_rows, obj_format.num_columns,
+            query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
                                         obj_format.columns);
             query_in = prepare_obj_acl_list(query_in, rods_path);
             break;
@@ -348,7 +347,7 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
         case COLL_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
-            query_in = make_query_input(max_rows, col_format.num_columns,
+            query_in = make_query_input(SEARCH_MAX_ROWS, col_format.num_columns,
                                         col_format.columns);
             query_in = prepare_col_acl_list(query_in, rods_path);
             break;
@@ -403,8 +402,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
                             JSON_UNITS_KEY } };
 
     genQueryInp_t *query_in = NULL;
-    json_t *results = NULL;
-    int max_rows = 10;
+    json_t *results         = NULL;
     init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
@@ -418,7 +416,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
         case DATA_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
-            query_in = make_query_input(max_rows, obj_format.num_columns,
+            query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
                                         obj_format.columns);
             query_in = prepare_obj_list(query_in, rods_path, attr_name);
             break;
@@ -426,7 +424,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
         case COLL_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
-            query_in = make_query_input(max_rows, col_format.num_columns,
+            query_in = make_query_input(SEARCH_MAX_ROWS, col_format.num_columns,
                                         col_format.columns);
             query_in = prepare_col_list(query_in, rods_path, attr_name);
             break;
@@ -482,7 +480,8 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
 
     collections = do_search(conn, zone_name, query, &col_format,
                             prepare_col_avu_search, prepare_col_acl_search,
-                            prepare_col_tps_search, error);
+                            prepare_col_cre_search, prepare_col_mod_search,
+                            error);
     if (error->code != 0) goto error;
 
     logmsg(TRACE, BATON_CAT, "Searching for data objects ...");
@@ -494,7 +493,8 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
 
     data_objects = do_search(conn, zone_name, query, &obj_format,
                              prepare_obj_avu_search, prepare_obj_acl_search,
-                             prepare_obj_tps_search, error);
+                             prepare_obj_cre_search, prepare_obj_mod_search,
+                             error);
     if (error->code != 0) goto error;
 
     int status = json_array_extend(results, collections);
@@ -551,7 +551,6 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
     genQueryInp_t *query_in = NULL;
     json_t *results         = NULL;
     json_t *timestamps      = NULL;
-    int max_rows = 10;
     init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
@@ -565,7 +564,7 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
         case DATA_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a data object",
                    rods_path->outPath);
-            query_in = make_query_input(max_rows, obj_format.num_columns,
+            query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
                                         obj_format.columns);
             query_in = prepare_obj_tps_list(query_in, rods_path);
             break;
@@ -573,7 +572,7 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
         case COLL_OBJ_T:
             logmsg(TRACE, BATON_CAT, "Identified '%s' as a collection",
                    rods_path->outPath);
-            query_in = make_query_input(max_rows, col_format.num_columns,
+            query_in = make_query_input(SEARCH_MAX_ROWS, col_format.num_columns,
                                         col_format.columns);
             query_in = prepare_col_tps_list(query_in, rods_path);
             break;
@@ -916,11 +915,10 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
                             JSON_SIZE_KEY } };
 
     genQueryInp_t *query_in = NULL;
-    json_t *results = NULL;
-    int max_rows = 10;
+    json_t         *results = NULL;
     init_baton_error(error);
 
-    query_in = make_query_input(max_rows, obj_format.num_columns,
+    query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
                                 obj_format.columns);
     query_in = prepare_obj_list(query_in, rods_path, NULL);
 
@@ -936,6 +934,11 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *data_object = json_incref(json_array_get(results, 0));
     json_array_clear(results);
     json_decref(results);
+
+    json_t *str_size = json_object_get(data_object, JSON_SIZE_KEY);
+    int num_size = atol(json_string_value(str_size));
+    json_object_del(data_object, JSON_SIZE_KEY);
+    json_object_set_new(data_object, JSON_SIZE_KEY, json_integer(num_size));
 
     if (query_in) free_query_input(query_in);
 
@@ -1000,11 +1003,22 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                        coll_entry.collName, coll_entry.dataName);
                 entry = data_object_parts_to_json(coll_entry.collName,
                                                   coll_entry.dataName);
+
                 if (!entry) {
                     set_baton_error(error, -1, "Failed to pack '%s/%s' as JSON",
                                     coll_entry.collName, coll_entry.dataName);
                     goto query_error;
                 }
+
+                status = json_object_set_new(entry, JSON_SIZE_KEY,
+                                             json_integer(coll_entry.dataSize));
+                if (status != 0) {
+                    set_baton_error(error, status,
+                                    "Failed to add data size of '%s' to JSON: "
+                                    "error %d", rods_path->outPath, status);
+                    goto query_error;
+                }
+
                 break;
 
             case COLL_OBJ_T:

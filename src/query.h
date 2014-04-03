@@ -28,6 +28,8 @@
 #define MAX_NUM_COLUMNS     128
 #define MAX_NUM_CONDITIONS   32
 
+#define SEARCH_MAX_ROWS      10
+
 #define SEARCH_OP_EQUALS "="
 #define SEARCH_OP_LIKE   "like"
 #define SEARCH_OP_STR_GT ">"
@@ -187,11 +189,19 @@ genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
                                       const char *user_id,
                                       const char *access_level);
 
-genQueryInp_t *prepare_obj_tps_search(genQueryInp_t *query_in,
+genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
 
-genQueryInp_t *prepare_col_tps_search(genQueryInp_t *query_in,
+genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator);
+
+genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,
+                                      const char *raw_timestamp,
+                                      const char *operator);
+
+genQueryInp_t *prepare_col_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
 
