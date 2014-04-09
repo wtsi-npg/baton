@@ -22,7 +22,8 @@
 #define _BATON_UTILITIES_H
 
 #include <stdio.h>
-#include <unistd.h>
+
+#define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
 
 int str_starts_with(const char *str, const char *prefix);
 

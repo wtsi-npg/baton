@@ -18,7 +18,7 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#include <assert.h>
+#include <errno.h>
 #include <libgen.h>
 #include <string.h>
 #include <stdlib.h>
@@ -27,6 +27,7 @@
 #include <jansson.h>
 
 #include "json.h"
+#include "log.h"
 #include "utilities.h"
 
 static json_t *get_json_value(json_t *object, const char *name,
@@ -52,8 +53,7 @@ json_t *error_to_json(baton_error_t *error) {
                             JSON_ERROR_CODE_KEY, error->code);
 
     if (!err) {
-        logmsg(ERROR, BATON_CAT, "Failed to pack error '%s' as JSON",
-               error->message);
+        log(ERROR, "Failed to pack error '%s' as JSON", error->message);
     }
 
     return err;
@@ -298,8 +298,8 @@ json_t *data_object_parts_to_json(const char *coll_name,
                                JSON_COLLECTION_KEY,  coll_name,
                                JSON_DATA_OBJECT_KEY, data_name);
     if (!result) {
-        logmsg(ERROR, BATON_CAT, "Failed to pack data object '%s/%s' as JSON",
-               coll_name, data_name);
+        log(ERROR, "Failed to pack data object '%s/%s' as JSON",
+            coll_name, data_name);
     }
 
     return result;
@@ -341,9 +341,9 @@ json_t *query_args_to_json(const char *attr_name, const char *attr_value,
     }
 
     if (!result) {
-        logmsg(ERROR, BATON_CAT, "Failed to pack query attribute: '%s', "
-               "value: '%s', path: '%s' as JSON", attr_name, attr_value,
-               root_path);
+        log(ERROR, "Failed to pack query attribute: '%s', "
+            "value: '%s', path: '%s' as JSON", attr_name, attr_value,
+            root_path);
     }
 
     return result;
@@ -352,8 +352,7 @@ json_t *query_args_to_json(const char *attr_name, const char *attr_value,
 json_t *collection_path_to_json(const char *path) {
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
-        logmsg(ERROR, BATON_CAT, "Failed to pack collection '%s' as JSON",
-               path);
+        log(ERROR, "Failed to pack collection '%s' as JSON", path);
     }
 
     return result;

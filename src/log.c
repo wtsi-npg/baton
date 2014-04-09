@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,87 +18,83 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#include <zlog.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
 
-#include <log.h>
+#include "log.h"
+#include "utilities.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
+static log_level THRESHOLD = ERROR;
 
-int start_logging(const char *log_file) {
-    int status;
-
-    if (!log_file) {
-        status = zlog_init(SYSTEM_LOG_CONF_FILE);
-
-        if (status != 0) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using system-defined configuration in '%s')\n",
-                    SYSTEM_LOG_CONF_FILE);
-        }
-    }
-    else {
-        status = zlog_init(log_file);
-
-        if (status != 0) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using user-defined configuration in '%s')\n", log_file);
-        }
-    }
-
-    return status;
-}
-
-void finish_logging() {
-    zlog_fini();
-}
-
-void logmsg(log_level level, const char* category, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-
-    zlog_category_t *cat = zlog_get_category(category);
-    if (!cat) {
-        fprintf(stderr, "Failed to get zlog category '%s'\n", category);
-        goto error;
-    }
-
+const char *get_log_level_name(log_level level) {
     switch (level) {
         case FATAL:
-            vzlog_fatal(cat, format, args);
-            break;
-
+            return "FATAL";
         case ERROR:
-            vzlog_error(cat, format, args);
-            break;
-
+            return "ERROR";
         case WARN:
-            vzlog_warn(cat, format, args);
-            break;
-
+            return "WARN";
         case NOTICE:
-            vzlog_notice(cat, format, args);
-            break;
-
+            return "NOTICE";
         case INFO:
-            vzlog_info(cat, format, args);
-            break;
-
+            return "INFO";
         case TRACE:
-            vzlog_trace(cat, format, args);
-            break;
-
+            return "TRACE";
         case DEBUG:
-            vzlog_debug(cat, format, args);
-            break;
-
+            return "DEBUG";
         default:
-            vzlog_debug(cat, format, args);
+            return "UNKNOWN";
+    }
+}
+
+log_level get_log_threshold() {
+    return THRESHOLD;
+}
+
+log_level set_log_threshold(log_level level) {
+    log(DEBUG, "Setting log level to %s", get_log_level_name(level));
+
+    THRESHOLD = level;
+
+    return THRESHOLD;
+}
+
+void log_impl(int line, const char *file, char const *function,
+              log_level level, ...) {
+    if (level <= THRESHOLD) {
+        char buffer[32];
+
+        time_t t = time(0);
+        struct tm tm;
+        gmtime_r(&t, &tm);
+
+        int status = strftime(buffer, sizeof buffer, ISO8601_FORMAT, &tm);
+        if (status == 0) {
+            fprintf(stderr, "Failed to format timestamp '%s': error %d %s",
+                    buffer, errno, strerror(errno));
+            goto error;
+        }
+
+        fprintf(stderr, "%s %s ", buffer, get_log_level_name(level));
+
+        if (level >= TRACE) {
+            fprintf(stderr, "%s:%d:%s: ", file, line, function);
+        }
+
+        va_list args;
+        va_start(args, level);
+        const char *format = va_arg(args, char *);
+
+        vfprintf(stderr, format, args);
+        va_end(args);
+
+        fprintf(stderr, ".\n");
+        fflush(stderr);
     }
 
-    va_end(args);
-    return;
-
 error:
-    va_end(args);
     return;
 }

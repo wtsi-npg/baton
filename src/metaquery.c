@@ -24,13 +24,10 @@
 
 #include "rodsClient.h"
 #include "rodsPath.h"
-#include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
 #include "json.h"
-
-static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
 static int version_flag;
@@ -52,7 +49,6 @@ int main(int argc, char *argv[]) {
             {"version",   no_argument, &version_flag, 1},
             // Indexed options
             {"attr",      required_argument, NULL, 'a'},
-            {"logconf",   required_argument, NULL, 'l'},
             {"root",      required_argument, NULL, 'r'},
             {"value",     required_argument, NULL, 'v'},
             {"zone",      required_argument, NULL, 'z'},
@@ -60,7 +56,7 @@ int main(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:r:v:z:",
+        int c = getopt_long_only(argc, argv, "a:r:v:z:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -69,10 +65,6 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'a':
                 attr_name = optarg;
-                break;
-
-            case 'l':
-                USER_LOG_CONF_FILE = optarg;
                 break;
 
             case 'v':
@@ -123,8 +115,6 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    start_logging(USER_LOG_CONF_FILE);
-
     if (!attr_name) {
         fprintf(stderr, "An --attr argument is required\n");
         goto args_error;
@@ -137,14 +127,11 @@ int main(int argc, char *argv[]) {
 
     exit_status = do_search_metadata(attr_name, attr_value, root_path,
                                      zone_name);
-
-    finish_logging();
     exit(exit_status);
 
 args_error:
     exit_status = 4;
 
-    zlog_fini();
     exit(exit_status);
 }
 
@@ -162,7 +149,7 @@ int do_search_metadata(char *attr_name, char *attr_value, char *root_path,
     json_t *results = search_metadata(conn, target, zone_name, PRINT_DEFAULT,
                                       &error);
     if (error.code != 0) {
-        logmsg(ERROR, BATON_CAT, "Failed to search: %s", error.message);
+        log(ERROR, "Failed to search: %s", error.message);
         goto error;
     }
     else {

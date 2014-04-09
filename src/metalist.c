@@ -23,14 +23,11 @@
 
 #include "rodsClient.h"
 #include "rodsPath.h"
-#include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
 #include "json.h"
 #include "utilities.h"
-
-static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
 static int version_flag;
@@ -48,12 +45,11 @@ int main(int argc, char *argv[]) {
             {"version",   no_argument, &version_flag, 1},
             // Indexed options
             {"attr",      required_argument, NULL, 'a'},
-            {"logconf",   required_argument, NULL, 'l'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:",
+        int c = getopt_long_only(argc, argv, "a:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -62,10 +58,6 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'a':
                 attr_name = optarg;
-                break;
-
-            case 'l':
-                USER_LOG_CONF_FILE = optarg;
                 break;
 
             case '?':
@@ -100,12 +92,9 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    start_logging(USER_LOG_CONF_FILE);
-
     int status = do_list_metadata(argc, argv, optind, attr_name);
     if (status != 0) exit_status = 5;
 
-    finish_logging();
     exit(exit_status);
 }
 
@@ -125,7 +114,7 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
         int status = resolve_rods_path(conn, &env, &rods_path, path);
         if (status < 0) {
             error_count++;
-            logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+            log(ERROR, "Failed to resolve path '%s'", path);
         }
         else {
             baton_error_t error;
@@ -145,16 +134,14 @@ int do_list_metadata(int argc, char *argv[], int optind, char *attr_name) {
 
     rcDisconnect(conn);
 
-    logmsg(TRACE, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(TRACE, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return -1;
 }

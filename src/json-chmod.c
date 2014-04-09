@@ -24,18 +24,17 @@
 #include "rodsClient.h"
 #include "rodsPath.h"
 #include <jansson.h>
-#include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
 #include "json.h"
 #include "log.h"
 
-static char *USER_LOG_CONF_FILE = NULL;
-
+static int debug_flag;
 static int help_flag;
 static int recurse_flag;
 static int unbuffered_flag;
+static int verbose_flag;
 static int version_flag;
 
 int do_modify_permissions(FILE *input, recursive_op recurse);
@@ -48,18 +47,19 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
+            {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
             {"recurse",    no_argument, &recurse_flag,    1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
-            {"logconf",   required_argument, NULL, 'l'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:l:",
+        int c = getopt_long_only(argc, argv, "f:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -68,10 +68,6 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'f':
                 json_file = optarg;
-                break;
-
-            case 'l':
-                USER_LOG_CONF_FILE = optarg;
                 break;
 
             case '?':
@@ -101,6 +97,7 @@ int main(int argc, char *argv[]) {
         puts("    --recurse     Modify collection permissions recursively.");
         puts("                  Optional, defaults to false.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
+        puts("    --verbose     Print verbose messages to STDERR.");
         puts("");
 
         exit(0);
@@ -111,9 +108,10 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    start_logging(USER_LOG_CONF_FILE);
-    declare_client_name(argv[0]);
+    if (debug_flag)   set_log_threshold(DEBUG);
+    if (verbose_flag) set_log_threshold(NOTICE);
 
+    declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
     int status;
 
@@ -126,7 +124,6 @@ int main(int argc, char *argv[]) {
 
     if (status != 0) exit_status = 5;
 
-    finish_logging();
     exit(exit_status);
 }
 
@@ -145,8 +142,8 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
+                log(ERROR, "JSON error at line %d, column %d: %s",
+                    load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -164,9 +161,8 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
             json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
             if (perms) {
                 if (!json_is_array(perms)) {
-                    logmsg(ERROR, BATON_CAT,
-                           "Permissions data for %s is not in a JSON array",
-                           path);
+                    log(ERROR, "Permissions data for %s is not in a JSON array",
+                        path);
                     goto error;
                 }
 
@@ -174,8 +170,7 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
                 int status = resolve_rods_path(conn, &env, &rods_path, path);
                 if (status < 0) {
                     error_count++;
-                    logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'",
-                           path);
+                    log(ERROR, "Failed to resolve path '%s'", path);
                 }
                 else {
                     for (size_t i = 0; i < json_array_size(perms); i++) {
@@ -204,16 +199,14 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }

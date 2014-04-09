@@ -16,7 +16,6 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = baton.pc
 
 etcdir = $(sysconfdir)
-etc_DATA = baton_zlog.conf
 
 if COVERAGE_ENABLED
 .PHONY: coverage coverage-report clean-coverage-report check-coverage

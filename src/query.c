@@ -19,20 +19,22 @@
  */
 
 #include <assert.h>
+#include <errno.h>
 #include <libgen.h>
 #include <string.h>
 #include "rodsClient.h"
 
+#include "log.h"
 #include "query.h"
 #include "utilities.h"
 
-void log_rods_errstack(log_level level, const char *category, rError_t *error) {
+void log_rods_errstack(log_level level, rError_t *error) {
     rErrMsg_t *errmsg;
 
     int len = error->len;
     for (int i = 0; i < len; i++) {
 	    errmsg = error->errMsg[i];
-        logmsg(level, category, "Level %d: %s", i, errmsg->msg);
+        log(level, "Level %d: %s", i, errmsg->msg);
     }
 }
 
@@ -74,8 +76,8 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     return query_in;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    log(ERROR, "Failed to allocate memory: error %d %s",
+        errno, strerror(errno));
 
     return NULL;
 }
@@ -126,8 +128,8 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
         const char *operator = conds[i].operator;
         const char *name     = conds[i].value;
 
-        logmsg(DEBUG, BATON_CAT, "Adding condition %d of %d: %s %s",
-               1, num_conds, name, operator);
+        log(DEBUG, "Adding condition %d of %d: %s %s",
+            1, num_conds, name, operator);
 
         int expr_size = strlen(name) + strlen(operator) + 3 + 1;
         char *expr = calloc(expr_size, sizeof (char));
@@ -135,10 +137,9 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
 
         snprintf(expr, expr_size, "%s '%s'", operator, name);
 
-        logmsg(DEBUG, BATON_CAT,
-               "Added condition %d of %d: %s, len %d, op: %s, "
-               "total len %d [%s]",
-               i, num_conds, name, strlen(name), operator, expr_size, expr);
+        log(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
+            "total len %d [%s]",
+            i, num_conds, name, strlen(name), operator, expr_size, expr);
 
         int current_index = query_in->sqlCondInp.len;
         query_in->sqlCondInp.inx[current_index] = conds[i].column;
@@ -149,8 +150,8 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
     return query_in;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    log(ERROR, "Failed to allocate memory: error %d %s",
+        errno, strerror(errno));
 
     return NULL;
 }
@@ -197,8 +198,8 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
     return query_in;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    log(ERROR, "Failed to allocate memory: error %d %s",
+        errno, strerror(errno));
 
     return NULL;
 }
@@ -415,8 +416,8 @@ genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
     return query_in;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    log(ERROR, "Failed to allocate memory: error %d %s",
+        errno, strerror(errno));
 
     return NULL;
 }

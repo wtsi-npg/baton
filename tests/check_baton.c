@@ -42,12 +42,11 @@ static void set_current_rods_root(char *in, char *out) {
 }
 
 static void setup() {
-    // This is too late to initialise zlog; moved to main.
-    // zlog_init("test_zlog.conf");
+
 }
 
 static void teardown() {
-    finish_logging();
+
 }
 
 static void basic_setup() {
@@ -1472,8 +1471,6 @@ Suite *baton_suite(void) {
 }
 
 int main (void) {
-    start_logging("test_zlog.conf");
-
     Suite *suite = baton_suite();
 
     SRunner *runner = srunner_create(suite);

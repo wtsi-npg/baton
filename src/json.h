@@ -21,7 +21,10 @@
 #ifndef _BATON_JSON_H
 #define _BATON_JSON_H
 
-#include "baton.h"
+#include <jansson.h>
+#include "rodsClient.h"
+
+#include "error.h"
 
 #define JSON_ERROR_KEY             "error"
 #define JSON_ERROR_CODE_KEY        "code"

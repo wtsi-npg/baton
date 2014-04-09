@@ -21,14 +21,13 @@
 // For strptime
 #include <config.h>
 
-#include <assert.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#include "baton.h"
 #include "log.h"
 
 char *copy_str(const char *str) {
@@ -41,8 +40,8 @@ char *copy_str(const char *str) {
     return copy;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    log(ERROR, "Failed to allocate memory: error %d %s",
+        errno, strerror(errno));
 
     return NULL;
 }
@@ -111,8 +110,8 @@ FILE *maybe_stdin(const char *path) {
     return stream;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to open '%s': error %d %s",
-           path, errno, strerror(errno));
+    log(ERROR, "Failed to open '%s': error %d %s",
+        path, errno, strerror(errno));
 
     return NULL;
 }
@@ -122,34 +121,31 @@ char *format_timestamp(const char *raw_timestamp, const char *format) {
 
     char *buffer = calloc(buffer_len, sizeof (char));
     if (!buffer) {
-        logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-               errno, strerror(errno));
+        log(ERROR, "Failed to allocate memory: error %d %s",
+            errno, strerror(errno));
         goto error;
     }
 
     int base = 10;
     errno = 0;
-    time_t time = strtoul(raw_timestamp, NULL, base);
+    time_t t = strtoul(raw_timestamp, NULL, base);
     if (errno != 0) {
-        logmsg(ERROR, BATON_CAT,
-               "Failed to convert timestamp '%s' to a number: error %d %s",
-               raw_timestamp, errno, strerror(errno));
+        log(ERROR, "Failed to convert timestamp '%s' to a number: error %d %s",
+            raw_timestamp, errno, strerror(errno));
         goto error;
     }
 
     struct tm tm;
-    gmtime_r(&time, &tm);
+    gmtime_r(&t, &tm);
 
     int status = strftime(buffer, buffer_len, format, &tm);
     if (status == 0) {
-        logmsg(ERROR, BATON_CAT,
-               "Failed to format timestamp '%s' as an ISO date time: "
-               "error %d %s", raw_timestamp, errno, strerror(errno));
+        log(ERROR, "Failed to format timestamp '%s' as an ISO date time: "
+            "error %d %s", raw_timestamp, errno, strerror(errno));
         goto error;
     }
 
-    logmsg(DEBUG, BATON_CAT, "Converted timestamp '%s' to '%s'",
-           raw_timestamp, buffer);
+    log(DEBUG,"Converted timestamp '%s' to '%s'", raw_timestamp, buffer);
 
     return buffer;
 
@@ -164,23 +160,22 @@ char *parse_timestamp(const char *timestamp, const char *format) {
 
     char *buffer = calloc(buffer_len, sizeof (char));
     if (!buffer) {
-        logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-               errno, strerror(errno));
+        log(ERROR, "Failed to allocate memory: error %d %s",
+            errno, strerror(errno));
         goto error;
     }
 
     struct tm tm;
     char *rest = strptime(timestamp, format, &tm);
     if (!rest) {
-        logmsg(ERROR, BATON_CAT, "Failed to parse ISO date time '%s'",
-               timestamp);
+        log(ERROR, "Failed to parse ISO date time '%s'", timestamp);
         goto error;
     }
 
     time_t time = timegm(&tm);
     snprintf(buffer, buffer_len, "%ld", time);
 
-    logmsg(DEBUG, BATON_CAT, "Parsed timestamp '%s' to '%ld'", timestamp, time);
+    log(DEBUG, "Parsed timestamp '%s' to '%ld'", timestamp, time);
 
     return buffer;
 

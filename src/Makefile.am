@@ -8,8 +8,6 @@ else
 AM_CFLAGS = -Wall -Werror -Wextra -pedantic
 endif
 
-AM_CPPFLAGS = -DZLOG_CONF='"$(sysconfdir)/baton_zlog.conf"'
-
 lib_LTLIBRARIES = libbaton.la
 
 libbaton_la_SOURCES = baton.c error.c log.c json.c json_query.c query.c utilities.c

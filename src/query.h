@@ -86,10 +86,9 @@ typedef genQueryInp_t *(*prepare_tps_search_cb) (genQueryInp_t *query_in,
  * mechanism.
  *
  * @param[in] level     The logging level.
- * @param[in] category  The log message category.
  * @param[in] error     The iRODS error state.
  */
-void log_rods_errstack(log_level level, const char *category, rError_t *error);
+void log_rods_errstack(log_level level, rError_t *error);
 
 /**
  * Allocate a new iRODS generic query (see rodsGenQuery.h).

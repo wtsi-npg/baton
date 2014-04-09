@@ -21,15 +21,16 @@
 #include "rodsClient.h"
 #include <jansson.h>
 
+#include "baton.h"
 #include "json.h"
 #include "json_query.h"
+#include "log.h"
 #include "query.h"
 #include "utilities.h"
 
-void log_json_error(log_level level, const char *category,
-                    json_error_t *error) {
-    logmsg(level, category, "JSON error: %s, line %d, column %d, position %d",
-           error->text, error->line, error->column, error->position);
+void log_json_error(log_level level, json_error_t *error) {
+    log(level, "JSON error: %s, line %d, column %d, position %d",
+        error->text, error->line, error->column, error->position);
 }
 
 json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
@@ -82,7 +83,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     }
 
     if (zone_name) {
-        logmsg(TRACE, BATON_CAT, "Setting zone to '%s'", zone_name);
+        log(TRACE, "Setting zone to '%s'", zone_name);
         addKeyVal(&query_in->condInput, ZONE_KW, zone_name);
     }
 
@@ -90,7 +91,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     if (error->code != 0) goto error;
 
     free_query_input(query_in);
-    logmsg(TRACE, BATON_CAT, "Found %d matching items", json_array_size(items));
+    log(TRACE, "Found %d matching items", json_array_size(items));
 
     return items;
 
@@ -116,17 +117,15 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
         goto error;
     }
 
-    logmsg(DEBUG, BATON_CAT, "Running query ...");
+    log(DEBUG, "Running query ...");
 
     while (chunk_num == 0 || continue_flag > 0) {
-        logmsg(DEBUG, BATON_CAT, "Attempting to get chunk %d of query",
-               chunk_num);
+        log(DEBUG, "Attempting to get chunk %d of query", chunk_num);
 
         status = rcGenQuery(conn, query_in, &query_out);
 
         if (status == 0) {
-            logmsg(DEBUG, BATON_CAT, "Successfully fetched chunk %d of query",
-                   chunk_num);
+            log(DEBUG, "Successfully fetched chunk %d of query", chunk_num);
 
             // Allows query_out to be freed
             continue_flag = query_out->continueInx;
@@ -142,8 +141,8 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
                 goto error;
             }
 
-            logmsg(TRACE, BATON_CAT, "Converted query result to JSON: "
-                   "in chunk %d of %d", chunk_num, json_array_size(chunk));
+            log(TRACE, "Converted query result to JSON: in chunk %d of %d",
+                chunk_num, json_array_size(chunk));
             chunk_num++;
 
             status = json_array_extend(results, chunk);
@@ -161,14 +160,13 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
         else if (status == CAT_NO_ROWS_FOUND && chunk_num > 0) {
             // Oddly CAT_NO_ROWS_FOUND is also returned at the end of a
             // batch of chunks; test chunk_num to distinguish catch this
-            logmsg(TRACE, BATON_CAT,
-                   "Got CAT_NO_ROWS_FOUND at end of results!");
+            log(TRACE, "Got CAT_NO_ROWS_FOUND at end of results!");
             break;
         }
         else if (status == CAT_NO_ROWS_FOUND) {
             // If this genuinely means no rows have been found, should we
             // free this, or not? Current iRODS leaves this NULL.
-            logmsg(TRACE, BATON_CAT, "Query returned no results");
+            log(TRACE, "Query returned no results");
             break;
         }
         else {
@@ -181,18 +179,18 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
         }
     }
 
-    logmsg(DEBUG, BATON_CAT, "Obtained a total of %d JSON results in %d chunks",
-           chunk_num, json_array_size(results));
+    log(DEBUG, "Obtained a total of %d JSON results in %d chunks",
+        chunk_num, json_array_size(results));
 
     return results;
 
 error:
     if (conn->rError) {
-        logmsg(ERROR, BATON_CAT, error->message);
-        log_rods_errstack(ERROR, BATON_CAT, conn->rError);
+        log(ERROR, error->message);
+        log_rods_errstack(ERROR, conn->rError);
     }
     else {
-        logmsg(ERROR, BATON_CAT, error->message);
+        log(ERROR, error->message);
     }
 
     if (query_out) free_query_output(query_out);
@@ -204,21 +202,20 @@ error:
 json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
     json_t *array = json_array();
     if (!array) {
-        logmsg(ERROR, BATON_CAT, "Failed to allocate a new JSON array");
+        log(ERROR, "Failed to allocate a new JSON array");
         goto error;
     }
 
-    logmsg(DEBUG, BATON_CAT, "Converting %d rows of results to JSON",
-           query_out->rowCnt);
+    log(DEBUG, "Converting %d rows of results to JSON", query_out->rowCnt);
 
     for (int row = 0; row < query_out->rowCnt; row++) {
-        logmsg(DEBUG, BATON_CAT, "Converting row %d of %d to JSON",
+        log(DEBUG, "Converting row %d of %d to JSON",
                row, query_out->rowCnt);
 
         json_t *jrow = json_object();
         if (!jrow) {
-            logmsg(ERROR, BATON_CAT,"Failed to allocate a new JSON object for "
-                   "result row %d of %d", row, query_out->rowCnt);
+            log(ERROR, "Failed to allocate a new JSON object for "
+                "result row %d of %d", row, query_out->rowCnt);
             goto error;
         }
 
@@ -226,17 +223,16 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
             char *result = query_out->sqlResult[i].value;
             result += row * query_out->sqlResult[i].len;
 
-            logmsg(DEBUG, BATON_CAT,
-                   "Encoding column %d '%s' value '%s' as JSON",
-                   i, labels[i], result);
+            log(DEBUG, "Encoding column %d '%s' value '%s' as JSON",
+                i, labels[i], result);
 
             // Skip any results which return as an empty string
             // (notably units, when they are absent from an AVU).
             if (strlen(result) > 0) {
                 json_t *jvalue = json_string(result);
                 if (!jvalue) {
-                    logmsg(ERROR, BATON_CAT,
-                           "Failed to parse string '%s'; is it UTF-8?", result);
+                    log(ERROR, "Failed to parse string '%s'; is it UTF-8?",
+                        result);
                     goto error;
                 }
 
@@ -247,9 +243,8 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
 
         int status = json_array_append_new(array, jrow);
         if (status != 0) {
-            logmsg(ERROR, BATON_CAT,
-                   "Failed to append a new JSON result at row %d of %d",
-                   row, query_out->rowCnt);
+            log(ERROR, "Failed to append a new JSON result at row %d of %d",
+                row, query_out->rowCnt);
             goto error;
         }
     }
@@ -257,7 +252,7 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
     return array;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to convert row %d of %d to JSON");
+    log(ERROR, "Failed to convert row %d of %d to JSON");
 
     if (array) json_decref(array);
 

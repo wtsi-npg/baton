@@ -24,17 +24,16 @@
 #include "rodsClient.h"
 #include "rodsPath.h"
 #include <jansson.h>
-#include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
 #include "json.h"
 #include "log.h"
 
-static char *USER_LOG_CONF_FILE = NULL;
-
+static int debug_flag;
 static int help_flag;
 static int unbuffered_flag;
+static int verbose_flag;
 static int version_flag;
 
 int do_supersede_metadata(FILE *input);
@@ -47,17 +46,18 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
+            {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
-            {"logconf",   required_argument, NULL, 'l'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:l:",
+        int c = getopt_long_only(argc, argv, "f:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -66,10 +66,6 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'f':
                 json_file = optarg;
-                break;
-
-            case 'l':
-                USER_LOG_CONF_FILE = optarg;
                 break;
 
             case '?':
@@ -97,6 +93,7 @@ int main(int argc, char *argv[]) {
         puts("    --file        The JSON file describing the data objects.");
         puts("                  Optional, defaults to STDIN.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
+        puts("    --verbose     Print verbose messages to STDERR.");
         puts("");
 
         exit(0);
@@ -107,15 +104,15 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    start_logging(USER_LOG_CONF_FILE);
-    declare_client_name(argv[0]);
+    if (debug_flag)   set_log_threshold(DEBUG);
+    if (verbose_flag) set_log_threshold(NOTICE);
 
+    declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
     int status = do_supersede_metadata(input);
 
     if (status != 0) exit_status = 5;
 
-    finish_logging();
     exit(exit_status);
 }
 
@@ -134,8 +131,8 @@ int do_supersede_metadata(FILE *input) {
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
+                log(ERROR, "JSON error at line %d, column %d: %s",
+                    load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -153,8 +150,7 @@ int do_supersede_metadata(FILE *input) {
         else {
             json_t *avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
-                logmsg(ERROR, BATON_CAT,
-                       "AVU data for '%s' is not in a JSON array", path);
+                log(ERROR, "AVU data for '%s' is not in a JSON array", path);
                 goto error;
             }
 
@@ -162,8 +158,7 @@ int do_supersede_metadata(FILE *input) {
             int status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
                 error_count++;
-                logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'",
-                       path);
+                log(ERROR, "Failed to resolve path '%s'", path);
             }
             else {
                 baton_error_t list_error;
@@ -181,11 +176,11 @@ int do_supersede_metadata(FILE *input) {
                     char *str = json_dumps(current_avu, JSON_DECODE_ANY);
 
                     if (contains_avu(avus, current_avu)) {
-                        logmsg(TRACE, BATON_CAT, "Not removing AVU %s", str);
+                        log(TRACE, "Not removing AVU %s", str);
                     }
                     else {
                         baton_error_t rem_error;
-                        logmsg(TRACE, BATON_CAT, "Removing AVU %s", str);
+                        log(TRACE, "Removing AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_REM,
                                                  current_avu, &rem_error);
                         if (rem_error.code != 0) {
@@ -205,11 +200,11 @@ int do_supersede_metadata(FILE *input) {
                     char *str = json_dumps(avu, JSON_DECODE_ANY);
 
                     if (contains_avu(current_avus, avu)) {
-                        logmsg(TRACE, BATON_CAT, "Not adding AVU %s", str);
+                        log(TRACE, "Not adding AVU %s", str);
                     }
                     else {
                         baton_error_t add_error;
-                        logmsg(TRACE, BATON_CAT, "Adding AVU %s", str);
+                        log(TRACE, "Adding AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_ADD,
                                              avu, &add_error);
                         if (add_error.code != 0) {
@@ -238,16 +233,14 @@ int do_supersede_metadata(FILE *input) {
 
     rcDisconnect(conn);
 
-    logmsg(TRACE, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(TRACE, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }
