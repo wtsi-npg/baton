@@ -29,9 +29,7 @@
 #include "baton.h"
 #include "config.h"
 #include "json.h"
-#include "utilities.h"
-
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
+#include "log.h"
 
 static char *USER_LOG_CONF_FILE = NULL;
 
@@ -123,19 +121,7 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (!USER_LOG_CONF_FILE) {
-        if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(for system-defined configuration in '%s')\n",
-                    SYSTEM_LOG_CONF_FILE);
-        }
-    }
-    else if (zlog_init(USER_LOG_CONF_FILE)) {
-        fprintf(stderr, "Logging configuration failed "
-                "(for user-defined configuration in '%s')\n",
-                USER_LOG_CONF_FILE);
-    }
-
+    start_logging(USER_LOG_CONF_FILE);
     declare_client_name(argv[0]);
 
     input = maybe_stdin(json_file);
@@ -143,7 +129,7 @@ int main(int argc, char *argv[]) {
     int status = do_list_paths(input, pflags);
     if (status != 0) exit_status = 5;
 
-    zlog_fini();
+    finish_logging();
     exit(exit_status);
 }
 

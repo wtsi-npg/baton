@@ -36,6 +36,7 @@
 #include "error.h"
 #include "json.h"
 #include "json_query.h"
+#include "log.h"
 #include "query.h"
 #include "utilities.h"
 

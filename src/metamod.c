@@ -28,8 +28,6 @@
 #include "baton.h"
 #include "config.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
-
 static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
@@ -128,18 +126,7 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (!USER_LOG_CONF_FILE) {
-        if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using system-defined configuration in '%s')\n",
-                    SYSTEM_LOG_CONF_FILE);
-        }
-    }
-    else if (zlog_init(USER_LOG_CONF_FILE)) {
-        fprintf(stderr, "Logging configuration failed "
-                "(using user-defined configuration in '%s')\n",
-                USER_LOG_CONF_FILE);
-    }
+    start_logging(USER_LOG_CONF_FILE);
 
     switch (meta_op) {
         case META_ADD:
@@ -170,7 +157,7 @@ int main(int argc, char *argv[]) {
             goto args_error;
     }
 
-    zlog_fini();
+    finish_logging();
     exit(exit_status);
 
 args_error:

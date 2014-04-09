@@ -21,47 +21,8 @@
 #ifndef _BATON_UTILITIES_H
 #define _BATON_UTILITIES_H
 
-#include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
-
-#include <zlog.h>
-
-enum {
-    ZLOG_LEVEL_TRACE = 30
-};
-
-#define vzlog_trace(cat, format, args) \
-    vzlog(cat, __FILE__, sizeof(__FILE__) -1, __func__, \
-          sizeof(__func__) -1, __LINE__, ZLOG_LEVEL_TRACE, format, args)
-
-#define BATON_CAT "baton"
-
-/**
- *  @enum log_level
- *  @brief Log message levels.
- */
-typedef enum {
-    FATAL,
-    ERROR,
-    WARN,
-    NOTICE,
-    INFO,
-    TRACE,
-    DEBUG
-} log_level;
-
-/**
- * Log an error through the underlying logging mechanism.  This
- * function exists to abstract the logging implementation.
- *
- * @param[in] level    The logging level.
- * @param[in] category The log message category.  Categories are based
- * on e.g. program subsystem.
- * @param[in] format    The logging format string or template.
- * @param[in] arguments The format arguments.
- */
-void logmsg(log_level level, const char *category, const char *format, ...);
 
 int str_starts_with(const char *str, const char *prefix);
 

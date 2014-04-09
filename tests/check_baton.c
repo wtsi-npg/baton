@@ -21,11 +21,11 @@
 #include <unistd.h>
 
 #include <jansson.h>
-#include <zlog.h>
 #include <check.h>
 
 #include "../src/baton.h"
 #include "../src/json.h"
+#include "../src/log.h"
 
 static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
@@ -47,7 +47,7 @@ static void setup() {
 }
 
 static void teardown() {
-    zlog_fini();
+    finish_logging();
 }
 
 static void basic_setup() {
@@ -1472,7 +1472,7 @@ Suite *baton_suite(void) {
 }
 
 int main (void) {
-    zlog_init("test_zlog.conf");
+    start_logging("test_zlog.conf");
 
     Suite *suite = baton_suite();
 

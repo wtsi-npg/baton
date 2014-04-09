@@ -30,8 +30,6 @@
 #include "json.h"
 #include "utilities.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
-
 static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
@@ -102,25 +100,12 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (!USER_LOG_CONF_FILE) {
-        if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using system-defined configuration in '%s')\n",
-                    SYSTEM_LOG_CONF_FILE);
-        }
-    }
-    else {
-        if (zlog_init(USER_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using user-defined configuration in '%s')\n",
-                    USER_LOG_CONF_FILE);
-        }
-    }
+    start_logging(USER_LOG_CONF_FILE);
 
     int status = do_list_metadata(argc, argv, optind, attr_name);
     if (status != 0) exit_status = 5;
 
-    zlog_fini();
+    finish_logging();
     exit(exit_status);
 }
 

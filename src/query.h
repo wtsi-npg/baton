@@ -23,6 +23,7 @@
 
 #include "rodsClient.h"
 
+#include "log.h"
 #include "utilities.h"
 
 #define MAX_NUM_COLUMNS     128

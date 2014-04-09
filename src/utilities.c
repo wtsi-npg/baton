@@ -28,60 +28,8 @@
 #include <string.h>
 #include <time.h>
 
-#include <zlog.h>
-
-#include <baton.h>
-
-void logmsg(log_level level, const char* category, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-
-    zlog_category_t *cat = zlog_get_category(category);
-    if (!cat) {
-        fprintf(stderr, "Failed to get zlog category '%s'\n", category);
-        goto error;
-    }
-
-    switch (level) {
-        case FATAL:
-            vzlog_fatal(cat, format, args);
-            break;
-
-        case ERROR:
-            vzlog_error(cat, format, args);
-            break;
-
-        case WARN:
-            vzlog_warn(cat, format, args);
-            break;
-
-        case NOTICE:
-            vzlog_notice(cat, format, args);
-            break;
-
-        case INFO:
-            vzlog_info(cat, format, args);
-            break;
-
-        case TRACE:
-            vzlog_trace(cat, format, args);
-            break;
-
-        case DEBUG:
-            vzlog_debug(cat, format, args);
-            break;
-
-        default:
-            vzlog_debug(cat, format, args);
-    }
-
-    va_end(args);
-    return;
-
-error:
-    va_end(args);
-    return;
-}
+#include "baton.h"
+#include "log.h"
 
 char *copy_str(const char *str) {
     size_t len = strlen(str) + 1;
