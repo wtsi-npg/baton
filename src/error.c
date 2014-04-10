@@ -14,33 +14,34 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @file utilities.h
+ * @file error.c
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#ifndef _BATON_UTILITIES_H
-#define _BATON_UTILITIES_H
-
+#include <assert.h>
+#include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
-#define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
+#include "error.h"
 
-int str_starts_with(const char *str, const char *prefix);
+void init_baton_error(baton_error_t *error) {
+    assert(error);
+    error->message[0] = '\0';
+    error->code = 0;
+    error->size = 1;
+}
 
-int str_ends_with(const char *str, const char *suffix);
+void set_baton_error(baton_error_t *error, int code,
+                     const char *format, ...) {
+    va_list args;
+    va_start(args, format);
 
-int str_equals(const char *str1, const char *str2);
+    if (error) {
+        vsnprintf(error->message, MAX_ERROR_MESSAGE_LEN, format, args);
+        error->size = strnlen(error->message, MAX_ERROR_MESSAGE_LEN);
+        error->code = code;
+    }
 
-int str_equals_ignore_case(const char *str1, const char *str2);
-
-char *copy_str(const char *str);
-
-const char *parse_base_name(const char *path);
-
-FILE *maybe_stdin(const char *path);
-
-char *format_timestamp(const char *timestamp, const char *format);
-
-char *parse_timestamp(const char *timestamp, const char *format);
-
-#endif // _BATON_UTILITIES_H
+    va_end(args);
+}

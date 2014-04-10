@@ -18,66 +18,17 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#include <assert.h>
+// For strptime
+#include <config.h>
+
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-#include <zlog.h>
-
-#include <baton.h>
-
-void logmsg(log_level level, const char* category, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-
-    zlog_category_t *cat = zlog_get_category(category);
-    if (!cat) {
-        fprintf(stderr, "Failed to get zlog category '%s'\n", category);
-        goto error;
-    }
-
-    switch (level) {
-        case FATAL:
-            vzlog_fatal(cat, format, args);
-            break;
-
-        case ERROR:
-            vzlog_error(cat, format, args);
-            break;
-
-        case WARN:
-            vzlog_warn(cat, format, args);
-            break;
-
-        case NOTICE:
-            vzlog_notice(cat, format, args);
-            break;
-
-        case INFO:
-            vzlog_info(cat, format, args);
-            break;
-
-        case TRACE:
-            vzlog_trace(cat, format, args);
-            break;
-
-        case DEBUG:
-            vzlog_debug(cat, format, args);
-            break;
-
-        default:
-            vzlog_debug(cat, format, args);
-    }
-
-    va_end(args);
-    return;
-
-error:
-    va_end(args);
-    return;
-}
+#include "log.h"
 
 char *copy_str(const char *str) {
     size_t len = strlen(str) + 1;
@@ -89,8 +40,8 @@ char *copy_str(const char *str) {
     return copy;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    log(ERROR, "Failed to allocate memory: error %d %s",
+        errno, strerror(errno));
 
     return NULL;
 }
@@ -129,10 +80,10 @@ int str_ends_with(const char *str, const char *suffix) {
     return strncmp(str + (len - slen), suffix, len) == 0;
 }
 
-char *parse_base_name(const char *path) {
+const char *parse_base_name(const char *path) {
     const char delim = '/';
 
-    char *base_name = strrchr(path, delim);
+    const char *base_name = strrchr(path, delim);
 
     // Base name should not include the '/'
     if (base_name) {
@@ -159,8 +110,77 @@ FILE *maybe_stdin(const char *path) {
     return stream;
 
 error:
-    logmsg(ERROR, BATON_CAT, "Failed to open '%s': error %d %s",
-           path, errno, strerror(errno));
+    log(ERROR, "Failed to open '%s': error %d %s",
+        path, errno, strerror(errno));
+
+    return NULL;
+}
+
+char *format_timestamp(const char *raw_timestamp, const char *format) {
+    int buffer_len = 32;
+
+    char *buffer = calloc(buffer_len, sizeof (char));
+    if (!buffer) {
+        log(ERROR, "Failed to allocate memory: error %d %s",
+            errno, strerror(errno));
+        goto error;
+    }
+
+    int base = 10;
+    errno = 0;
+    time_t t = strtoul(raw_timestamp, NULL, base);
+    if (errno != 0) {
+        log(ERROR, "Failed to convert timestamp '%s' to a number: error %d %s",
+            raw_timestamp, errno, strerror(errno));
+        goto error;
+    }
+
+    struct tm tm;
+    gmtime_r(&t, &tm);
+
+    int status = strftime(buffer, buffer_len, format, &tm);
+    if (status == 0) {
+        log(ERROR, "Failed to format timestamp '%s' as an ISO date time: "
+            "error %d %s", raw_timestamp, errno, strerror(errno));
+        goto error;
+    }
+
+    log(DEBUG,"Converted timestamp '%s' to '%s'", raw_timestamp, buffer);
+
+    return buffer;
+
+error:
+    if (buffer) free(buffer);
+
+    return NULL;
+}
+
+char *parse_timestamp(const char *timestamp, const char *format) {
+    int buffer_len = 32;
+
+    char *buffer = calloc(buffer_len, sizeof (char));
+    if (!buffer) {
+        log(ERROR, "Failed to allocate memory: error %d %s",
+            errno, strerror(errno));
+        goto error;
+    }
+
+    struct tm tm;
+    char *rest = strptime(timestamp, format, &tm);
+    if (!rest) {
+        log(ERROR, "Failed to parse ISO date time '%s'", timestamp);
+        goto error;
+    }
+
+    time_t time = timegm(&tm);
+    snprintf(buffer, buffer_len, "%ld", time);
+
+    log(DEBUG, "Parsed timestamp '%s' to '%ld'", timestamp, time);
+
+    return buffer;
+
+error:
+    if (buffer) free(buffer);
 
     return NULL;
 }

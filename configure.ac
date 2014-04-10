@@ -1,11 +1,13 @@
 AC_INIT([baton], m4_esyscmd([git describe --dirty | tr -d '\012']), [kdj@sanger.ac.uk])
 
 AC_PREREQ(2.68)
+AC_USE_SYSTEM_EXTENSIONS
 
 AM_INIT_AUTOMAKE([foreign -Wall -Werror]) # Must precede AC_PROG_CC
 
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
+
 AM_PROG_AR
 
 LT_INIT
@@ -72,14 +74,6 @@ ensure that you have configured the location of
 your iRODS installation
 -----------------------------------------------])
 ], [-lpthread -lgssapi_krb5])
-
-AC_CHECK_LIB([zlog], [zlog_init], [],
-             [AC_MSG_ERROR([
------------------------------------------------
-Unable to find the required logging library
-zlog. Please ensure that it is installed.
------------------------------------------------])
-])
 
 AC_CHECK_LIB([jansson], [json_unpack], [],
              [AC_MSG_ERROR([

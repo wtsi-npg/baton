@@ -24,22 +24,19 @@
 #include "rodsClient.h"
 #include "rodsPath.h"
 #include <jansson.h>
-#include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
 #include "json.h"
-#include "utilities.h"
+#include "log.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
-
-static char *USER_LOG_CONF_FILE = NULL;
-
+static int debug_flag;
 static int help_flag;
+static int unbuffered_flag;
+static int verbose_flag;
 static int version_flag;
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, FILE *input);
+int do_modify_metadata(FILE *input, metadata_op operation);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
@@ -50,17 +47,19 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"help",      no_argument, &help_flag,    1},
-            {"version",   no_argument, &version_flag, 1},
+            {"debug",      no_argument, &debug_flag,      1},
+            {"help",       no_argument, &help_flag,       1},
+            {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"verbose",    no_argument, &verbose_flag,    1},
+            {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
-            {"logconf",   required_argument, NULL, 'l'},
             {"operation", required_argument, NULL, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:l:o:",
+        int c = getopt_long_only(argc, argv, "f:o:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -69,10 +68,6 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'f':
                 json_file = optarg;
-                break;
-
-            case 'l':
-                USER_LOG_CONF_FILE = optarg;
                 break;
 
             case 'o':
@@ -111,6 +106,8 @@ int main(int argc, char *argv[]) {
         puts("                  Required.");
         puts("    --file        The JSON file describing the data objects.");
         puts("                  Optional, defaults to STDIN.");
+        puts("    --unbuffered  Flush print operations for each JSON object.");
+        puts("    --verbose     Print verbose messages to STDERR.");
         puts("");
 
         exit(0);
@@ -121,18 +118,8 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (!USER_LOG_CONF_FILE) {
-        if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using system-defined configuration in '%s')\n",
-                    SYSTEM_LOG_CONF_FILE);
-        }
-    }
-    else if (zlog_init(USER_LOG_CONF_FILE)) {
-        fprintf(stderr, "Logging configuration failed "
-                "(using user-defined configuration in '%s')\n",
-                USER_LOG_CONF_FILE);
-    }
+    if (debug_flag)   set_log_threshold(DEBUG);
+    if (verbose_flag) set_log_threshold(NOTICE);
 
     declare_client_name(argv[0]);
 
@@ -140,8 +127,7 @@ int main(int argc, char *argv[]) {
         case META_ADD:
         case META_REM:
             input = maybe_stdin(json_file);
-            int status = do_modify_metadata(argc, argv, optind, meta_op,
-                                            input);
+            int status = do_modify_metadata(input, meta_op);
             if (status != 0) exit_status = 5;
             break;
 
@@ -151,19 +137,15 @@ int main(int argc, char *argv[]) {
             goto args_error;
     }
 
-    zlog_fini();
     exit(exit_status);
 
 args_error:
     exit_status = 4;
 
-error:
-    zlog_fini();
     exit(exit_status);
 }
 
-int do_modify_metadata(int argc, char *argv[], int optind,
-                       metadata_op operation, FILE *input) {
+int do_modify_metadata(FILE *input, metadata_op operation) {
     int path_count = 0;
     int error_count = 0;
 
@@ -178,8 +160,8 @@ int do_modify_metadata(int argc, char *argv[], int optind,
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
+                log(ERROR, "JSON error at line %d, column %d: %s",
+                    load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -230,23 +212,22 @@ int do_modify_metadata(int argc, char *argv[], int optind,
         }
 
         print_json(target);
-        fflush(stdout);
+        if (unbuffered_flag) fflush(stdout);
+
         json_decref(target);
         free(path);
     } // while
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }

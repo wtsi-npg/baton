@@ -23,14 +23,9 @@
 
 #include "rodsClient.h"
 #include "rodsPath.h"
-#include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
-
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
-
-static char *USER_LOG_CONF_FILE = NULL;
 
 static int help_flag;
 static int version_flag;
@@ -53,7 +48,6 @@ int main(int argc, char *argv[]) {
             {"version",   no_argument, &version_flag, 1},
             // Indexed options
             {"attr",      required_argument, NULL, 'a'},
-            {"logconf",   required_argument, NULL, 'l'},
             {"operation", required_argument, NULL, 'o'},
             {"units",     required_argument, NULL, 'u'},
             {"value",     required_argument, NULL, 'v'},
@@ -61,7 +55,7 @@ int main(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "a:l:o:u:v:",
+        int c = getopt_long_only(argc, argv, "a:o:u:v:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -70,10 +64,6 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'a':
                 attr_name = optarg;
-                break;
-
-            case 'l':
-                USER_LOG_CONF_FILE = optarg;
                 break;
 
             case 'o':
@@ -128,19 +118,6 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (!USER_LOG_CONF_FILE) {
-        if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using system-defined configuration in '%s')\n",
-                    SYSTEM_LOG_CONF_FILE);
-        }
-    }
-    else if (zlog_init(USER_LOG_CONF_FILE)) {
-        fprintf(stderr, "Logging configuration failed "
-                "(using user-defined configuration in '%s')\n",
-                USER_LOG_CONF_FILE);
-    }
-
     switch (meta_op) {
         case META_ADD:
             if (!attr_name) {
@@ -170,23 +147,17 @@ int main(int argc, char *argv[]) {
             goto args_error;
     }
 
-    zlog_fini();
     exit(exit_status);
 
 args_error:
     exit_status = 4;
 
-error:
-    zlog_fini();
     exit(exit_status);
 }
 
 int do_modify_metadata(int argc, char *argv[], int optind,
                        metadata_op operation,
                        char *attr_name, char *attr_value, char *attr_units) {
-    char *err_name;
-    char *err_subname;
-
     int path_count = 0;
     int error_count = 0;
 
@@ -202,7 +173,7 @@ int do_modify_metadata(int argc, char *argv[], int optind,
         int status = resolve_rods_path(conn, &env, &rods_path, path);
         if (status < 0) {
             error_count++;
-            logmsg(ERROR, BATON_CAT, "Failed to resolve path '%s'", path);
+            log(ERROR, "Failed to resolve path '%s'", path);
         }
         else {
             baton_error_t error;
@@ -216,16 +187,14 @@ int do_modify_metadata(int argc, char *argv[], int optind,
 
     rcDisconnect(conn);
 
-    logmsg(TRACE, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(TRACE, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, BATON_CAT, "Processed %d paths with %d errors",
-           path_count, error_count);
+    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }

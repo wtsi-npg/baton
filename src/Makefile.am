@@ -4,15 +4,15 @@ MOSTLYCLEANFILES = *.gcda *.gcno
 if COVERAGE_ENABLED
 AM_CFLAGS = -fprofile-arcs -ftest-coverage
 AM_LDFLAGS = --coverage
+else
+AM_CFLAGS = -Wall -Werror -Wextra -pedantic
 endif
-
-AM_CPPFLAGS = -DZLOG_CONF='"$(sysconfdir)/baton_zlog.conf"'
 
 lib_LTLIBRARIES = libbaton.la
 
-libbaton_la_SOURCES = baton.c json.c utilities.c
+libbaton_la_SOURCES = baton.c error.c log.c json.c json_query.c query.c utilities.c
 libbaton_includedir = $(includedir)/baton
-libbaton_include_HEADERS = baton.h json.h utilities.h
+libbaton_include_HEADERS = baton.h error.h log.h json.h json_query.h query.h utilities.h
 
 bin_PROGRAMS = metalist metamod metaquery json-chmod json-list json-metalist json-metamod json-metaquery json-metasuper
 

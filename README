@@ -6,36 +6,37 @@ baton |bəˈtän|
 Client programs and API for use with iRODS (Integrated Rule-Oriented
 Data System).
 
-Baton is intended as a supplement to the command line client programs
+baton is intended as a supplement to the command line client programs
 (ils, imeta etc.) provided with a standard iRODS installation. Its
 focus is metadata operations for iRODS collections and data objects.
 
 The features it provides are:
 
-- Listing of data objects and collections as JSON.
+- Listing of data objects and collections as JSON, including their
+  metadata (AVUs), file size, access control lists (ACLs) and creation
+  and modification timestamps.
 
-- Listing metadata on data objects and collections as JSON.
+- Queries on metadata, on access control lists (ACLs), creation and
+  modification timestamps and timestamp ranges. The full range of
+  iRODS query operators is supported.
 
-- Queries and modification of metadata on data objects and
-  collections.
+- A single JSON representation throughout for listing, queries and
+  updates.
 
-- A single JSON representation for paths and metadata used in listing,
-  queries and updates.
-
-- IPC via pipes with fine-grained error reporting for batch
-  operations.
+- Unbuffered option for IPC via pipes with fine-grained error
+  reporting for batch operations.
 
 
 Installation:
 
-Install iRODS and baton dependencies (Jansson and zlog) as described
-in their documentation. iRODS does not install its headers and
-libraries in the standard locations, therefore you should set the
-environment variable IRODS_HOME to the root of your iRODS
-installation before executing the following commands.
+Install iRODS and baton dependencies (Jansson) as described in their
+documentation. iRODS does not install its headers and libraries in the
+standard locations, therefore you should set the environment variable
+IRODS_HOME to the root of your iRODS installation before executing the
+following commands.
 
-# Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation
-source set_irods_home.sh
+# Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation (assuming bash)
+IRODS_HOME=<path to iRODS> source set_irods_home.sh
 
 # Generate the configure script
 autoreconf -i
@@ -49,8 +50,12 @@ make
 # Optionally, run the test suite
 make check
 
-# Install
-make install
+# If you have run configure with the optional --enable-coverage flag
+# you can generate test coverage statistics with lcov.
+make check-coverage
+
+# Install, including HTML manual and manpage.
+make clean install
 
 
 Synopsis:
@@ -59,80 +64,16 @@ For full details of the JSON accepted and returned by the programs in
 baton, see the manual in the doc directory.
 
 
-- Listing collections and data objects
-
-    $ echo '{"collection": "test"}' | json-list
-
-    [
-     {
-      "collection": "/Sanger1-dev/home/test"
-      "data_object": "test.txt"
-     }
-     {
-      "collection": "/Sanger1-dev/home/test/a"
-     }
-     {
-      "collection": "/Sanger1-dev/home/test/b"
-     }
-    ]
-
-    $ echo '{"collection": "no_such_path"}' | json-list
-    {
-     "collection": "no_such_path",
-     "error": {
-      "code": -310000,
-      "message": "Path '/Sanger1-dev/home/no_such_path' does not \
-    exist (or lacks access permission)"
-     }
-    }
-
-
-- Listing metadata on collections and data objects
-
-    $ echo '{"collection": "test"}' | json-metalist
-
-    {
-     "collection": "test",
-     "avus": [
-      {
-       "attribute": "attr1",
-       "value": "value1"
-      },
-      {
-       "attribute": "attr2",
-       "value": "value2"
-      }
-     ]
-    }
-
-
-- Adding and removing metadata on collections and data objects
-
-    $ echo '{"collection": "test", \
-             "avus": [{"attribute": "x", "value": "y"}, \
-                      {"attribute": "m", "value": "n", "units": "mm"}]}' \
-      | json-metamod --operation add
-
-    {
-     "collection": "test",
-     "avus": [
-      {
-       "attribute": "x",
-       "value": "y"
-      },
-      {
-       "attribute": "m",
-       "value": "n",
-       "units": "mm"
-      }
-     ]
-    }
-
-
-
 Dependencies:
 
 iRODS   http://www.irods.org
 
 Jansson https://github.com/akheron/jansson.git
-zlog    https://github.com/HardySimpson/zlog.git
+
+Optional dependencies:
+
+Sphinx http://sphinx-doc.org/               (for the manual and manpages).
+check  http://check.sourceforge.net/        (for unit tests).
+lcov   http://ltp.sourceforge.net/coverage/ (for test coverage analysis)
+
+jq     http://stedolan.github.io/jq/        (for processing input and output)

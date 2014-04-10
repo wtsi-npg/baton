@@ -27,46 +27,16 @@
 #include <jansson.h>
 
 #include "config.h"
+#include "error.h"
+#include "query.h"
 #include "utilities.h"
 
-#define ACCESS_NAMESPACE   "access_type"
-#define ACCESS_LEVEL_NULL  "null"
-#define ACCESS_LEVEL_OWN   "own"
-#define ACCESS_LEVEL_READ  "read"
-#define ACCESS_LEVEL_WRITE "write"
-
-#define MAX_NUM_COLUMNS       128
-#define MAX_NUM_CONDITIONALS  32
-#define MAX_ERROR_MESSAGE_LEN 1024
 #define MAX_CLIENT_NAME_LEN   512
 
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rm"
 
-#define SEARCH_OP_EQUALS "="
-#define SEARCH_OP_LIKE   "like"
-#define SEARCH_OP_STR_GT ">"
-#define SEARCH_OP_STR_LT "<"
-#define SEARCH_OP_NUM_GT "n>"
-#define SEARCH_OP_NUM_LT "n<"
-#define SEARCH_OP_STR_GE ">="
-#define SEARCH_OP_STR_LE "<="
-#define SEARCH_OP_NUM_GE "n>="
-#define SEARCH_OP_NUM_LE "n<="
-
-#define JSON_ATTRIBUTE_KEY "attribute"
-#define JSON_VALUE_KEY     "value"
-#define JSON_UNITS_KEY     "units"
-#define JSON_AVUS_KEY      "avus"
-#define JSON_OPERATOR_KEY  "operator"
-#define JSON_ACCESS_KEY    "access"
-#define JSON_OWNER_KEY     "owner"
-#define JSON_LEVEL_KEY     "level"
-
-#define JSON_USER_NAME_KEY "user_name"
-#define JSON_USER_ID_KEY   "user_id"
-#define JSON_USER_TYPE_KEY "user_type"
-#define JSON_USER_ZONE_KEY "user_zone"
+#define FILE_SIZE_UNITS "KB"
 
 /**
  *  @enum metadata_op
@@ -90,13 +60,17 @@ typedef enum {
 
 typedef enum {
     /** Print minimal collections and data object */
-    PRINT_DEFAULT = 0,
+    PRINT_DEFAULT   = 0,
     /** Print AVUs on collections and data objects */
-    PRINT_AVU     = 1 << 0,
+    PRINT_AVU       = 1 << 0,
     /** Print ACLs on collections and data objects */
-    PRINT_ACL     = 1 << 2,
+    PRINT_ACL       = 1 << 2,
+    /** Print timestamps on collections and data objects */
+    PRINT_TIMESTAMP = 1 << 3,
+    /** Print file sizes for data objects */
+    PRINT_SIZE      = 1 << 4,
     /** Pretty-print JSON */
-    PRINT_PRETTY  = 1 << 3
+    PRINT_PRETTY    = 1 << 5
 } print_flags;
 
 /**
@@ -118,78 +92,6 @@ typedef struct mod_metadata_in {
     char *attr_units;
 } mod_metadata_in_t;
 
-typedef struct query_format_in {
-    /** The number of columns to return */
-    int num_columns;
-    /** The ICAT columns to return */
-    const int columns[MAX_NUM_COLUMNS];
-    /** The labels to use for the returned column values */
-    const char *labels[MAX_NUM_COLUMNS];
-} query_format_in_t;
-
-typedef struct query_cond {
-    /** The ICAT column to match e.g. COL_META_DATA_ATTR_NAME */
-    int column;
-    /** The operator to use e.g. "=", "<", ">" */
-    const char *operator;
-    /** The value to match */
-    const char *value;
-} query_cond_t;
-
-typedef struct baton_error {
-    /** Error code */
-    int code;
-    /** Error message */
-    char message[MAX_ERROR_MESSAGE_LEN];
-    /** Error message length */
-    size_t size;
-} baton_error_t;
-
-
-/**
- * Log the current iRODS error stack through the underlying logging
- * mechanism.
- *
- * @param[in] level     The logging level.
- * @param[in] category  The log message category.
- * @param[in] error     The iRODS error state.
- */
-void log_rods_errstack(log_level level, const char *category, rError_t *error);
-
-/**
- * Log the current JSON error state through the underlying logging
- * mechanism.
- *
- * @param[in] level     The logging level.
- * @param[in] category  The log message category.
- * @param[in] error     The JSON error state.
- */
-void log_json_error(log_level level, const char *category,
-                    json_error_t *error);
-
-/**
- * Initialise an error struct before use.
- *
- * @param[in] error     A new JSON error state.
- *
- * @ref set_baton_error
- */
-void init_baton_error(baton_error_t *error);
-
-/**
- * Set error state information. The size field will be set to the
- * length of the formatted message.
- *
- * @param[in] error      The error struct to modify.
- * @param[in] code       The error code.
- * @param[in] format     The error message format string or template.
- * @param[in] arguments  The format arguments.
- *
- * @ref init_baton_error
- */
-void set_baton_error(baton_error_t *error, int code,
-                     const char *format, ...);
-
 /**
  * Test that a connection can be made to the server.
  *
@@ -197,6 +99,14 @@ void set_baton_error(baton_error_t *error, int code,
  */
 int is_irods_available();
 
+/**
+ * Set the SP_OPTION environment variable so that the 'ips' command
+ * knows the name of a client program.
+ *
+ * @param[in] name The client name.
+ *
+ * @return The return value of 'setenv'.
+ */
 int declare_client_name(const char *name);
 
 /**
@@ -279,6 +189,20 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
                   baton_error_t *error);
 
 /**
+ * Return a JSON representation of the created and modified timestamps
+ * of a resolved iRODS path (data object or collection).
+ *
+ * @param[in]  conn      An open iRODS connection.
+ * @param[in]  rodspath  An iRODS path.
+ * @param[out] error     An error report struct.
+ *
+ * @return A new struct representing the timestamps, which must be
+ * freed by the caller.
+ */
+json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error);
+
+/**
  * Return a JSON representation of the access control list of a
  * resolved iRODS path (data object or collection).
  *
@@ -291,39 +215,6 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
  */
 json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
                          baton_error_t *error);
-
-/**
- * Modify the access control list of a resolved iRODS path.
- *
- * @param[in]     conn      An open iRODS connection.
- * @param[out]    rodspath  An iRODS path.
- * @param[in]     recurse   Recurse into collections, one of RECURSE,
-                            NO_RECURSE.
- * @param[in]     perms     An iRODS access control mode (read, write etc.)
- * @param[in,out] error     An error report struct.
- *
- * @return 0 on success, iRODS error code on failure.
- */
-int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                       recursive_op recurse, char *owner_specifier,
-                       char *access_level,  baton_error_t *error);
-
-/**
- * Modify the access control list of a resolved iRODS path.  The
- * functionality is identical to modify_permission, except that the
- * access control argument is a JSON struct.
- *
- * @param[in]  conn       An open iRODS connection.
- * @param[out] rodspath   An iRODS path.
- * @param[in]  recurse    Recurse into collections, one of RECURSE, NO_RECURSE.
- * @param[in]  perms      A JSON access control object.
- * @param[out] error      An error report struct.
- *
- * @return 0 on success, iRODS error code on failure.
- */
-int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                            recursive_op recurse, json_t *perms,
-                            baton_error_t *error);
 
 /**
  * List metadata of a specified data object or collection.
@@ -359,6 +250,39 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
                         print_flags flags, baton_error_t *error);
 
 /**
+ * Modify the access control list of a resolved iRODS path.
+ *
+ * @param[in]     conn      An open iRODS connection.
+ * @param[out]    rodspath  An iRODS path.
+ * @param[in]     recurse   Recurse into collections, one of RECURSE,
+                            NO_RECURSE.
+ * @param[in]     perms     An iRODS access control mode (read, write etc.)
+ * @param[in,out] error     An error report struct.
+ *
+ * @return 0 on success, iRODS error code on failure.
+ */
+int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                       recursive_op recurse, char *owner_specifier,
+                       char *access_level,  baton_error_t *error);
+
+/**
+ * Modify the access control list of a resolved iRODS path.  The
+ * functionality is identical to modify_permission, except that the
+ * access control argument is a JSON struct.
+ *
+ * @param[in]  conn       An open iRODS connection.
+ * @param[out] rodspath   An iRODS path.
+ * @param[in]  recurse    Recurse into collections, one of RECURSE, NO_RECURSE.
+ * @param[in]  perms      A JSON access control object.
+ * @param[out] error      An error report struct.
+ *
+ * @return 0 on success, iRODS error code on failure.
+ */
+int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
+                            recursive_op recurse, json_t *perms,
+                            baton_error_t *error);
+
+/**
  * Apply a metadata operation to an AVU on a resolved iRODS path.
  *
  * @param[in]     conn        An open iRODS connection.
@@ -392,76 +316,5 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
                          baton_error_t *error);
-/**
- * Allocate a new iRODS generic query (see rodsGenQuery.h).
- *
- * @param[in] max_rows     Maximum number of rows to return.
- * @param[in] num_columns  The number of columns to select.
- * @param[in] columns      The columns to select.
- *
- * @return A pointer to a new genQueryInp_t which must be freed using
- * @ref free_query_input
- */
-genQueryInp_t *make_query_input(int max_rows, int num_columns,
-                                const int columns[]);
-/**
- * Free memory used by an iRODS generic query (see rodsGenQuery.h).
- *
- * @param[in] query_in       The query to free.
- *
- * @ref make_query_input
- */
-void free_query_input(genQueryInp_t *query_in);
-
-/**
- * Free memory used by an iRODS generic query result (see
- * rodsGenQuery.h).
- *
- * @param[in] query_out       The query result to free.
- */
-void free_query_output(genQueryOut_t *query_out);
-
-/**
- * Append a new array of conditionals to an existing query.
- *
- * @param[in] query_in       The query to free.
- * @param[in] num_conds      The number of conditionals to append.
- * @param[in] conds          An array of conditionals to append.
- *
- * @return The modified query.
- */
-genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
-                               const query_cond_t conds[]);
-
-/**
- * Execute a general query and obtain results as a JSON array of objects.
- * Columns in the query are mapped to JSON object properties specified
- * by the labels argument.
- *
- * @param[in]  conn          An open iRODS connection.
- * @param[in]  query_in      A populated query input.
- * @param[in]  labels        An array of as many labels as there were columns
- *                           selected in the query.
- * @param[in,out] error      An error report struct.
- *
- * @return A newly constructed JSON array of objects, one per result row. The
- * caller must free this after use.
- */
-json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
-                 const char *labels[], baton_error_t *error);
-
-/**
- * Construct a JSON array of objects from a query output. Columns in the
- * query are mapped to JSON object properties specified by the labels
- * argument.
- *
- * @param[in] query_out     A populated query output.
- * @param[in] labels        An array of as many labels as there were columns
- *                          selected in the query.
- *
- * @return A newly constructed JSON array of objects, one per result row. The
- * caller must free this after use.
- */
-json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]);
 
 #endif // _BATON_H
