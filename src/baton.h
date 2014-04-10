@@ -36,8 +36,6 @@
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rm"
 
-#define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
-
 #define FILE_SIZE_UNITS "KB"
 
 /**

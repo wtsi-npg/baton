@@ -26,17 +26,16 @@
 
 #include "error.h"
 #include "query.h"
+#include "utilities.h"
 
 /**
  * Log the current JSON error state through the underlying logging
  * mechanism.
  *
  * @param[in] level     The logging level.
- * @param[in] category  The log message category.
  * @param[in] error     The JSON error state.
  */
-void log_json_error(log_level level, const char *category,
-                    json_error_t *error);
+void log_json_error(log_level level, json_error_t *error);
 
 /**
  * Execute a general query and obtain results as a JSON array of objects.

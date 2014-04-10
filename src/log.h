@@ -14,33 +14,39 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @file utilities.h
+ * @file log.h
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#ifndef _BATON_UTILITIES_H
-#define _BATON_UTILITIES_H
+#ifndef _BATON_LOG_H
+#define _BATON_LOG_H
 
-#include <stdio.h>
+#include <stdarg.h>
 
-#define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
+/**
+ *  @enum log_level
+ *  @brief Log message levels.
+ */
+typedef enum {
+    FATAL  = 0,
+    ERROR  = 1,
+    WARN   = 2,
+    NOTICE = 3,
+    INFO   = 4,
+    TRACE  = 5,
+    DEBUG  = 6
+} log_level;
 
-int str_starts_with(const char *str, const char *prefix);
+#define log(level, ...) \
+    log_impl(__LINE__, __FILE__, __FUNCTION__, level, __VA_ARGS__);
 
-int str_ends_with(const char *str, const char *suffix);
+void log_impl(int line, const char *file, char const *function,
+              log_level level, ...);
 
-int str_equals(const char *str1, const char *str2);
+log_level get_log_threshold();
 
-int str_equals_ignore_case(const char *str1, const char *str2);
+log_level set_log_threshold(log_level level);
 
-char *copy_str(const char *str);
+const char *get_log_level_name(log_level level);
 
-const char *parse_base_name(const char *path);
-
-FILE *maybe_stdin(const char *path);
-
-char *format_timestamp(const char *timestamp, const char *format);
-
-char *parse_timestamp(const char *timestamp, const char *format);
-
-#endif // _BATON_UTILITIES_H
+#endif  // _BATON_LOG_H

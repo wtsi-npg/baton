@@ -29,11 +29,11 @@ The features it provides are:
 
 Installation:
 
-Install iRODS and baton dependencies (Jansson and zlog) as described
-in their documentation. iRODS does not install its headers and
-libraries in the standard locations, therefore you should set the
-environment variable IRODS_HOME to the root of your iRODS
-installation before executing the following commands.
+Install iRODS and baton dependencies (Jansson) as described in their
+documentation. iRODS does not install its headers and libraries in the
+standard locations, therefore you should set the environment variable
+IRODS_HOME to the root of your iRODS installation before executing the
+following commands.
 
 # Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation (assuming bash)
 IRODS_HOME=<path to iRODS> source set_irods_home.sh
@@ -69,7 +69,6 @@ Dependencies:
 iRODS   http://www.irods.org
 
 Jansson https://github.com/akheron/jansson.git
-zlog    https://github.com/HardySimpson/zlog.git
 
 Optional dependencies:
 

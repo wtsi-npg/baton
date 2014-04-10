@@ -75,14 +75,6 @@ your iRODS installation
 -----------------------------------------------])
 ], [-lpthread -lgssapi_krb5])
 
-AC_CHECK_LIB([zlog], [zlog_init], [],
-             [AC_MSG_ERROR([
------------------------------------------------
-Unable to find the required logging library
-zlog. Please ensure that it is installed.
------------------------------------------------])
-])
-
 AC_CHECK_LIB([jansson], [json_unpack], [],
              [AC_MSG_ERROR([
 -----------------------------------------------

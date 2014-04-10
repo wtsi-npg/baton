@@ -24,20 +24,19 @@
 
 #include "rodsClient.h"
 #include "rodsPath.h"
-#include <zlog.h>
 
 #include "baton.h"
 #include "config.h"
 #include "json.h"
+#include "log.h"
 
-static char *SYSTEM_LOG_CONF_FILE = ZLOG_CONF; // Set by autoconf
-static char *USER_LOG_CONF_FILE = NULL;
-
+static int debug_flag;
 static int acl_flag;
 static int avu_flag;
 static int help_flag;
 static int timestamp_flag;
 static int unbuffered_flag;
+static int verbose_flag;
 static int version_flag;
 
 int do_search_metadata(FILE *input, char *zone_name, print_flags pflags);
@@ -52,21 +51,22 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
+            {"debug",      no_argument, &debug_flag,      1},
             {"acl",        no_argument, &acl_flag,        1},
             {"avu",        no_argument, &avu_flag,        1},
             {"help",       no_argument, &help_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
-            {"logconf",   required_argument, NULL, 'l'},
             {"zone",      required_argument, NULL, 'z'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:l:z:",
+        int c = getopt_long_only(argc, argv, "f:z:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -75,10 +75,6 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'f':
                 json_file = optarg;
-                break;
-
-            case 'l':
-                USER_LOG_CONF_FILE = optarg;
                 break;
 
             case 'z':
@@ -117,6 +113,7 @@ int main(int argc, char *argv[]) {
         puts("                  defaults to STDIN.");
         puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
+        puts("    --verbose     Print verbose messages to STDERR.");
         puts("    --zone        The zone to search. Optional");
         puts("");
 
@@ -128,26 +125,14 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (!USER_LOG_CONF_FILE) {
-        if (zlog_init(SYSTEM_LOG_CONF_FILE)) {
-            fprintf(stderr, "Logging configuration failed "
-                    "(using system-defined configuration in '%s')\n",
-                    SYSTEM_LOG_CONF_FILE);
-        }
-    }
-    else if (zlog_init(USER_LOG_CONF_FILE)) {
-        fprintf(stderr, "Logging configuration failed "
-                    "(using user-defined configuration in '%s')\n",
-                    USER_LOG_CONF_FILE);
-    }
+    if (debug_flag)   set_log_threshold(DEBUG);
+    if (verbose_flag) set_log_threshold(NOTICE);
 
     declare_client_name(argv[0]);
-
     input = maybe_stdin(json_file);
     int status = do_search_metadata(input, zone_name, pflags);
     if (status != 0) exit_status = 5;
 
-    zlog_fini();
     exit(exit_status);
 }
 
@@ -165,8 +150,8 @@ int do_search_metadata(FILE *input, char *zone_name, print_flags pflags) {
         json_t *target = json_loadf(input, jflags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                logmsg(ERROR, BATON_CAT, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
+                log(ERROR, "JSON error at line %d, column %d: %s",
+                    load_error.line, load_error.column, load_error.text);
             }
 
             continue;
