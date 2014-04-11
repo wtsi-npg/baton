@@ -326,14 +326,33 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
             oper = SEARCH_OP_EQUALS;
         }
 
-        if (str_equals_ignore_case(oper, SEARCH_OP_EQUALS) ||
-            str_equals_ignore_case(oper, SEARCH_OP_LIKE)) {
+        int num_operators = 10;
+        char *operators[] = { SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
+                              SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
+                              SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
+                              SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
+                              SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE };
+
+        int valid_operator = 0;
+        for (int i = 0; i < num_operators; i++) {
+            if (str_equals_ignore_case(oper, operators[i])) {
+                valid_operator++;
+                break;
+            }
+        }
+
+        if (valid_operator) {
             prepare(query_in, attr_name, attr_value, oper);
         }
         else {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid operator: expected one of [%s, %s]",
-                            SEARCH_OP_EQUALS, SEARCH_OP_LIKE);
+                            "Invalid operator: expected one of "
+                            "[%s, %s, %s, %s, %s, %s, %s, %s, %s, %s]",
+                            SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
+                            SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
+                            SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
+                            SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
+                            SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE);
         }
      }
 
