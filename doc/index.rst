@@ -77,7 +77,7 @@ For details of how errors are handled, see :ref:`representing_errors`.
 
 
 baton-list
----------
+----------
 
 Synopsis:
 
@@ -128,7 +128,7 @@ Options
 
 
 baton-metamod
-------------
+-------------
 
 Synopsis:
 
@@ -172,7 +172,7 @@ Options
 
 
 baton-metaquery
---------------
+---------------
 
 Synopsis:
 
@@ -242,7 +242,7 @@ Options
 
 
 baton-chmod
-----------
+-----------
 
 .. code-block:: sh
 
@@ -371,7 +371,7 @@ empty JSON array as its value.
 .. _representing_query_metadata:
 
 Metadata queries
--------------------
+----------------
 
 This format for :term:`AVU` s is used both in reporting existing
 metadata and in specifying baton queries. In the latter case a JSON
