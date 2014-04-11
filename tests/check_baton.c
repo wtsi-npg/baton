@@ -428,7 +428,7 @@ START_TEST(test_make_query_input) {
 }
 END_TEST
 
-// Do we fail to list the ACL of a non-existant path?
+// Do we fail to list the ACL of a non-existent path?
 START_TEST(test_list_permissions_missing_path) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -925,6 +925,25 @@ START_TEST(test_add_metadata_obj) {
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+
+// Do we fail to add metadata to a non-existent path?
+START_TEST(test_add_metadata_missing_path) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char *path = "no such path";
+    rodsPath_t rods_path;
+    baton_error_t expected_error;
+    resolve_rods_path(conn, &env, &rods_path, path);
+    int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
+                             "test_value", "test_units", &expected_error);
+    ck_assert_int_ne(rv, 0);
+    ck_assert_int_ne(expected_error.code, 0);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1445,7 +1464,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_search_metadata_perm_obj);
     tcase_add_test(basic_tests, test_search_metadata_tps_obj);
 
-    tcase_add_test(basic_tests, test_add_metadata_obj);
+    tcase_add_test(basic_tests, test_add_metadata_missing_path);
     tcase_add_test(basic_tests, test_remove_metadata_obj);
     tcase_add_test(basic_tests, test_add_json_metadata_obj);
     tcase_add_test(basic_tests, test_remove_json_metadata_obj);

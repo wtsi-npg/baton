@@ -43,31 +43,27 @@ The ``baton`` suite of programs
 a stream of JSON objects on standard input (or from a file) and emit a
 stream of JSON objects on standard output. The ``baton`` programs are:
 
-* `json-list`_
+* `baton-list`_
 
-  Prints the paths, metadata and access control lists of collections
-  and data objects.
+  Prints the paths, metadata and access control lists and timestamps
+  of collections and data objects.
 
-* `json-metalist`_
-
-  Print the metadata on collections and data objects.
-
-* `json-metamod`_
+* `baton-metamod`_
 
   Add or remove specfic :term:`AVU` s in the metadata on collections
   and data objects.
 
-* `json-metasuper`
+* `baton-metasuper`
 
   Replace all :term:`AVU` s in the metadata on collections and data
   objects.
 
-* `json-metaquery`_
+* `baton-metaquery`_
 
   Print the paths, metadata and access control lists of collections
   and data objects matching queries on metadata.
 
-* `json-chmod`_
+* `baton-chmod`_
 
   Modify the access control lists of collections and data objects.
 
@@ -80,16 +76,16 @@ bidirectional communication via Unix pipes.
 For details of how errors are handled, see :ref:`representing_errors`.
 
 
-json-list
+baton-list
 ---------
 
 Synopsis:
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "test"}' | json-list
+   $ jq -n '{collection: "test"}' | baton-list
 
-   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | json-list
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | baton-list
 
 This program accepts JSON objects as described in
 :ref:`representing_paths` and prints results in the same format. If
@@ -102,75 +98,36 @@ or data object directly within the target.
 Options
 ^^^^^^^
 
-.. program:: json-list
+.. program:: baton-list
 .. option:: --acl
 
   Print access control lists in output, in the format described in
   :ref:`representing_path_permissions`.
 
-.. program:: json-list
+.. program:: baton-list
 .. option:: --avu
 
   Print AVU lists in output, in the format described in
   :ref:`representing_path_metadata`.
 
-.. program:: json-list
+.. program:: baton-list
 .. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-.. program:: json-list
+.. program:: baton-list
 .. option:: --help
 
   Prints command line help.
 
-.. program:: json-list
+.. program:: baton-list
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
 
 
-json-metalist
--------------
-
-Synopsis:
-
-.. code-block:: sh
-
-   $ jq -n '{collection: "."}' | json-metalist
-
-   $ jq -n '{collection: "test"}' | json-metalist
-
-   $ jq -n '{collection: "test", data_object: "a.txt"}' | json-metalist
-
-   $ jq -n '{collection: "test/c/"}' | json-metalist
-
-This program accepts JSON objects as described in
-:ref:`representing_paths` and prints results in the same format, with
-metadata as described in :ref:`representing_path_metadata`.
-
-Options
-^^^^^^^
-
-.. program:: json-metalist
-.. option:: --file <file name>
-
-  The JSON file describing the data objects and collections. Optional,
-  defaults to STDIN.
-
-.. program:: json-metalist
-.. option:: --help
-
-  Prints command line help.
-
-.. program:: json-metalist
-.. option:: --unbuffered
-
-  Flush output after each JSON object is processed.
-
-
-json-metamod
+baton-metamod
 ------------
 
 Synopsis:
@@ -179,11 +136,11 @@ Synopsis:
 
    $ jq -n '{collection: "test", data_object: "a.txt",      \
                   "avus": [{attribute: "x", value: "y"},   \
-                           {attribute: "m", value: "n"}]}' | json-metamod --operation add
+                           {attribute: "m", value: "n"}]}' | baton-metamod --operation add
 
    $ jq -n '{collection: "test", data_object: "a.txt",      \
                    avus: [{attribute: "x", value: "y"},   \
-                          {attribute: "m", value: "n"}]}' | json-metamod --operation rem
+                          {attribute: "m", value: "n"}]}' | baton-metamod --operation rem
 
 This program accepts JSON objects as described in
 :ref:`representing_paths` and adds or removes matching metadata as
@@ -192,46 +149,46 @@ described in :ref:`representing_path_metadata`.
 Options
 ^^^^^^^
 
-.. program:: json-metamod
+.. program:: baton-metamod
 .. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-.. program:: json-metamod
+.. program:: baton-metamod
 .. option:: --help
 
   Prints command line help.
 
-.. program:: json-metamod
+.. program:: baton-metamod
 .. option:: --operation <operation name>
 
   The operation to perform; one of ``add`` or ``remove``.
 
-.. program:: json-metamod
+.. program:: baton-metamod
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
 
 
-json-metaquery
+baton-metaquery
 --------------
 
 Synopsis:
 
 .. code-block:: sh
 
-   $ jq -n '{avus: []}' | json-metaquery
+   $ jq -n '{avus: []}' | baton-metaquery
 
-   $ jq -n '{collection: "test", avus: []}' | json-metaquery
+   $ jq -n '{collection: "test", avus: []}' | baton-metaquery
 
-   $ jq -n '{avus: [{attribute: "x", value: "y"}]}' | json-metaquery
+   $ jq -n '{avus: [{attribute: "x", value: "y"}]}' | baton-metaquery
 
    $ jq -n '{avus: [{attribute: "x", value: "y"},   \
-                    {attribute: "m", value: "n"}]}' | json-metaquery
+                    {attribute: "m", value: "n"}]}' | baton-metaquery
 
    $ jq -n '{avus: [{attribute: "v", value: "100", operator: "n<"},    \
-                    {attribute: "w", value: "n%",  operator: "like"}]}' | json-metaquery
+                    {attribute: "w", value: "n%",  operator: "like"}]}' | baton-metaquery
 
 This program accepts JSON objects as described in
 :ref:`representing_query_metadata` and prints results in the format
@@ -244,79 +201,79 @@ somewhere under that collection.
 Options
 ^^^^^^^
 
-.. program:: json-metaquery
+.. program:: baton-metaquery
 .. option:: --acl
 
   Print access control lists in output, in the format described in
   :ref:`representing_path_permissions`.
 
-.. program:: json-metaquery
+.. program:: baton-metaquery
 .. option:: --avu
 
   Print AVU lists in output, in the format described in
   :ref:`representing_path_metadata`.
 
-.. program:: json-metaquery
+.. program:: baton-metaquery
 .. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-.. program:: json-metaquery
+.. program:: baton-metaquery
 .. option:: --help
 
   Prints command line help.
 
-.. program:: json-metaquery
+.. program:: baton-metaquery
 .. option:: --timestamp
 
   Print timestamp lists in output, in the format described in
   :ref:`representing_timestamps`.
 
-.. program:: json-metaquery
+.. program:: baton-metaquery
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
 
-.. program:: json-metaquery
+.. program:: baton-metaquery
 .. option:: --zone <zone name>
 
    Query in a specific zone.
 
 
-json-chmod
+baton-chmod
 ----------
 
 .. code-block:: sh
 
    $ jq -n '{collection: "test",                            \
                 access: [{owner: "public", level: "null"},  \
-                         {owner: "admin",  level: "own"}]}' | json-chmod --recurse
+                         {owner: "admin",  level: "own"}]}' | baton-chmod --recurse
 
    $ jq -n '{collection: "test", data_object: "a.txt"          \
                  access: [{owner: "oscar",  level: "read"},    \
-                          {owner: "victor", level: "write"}]}' | json-chmod
+                          {owner: "victor", level: "write"}]}' | baton-chmod
 
 Options
 ^^^^^^^
 
-.. program:: json-chmod
+.. program:: baton-chmod
 .. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-.. program:: json-chmod
+.. program:: baton-chmod
 .. option:: --help
 
   Prints command line help.
 
-.. program:: json-chmod
+.. program:: baton-chmod
 .. option:: --recurse
 
   Recurse into collections. Defaults to false.
 
-.. program:: json-chmod
+.. program:: baton-chmod
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
@@ -370,7 +327,7 @@ bytes as given in the ICAT database.
   {"collection:" ".", "data_object": "README.txt", "size": 123456}
 
 The above JSON representations of collections and data objects are
-sufficient to be passed to baton's ``json-list`` program, which
+sufficient to be passed to baton's ``baton-list`` program, which
 fulfils a similar role to the iRODS ``ils`` program, listing data
 objects and collection contents.
 
@@ -424,7 +381,7 @@ operator defaulting to ``=``. As with the iRODS ``imeta`` program,
 units are ignored in queries.
 
 For example, the following JSON may be passed to the baton
-``json-metaquery`` program:
+``baton-metaquery`` program:
 
 .. code-block:: json
 
@@ -590,7 +547,7 @@ to process the results returned by ``baton``.
 
 .. code-block:: sh
 
-   jq -n '{coll: "."}' | json-list | jq -r '.[] | .collection + "/" + .data_object'
+   jq -n '{coll: "."}' | baton-list | jq -r '.[] | .collection + "/" + .data_object'
 
 Result:
 
@@ -613,7 +570,7 @@ Result:
 
 .. code-block:: sh
 
-   jq -n '{coll: "data"}' | json-list --avu | jq 'map(select(.avus[] | select(.attribute == "attr_a")))'
+   jq -n '{coll: "data"}' | baton-list --avu | jq 'map(select(.avus[] | select(.attribute == "attr_a")))'
 
 Result:
 
@@ -649,7 +606,7 @@ Result:
 
 .. code-block:: sh
 
-   jq -n '{coll: "data", avus: [{a: "attr_a", v: "%", o: "like"}]}' | json-metaquery --avu | jq '.'
+   jq -n '{coll: "data", avus: [{a: "attr_a", v: "%", o: "like"}]}' | baton-metaquery --avu | jq '.'
 
 
 .. code-block:: json
@@ -683,7 +640,7 @@ Result:
 
 .. code-block:: sh
 
-    jq -n '{coll: "data"}' | json-list --avu | jq 'map(select(.data_object))[]'
+    jq -n '{coll: "data"}' | baton-list --avu | jq 'map(select(.data_object))[]'
 
 .. code-block:: json
 
@@ -736,12 +693,12 @@ Result:
    having both 'attr_a' = 'value_a' and 'attr_c' == 'value_c'. The
    final pass through ``jq`` simply pretty-prints the result. The
    result contains no AVU information because the ``--avu`` argument
-   to ``json-metaquery`` was not used:
+   to ``baton-metaquery`` was not used:
 
 .. code-block:: sh
 
    jq -n '{avus: [{a: "attr_a", v: "value_a"},   \
-                  {a: "attr_c", v: "value_c"}]}' | json-metaquery | jq '.'
+                  {a: "attr_c", v: "value_c"}]}' | baton-metaquery | jq '.'
 
 Result:
 
