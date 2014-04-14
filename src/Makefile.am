@@ -14,31 +14,19 @@ libbaton_la_SOURCES = baton.c error.c log.c json.c json_query.c query.c utilitie
 libbaton_includedir = $(includedir)/baton
 libbaton_include_HEADERS = baton.h error.h log.h json.h json_query.h query.h utilities.h
 
-bin_PROGRAMS = metalist metamod metaquery json-chmod json-list json-metalist json-metamod json-metaquery json-metasuper
+bin_PROGRAMS = baton-chmod baton-list baton-metamod baton-metaquery baton-metasuper
 
-metalist_SOURCES = metalist.c
-metalist_LDADD = libbaton.la
+baton_chmod_SOURCES = baton-chmod.c
+baton_chmod_LDADD = libbaton.la
 
-metamod_SOURCES = metamod.c
-metamod_LDADD = libbaton.la
+baton_list_SOURCES = baton-list.c
+baton_list_LDADD = libbaton.la
 
-metaquery_SOURCES = metaquery.c
-metaquery_LDADD = libbaton.la
+baton_metamod_SOURCES = baton-metamod.c
+baton_metamod_LDADD = libbaton.la
 
-json_chmod_SOURCES = json-chmod.c
-json_chmod_LDADD = libbaton.la
+baton_metaquery_SOURCES = baton-metaquery.c
+baton_metaquery_LDADD = libbaton.la
 
-json_list_SOURCES = json-list.c
-json_list_LDADD = libbaton.la
-
-json_metalist_SOURCES = json-metalist.c
-json_metalist_LDADD = libbaton.la
-
-json_metamod_SOURCES = json-metamod.c
-json_metamod_LDADD = libbaton.la
-
-json_metaquery_SOURCES = json-metaquery.c
-json_metaquery_LDADD = libbaton.la
-
-json_metasuper_SOURCES = json-metasuper.c
-json_metasuper_LDADD = libbaton.la
+baton_metasuper_SOURCES = baton-metasuper.c
+baton_metasuper_LDADD = libbaton.la

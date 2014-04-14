@@ -12,6 +12,9 @@ focus is metadata operations for iRODS collections and data objects.
 
 The features it provides are:
 
+- A single JSON format for listing results, composing queries and
+  performing updates.
+
 - Listing of data objects and collections as JSON, including their
   metadata (AVUs), file size, access control lists (ACLs) and creation
   and modification timestamps.
@@ -20,12 +23,11 @@ The features it provides are:
   modification timestamps and timestamp ranges. The full range of
   iRODS query operators is supported.
 
-- A single JSON representation throughout for listing, queries and
-  updates.
-
 - Unbuffered option for IPC via pipes with fine-grained error
   reporting for batch operations.
 
+- Simplified API over the iRODS general query API to ease construction
+  of new custom queries.
 
 Installation:
 

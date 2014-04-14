@@ -137,14 +137,32 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
 
         snprintf(expr, expr_size, "%s '%s'", operator, name);
 
-        log(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
-            "total len %d [%s]",
-            i, num_conds, name, strlen(name), operator, expr_size, expr);
+        // Find whether the condition has already been added by a
+        // previous builder call. If so, adding again would be
+        // redundant.
+        int redundant = 0;
 
-        int current_index = query_in->sqlCondInp.len;
-        query_in->sqlCondInp.inx[current_index] = conds[i].column;
-        query_in->sqlCondInp.value[current_index] = expr;
-        query_in->sqlCondInp.len++;
+        for (int j = 0; j < query_in->sqlCondInp.len; j++) {
+            int ci = query_in->sqlCondInp.inx[j];
+            char *cv = query_in->sqlCondInp.value[j];
+
+            if (ci == conds[i].column && str_equals(cv, expr)) {
+                log(DEBUG, "Condition exists in query at position %d, "
+                    "not adding: %d '%s'", j, ci, cv);
+                redundant = 1;
+            }
+        }
+
+        if (!redundant) {
+            log(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
+                "total len %d [%s]",
+                i, num_conds, name, strlen(name), operator, expr_size, expr);
+
+            int current_index = query_in->sqlCondInp.len;
+            query_in->sqlCondInp.inx[current_index] = conds[i].column;
+            query_in->sqlCondInp.value[current_index] = expr;
+            query_in->sqlCondInp.len++;
+        }
     }
 
     return query_in;

@@ -33,6 +33,40 @@ void log_json_error(log_level level, json_error_t *error) {
         error->text, error->line, error->column, error->position);
 }
 
+const char *ensure_valid_operator(const char *operator, baton_error_t *error) {
+    static int num_operators = 10;
+    static char *operators[] = { SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
+                                 SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
+                                 SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
+                                 SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
+                                 SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE };
+
+    int valid_index = -1;
+    for (int i = 0; i < num_operators; i++) {
+        if (str_equals_ignore_case(operator, operators[i])) {
+            valid_index = i;
+            break;
+        }
+    }
+
+    if (valid_index < 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid operator: expected one of "
+                        "[%s, %s, %s, %s, %s, %s, %s, %s, %s, %s]",
+                        SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
+                        SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
+                        SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
+                        SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
+                        SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE);
+        goto error;
+    }
+
+    return operators[valid_index];
+
+error:
+    return NULL;
+}
+
 json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   query_format_in_t *format,
                   prepare_avu_search_cb prepare_avu,
@@ -326,15 +360,10 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
             oper = SEARCH_OP_EQUALS;
         }
 
-        if (str_equals_ignore_case(oper, SEARCH_OP_EQUALS) ||
-            str_equals_ignore_case(oper, SEARCH_OP_LIKE)) {
-            prepare(query_in, attr_name, attr_value, oper);
-        }
-        else {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid operator: expected one of [%s, %s]",
-                            SEARCH_OP_EQUALS, SEARCH_OP_LIKE);
-        }
+        const char *valid_oper = ensure_valid_operator(oper, error);
+        if (error->code != 0) goto error;
+
+        prepare(query_in, attr_name, attr_value, valid_oper);
      }
 
     return query_in;
