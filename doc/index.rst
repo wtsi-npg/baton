@@ -17,24 +17,83 @@ programs (``ils``, ``imeta`` etc.) provided with a standard iRODS
 installation. Its provides the following features not included in
 iRODS:
 
-* Queries on metadata, paths and access control lists combined.
+* A single JSON format for listing results, composing queries and
+  performing updates.
 
-* A simple JSON format to describe data objects, collections, metadata
-  queries and query results.
+* Listing of data objects and collections as JSON, including their
+  metadata (AVUs), file size, access control lists (ACLs) and creation
+  and modification timestamps.
 
-* Efficient re-use of connections to the iRODS server for batch
-  operations, while maintaining fine-grained error detection.
+* Queries on metadata, on access control lists (ACLs), creation and
+  modification timestamps and timestamp ranges. The full range of
+  iRODS query operators is supported.
 
-* Output from baton programs can be input to other baton programs to
-  create Unix pipelines.
+* Unbuffered option for IPC via pipes with fine-grained error
+  reporting for batch operations.
 
 * Simplified API over the iRODS general query API to ease construction
   of new custom queries.
 
-Contents:
 
 .. toctree::
    :maxdepth: 2
+
+Obtaining and installing ``baton``
+==================================
+
+``baton`` may be downloaded as source code from its `GitHub homepage
+<http://github.com/wtsi-npg/baton.git/>`_ . It is written using the
+iRODS C API and requires a C compiler to build.
+
+1. Install iRODS and the `Jansson JSON library
+   <http://www.digip.org/jansson/>`_ ) as described in their
+   documentation.
+
+2. Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation
+   (assuming bash)
+
+.. code-block:: sh
+
+   IRODS_HOME=<path to iRODS> source set_irods_home.sh
+
+3. Generate the configure script
+
+.. code-block:: sh
+
+   autoreconf -i
+
+4. Generate the makefiles (see INSTALL for arguments to configure)
+
+.. code-block:: sh
+
+   ./configure
+
+5. Compile
+
+.. code-block:: sh
+
+   make
+
+6.  Optionally, run the test suite
+
+.. code-block:: sh
+
+   make check
+
+7. If you have run configure with the optional --enable-coverage flag
+   you can generate test coverage statistics with lcov.
+
+.. code-block:: sh
+
+   make check-coverage
+
+8. Install, including HTML manual and manpage.
+
+.. code-block:: sh
+
+   make clean install
+
+
 
 The ``baton`` suite of programs
 ===============================
@@ -438,8 +497,9 @@ data objects were created and last modified. These are represented for
 both collections and data objects as a JSON array of objects under the
 ``timestamp`` property. Each timestamp within the array must have at
 least a ``created`` or a ``modified`` property. The values associated
-with these properties are ISO8601 datetime strings. These
-properties have shorter synonyms ``c``, ``m``, respectively.
+with these properties are `ISO8601 datetime strings
+<https://en.wikipedia.org/wiki/ISO_8601>`_. These properties have
+shorter synonyms ``c``, ``m``, respectively.
 
 .. code-block:: json
 
@@ -510,6 +570,44 @@ be an iRODS symbolic access level string (i.e. "null", "read", "write"
 or "own").
 
 
+.. _representing_query_permissions:
+
+ACL queries
+-----------
+
+The format described in :ref:`representing_permissions` is used in
+both reporting existing permissions and in refining baton metadata
+queries. In the latter case an ACL acts as a selector in the query.
+
+To limit query results to anything owned by ``user1``, the syntax
+would be:
+
+.. code-block:: json
+
+   {"access": [{"owner": "user1", "level": "own"}]}
+
+However, care is required; there are two important points to bear in
+mind when composing ACL queries:
+
+1. The ICAT database queries will match exact permissions only and
+   will not return results for items whose permissions are subsumed
+   under the query permission. For example, a query for items for
+   which user ``user1`` has permissions ``read`` will not return any
+   items where ``user1`` has permissions ``read-write`` or ``own``,
+   despite the fact that the latter subsume ``read``.
+
+2. Only one permission clause per user may be included in the
+   query. This is because ICAT combines queries using ``AND`` which,
+   combined with its limitations described above, would yield queries
+   that always return an empty set. E.g. the following query will
+   never return any results:
+
+.. code-block:: json
+
+   {"access": [{"owner": "user1", "level": "own"},
+               {"owner": "user1", "level": "read"}]}
+
+
 .. _representing_errors:
 
 Representing Errors
@@ -562,7 +660,7 @@ Result:
     /unit/home/user/data/c/
 
 
-.. topic:: List the contents of a collection by metadata I
+.. topic:: List the contents of a collection by metadata (I)
 
    List all the collections and data objects located directly within
    the collection ``data``, that have the attribute ``attr_a``
@@ -598,7 +696,7 @@ Result:
       }
     ]
 
-.. topic:: List the contents of a collection by metadata II
+.. topic:: List the contents of a collection by metadata (II)
 
    A similar operation to the previous one, except using an iRODS
    query with scope limited to the collection ``data`` or its
@@ -715,12 +813,30 @@ Result:
 
 .. topic:: Run a simple iRODS metadata query with timestamp selection
 
-   Run a simple iRODS metadata query for collections and data objects
-   having both 'attr_a' = 'value_a' and 'attr_c' == 'value_c' that were
+   Run an iRODS metadata query for collections and data objects having
+   both 'attr_a' = 'value_a' and 'attr_c' == 'value_c' that were
    created before 2014-03-01T00:00:00 and modified between
    2014-03-17T00:00:00 and 2014-03-18T00:00:00:
 
+.. code-block:: sh
 
+   jq -n '{avus: [{a: "attr_a", v: "value_a"},           \
+                  {a: "attr_c", v: "value_c"}],          \
+           time: [{c: "2014-03-01T00:00:00", o: "n<"},   \
+                  {m: "2014-03-17T00:00:00", o: "n>="},  \
+                  {m: "2014-03-18T00:00:00", o: "n<"}]}' | baton-metaquery | jq '.'
+
+Result:
+
+.. code-block:: json
+
+    [
+      {
+        "data_object": "f1.txt",
+        "collection": "/unit/home/user/data",
+        "size": 0
+      }
+    ]
 
 ..
    .. doxygenfile:: baton.h
