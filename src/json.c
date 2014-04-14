@@ -53,7 +53,7 @@ json_t *error_to_json(baton_error_t *error) {
                             JSON_ERROR_CODE_KEY, error->code);
 
     if (!err) {
-        log(ERROR, "Failed to pack error '%s' as JSON", error->message);
+        logmsg(ERROR, "Failed to pack error '%s' as JSON", error->message);
     }
 
     return err;
@@ -298,8 +298,8 @@ json_t *data_object_parts_to_json(const char *coll_name,
                                JSON_COLLECTION_KEY,  coll_name,
                                JSON_DATA_OBJECT_KEY, data_name);
     if (!result) {
-        log(ERROR, "Failed to pack data object '%s/%s' as JSON",
-            coll_name, data_name);
+        logmsg(ERROR, "Failed to pack data object '%s/%s' as JSON",
+               coll_name, data_name);
     }
 
     return result;
@@ -341,9 +341,9 @@ json_t *query_args_to_json(const char *attr_name, const char *attr_value,
     }
 
     if (!result) {
-        log(ERROR, "Failed to pack query attribute: '%s', "
-            "value: '%s', path: '%s' as JSON", attr_name, attr_value,
-            root_path);
+        logmsg(ERROR, "Failed to pack query attribute: '%s', "
+               "value: '%s', path: '%s' as JSON", attr_name, attr_value,
+               root_path);
     }
 
     return result;
@@ -352,7 +352,7 @@ json_t *query_args_to_json(const char *attr_name, const char *attr_value,
 json_t *collection_path_to_json(const char *path) {
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
-        log(ERROR, "Failed to pack collection '%s' as JSON", path);
+        logmsg(ERROR, "Failed to pack collection '%s' as JSON", path);
     }
 
     return result;

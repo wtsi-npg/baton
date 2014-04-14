@@ -21,6 +21,8 @@
 #ifndef _BATON_QUERY_H
 #define _BATON_QUERY_H
 
+#include <math.h>
+
 #include "rodsClient.h"
 
 #include "log.h"
@@ -210,5 +212,7 @@ genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
 
 genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
                                    const char *user_name);
+
+genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in);
 
 #endif // _BATON_QUERY_H
