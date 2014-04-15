@@ -588,10 +588,18 @@ START_TEST(test_list_timestamps_obj) {
     json_t *results = list_timestamps(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
-    ck_assert(json_is_object(results));
-    ck_assert_int_eq(json_object_size(results), 2);
-    ck_assert(json_object_get(results, JSON_CREATED_KEY));
-    ck_assert(json_object_get(results, JSON_MODIFIED_KEY));
+    ck_assert(json_is_array(results));
+    ck_assert_int_eq(json_array_size(results), 1);
+
+    size_t index;
+    json_t *elt;
+    json_array_foreach(results, index, elt) {
+         ck_assert(json_is_object(elt));
+        ck_assert_int_eq(json_object_size(elt), 3);
+        ck_assert(json_object_get(elt, JSON_CREATED_KEY));
+        ck_assert(json_object_get(elt, JSON_MODIFIED_KEY));
+        ck_assert(json_object_get(elt, JSON_REPLICATE_KEY));
+    }
 
     json_decref(results);
 
@@ -614,10 +622,17 @@ START_TEST(test_list_timestamps_coll) {
     json_t *results = list_timestamps(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
-    ck_assert(json_is_object(results));
-    ck_assert_int_eq(json_object_size(results), 2);
-    ck_assert(json_object_get(results, JSON_CREATED_KEY));
-    ck_assert(json_object_get(results, JSON_MODIFIED_KEY));
+    ck_assert(json_is_array(results));
+    ck_assert_int_eq(json_array_size(results), 1);
+
+    size_t index;
+    json_t *elt;
+    json_array_foreach(results, index, elt) {
+        ck_assert(json_is_object(elt));
+        ck_assert_int_eq(json_object_size(elt), 2);
+        ck_assert(json_object_get(elt, JSON_CREATED_KEY));
+        ck_assert(json_object_get(elt, JSON_MODIFIED_KEY));
+    }
 
     json_decref(results);
 
@@ -752,6 +767,7 @@ START_TEST(test_search_metadata_perm_obj) {
 }
 END_TEST
 
+// Can we search for data objects, limited by creation timestamp?
 START_TEST(test_search_metadata_tps_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -766,8 +782,9 @@ START_TEST(test_search_metadata_tps_obj) {
     baton_error_t ts_error;
     json_t *current_tps = list_timestamps(conn, &rods_path, &ts_error);
     ck_assert_int_eq(ts_error.code, 0);
+    json_t *first_tps = json_array_get(current_tps, 0);
 
-    const char *raw_created = get_created_timestamp(current_tps, &ts_error);
+    const char *raw_created = get_created_timestamp(first_tps, &ts_error);
     ck_assert_int_eq(ts_error.code, 0);
 
     char *iso_created = format_timestamp(raw_created, ISO8601_FORMAT);
@@ -780,7 +797,7 @@ START_TEST(test_search_metadata_tps_obj) {
     json_t *query_lt = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_root,
-                                 JSON_TIMESTAMPS_KEY,  created_lt);
+                                 JSON_TIMESTAMPS_KEY, created_lt);
 
     baton_error_t error_lt;
     json_t *results_lt = search_metadata(conn, query_lt, NULL, PRINT_DEFAULT,
@@ -796,7 +813,7 @@ START_TEST(test_search_metadata_tps_obj) {
     json_t *query_ge = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_root,
-                                 JSON_TIMESTAMPS_KEY,  created_ge);
+                                 JSON_TIMESTAMPS_KEY, created_ge);
 
     baton_error_t error_ge;
     json_t *results_ge = search_metadata(conn, query_ge, NULL, PRINT_DEFAULT,

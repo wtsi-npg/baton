@@ -18,6 +18,8 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <stdlib.h>
+
 #include "rodsClient.h"
 #include <jansson.h>
 
@@ -459,12 +461,57 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     raw_timestamps = list_timestamps(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
-    const char *created = get_created_timestamp(raw_timestamps, error);
+    int selected_index = 0;
+    int selected_repl = -1;
+
+    // For data objects, we filter the results to present only the
+    // lowest replicate number.  The iRODS generic query API doesn't
+    // permit this selection at the query level.
+
+    if (represents_data_object(object)) {
+
+        size_t index;
+        json_t *timestamps;
+        int base = 10;
+
+        json_array_foreach(raw_timestamps, index, timestamps) {
+            const char *repl_str = get_replicate_num(timestamps, error);
+            if (error->code != 0) goto error;
+
+            char *endptr;
+            int repl_num = strtol(repl_str, &endptr, base);
+            if (*endptr) {
+                set_baton_error(error, -1,
+                                "Failed to parse replicate number from "
+                                "string '%s'", repl_str);
+                goto error;
+            }
+
+            if (index == 0 || repl_num < selected_repl) {
+                selected_repl = repl_num;
+                selected_index = index;
+            }
+        }
+
+        logmsg(DEBUG, "Adding timestamps from replicate %d of '%s'",
+               selected_repl, path);
+    }
+
+    json_t *timestamps = json_array_get(raw_timestamps, selected_index);
+    const char *created = get_created_timestamp(timestamps, error);
     if (error->code != 0) goto error;
-    const char *modified = get_modified_timestamp(raw_timestamps, error);
+    const char *modified = get_modified_timestamp(timestamps, error);
     if (error->code != 0) goto error;
 
-    add_timestamps(object, created, modified, error);
+    int *repl_ptr;
+    if (selected_repl < 0) {
+        repl_ptr = NULL;
+    }
+    else {
+        repl_ptr = &selected_repl;
+    }
+
+    add_timestamps(object, created, modified, repl_ptr, error);
     if (error->code != 0) goto error;
 
     if (path)                  free(path);

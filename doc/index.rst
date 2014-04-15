@@ -503,9 +503,22 @@ shorter synonyms ``c``, ``m``, respectively.
 
 .. code-block:: json
 
-   {"coll": "/unit/home/user",
+   {"collection": "/unit/home/user",
     "timestamps": [{"created":  "2014-01-01T00:00:00"},
                    {"modified": "2014-01-01T00:00:00"}]}
+
+Data objects may have replicates in iRODS. Where data object
+timestamps are reported by ``baton``, only the values for the
+lowest-numbered replicate are reported. The replicate number is given
+in the timestamp object as a JSON integer.
+
+.. code-block:: json
+
+   {"collection": "/unit/home/user",
+    "data_object": "foo.txt",
+    "timestamps": [{"created":  "2014-01-01T00:00:00", "replicate": 0},
+                   {"modified": "2014-01-01T00:00:00", "replicate": 0}]}
+
 
 .. _representing_query_timestamps:
 

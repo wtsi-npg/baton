@@ -538,9 +538,11 @@ error:
 json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
                         baton_error_t *error) {
     query_format_in_t obj_format =
-        { .num_columns = 2,
-          .columns     = { COL_D_CREATE_TIME, COL_D_MODIFY_TIME },
-          .labels      = { JSON_CREATED_KEY, JSON_MODIFIED_KEY } };
+        { .num_columns = 3,
+          .columns     = { COL_D_CREATE_TIME, COL_D_MODIFY_TIME,
+                           COL_DATA_REPL_NUM },
+          .labels      = { JSON_CREATED_KEY, JSON_MODIFIED_KEY,
+                           JSON_REPLICATE_KEY } };
     query_format_in_t col_format =
         { .num_columns = 2,
           .columns     = { COL_COLL_CREATE_TIME, COL_COLL_MODIFY_TIME },
@@ -548,7 +550,6 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
 
     genQueryInp_t *query_in = NULL;
     json_t *results         = NULL;
-    json_t *timestamps      = NULL;
     init_baton_error(error);
 
     if (rods_path->objState == NOT_EXIST_ST) {
@@ -588,30 +589,16 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
     results = do_query(conn, query_in, obj_format.labels, error);
     if (error->code != 0) goto error;
 
-    // We limit the query to replicate number 0, so we should see only
-    // one result. I don't know whether replicate 0 can ever be
-    // removed.
-    if (json_array_size(results) != 1) {
-        set_baton_error(error, -1, "Expected 1 timestamp result but found %d",
-                        json_array_size(results));
-        goto error;
-    }
-
-    timestamps = json_incref(json_array_get(results, 0));
-    json_array_clear(results);
-    json_decref(results);
-
     logmsg(DEBUG, "Obtained timestamps of '%s'", rods_path->outPath);
     free_query_input(query_in);
 
-    return timestamps;
+    return results;
 
 error:
     logmsg(ERROR, "Failed to list timestamps of '%s': error %d %s",
            rods_path->outPath, error->code, error->message);
 
     if (query_in)   free_query_input(query_in);
-    if (timestamps) json_decref(timestamps);
     if (results)    json_decref(results);
 
     return NULL;

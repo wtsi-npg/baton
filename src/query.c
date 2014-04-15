@@ -43,6 +43,8 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     genQueryInp_t *query_in = calloc(1, sizeof (genQueryInp_t));
     if (!query_in) goto error;
 
+    logmsg(DEBUG, "Preparing a query to select %d columns", num_columns);
+
     int *cols_to_select = calloc(num_columns, sizeof (int));
     if (!cols_to_select) goto error;
 
@@ -137,7 +139,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
 
         snprintf(expr, expr_size, "%s '%s'", operator, name);
 
-        // Find whether the condition has already been added by a
+        // Find whether this condition has already been added by a
         // previous builder call. If so, adding again would be
         // redundant.
         int redundant = 0;
@@ -279,11 +281,8 @@ genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
     query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = data_id };
-    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = DEFAULT_REPL_NUM };
-    int num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { di, rn });
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { di });
 }
 
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
