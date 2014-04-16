@@ -150,8 +150,8 @@ int do_search_metadata(FILE *input, char *zone_name, print_flags pflags) {
         json_t *target = json_loadf(input, jflags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                log(ERROR, "JSON error at line %d, column %d: %s",
-                    load_error.line, load_error.column, load_error.text);
+                logmsg(ERROR, "JSON error at line %d, column %d: %s",
+                       load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -170,7 +170,7 @@ int do_search_metadata(FILE *input, char *zone_name, print_flags pflags) {
             json_decref(results);
         }
 
-        fflush(stdout);
+        if (unbuffered_flag) fflush(stdout);
         json_decref(target);
     } // while
 

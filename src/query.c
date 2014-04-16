@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <libgen.h>
+#include <math.h>
 #include <string.h>
 #include "rodsClient.h"
 
@@ -34,7 +35,7 @@ void log_rods_errstack(log_level level, rError_t *error) {
     int len = error->len;
     for (int i = 0; i < len; i++) {
 	    errmsg = error->errMsg[i];
-        log(level, "Level %d: %s", i, errmsg->msg);
+        logmsg(level, "Level %d: %s", i, errmsg->msg);
     }
 }
 
@@ -42,6 +43,8 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
                                 const int columns[]) {
     genQueryInp_t *query_in = calloc(1, sizeof (genQueryInp_t));
     if (!query_in) goto error;
+
+    logmsg(DEBUG, "Preparing a query to select %d columns", num_columns);
 
     int *cols_to_select = calloc(num_columns, sizeof (int));
     if (!cols_to_select) goto error;
@@ -76,8 +79,8 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     return query_in;
 
 error:
-    log(ERROR, "Failed to allocate memory: error %d %s",
-        errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
 
     return NULL;
 }
@@ -128,8 +131,8 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
         const char *operator = conds[i].operator;
         const char *name     = conds[i].value;
 
-        log(DEBUG, "Adding condition %d of %d: %s %s",
-            1, num_conds, name, operator);
+        logmsg(DEBUG, "Adding condition %d of %d: %s %s",
+               1, num_conds, name, operator);
 
         int expr_size = strlen(name) + strlen(operator) + 3 + 1;
         char *expr = calloc(expr_size, sizeof (char));
@@ -137,7 +140,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
 
         snprintf(expr, expr_size, "%s '%s'", operator, name);
 
-        // Find whether the condition has already been added by a
+        // Find whether this condition has already been added by a
         // previous builder call. If so, adding again would be
         // redundant.
         int redundant = 0;
@@ -147,16 +150,16 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
             char *cv = query_in->sqlCondInp.value[j];
 
             if (ci == conds[i].column && str_equals(cv, expr)) {
-                log(DEBUG, "Condition exists in query at position %d, "
-                    "not adding: %d '%s'", j, ci, cv);
+                logmsg(DEBUG, "Condition exists in query at position %d, "
+                       "not adding: %d '%s'", j, ci, cv);
                 redundant = 1;
             }
         }
 
         if (!redundant) {
-            log(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
-                "total len %d [%s]",
-                i, num_conds, name, strlen(name), operator, expr_size, expr);
+            logmsg(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
+                   "total len %d [%s]",
+                   i, num_conds, name, strlen(name), operator, expr_size, expr);
 
             int current_index = query_in->sqlCondInp.len;
             query_in->sqlCondInp.inx[current_index] = conds[i].column;
@@ -168,8 +171,8 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
     return query_in;
 
 error:
-    log(ERROR, "Failed to allocate memory: error %d %s",
-        errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
 
     return NULL;
 }
@@ -210,14 +213,16 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
         add_query_conds(query_in, num_conds, (query_cond_t []) { cn, dn });
     }
 
+    limit_to_newest_repl(query_in);
+
     free(path1);
     free(path2);
 
     return query_in;
 
 error:
-    log(ERROR, "Failed to allocate memory: error %d %s",
-        errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
 
     return NULL;
 }
@@ -277,11 +282,8 @@ genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
     query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = data_id };
-    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = DEFAULT_REPL_NUM };
-    int num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { di, rn });
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { di });
 }
 
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
@@ -305,7 +307,9 @@ genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                         .operator = operator,
                         .value    = attr_value };
     int num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
+    add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
+
+    return limit_to_newest_repl(query_in);
 }
 
 genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
@@ -320,6 +324,20 @@ genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
                         .value    = attr_value };
     int num_conds = 2;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
+}
+
+genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in) {
+    int col_selector = NEWLY_CREATED_COPY;
+    int num_digits = (col_selector == 0) ? 1 : log10(col_selector) + 1;
+
+    char buf[num_digits + 1];
+    snprintf(buf, sizeof buf, "%d",col_selector);
+
+    query_cond_t rs = { .column   = COL_D_REPL_STATUS,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = buf };
+    int num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { rs });
 }
 
 genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
@@ -434,8 +452,8 @@ genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
     return query_in;
 
 error:
-    log(ERROR, "Failed to allocate memory: error %d %s",
-        errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
 
     return NULL;
 }

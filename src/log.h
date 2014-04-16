@@ -37,7 +37,7 @@ typedef enum {
     DEBUG  = 6
 } log_level;
 
-#define log(level, ...) \
+#define logmsg(level, ...) \
     log_impl(__LINE__, __FILE__, __FUNCTION__, level, __VA_ARGS__);
 
 void log_impl(int line, const char *file, char const *function,

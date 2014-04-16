@@ -160,8 +160,8 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                log(ERROR, "JSON error at line %d, column %d: %s",
-                    load_error.line, load_error.column, load_error.text);
+                logmsg(ERROR, "JSON error at line %d, column %d: %s",
+                       load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -220,14 +220,14 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
 
     rcDisconnect(conn);
 
-    log(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }

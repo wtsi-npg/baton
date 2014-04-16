@@ -131,8 +131,8 @@ int do_supersede_metadata(FILE *input) {
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                log(ERROR, "JSON error at line %d, column %d: %s",
-                    load_error.line, load_error.column, load_error.text);
+                logmsg(ERROR, "JSON error at line %d, column %d: %s",
+                       load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -150,7 +150,7 @@ int do_supersede_metadata(FILE *input) {
         else {
             json_t *avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
-                log(ERROR, "AVU data for '%s' is not in a JSON array", path);
+                logmsg(ERROR, "AVU data for '%s' is not in a JSON array", path);
                 goto error;
             }
 
@@ -158,7 +158,7 @@ int do_supersede_metadata(FILE *input) {
             int status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
                 error_count++;
-                log(ERROR, "Failed to resolve path '%s'", path);
+                logmsg(ERROR, "Failed to resolve path '%s'", path);
             }
             else {
                 baton_error_t list_error;
@@ -176,11 +176,11 @@ int do_supersede_metadata(FILE *input) {
                     char *str = json_dumps(current_avu, JSON_DECODE_ANY);
 
                     if (contains_avu(avus, current_avu)) {
-                        log(TRACE, "Not removing AVU %s", str);
+                        logmsg(TRACE, "Not removing AVU %s", str);
                     }
                     else {
                         baton_error_t rem_error;
-                        log(TRACE, "Removing AVU %s", str);
+                        logmsg(TRACE, "Removing AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_REM,
                                                  current_avu, &rem_error);
                         if (rem_error.code != 0) {
@@ -200,11 +200,11 @@ int do_supersede_metadata(FILE *input) {
                     char *str = json_dumps(avu, JSON_DECODE_ANY);
 
                     if (contains_avu(current_avus, avu)) {
-                        log(TRACE, "Not adding AVU %s", str);
+                        logmsg(TRACE, "Not adding AVU %s", str);
                     }
                     else {
                         baton_error_t add_error;
-                        log(TRACE, "Adding AVU %s", str);
+                        logmsg(TRACE, "Adding AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_ADD,
                                              avu, &add_error);
                         if (add_error.code != 0) {
@@ -233,14 +233,14 @@ int do_supersede_metadata(FILE *input) {
 
     rcDisconnect(conn);
 
-    log(TRACE, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(TRACE, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }

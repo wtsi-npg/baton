@@ -142,8 +142,8 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                log(ERROR, "JSON error at line %d, column %d: %s",
-                    load_error.line, load_error.column, load_error.text);
+                logmsg(ERROR, "JSON error at line %d, column %d: %s",
+                       load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -161,8 +161,8 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
             json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
             if (perms) {
                 if (!json_is_array(perms)) {
-                    log(ERROR, "Permissions data for %s is not in a JSON array",
-                        path);
+                    logmsg(ERROR, "Permissions data for %s is not in "
+                           "a JSON array", path);
                     goto error;
                 }
 
@@ -170,7 +170,7 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
                 int status = resolve_rods_path(conn, &env, &rods_path, path);
                 if (status < 0) {
                     error_count++;
-                    log(ERROR, "Failed to resolve path '%s'", path);
+                    logmsg(ERROR, "Failed to resolve path '%s'", path);
                 }
                 else {
                     for (size_t i = 0; i < json_array_size(perms); i++) {
@@ -199,14 +199,14 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
 
     rcDisconnect(conn);
 
-    log(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }

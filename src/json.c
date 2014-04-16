@@ -53,7 +53,7 @@ json_t *error_to_json(baton_error_t *error) {
                             JSON_ERROR_CODE_KEY, error->code);
 
     if (!err) {
-        log(ERROR, "Failed to pack error '%s' as JSON", error->message);
+        logmsg(ERROR, "Failed to pack error '%s' as JSON", error->message);
     }
 
     return err;
@@ -124,13 +124,18 @@ const char* get_data_object_value(json_t *object, baton_error_t *error) {
 }
 
 const char* get_created_timestamp(json_t *object, baton_error_t *error) {
-    return get_string_value(object, "path spec", JSON_CREATED_KEY,
+    return get_string_value(object, "timestamps", JSON_CREATED_KEY,
                             JSON_CREATED_SHORT_KEY, error);
 }
 
 const char* get_modified_timestamp(json_t *object, baton_error_t *error) {
-    return get_string_value(object, "path spec", JSON_MODIFIED_KEY,
+    return get_string_value(object, "timestamps", JSON_MODIFIED_KEY,
                             JSON_MODIFIED_SHORT_KEY, error);
+}
+
+const char* get_replicate_num(json_t *object, baton_error_t *error) {
+    return get_opt_string_value(object, "timestamps", JSON_REPLICATE_KEY,
+                                JSON_REPLICATE_SHORT_KEY, error);
 }
 
 const char *get_avu_attribute(json_t *avu, baton_error_t *error) {
@@ -214,7 +219,7 @@ int represents_data_object(json_t *object) {
 }
 
 json_t *make_timestamp(const char* key, const char *value, const char *format,
-                       baton_error_t *error) {
+                       int *repl_num, baton_error_t *error) {
     char *formatted = format_timestamp(value, format);
 
     json_t *result = json_pack("{s:s}", key, formatted);
@@ -223,6 +228,11 @@ json_t *make_timestamp(const char* key, const char *value, const char *format,
                         "Failed to pack timestamp '%s': '%s' as JSON",
                         key, value);
         goto error;
+    }
+
+    if (repl_num) {
+        json_object_set_new(result, JSON_REPLICATE_KEY,
+                            json_integer(*repl_num));
     }
 
     free(formatted);
@@ -236,7 +246,7 @@ error:
 }
 
 int add_timestamps(json_t *object, const char *created, const char *modified,
-                   baton_error_t *error) {
+                   int *repl_num, baton_error_t *error) {
     json_t *iso_created  = NULL;
     json_t *iso_modified = NULL;
 
@@ -247,11 +257,11 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
     }
 
     iso_created = make_timestamp(JSON_CREATED_KEY, created,
-                                 ISO8601_FORMAT, error);
+                                 ISO8601_FORMAT, repl_num, error);
     if (error->code != 0) goto error;
 
     iso_modified = make_timestamp(JSON_MODIFIED_KEY, modified,
-                                  ISO8601_FORMAT, error);
+                                  ISO8601_FORMAT, repl_num, error);
     if (error->code != 0) goto error;
 
     json_t *timestamps = json_pack("[o, o]", iso_created, iso_modified);
@@ -298,8 +308,8 @@ json_t *data_object_parts_to_json(const char *coll_name,
                                JSON_COLLECTION_KEY,  coll_name,
                                JSON_DATA_OBJECT_KEY, data_name);
     if (!result) {
-        log(ERROR, "Failed to pack data object '%s/%s' as JSON",
-            coll_name, data_name);
+        logmsg(ERROR, "Failed to pack data object '%s/%s' as JSON",
+               coll_name, data_name);
     }
 
     return result;
@@ -341,9 +351,9 @@ json_t *query_args_to_json(const char *attr_name, const char *attr_value,
     }
 
     if (!result) {
-        log(ERROR, "Failed to pack query attribute: '%s', "
-            "value: '%s', path: '%s' as JSON", attr_name, attr_value,
-            root_path);
+        logmsg(ERROR, "Failed to pack query attribute: '%s', "
+               "value: '%s', path: '%s' as JSON", attr_name, attr_value,
+               root_path);
     }
 
     return result;
@@ -352,7 +362,7 @@ json_t *query_args_to_json(const char *attr_name, const char *attr_value,
 json_t *collection_path_to_json(const char *path) {
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
-        log(ERROR, "Failed to pack collection '%s' as JSON", path);
+        logmsg(ERROR, "Failed to pack collection '%s' as JSON", path);
     }
 
     return result;
