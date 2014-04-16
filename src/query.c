@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <libgen.h>
+#include <math.h>
 #include <string.h>
 #include "rodsClient.h"
 
