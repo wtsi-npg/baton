@@ -170,7 +170,7 @@ int do_search_metadata(FILE *input, char *zone_name, print_flags pflags) {
             json_decref(results);
         }
 
-        fflush(stdout);
+        if (unbuffered_flag) fflush(stdout);
         json_decref(target);
     } // while
 
