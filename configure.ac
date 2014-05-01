@@ -8,7 +8,7 @@ AM_INIT_AUTOMAKE([foreign -Wall -Werror]) # Must precede AC_PROG_CC
 AC_PROG_CC
 AC_PROG_CC_C99
 AC_PROG_CC_C_O
-# AM_PROG_CC_C_O
+AM_PROG_CC_C_O
 
 AC_PROG_INSTALL
 
