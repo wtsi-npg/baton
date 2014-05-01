@@ -118,27 +118,31 @@ error:
 
 char *format_timestamp(const char *raw_timestamp, const char *format) {
     int buffer_len = 32;
+    char *buffer;
+    int base = 10;
 
-    char *buffer = calloc(buffer_len, sizeof (char));
+    struct tm tm;
+    time_t time;
+    int status;
+
+    buffer = calloc(buffer_len, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
         goto error;
     }
 
-    int base = 10;
     errno = 0;
-    time_t t = strtoul(raw_timestamp, NULL, base);
+    time = strtoul(raw_timestamp, NULL, base);
     if (errno != 0) {
         logmsg(ERROR, "Failed to convert timestamp '%s' to a number: "
                "error %d %s", raw_timestamp, errno, strerror(errno));
         goto error;
     }
 
-    struct tm tm;
-    gmtime_r(&t, &tm);
+    gmtime_r(&time, &tm);
 
-    int status = strftime(buffer, buffer_len, format, &tm);
+    status = strftime(buffer, buffer_len, format, &tm);
     if (status == 0) {
         logmsg(ERROR, "Failed to format timestamp '%s' as an ISO date time: "
                "error %d %s", raw_timestamp, errno, strerror(errno));
@@ -157,22 +161,26 @@ error:
 
 char *parse_timestamp(const char *timestamp, const char *format) {
     int buffer_len = 32;
+    char *buffer;
+    char *rest;
 
-    char *buffer = calloc(buffer_len, sizeof (char));
+    struct tm tm;
+    time_t time;
+
+    buffer = calloc(buffer_len, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
         goto error;
     }
 
-    struct tm tm;
-    char *rest = strptime(timestamp, format, &tm);
+    rest = strptime(timestamp, format, &tm);
     if (!rest) {
         logmsg(ERROR, "Failed to parse ISO date time '%s'", timestamp);
         goto error;
     }
 
-    time_t time = timegm(&tm);
+    time = timegm(&tm);
     snprintf(buffer, buffer_len, "%ld", time);
 
     logmsg(DEBUG, "Parsed timestamp '%s' to '%ld'", timestamp, time);

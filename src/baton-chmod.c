@@ -29,6 +29,7 @@
 #include "config.h"
 #include "json.h"
 #include "log.h"
+#include "utilities.h"
 
 static int debug_flag;
 static int help_flag;
@@ -82,11 +83,11 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    json-chmod");
+        puts("    baton-chmod");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-chmod [--file <json file>]");
+        puts("    baton-chmod [--file <json file>]");
         puts("");
         puts("Description");
         puts("    Set permissions on collections and data objects");
@@ -135,9 +136,8 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-
     while (!feof(input)) {
+        size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {

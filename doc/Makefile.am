@@ -1,4 +1,5 @@
-EXTRA_DIST = source/conf.py source/index.rst
+
+EXTRA_DIST = conf.py index.rst
 
 SPHINXOPTS = -d _build/doctrees
 

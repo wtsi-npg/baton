@@ -85,17 +85,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag) pflags       = pflags | PRINT_ACL;
-    if (avu_flag) pflags       = pflags | PRINT_AVU;
+    if (acl_flag)       pflags = pflags | PRINT_ACL;
+    if (avu_flag)       pflags = pflags | PRINT_AVU;
     if (timestamp_flag) pflags = pflags | PRINT_TIMESTAMP;
 
     if (help_flag) {
         puts("Name");
-        puts("    json-list");
+        puts("    baton-list");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-list [--acl] [--avu] [--file <json file>]");
+        puts("    baton-list [--acl] [--avu] [--file <json file>]");
         puts("");
         puts("Description");
         puts("    Lists data objects and collections described in a JSON ");
@@ -131,16 +131,15 @@ int main(int argc, char *argv[]) {
 }
 
 int do_list_paths(FILE *input, print_flags pflags) {
-    int path_count = 0;
+    int path_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-
     while (!feof(input)) {
+        size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *target = json_loadf(input, jflags, &load_error);
         if (!target) {

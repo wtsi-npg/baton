@@ -41,7 +41,7 @@ int do_supersede_metadata(FILE *input);
 int main(int argc, char *argv[]) {
     int exit_status = 0;
     char *json_file = NULL;
-    FILE *input = NULL;
+    FILE *input     = NULL;
 
     while (1) {
         static struct option long_options[] = {
@@ -80,11 +80,11 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    json-metasuper");
+        puts("    baton-metasuper");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metasuper [--file <json file>]");
+        puts("    baton-metasuper [--file <json file>]");
         puts("");
         puts("Description");
         puts("    Supersedes metadata AVUs on collections and data objects");
@@ -117,16 +117,15 @@ int main(int argc, char *argv[]) {
 }
 
 int do_supersede_metadata(FILE *input) {
-    int path_count = 0;
+    int path_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-
     while (!feof(input)) {
+        size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
@@ -140,6 +139,8 @@ int do_supersede_metadata(FILE *input) {
 
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
+        json_t *avus;
+        int status;
         path_count++;
 
         if (path_error.code != 0) {
@@ -148,14 +149,14 @@ int do_supersede_metadata(FILE *input) {
             goto print_result;
         }
         else {
-            json_t *avus = json_object_get(target, JSON_AVUS_KEY);
+            avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
                 logmsg(ERROR, "AVU data for '%s' is not in a JSON array", path);
                 goto error;
             }
 
             rodsPath_t rods_path;
-            int status = resolve_rods_path(conn, &env, &rods_path, path);
+            status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
                 error_count++;
                 logmsg(ERROR, "Failed to resolve path '%s'", path);

@@ -35,23 +35,24 @@ void log_json_error(log_level level, json_error_t *error) {
            error->text, error->line, error->column, error->position);
 }
 
-const char *ensure_valid_operator(const char *operator, baton_error_t *error) {
-    static int num_operators = 10;
+const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
+    static size_t num_operators = 10;
     static char *operators[] = { SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
                                  SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
                                  SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
                                  SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
                                  SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE };
-
-    int valid_index = -1;
-    for (int i = 0; i < num_operators; i++) {
-        if (str_equals_ignore_case(operator, operators[i])) {
+    size_t valid_index;
+    int valid = 0;
+    for (size_t i = 0; i < num_operators; i++) {
+        if (str_equals_ignore_case(oper, operators[i])) {
+            valid = 1;
             valid_index = i;
             break;
         }
     }
 
-    if (valid_index < 0) {
+    if (!valid) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid operator: expected one of "
                         "[%s, %s, %s, %s, %s, %s, %s, %s, %s, %s]",
@@ -78,11 +79,13 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     json_t *items           = NULL;
+    json_t *root_path;
+    json_t *avus;
 
     query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns,
                                 format->columns);
 
-    json_t *root_path = json_object_get(query, JSON_COLLECTION_KEY);
+    root_path = json_object_get(query, JSON_COLLECTION_KEY);
     if (root_path) {
         if (!json_is_string(root_path)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -93,7 +96,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     }
 
     // AVUs are mandatory for searches
-    json_t *avus = get_avus(query, error);
+    avus = get_avus(query, error);
     if (error->code != 0) goto error;
 
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
@@ -140,12 +143,13 @@ error:
 
 json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
                  const char *labels[], baton_error_t *error) {
-    int status;
+    genQueryOut_t *query_out = NULL;
+    size_t chunk_num  = 0;
+    int continue_flag = 0;
+
     char *err_name;
     char *err_subname;
-    genQueryOut_t *query_out = NULL;
-    int chunk_num     = 0;
-    int continue_flag = 0;
+    int status;
 
     json_t *results = json_array();
     if (!results) {
@@ -299,7 +303,7 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
                                        json_t *mapped_acl,
                                        prepare_acl_search_cb prepare,
                                        baton_error_t *error) {
-    int num_clauses = json_array_size(mapped_acl);
+    size_t num_clauses = json_array_size(mapped_acl);
     if (num_clauses > 1) {
         set_baton_error(error, -1,
                         "Invalid permissions specification "
@@ -310,7 +314,7 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
         goto error;
     }
 
-    for (int i = 0; i < num_clauses; i++) {
+    for (size_t i = 0; i < num_clauses; i++) {
         json_t *access = json_array_get(mapped_acl, i);
         if (!json_is_object(access)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -338,9 +342,8 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
                                        json_t *avus,
                                        prepare_avu_search_cb prepare,
                                        baton_error_t *error) {
-    int num_clauses = json_array_size(avus);
-
-    for (int i = 0; i < num_clauses; i++) {
+    size_t num_clauses = json_array_size(avus);
+    for (size_t i = 0; i < num_clauses; i++) {
         json_t *avu = json_array_get(avus, i);
         if (!json_is_object(avu)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -379,9 +382,8 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        prepare_tps_search_cb prepare_cre,
                                        prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error) {
-    int num_clauses = json_array_size(timestamps);
-
-    for (int i = 0; i < num_clauses; i++) {
+    size_t num_clauses = json_array_size(timestamps);
+    for (size_t i = 0; i < num_clauses; i++) {
         json_t *tp = json_array_get(timestamps, i);
         if (!json_is_object(tp)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -443,6 +445,14 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     char *path             = NULL;
     json_t *raw_timestamps = NULL;
 
+    json_t *timestamps;
+    const char *created;
+    const char *modified;
+
+    size_t selected_index = 0;
+    int selected_repl = -1;
+    int status;
+
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid target: not a JSON object");
@@ -452,7 +462,7 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    int status = set_rods_path(conn, &rods_path, path);
+    status = set_rods_path(conn, &rods_path, path);
     if (status < 0) {
         set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
         goto error;
@@ -461,15 +471,11 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     raw_timestamps = list_timestamps(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
-    int selected_index = 0;
-    int selected_repl = -1;
-
     // For data objects, we filter the results to present only the
     // lowest replicate number.  The iRODS generic query API doesn't
     // permit this selection at the query level.
 
     if (represents_data_object(object)) {
-
         size_t index;
         json_t *timestamps;
         int base = 10;
@@ -479,7 +485,7 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
             if (error->code != 0) goto error;
 
             char *endptr;
-            int repl_num = strtol(repl_str, &endptr, base);
+            int repl_num = strtoul(repl_str, &endptr, base);
             if (*endptr) {
                 set_baton_error(error, -1,
                                 "Failed to parse replicate number from "
@@ -497,10 +503,11 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
                selected_repl, path);
     }
 
-    json_t *timestamps = json_array_get(raw_timestamps, selected_index);
-    const char *created = get_created_timestamp(timestamps, error);
+    timestamps = json_array_get(raw_timestamps, selected_index);
+
+    created = get_created_timestamp(timestamps, error);
     if (error->code != 0) goto error;
-    const char *modified = get_modified_timestamp(timestamps, error);
+    modified = get_modified_timestamp(timestamps, error);
     if (error->code != 0) goto error;
 
     int *repl_ptr;
@@ -551,8 +558,10 @@ error:
 
 json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
                              baton_error_t *error) {
-    rodsPath_t rods_path;
     char *path = NULL;
+    rodsPath_t rods_path;
+    json_t *avus;
+    int status;
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -563,13 +572,13 @@ json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    int status = set_rods_path(conn, &rods_path, path);
+    status = set_rods_path(conn, &rods_path, path);
     if (status < 0) {
         set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
         goto error;
     }
 
-    json_t *avus = list_metadata(conn, &rods_path, NULL, error);
+    avus = list_metadata(conn, &rods_path, NULL, error);
     if (error->code != 0) goto error;
 
     add_metadata(object, avus, error);
@@ -609,8 +618,10 @@ error:
 
 json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
                             baton_error_t *error) {
-    rodsPath_t rods_path;
     char *path = NULL;
+    rodsPath_t rods_path;
+    json_t *perms;
+    int status;
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -621,13 +632,13 @@ json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    int status = set_rods_path(conn, &rods_path, path);
+    status = set_rods_path(conn, &rods_path, path);
     if (status < 0) {
         set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
         goto error;
     }
 
-    json_t *perms = list_permissions(conn, &rods_path, error);
+    perms = list_permissions(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
     add_permissions(object, perms, error);

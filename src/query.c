@@ -39,7 +39,7 @@ void log_rods_errstack(log_level level, rError_t *error) {
     }
 }
 
-genQueryInp_t *make_query_input(int max_rows, int num_columns,
+genQueryInp_t *make_query_input(size_t max_rows, size_t num_columns,
                                 const int columns[]) {
     genQueryInp_t *query_in = calloc(1, sizeof (genQueryInp_t));
     if (!query_in) goto error;
@@ -49,7 +49,7 @@ genQueryInp_t *make_query_input(int max_rows, int num_columns,
     int *cols_to_select = calloc(num_columns, sizeof (int));
     if (!cols_to_select) goto error;
 
-    for (int i = 0; i < num_columns; i++) {
+    for (size_t i = 0; i < num_columns; i++) {
         cols_to_select[i] = columns[i];
     }
 
@@ -125,9 +125,9 @@ void free_query_output(genQueryOut_t *query_out) {
     free(query_out);
 }
 
-genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
+genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
                                const query_cond_t conds[]) {
-    for (int i = 0; i < num_conds; i++) {
+    for (size_t i = 0; i < num_conds; i++) {
         const char *operator = conds[i].operator;
         const char *name     = conds[i].value;
 
@@ -204,7 +204,7 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
 
-    int num_conds = 2;
+    size_t num_conds = 2;
     if (attr_name) {
         add_query_conds(query_in, num_conds + 1,
                         (query_cond_t []) { cn, dn, an });
@@ -238,7 +238,7 @@ genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = attr_name };
 
-    int num_conds = 1;
+    size_t num_conds = 1;
     if (attr_name) {
         add_query_conds(query_in, num_conds + 1, (query_cond_t []) { cn, an });
     }
@@ -259,7 +259,7 @@ genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = ACCESS_NAMESPACE };
 
-    int num_conds = 2;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { di, tn });
 }
 
@@ -272,7 +272,7 @@ genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
     query_cond_t tn = { .column   = COL_COLL_TOKEN_NAMESPACE,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = ACCESS_NAMESPACE };
-    int num_conds = 2;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, tn });
 }
 
@@ -282,7 +282,7 @@ genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
     query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = data_id };
-    int num_conds = 1;
+    size_t num_conds = 1;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { di });
 }
 
@@ -292,7 +292,7 @@ genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
     query_cond_t cn = { .column   = COL_COLL_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = path };
-    int num_conds = 1;
+    size_t num_conds = 1;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { cn });
 }
 
@@ -306,7 +306,7 @@ genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
     query_cond_t av = { .column   = COL_META_DATA_ATTR_VALUE,
                         .operator = operator,
                         .value    = attr_value };
-    int num_conds = 2;
+    size_t num_conds = 2;
     add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
 
     return limit_to_newest_repl(query_in);
@@ -322,7 +322,7 @@ genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
     query_cond_t av = { .column   = COL_META_COLL_ATTR_VALUE,
                         .operator = operator,
                         .value    = attr_value };
-    int num_conds = 2;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
 }
 
@@ -336,7 +336,7 @@ genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in) {
     query_cond_t rs = { .column   = COL_D_REPL_STATUS,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = buf };
-    int num_conds = 1;
+    size_t num_conds = 1;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { rs });
 }
 
@@ -352,7 +352,7 @@ genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
     query_cond_t al = { .column   = COL_DATA_ACCESS_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = access_level };
-    int num_conds = 3;
+    size_t num_conds = 3;
     return add_query_conds(query_in, num_conds,
                            (query_cond_t []) { tn, ui, al });
 }
@@ -369,7 +369,7 @@ genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
     query_cond_t al = { .column   = COL_COLL_ACCESS_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = access_level };
-    int num_conds = 3;
+    size_t num_conds = 3;
     return add_query_conds(query_in, num_conds,
                            (query_cond_t []) { tn, ui, al });
 }
@@ -383,7 +383,7 @@ genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
     query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = DEFAULT_REPL_NUM };
-    int num_conds = 2;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
 }
 
@@ -396,7 +396,7 @@ genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
     query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = DEFAULT_REPL_NUM };
-    int num_conds = 2;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
 }
 
@@ -406,7 +406,7 @@ genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,
     query_cond_t ts = { .column   = COL_COLL_CREATE_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
-    int num_conds = 1;
+    size_t num_conds = 1;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
@@ -416,7 +416,7 @@ genQueryInp_t *prepare_col_mod_search(genQueryInp_t *query_in,
     query_cond_t ts = { .column   = COL_COLL_MODIFY_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
-    int num_conds = 1;
+    size_t num_conds = 1;
     return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
@@ -444,7 +444,7 @@ genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
                             .operator = SEARCH_OP_LIKE,
                             .value    = path };
 
-        int num_conds = 1;
+        size_t num_conds = 1;
         add_query_conds(query_in, num_conds, (query_cond_t []) { pv });
         free(path);
     }
@@ -464,6 +464,6 @@ genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = user_name };
 
-    int num_conds = 1;
+    size_t num_conds = 1;
     return add_query_conds(query_in, num_conds,  (query_cond_t []) { un });
 }

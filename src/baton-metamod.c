@@ -41,8 +41,9 @@ int do_modify_metadata(FILE *input, metadata_op operation);
 int main(int argc, char *argv[]) {
     int exit_status = 0;
     metadata_op meta_op = -1;
+    int status;
     char *json_file = NULL;
-    FILE *input = NULL;
+    FILE     *input = NULL;
 
     while (1) {
         static struct option long_options[] = {
@@ -92,11 +93,11 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    json-metamod");
+        puts("    baton-metamod");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metamod -o <operation> [--file <json file>]");
+        puts("    baton-metamod -o <operation> [--file <json file>]");
         puts("");
         puts("Description");
         puts("    Modifies metadata AVUs on collections and data objects");
@@ -127,7 +128,7 @@ int main(int argc, char *argv[]) {
         case META_ADD:
         case META_REM:
             input = maybe_stdin(json_file);
-            int status = do_modify_metadata(input, meta_op);
+            status = do_modify_metadata(input, meta_op);
             if (status != 0) exit_status = 5;
             break;
 
@@ -146,16 +147,15 @@ args_error:
 }
 
 int do_modify_metadata(FILE *input, metadata_op operation) {
-    int path_count = 0;
+    int path_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-
     while (!feof(input)) {
+        size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
