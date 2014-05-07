@@ -73,6 +73,7 @@ typedef enum {
     PRINT_PRETTY    = 1 << 5
 } print_flags;
 
+
 /**
  *  @struct metadata_op
  *  @brief AVU metadata operation inputs.
@@ -91,6 +92,7 @@ typedef struct mod_metadata_in {
     /** The AVU attribute units. */
     char *attr_units;
 } mod_metadata_in_t;
+
 
 /**
  * Test that a connection can be made to the server.

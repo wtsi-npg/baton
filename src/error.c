@@ -32,8 +32,7 @@ void init_baton_error(baton_error_t *error) {
     error->size = 1;
 }
 
-void set_baton_error(baton_error_t *error, int code,
-                     const char *format, ...) {
+void set_baton_error(baton_error_t *error, int code, const char *format, ...) {
     va_list args;
     va_start(args, format);
 

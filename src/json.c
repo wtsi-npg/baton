@@ -249,6 +249,7 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
                    int *repl_num, baton_error_t *error) {
     json_t *iso_created  = NULL;
     json_t *iso_modified = NULL;
+    json_t *timestamps;
 
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add timestamp data: "
@@ -264,7 +265,7 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
                                   ISO8601_FORMAT, repl_num, error);
     if (error->code != 0) goto error;
 
-    json_t *timestamps = json_pack("[o, o]", iso_created, iso_modified);
+    timestamps = json_pack("[o, o]", iso_created, iso_modified);
     if (!timestamps) {
         set_baton_error(error, -1, "Failed to pack timestamp array");
         goto error;
@@ -426,13 +427,15 @@ void print_json(json_t *json) {
 static json_t *get_json_value(json_t *object, const char *name,
                               const char *key, const char *short_key,
                               baton_error_t *error) {
+    json_t *value;
+
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid %s: not a JSON object", name);
         goto error;
     }
 
-    json_t *value = json_object_get(object, key);
+    value = json_object_get(object, key);
     if (!value && short_key) {
         value = json_object_get(object, short_key);
     }
@@ -452,13 +455,15 @@ error:
 static const char *get_string_value(json_t *object, const char *name,
                                     const char *key, const char *short_key,
                                     baton_error_t *error) {
+    json_t *value;
+
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid %s: not a JSON object", name);
         goto error;
     }
 
-    json_t *value = json_object_get(object, key);
+    value = json_object_get(object, key);
     if (!value && short_key) {
         value = json_object_get(object, short_key);
     }
@@ -484,15 +489,15 @@ error:
 static const char *get_opt_string_value(json_t *object, const char *name,
                                         const char *key, const char *short_key,
                                         baton_error_t *error) {
+    const char *str = NULL;
+    json_t *value;
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid %s: not a JSON object", name);
         goto error;
     }
 
-    const char *str = NULL;
-
-    json_t *value = json_object_get(object, key);
+    value = json_object_get(object, key);
     if (!value && short_key) {
         value = json_object_get(object, short_key);
     }

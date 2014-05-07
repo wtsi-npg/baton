@@ -97,11 +97,11 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    json-metaquery");
+        puts("    baton-metaquery");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metaquery [--file <JSON file>] [--zone <name>]");
+        puts("    baton-metaquery [--file <JSON file>] [--zone <name>]");
         puts("");
         puts("Description");
         puts("    Finds items in iRODS by AVU, given a query constructed");
@@ -143,9 +143,8 @@ int do_search_metadata(FILE *input, char *zone_name, print_flags pflags) {
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-
     while (!feof(input)) {
+        size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *target = json_loadf(input, jflags, &load_error);
         if (!target) {
