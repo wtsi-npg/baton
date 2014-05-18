@@ -106,6 +106,8 @@ START_TEST(test_str_equals) {
     ck_assert_msg(str_equals(" ", " "),  "' ' equals ' '");
     ck_assert_msg(str_equals("a", "a"),  "'a' equals 'a'");
     ck_assert_msg(!str_equals("a", "A"), "'a' !equals 'A'");
+    ck_assert_msg(!str_equals("aa", "a"), "'aa' !equals 'a'");
+    ck_assert_msg(!str_equals("a", "aa"), "'a' !equals 'aa'");
 }
 END_TEST
 
@@ -114,6 +116,8 @@ START_TEST(test_str_equals_ignore_case) {
     ck_assert_msg(str_equals_ignore_case(" ", " "), "' ' equals ' '");
     ck_assert_msg(str_equals_ignore_case("a", "a"), "'a' equals 'a'");
     ck_assert_msg(str_equals_ignore_case("a", "A"), "'a' equals 'A'");
+    ck_assert_msg(!str_equals_ignore_case("aa", "A"), "'aa' equals 'A'");
+    ck_assert_msg(!str_equals_ignore_case("a", "AA"), "'a' equals 'AA'");
 }
 END_TEST
 
@@ -156,6 +160,29 @@ START_TEST(test_parse_timestamp) {
     ck_assert_str_eq(parsed, "1375107252");
 
     free(parsed);
+}
+END_TEST
+
+START_TEST(test_maybe_utf8) {
+    // naïve
+    char latin_1[6] = { 0x6e, 0x61, 0xef,       0x76, 0x65, 0x00 };
+    char utf_8[7]   = { 0x6e, 0x61, 0xc3, 0xaf, 0x76, 0x65, 0x00 };
+
+    ck_assert(!maybe_utf8(latin_1, sizeof latin_1));
+    ck_assert(maybe_utf8(utf_8, sizeof utf_8));
+}
+END_TEST
+
+START_TEST(test_to_utf8) {
+    // naïve
+    char latin_1[6] = { 0x6e, 0x61, 0xef,       0x76, 0x65, 0x00 };
+    char utf_8[7]   = { 0x6e, 0x61, 0xc3, 0xaf, 0x76, 0x65, 0x00 };
+
+    char output[7];
+    memset(output, 0, sizeof output);
+
+    ck_assert_int_eq(to_utf8(latin_1, output, sizeof output), 5);
+    ck_assert_str_eq(output, utf_8);
 }
 END_TEST
 
@@ -1450,6 +1477,8 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_maybe_stdin);
     tcase_add_test(utilities_tests, test_format_timestamp);
     tcase_add_test(utilities_tests, test_parse_timestamp);
+    tcase_add_test(utilities_tests, test_maybe_utf8);
+    tcase_add_test(utilities_tests, test_to_utf8);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);

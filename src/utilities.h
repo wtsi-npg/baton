@@ -43,4 +43,8 @@ char *format_timestamp(const char *timestamp, const char *format);
 
 char *parse_timestamp(const char *timestamp, const char *format);
 
+int maybe_utf8 (const char *str, size_t max_len);
+
+size_t to_utf8(const char *input, char *output, size_t max_len);
+
 #endif // _BATON_UTILITIES_H

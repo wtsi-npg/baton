@@ -60,11 +60,13 @@ int str_starts_with(const char *str, const char *prefix) {
 }
 
 int str_equals(const char *str1, const char *str2) {
-    return (strncmp(str1, str2, strlen(str2)) == 0);
+    return strlen(str1) == strlen(str2) &&
+        (strncmp(str1, str2, strlen(str2)) == 0);
 }
 
 int str_equals_ignore_case(const char *str1, const char *str2) {
-    return (strncasecmp(str1, str2, strlen(str2)) == 0);
+    return strlen(str1) == strlen(str2) &&
+        (strncasecmp(str1, str2, strlen(str2)) == 0);
 }
 
 int str_ends_with(const char *str, const char *suffix) {
@@ -117,16 +119,16 @@ error:
 }
 
 char *format_timestamp(const char *raw_timestamp, const char *format) {
-    int buffer_len = 32;
-    char *buffer;
+    size_t output_len = 32;
+    char *output = NULL;
     int base = 10;
 
     struct tm tm;
     time_t time;
     int status;
 
-    buffer = calloc(buffer_len, sizeof (char));
-    if (!buffer) {
+    output = calloc(output_len, sizeof (char));
+    if (!output) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
         goto error;
@@ -142,33 +144,33 @@ char *format_timestamp(const char *raw_timestamp, const char *format) {
 
     gmtime_r(&time, &tm);
 
-    status = strftime(buffer, buffer_len, format, &tm);
+    status = strftime(output, output_len, format, &tm);
     if (status == 0) {
         logmsg(ERROR, "Failed to format timestamp '%s' as an ISO date time: "
                "error %d %s", raw_timestamp, errno, strerror(errno));
         goto error;
     }
 
-    logmsg(DEBUG,"Converted timestamp '%s' to '%s'", raw_timestamp, buffer);
+    logmsg(DEBUG,"Converted timestamp '%s' to '%s'", raw_timestamp, output);
 
-    return buffer;
+    return output;
 
 error:
-    if (buffer) free(buffer);
+    if (output) free(output);
 
     return NULL;
 }
 
 char *parse_timestamp(const char *timestamp, const char *format) {
-    int buffer_len = 32;
-    char *buffer;
+    size_t output_len = 32;
+    char *output = NULL;
     char *rest;
 
     struct tm tm;
     time_t time;
 
-    buffer = calloc(buffer_len, sizeof (char));
-    if (!buffer) {
+    output = calloc(output_len, sizeof (char));
+    if (!output) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
         goto error;
@@ -181,14 +183,114 @@ char *parse_timestamp(const char *timestamp, const char *format) {
     }
 
     time = timegm(&tm);
-    snprintf(buffer, buffer_len, "%ld", time);
+    snprintf(output, output_len, "%ld", time);
 
     logmsg(DEBUG, "Parsed timestamp '%s' to '%ld'", timestamp, time);
 
-    return buffer;
+    return output;
 
 error:
-    if (buffer) free(buffer);
+    if (output) free(output);
 
     return NULL;
+}
+
+size_t to_utf8(const char *input, char *output, size_t max_len) {
+    size_t len = strnlen(input, max_len);
+
+    const unsigned char *bytes = (const unsigned char *) input;
+    char *op = output;
+
+    for (size_t i = 0; i < len; i++) {
+        if (bytes[i] < 0x80) {
+            *op++ = bytes[i];
+        }
+        else {
+            *op++ = 0xc0 | (bytes[i] & 0xc0) >> 6;
+            *op++ = 0x80 | (bytes[i] & 0x3f);
+        }
+    }
+
+    return len;
+}
+
+int maybe_utf8 (const char *str, size_t max_len) {
+    // http://www.rfc-editor.org/rfc/rfc3629.txt
+    //
+    // UTF8-octets = *( UTF8-char )
+    // UTF8-char   = UTF8-1 / UTF8-2 / UTF8-3 / UTF8-4
+    // UTF8-tail   = %x80-BF
+
+    size_t len = strnlen(str, max_len);
+    size_t i   = 0;
+
+    const unsigned char *bytes = (const unsigned char *) str;
+
+    while (i < len) {
+        // UTF8-1 = %x00-7F
+        // Includes 0x7f DEL and other control characters
+        if (bytes[i + 0] <= 0x7F) {
+            i += 1;
+            continue;
+        }
+
+        // UTF8-2 = %xC2-DF UTF8-tail
+        if ((bytes[i + 0] >= 0xc2) && (bytes[i + 0] <= 0xdf) &&
+            (bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0xbf)) {
+            i += 2;
+            continue;
+        }
+
+        // UTF8-3 = %xE0 %xA0-BF UTF8-tail / %xE1-EC 2( UTF8-tail ) /
+        //          %xED %x80-9F UTF8-tail / %xEE-EF 2( UTF8-tail )
+        if (// %xE0 %xA0-BF UTF8-tail
+            ((bytes[i + 0] == 0xe0)                             &&
+             ((bytes[i + 1] >= 0xa0) && (bytes[i + 1] <= 0xbf)) &&
+             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)))
+            ||
+            // %xE1-EC 2( UTF8-tail )
+            (((bytes[i + 0] >= 0xe1) && (bytes[i + 0] <= 0xec)) &&
+             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0xbf)) &&
+             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)))
+            ||
+            // %xED %x80-9F UTF8-tail
+            ((bytes[i + 0] == 0xed)                             &&
+             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0x9f)) &&
+             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)))
+            ||
+            // %xEE-EF 2( UTF8-tail )
+            (((bytes[i + 0] >= 0xee) && (bytes[i + 0] <= 0xef)) &&
+             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0xbf)) &&
+             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)))) {
+            i += 3;
+            continue;
+         }
+
+        // UTF8-4 = %xF0 %x90-BF 2( UTF8-tail ) / %xF1-F3 3( UTF8-tail ) /
+        //          %xF4 %x80-8F 2( UTF8-tail )
+        if (// %xF0 %x90-BF 2( UTF8-tail )
+            ((bytes[i + 0] == 0xf0)                             &&
+             ((bytes[i + 1] >= 0x90) && (bytes[i + 1] <= 0xbf)) &&
+             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)) &&
+             ((bytes[i + 3] >= 0x80) && (bytes[i + 3] <= 0xbf)))
+            ||
+            // %xF1-F3 3( UTF8-tail )
+            (((bytes[i + 0] >= 0xf1) && (bytes[i + 0] <= 0xf3)) &&
+             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0xbf)) &&
+             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)) &&
+             ((bytes[i + 3] >= 0x80) && (bytes[i + 3] <= 0xbf)))
+            ||
+            // %xF4 %x80-8F 2( UTF8-tail )
+            ((bytes[i + 0] == 0xf4)                             &&
+             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0x8f)) &&
+             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)) &&
+             ((bytes[i + 3] >= 0x80) && (bytes[i + 3] <= 0xbf)))) {
+            i += 4;
+            continue;
+        }
+
+        return 0;
+    }
+
+    return 1;
 }

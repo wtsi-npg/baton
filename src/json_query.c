@@ -30,6 +30,10 @@
 #include "query.h"
 #include "utilities.h"
 
+static size_t parse_attr_value(int column, const char *label,
+                               const char *input, char *output,
+                               size_t max_len);
+
 void log_json_error(log_level level, json_error_t *error) {
     logmsg(level, "JSON error: %s, line %d, column %d, position %d",
            error->text, error->line, error->column, error->position);
@@ -246,11 +250,11 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
         goto error;
     }
 
-    logmsg(DEBUG, "Converting %d rows of results to JSON", query_out->rowCnt);
+    size_t num_rows = (size_t) query_out->rowCnt;
+    logmsg(DEBUG, "Converting %d rows of results to JSON", num_rows);
 
-    for (int row = 0; row < query_out->rowCnt; row++) {
-        logmsg(DEBUG, "Converting row %d of %d to JSON",
-               row, query_out->rowCnt);
+    for (size_t row = 0; row < num_rows; row++) {
+        logmsg(DEBUG, "Converting row %d of %d to JSON", row, num_rows);
 
         json_t *jrow = json_object();
         if (!jrow) {
@@ -259,30 +263,33 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
             goto error;
         }
 
-        for (int i = 0; i < query_out->attriCnt; i++) {
+        size_t num_attr = query_out->attriCnt;
+        for (size_t i = 0; i < num_attr; i++) {
+            size_t len   = query_out->sqlResult[i].len;
             char *result = query_out->sqlResult[i].value;
-            result += row * query_out->sqlResult[i].len;
+            result += row * len;
 
             logmsg(DEBUG, "Encoding column %d '%s' value '%s' as JSON",
                    i, labels[i], result);
 
             // Skip any results which return as an empty string
             // (notably units, when they are absent from an AVU).
-            if (strlen(result) > 0) {
-                json_t *jvalue = json_string(result);
-                if (!jvalue) {
-                    logmsg(ERROR, "Failed to parse string '%s'; is it UTF-8?",
-                           result);
-                    goto error;
-                }
+            if (strnlen(result, len) > 0) {
+                size_t vlen = len * 2 + 1; // +1 includes NUL
+                char value[vlen];
+                memset(value, 0, sizeof value);
 
-                // TODO: check return value
-                json_object_set_new(jrow, labels[i], jvalue);
+                if (parse_attr_value(i, labels[i], result, value, vlen) > 0) {
+                    json_t *jvalue = json_pack("s", value);
+                    if (!jvalue) goto error;
+
+                    // TODO: check return value
+                    json_object_set_new(jrow, labels[i], jvalue);
+                }
             }
         }
 
-        int status = json_array_append_new(array, jrow);
-        if (status != 0) {
+        if (json_array_append_new(array, jrow) != 0) {
             logmsg(ERROR, "Failed to append a new JSON result at row %d of %d",
                    row, query_out->rowCnt);
             goto error;
@@ -292,7 +299,7 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
     return array;
 
 error:
-    logmsg(ERROR, "Failed to convert row %d of %d to JSON");
+    logmsg(ERROR, "Failed to convert result to JSON");
 
     if (array) json_decref(array);
 
@@ -674,4 +681,29 @@ json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
 
 error:
     return NULL;
+}
+
+static size_t parse_attr_value(int column, const char *label,
+                               const char *input, char *output,
+                               size_t max_len) {
+    size_t size;
+
+    if (maybe_utf8(input, max_len)) {
+        size = snprintf(output, max_len, "%s", input);
+    }
+    else {
+        logmsg(WARN,
+               "Failed to parse column %d '%s' value '%s' as UTF-8. "
+               "Attempting to coerce to UTF-8 assuming it is ISO_8859-1",
+               column, label, input);
+
+        size = to_utf8(input, output, max_len);
+        if (!maybe_utf8(output, max_len)) {
+            size = 0;
+            logmsg(ERROR, "Failed to coerce column %d '%s' value '%s' "
+                   "to UTF-8", column, label, input);
+        }
+    }
+
+    return size;
 }
