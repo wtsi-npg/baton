@@ -23,15 +23,18 @@
 
 #include <stdio.h>
 
+#define MAX_STR_LEN (1024 * 1024)
+
 #define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
 
-int str_starts_with(const char *str, const char *prefix);
+int str_starts_with(const char *str, const char *prefix, size_t max_len);
 
-int str_ends_with(const char *str, const char *suffix);
+int str_ends_with(const char *str, const char *suffix, size_t max_len);
 
-int str_equals(const char *str1, const char *str2);
+int str_equals(const char *str1, const char *str2, size_t max_len);
 
-int str_equals_ignore_case(const char *str1, const char *str2);
+int str_equals_ignore_case(const char *str1, const char *str2,
+                           size_t max_len);
 
 char *copy_str(const char *str);
 

@@ -193,7 +193,8 @@ int has_modified_timestamp(json_t *object) {
 int contains_avu(json_t *avus, json_t *avu) {
     int has_avu = 0;
 
-    for (size_t i = 0; i < json_array_size(avus); i++) {
+    size_t num_avus = json_array_size(avus);
+    for (size_t i = 0; i < num_avus; i++) {
         json_t *x = json_array_get(avus, i);
         if (json_equal(x, avu)) {
             has_avu = 1;
@@ -382,11 +383,18 @@ char *json_to_path(json_t *object, baton_error_t *error) {
     else {
         const char *data_object = get_data_object_value(object, error);
 
-        size_t clen = strlen(collection);
-        size_t dlen = strlen(data_object);
+        size_t clen = strnlen(collection,  MAX_STR_LEN);
+        size_t dlen = strnlen(data_object, MAX_STR_LEN);
         size_t len = clen + dlen + 1;
 
-        if (str_ends_with(collection, "/")) {
+        if (len > MAX_STR_LEN) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Data object path length %d exceeds the maximum "
+                            "permitted (%d)", len, MAX_STR_LEN);
+            goto error;
+        }
+
+        if (str_ends_with(collection, "/", MAX_STR_LEN)) {
             path = calloc(len, sizeof (char));
             if (!path) {
                 set_baton_error(error, errno,

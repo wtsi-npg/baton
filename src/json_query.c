@@ -49,7 +49,7 @@ const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
     size_t valid_index;
     int valid = 0;
     for (size_t i = 0; i < num_operators; i++) {
-        if (str_equals_ignore_case(oper, operators[i])) {
+        if (str_equals_ignore_case(oper, operators[i], MAX_STR_LEN)) {
             valid = 1;
             valid_index = i;
             break;

@@ -636,10 +636,10 @@ int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
     mod_perms_in.zone          = zone_name;
     mod_perms_in.path          = rods_path->outPath;
 
-    if (str_equals_ignore_case(access_level, ACCESS_LEVEL_NULL) ||
-        str_equals_ignore_case(access_level, ACCESS_LEVEL_OWN)  ||
-        str_equals_ignore_case(access_level, ACCESS_LEVEL_READ) ||
-        str_equals_ignore_case(access_level, ACCESS_LEVEL_WRITE)) {
+    if (str_equals_ignore_case(access_level, ACCESS_LEVEL_NULL, MAX_STR_LEN) ||
+        str_equals_ignore_case(access_level, ACCESS_LEVEL_OWN, MAX_STR_LEN)  ||
+        str_equals_ignore_case(access_level, ACCESS_LEVEL_READ, MAX_STR_LEN) ||
+        str_equals_ignore_case(access_level, ACCESS_LEVEL_WRITE, MAX_STR_LEN)) {
         status = rcModAccessControl(conn, &mod_perms_in);
     }
     else {
@@ -1201,16 +1201,20 @@ error:
 // nomenclature. iRODS does a similar thing itself.
 static const char *map_access_level(const char *access_level,
                                     baton_error_t *error) {
-    if (str_equals_ignore_case(access_level, ACCESS_LEVEL_NULL)) {
+    if (str_equals_ignore_case(access_level,
+                               ACCESS_LEVEL_NULL, MAX_STR_LEN)) {
         return ACCESS_NULL;
     }
-    else if (str_equals_ignore_case(access_level, ACCESS_LEVEL_OWN)) {
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_OWN, MAX_STR_LEN)) {
         return ACCESS_OWN;
     }
-    else if (str_equals_ignore_case(access_level, ACCESS_LEVEL_READ)) {
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_READ, MAX_STR_LEN)) {
         return ACCESS_READ_OBJECT;
     }
-    else if (str_equals_ignore_case(access_level, ACCESS_LEVEL_WRITE)) {
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_WRITE, MAX_STR_LEN)) {
         return ACCESS_MODIFY_OBJECT;
     }
     else {
@@ -1225,16 +1229,20 @@ static const char *map_access_level(const char *access_level,
 
 // Map an iCAT token back to a user-visible access level.
 static const char *revmap_access_level(const char *icat_level) {
-    if (str_equals_ignore_case(icat_level, ACCESS_NULL)) {
+    if (str_equals_ignore_case(icat_level,
+                               ACCESS_NULL, MAX_STR_LEN)) {
         return ACCESS_LEVEL_NULL;
     }
-    else if (str_equals_ignore_case(icat_level, ACCESS_OWN)) {
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_OWN, MAX_STR_LEN)) {
         return ACCESS_LEVEL_OWN;
     }
-    else if (str_equals_ignore_case(icat_level, ACCESS_READ_OBJECT)) {
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_READ_OBJECT, MAX_STR_LEN)) {
         return ACCESS_LEVEL_READ;
     }
-    else if (str_equals_ignore_case(icat_level, ACCESS_MODIFY_OBJECT)) {
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_MODIFY_OBJECT, MAX_STR_LEN)) {
         return ACCESS_LEVEL_WRITE;
     }
     else {

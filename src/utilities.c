@@ -29,6 +29,7 @@
 #include <time.h>
 
 #include "log.h"
+#include "utilities.h"
 
 char *copy_str(const char *str) {
     size_t len = strlen(str) + 1;
@@ -46,11 +47,11 @@ error:
     return NULL;
 }
 
-int str_starts_with(const char *str, const char *prefix) {
+int str_starts_with(const char *str, const char *prefix, size_t max_len) {
     if (!str || !prefix) return 0;
 
-    size_t len  = strlen(str);
-    size_t plen = strlen(prefix);
+    size_t len  = strnlen(str,    max_len);
+    size_t plen = strnlen(prefix, max_len);
 
     // A string always starts with the empty string
     if (plen == 0)  return 1;
@@ -59,21 +60,23 @@ int str_starts_with(const char *str, const char *prefix) {
     return strncmp(str, prefix, plen) == 0;
 }
 
-int str_equals(const char *str1, const char *str2) {
-    return strlen(str1) == strlen(str2) &&
-        (strncmp(str1, str2, strlen(str2)) == 0);
+int str_equals(const char *str1, const char *str2, size_t max_len) {
+    size_t len1 = strnlen(str1, max_len);
+    size_t len2 = strnlen(str2, max_len);
+    return len1 == len2 && (strncmp(str1, str2, len2) == 0);
 }
 
-int str_equals_ignore_case(const char *str1, const char *str2) {
-    return strlen(str1) == strlen(str2) &&
-        (strncasecmp(str1, str2, strlen(str2)) == 0);
+int str_equals_ignore_case(const char *str1, const char *str2, size_t max_len) {
+    size_t len1 = strnlen(str1, max_len);
+    size_t len2 = strnlen(str2, max_len);
+    return len1 == len2 && (strncasecmp(str1, str2, max_len) == 0);
 }
 
-int str_ends_with(const char *str, const char *suffix) {
+int str_ends_with(const char *str, const char *suffix, size_t max_len) {
     if (!str || !suffix) return 0;
 
-    size_t len  = strlen(str);
-    size_t slen = strlen(suffix);
+    size_t len  = strnlen(str,    max_len);
+    size_t slen = strnlen(suffix, max_len);
 
     // A string always ends with the empty string
     if (slen == 0)  return 1;
@@ -201,6 +204,11 @@ size_t to_utf8(const char *input, char *output, size_t max_len) {
     const unsigned char *bytes = (const unsigned char *) input;
     char *op = output;
 
+    // In Latin-1, the numeric values of the encoding are equal to the
+    // first 256 Unicode codepoints
+
+    // http://www.ietf.org/rfc/rfc3629.txt, Section 3. for encoding.
+
     for (size_t i = 0; i < len; i++) {
         if (bytes[i] < 0x80) {
             *op++ = bytes[i];
@@ -215,7 +223,8 @@ size_t to_utf8(const char *input, char *output, size_t max_len) {
 }
 
 int maybe_utf8 (const char *str, size_t max_len) {
-    // http://www.rfc-editor.org/rfc/rfc3629.txt
+    // http://www.rfc-editor.org/rfc/rfc3629.txt, Section 4. for the syntax
+    // of UTF-8 byte sequences.
     //
     // UTF8-octets = *( UTF8-char )
     // UTF8-char   = UTF8-1 / UTF8-2 / UTF8-3 / UTF8-4

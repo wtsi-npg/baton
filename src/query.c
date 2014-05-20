@@ -89,12 +89,14 @@ void free_query_input(genQueryInp_t *query_in) {
     assert(query_in);
 
     // Free any strings allocated as query clause values
-    for (int i = 0; i < query_in->sqlCondInp.len; i++) {
+    size_t sci_len = query_in->sqlCondInp.len;
+    for (size_t i = 0; i < sci_len; i++) {
         free(query_in->sqlCondInp.value[i]);
     }
 
     // Free any key/value pairs, notably zone hints
-    for (int i = 0; i < query_in->condInput.len; i++) {
+    size_t ci_len = query_in->condInput.len;
+    for (size_t i = 0; i < ci_len; i++) {
         free(query_in->condInput.keyWord[i]);
         free(query_in->condInput.value[i]);
     }
@@ -118,7 +120,8 @@ void free_query_output(genQueryOut_t *query_out) {
     assert(query_out);
 
     // Free any strings allocated as query results
-    for (int i = 0; i < query_out->attriCnt; i++) {
+    size_t num_attr = query_out->attriCnt;
+    for (size_t i = 0; i < num_attr; i++) {
         free(query_out->sqlResult[i].value);
     }
 
@@ -149,7 +152,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
             int ci = query_in->sqlCondInp.inx[j];
             char *cv = query_in->sqlCondInp.value[j];
 
-            if (ci == conds[i].column && str_equals(cv, expr)) {
+            if (ci == conds[i].column && str_equals(cv, expr, MAX_STR_LEN)) {
                 logmsg(DEBUG, "Condition exists in query at position %d, "
                        "not adding: %d '%s'", j, ci, cv);
                 redundant = 1;
@@ -422,12 +425,12 @@ genQueryInp_t *prepare_col_mod_search(genQueryInp_t *query_in,
 
 genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
                                    const char *root_path) {
-    size_t len = strlen(root_path);
+    size_t len = strnlen(root_path, MAX_STR_LEN);
     char *path;
 
     if (len > 0) {
         // Absolute path
-        if (str_starts_with(root_path, "/")) {
+        if (str_starts_with(root_path, "/", 1)) {
             path = calloc(len + 2, sizeof (char));
             if (!path) goto error;
 
