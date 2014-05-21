@@ -78,42 +78,50 @@ static void basic_teardown() {
 }
 
 START_TEST(test_str_starts_with) {
-    ck_assert_msg(str_starts_with("", ""),    "'' starts with ''");
-    ck_assert_msg(str_starts_with("a", ""),   "'a' starts with ''");
-    ck_assert_msg(str_starts_with("a", "a"),  "'a' starts with 'a'");
-    ck_assert_msg(str_starts_with("ab", "a"), "'ab' starts with 'a'");
+    size_t len = MAX_STR_LEN;
+    ck_assert_msg(str_starts_with("",   "",  len),    "'' starts with ''");
+    ck_assert_msg(str_starts_with("a",  "",  len),   "'a' starts with ''");
+    ck_assert_msg(str_starts_with("a", "a",  len),  "'a' starts with 'a'");
+    ck_assert_msg(str_starts_with("ab", "a", len), "'ab' starts with 'a'");
 
-    ck_assert_msg(!str_starts_with("", "a"),   "'' !starts with 'a'");
-    ck_assert_msg(!str_starts_with("b", "a"),  "'b' !starts with 'a'");
-    ck_assert_msg(!str_starts_with("ba", "a"), "'ba' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("",   "a", len),   "'' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("b",  "a", len),  "'b' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("ba", "a", len), "'ba' !starts with 'a'");
 }
 END_TEST
 
 START_TEST(test_str_ends_with) {
-    ck_assert_msg(str_ends_with("", ""),    "'' ends with ''");
-    ck_assert_msg(str_ends_with("a", ""),   "'a' ends with ''");
-    ck_assert_msg(str_ends_with("a", "a"),  "'a' ends with 'a'");
-    ck_assert_msg(str_ends_with("ba", "a"), "'ba' ends with 'a'");
+    size_t len = MAX_STR_LEN;
+    ck_assert_msg(str_ends_with("",   "", len),    "'' ends with ''");
+    ck_assert_msg(str_ends_with("a",  "", len),   "'a' ends with ''");
+    ck_assert_msg(str_ends_with("a",  "a", len),  "'a' ends with 'a'");
+    ck_assert_msg(str_ends_with("ba", "a", len), "'ba' ends with 'a'");
 
-    ck_assert_msg(!str_ends_with("", "a"),   "'' !ends with 'a'");
-    ck_assert_msg(!str_ends_with("b", "a"),  "'b' !ends with 'a'");
-    ck_assert_msg(!str_ends_with("ab", "a"), "'ab' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("",   "a", len),   "'' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("b",  "a", len),  "'b' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("ab", "a", len), "'ab' !ends with 'a'");
 }
 END_TEST
 
 START_TEST(test_str_equals) {
-    ck_assert_msg(str_equals("", ""),    "'' equals ''");
-    ck_assert_msg(str_equals(" ", " "),  "' ' equals ' '");
-    ck_assert_msg(str_equals("a", "a"),  "'a' equals 'a'");
-    ck_assert_msg(!str_equals("a", "A"), "'a' !equals 'A'");
+    size_t len = MAX_STR_LEN;
+    ck_assert_msg(str_equals("",     "", len),    "'' equals ''");
+    ck_assert_msg(str_equals(" ",   " ", len),  "' ' equals ' '");
+    ck_assert_msg(str_equals("a",   "a", len),  "'a' equals 'a'");
+    ck_assert_msg(!str_equals("a",  "A", len), "'a' !equals 'A'");
+    ck_assert_msg(!str_equals("aa", "a", len), "'aa' !equals 'a'");
+    ck_assert_msg(!str_equals("a", "aa", len), "'a' !equals 'aa'");
 }
 END_TEST
 
 START_TEST(test_str_equals_ignore_case) {
-    ck_assert_msg(str_equals_ignore_case("", ""),   "'' equals ''");
-    ck_assert_msg(str_equals_ignore_case(" ", " "), "' ' equals ' '");
-    ck_assert_msg(str_equals_ignore_case("a", "a"), "'a' equals 'a'");
-    ck_assert_msg(str_equals_ignore_case("a", "A"), "'a' equals 'A'");
+    size_t len = MAX_STR_LEN;
+    ck_assert_msg(str_equals_ignore_case("",     "", len),   "'' equals ''");
+    ck_assert_msg(str_equals_ignore_case(" ",   " ", len), "' ' equals ' '");
+    ck_assert_msg(str_equals_ignore_case("a",   "a", len), "'a' equals 'a'");
+    ck_assert_msg(str_equals_ignore_case("a",   "A", len), "'a' equals 'A'");
+    ck_assert_msg(!str_equals_ignore_case("aa", "A", len), "'aa' equals 'A'");
+    ck_assert_msg(!str_equals_ignore_case("a", "AA", len), "'a' equals 'AA'");
 }
 END_TEST
 
@@ -156,6 +164,22 @@ START_TEST(test_parse_timestamp) {
     ck_assert_str_eq(parsed, "1375107252");
 
     free(parsed);
+}
+END_TEST
+
+// Can we coerce ISO-8859-1 to UTF-8?
+START_TEST(test_to_utf8) {
+    char in[2]  = { 0, 0 };
+    char out[3] = { 0, 0, 0 };
+
+    for (unsigned int codepoint = 0; codepoint < 256; codepoint++) {
+        in[0] = codepoint;
+
+        memset(out, 0, sizeof out);
+        to_utf8(in, out, sizeof out);
+
+        ck assert(maybe_utf8(out, sizeof out));
+    }
 }
 END_TEST
 
@@ -1450,6 +1474,8 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_maybe_stdin);
     tcase_add_test(utilities_tests, test_format_timestamp);
     tcase_add_test(utilities_tests, test_parse_timestamp);
+    tcase_add_test(utilities_tests, test_maybe_utf8);
+    tcase_add_test(utilities_tests, test_to_utf8);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);

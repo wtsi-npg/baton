@@ -23,15 +23,18 @@
 
 #include <stdio.h>
 
+#define MAX_STR_LEN (1024 * 1024)
+
 #define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
 
-int str_starts_with(const char *str, const char *prefix);
+int str_starts_with(const char *str, const char *prefix, size_t max_len);
 
-int str_ends_with(const char *str, const char *suffix);
+int str_ends_with(const char *str, const char *suffix, size_t max_len);
 
-int str_equals(const char *str1, const char *str2);
+int str_equals(const char *str1, const char *str2, size_t max_len);
 
-int str_equals_ignore_case(const char *str1, const char *str2);
+int str_equals_ignore_case(const char *str1, const char *str2,
+                           size_t max_len);
 
 char *copy_str(const char *str);
 
@@ -42,5 +45,9 @@ FILE *maybe_stdin(const char *path);
 char *format_timestamp(const char *timestamp, const char *format);
 
 char *parse_timestamp(const char *timestamp, const char *format);
+
+int maybe_utf8 (const char *str, size_t max_len);
+
+size_t to_utf8(const char *input, char *output, size_t max_len);
 
 #endif // _BATON_UTILITIES_H
