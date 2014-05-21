@@ -178,7 +178,7 @@ START_TEST(test_to_utf8) {
         memset(out, 0, sizeof out);
         to_utf8(in, out, sizeof out);
 
-        ck assert(maybe_utf8(out, sizeof out));
+        ck_assert(maybe_utf8(out, sizeof out));
     }
 }
 END_TEST
@@ -1474,7 +1474,6 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_maybe_stdin);
     tcase_add_test(utilities_tests, test_format_timestamp);
     tcase_add_test(utilities_tests, test_parse_timestamp);
-    tcase_add_test(utilities_tests, test_maybe_utf8);
     tcase_add_test(utilities_tests, test_to_utf8);
 
     TCase *basic_tests = tcase_create("basic");
