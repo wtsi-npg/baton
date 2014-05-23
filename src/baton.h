@@ -158,18 +158,6 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
  */
 int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
 
-/**
- * Return a JSON representation of a resolved iRODS path (data object
- * or collection).
- *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  rodspath  An iRODS path.
- *
- * @return A new struct representing the path, which must be freed by
- * the caller.
- */
-json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path);
-
 json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
 
 /**

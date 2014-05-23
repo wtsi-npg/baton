@@ -1247,70 +1247,6 @@ START_TEST(test_modify_json_permissions_obj) {
 }
 END_TEST
 
-// Can we convert an iRODS object to a JSON representation?
-START_TEST(test_rods_path_to_json_obj) {
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-
-    char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
-    char obj_path[MAX_PATH_LEN];
-    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
-
-    rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
-
-    json_t *path = data_object_path_to_json(rods_path.outPath);
-    json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            JSON_ATTRIBUTE_KEY, "attr1",
-                            JSON_VALUE_KEY,     "value1",
-                            JSON_UNITS_KEY,     "units1");
-    json_t *expected = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
-    json_object_update(expected, path);
-
-    json_t *obj = rods_path_to_json(conn, &rods_path);
-    ck_assert_int_eq(json_equal(obj, expected), 1);
-
-    json_decref(expected);
-    json_decref(obj);
-
-    if (conn) rcDisconnect(conn);
-}
-END_TEST
-
-// Can we convert an iRODS collection to a JSON representation?
-START_TEST(test_rods_path_to_json_coll) {
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-
-    char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
-    char coll_path[MAX_PATH_LEN];
-    snprintf(coll_path, MAX_PATH_LEN, "%s/a", rods_root);
-
-    rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, coll_path),
-                     EXIST_ST);
-
-    json_t *path = collection_path_to_json(rods_path.outPath);
-    json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            JSON_ATTRIBUTE_KEY, "attr2",
-                            JSON_VALUE_KEY,     "value2",
-                            JSON_UNITS_KEY,     "units2");
-    json_t *expected = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
-    json_object_update(expected, path);
-
-    json_t *coll = rods_path_to_json(conn, &rods_path);
-    ck_assert_int_eq(json_equal(coll, expected), 1);
-
-    json_decref(expected);
-    json_decref(coll);
-
-    if (conn) rcDisconnect(conn);
-}
-END_TEST
-
 // Can we convert JSON representation to a useful path string?
 START_TEST(test_json_to_path) {
     const char *coll_path = "/a/b/c";
@@ -1407,34 +1343,6 @@ START_TEST(test_represents_data_object) {
 }
 END_TEST
 
-// Can we build query JSON from strings?
-START_TEST(test_query_args_to_json) {
-    json_t *args1 = query_args_to_json("foo", "bar", NULL);
-    json_t *expected1 = json_pack("{s:[{s:s, s:s}]}",
-                                  JSON_AVUS_KEY,
-                                  JSON_ATTRIBUTE_KEY, "foo",
-                                  JSON_VALUE_KEY,     "bar");
-
-    ck_assert_int_eq(json_equal(args1, expected1), 1);
-
-    json_t *args2 = query_args_to_json("foo", "bar", "baz");
-
-    json_t *expected2 = json_pack("{s:s, s:[{s:s, s:s}]}",
-                                  JSON_COLLECTION_KEY, "baz",
-                                  JSON_AVUS_KEY,
-                                  JSON_ATTRIBUTE_KEY, "foo",
-                                  JSON_VALUE_KEY,     "bar");
-
-    ck_assert_int_eq(json_equal(args2, expected2), 1);
-
-    json_decref(args1);
-    json_decref(expected1);
-
-    json_decref(args2);
-    json_decref(expected2);
-}
-END_TEST
-
 // Can we get user information?
 START_TEST(test_get_user) {
     rodsEnv env;
@@ -1514,14 +1422,11 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_modify_permissions_obj);
     tcase_add_test(basic_tests, test_modify_json_permissions_obj);
 
-    tcase_add_test(basic_tests, test_rods_path_to_json_obj);
-    tcase_add_test(basic_tests, test_rods_path_to_json_coll);
     tcase_add_test(basic_tests, test_represents_collection);
     tcase_add_test(basic_tests, test_represents_data_object);
 
     tcase_add_test(basic_tests, test_json_to_path);
     tcase_add_test(basic_tests, test_contains_avu);
-    tcase_add_test(basic_tests, test_query_args_to_json);
 
     tcase_add_test(basic_tests, test_get_user);
 

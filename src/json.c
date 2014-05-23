@@ -305,69 +305,78 @@ error:
 }
 
 json_t *data_object_parts_to_json(const char *coll_name,
-                                  const char *data_name) {
+                                  const char *data_name,
+                                  baton_error_t *error) {
     json_t *result = json_pack("{s:s, s:s}",
                                JSON_COLLECTION_KEY,  coll_name,
                                JSON_DATA_OBJECT_KEY, data_name);
+
     if (!result) {
-        logmsg(ERROR, "Failed to pack data object '%s/%s' as JSON",
-               coll_name, data_name);
+        set_baton_error(error, -1, "Failed to pack data object '%s/%s' as JSON",
+                        coll_name, data_name);
+        goto error;
     }
 
     return result;
+
+error:
+    return NULL;
 }
 
-json_t *data_object_path_to_json(const char *path) {
-    size_t len = strlen(path) + 1;
+json_t *data_object_path_to_json(const char *path, baton_error_t *error) {
+    size_t len = strnlen(path, MAX_STR_LEN);
+    char path1[len];
+    char path2[len];
+    char *coll_name;
+    char *data_name;
 
-    char *path1 = calloc(len, sizeof (char));
-    char *path2 = calloc(len, sizeof (char));
+    if (len == MAX_STR_LEN) {
+        set_baton_error(error, -1, "Failed to pack data object path '%s' as "
+                        "JSON: path exceeded maximum length of %d characters",
+                        path, MAX_STR_LEN);
+        goto error;
+    }
+
     strncpy(path1, path, len);
+    coll_name = dirname(path1);
+    if (!coll_name) {
+        set_baton_error(error, errno,
+                        "Failed to parse collection name of '%s': error %d %s",
+                        path1, errno, strerror(errno));
+        goto error;
+    }
+
     strncpy(path2, path, len);
+    data_name = basename(path2);
+    if (!data_name) {
+        set_baton_error(error, errno,
+                        "Failed to parse data object name of '%s': error %d %s",
+                        path2, errno, strerror(errno));
+        goto error;
+    }
 
-    char *coll_name = dirname(path1);
-    char *data_name = basename(path2);
-
-    json_t *result = data_object_parts_to_json(coll_name, data_name);
-    free(path1);
-    free(path2);
+    json_t *result = data_object_parts_to_json(coll_name, data_name, error);
+    if (error->code != 0) goto error;
 
     return result;
+
+error:
+
+    return NULL;
 }
 
-json_t *query_args_to_json(const char *attr_name, const char *attr_value,
-                           const char *root_path) {
-    json_t *result;
-    if (root_path) {
-        result = json_pack("{s:s, s:[{s:s, s:s}]}",
-                           JSON_COLLECTION_KEY, root_path,
-                           JSON_AVUS_KEY,
-                           JSON_ATTRIBUTE_KEY, attr_name,
-                           JSON_VALUE_KEY,     attr_value);
-    }
-    else {
-        result = json_pack("{s:[{s:s, s:s}]}",
-                           JSON_AVUS_KEY,
-                           JSON_ATTRIBUTE_KEY, attr_name,
-                           JSON_VALUE_KEY,     attr_value);
-    }
-
-    if (!result) {
-        logmsg(ERROR, "Failed to pack query attribute: '%s', "
-               "value: '%s', path: '%s' as JSON", attr_name, attr_value,
-               root_path);
-    }
-
-    return result;
-}
-
-json_t *collection_path_to_json(const char *path) {
+json_t *collection_path_to_json(const char *path, baton_error_t *error) {
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
-        logmsg(ERROR, "Failed to pack collection '%s' as JSON", path);
+        set_baton_error(error, -1, "Failed to pack collection '%s' as JSON",
+                        path);
+        goto error;
     }
 
     return result;
+
+error:
+    return NULL;
 }
 
 char *json_to_path(json_t *object, baton_error_t *error) {

@@ -862,49 +862,6 @@ error:
     return -1;
 }
 
-json_t *rods_path_to_json(rcComm_t *conn, rodsPath_t *rods_path) {
-    json_t *result = NULL;
-    json_t *avus;
-    int status;
-
-    switch (rods_path->objType) {
-        case DATA_OBJ_T:
-            logmsg(TRACE, "Identified '%s' as a data object",
-                   rods_path->outPath);
-            result = data_object_path_to_json(rods_path->outPath);
-            break;
-
-        case COLL_OBJ_T:
-            logmsg(TRACE, "Identified '%s' as a collection",
-                   rods_path->outPath);
-            result = collection_path_to_json(rods_path->outPath);
-            break;
-
-        default:
-            logmsg(ERROR, "Failed to list metadata on '%s' as it is "
-                   "neither data object nor collection", rods_path->outPath);
-            goto error;
-    }
-
-    if (!result) goto error;
-
-    baton_error_t error;
-    avus = list_metadata(conn, rods_path, NULL, &error);
-    if (error.code != 0)  goto error;
-
-    status = json_object_set_new(result, JSON_AVUS_KEY, avus);
-    if (status != 0) goto error;
-
-    return result;
-
-error:
-    logmsg(ERROR, "Failed to covert '%s' to JSON", rods_path->outPath);
-
-    if (result) json_decref(result);
-
-    return NULL;
-}
-
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
                                 baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
@@ -986,12 +943,9 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
-    base_entry = collection_path_to_json(rods_path->outPath);
-    if (!base_entry) {
-        set_baton_error(error, -1, "Failed to pack '%s' as JSON",
-                        rods_path->outPath);
-        goto query_error;
-    }
+    base_entry = collection_path_to_json(rods_path->outPath, error);
+    if (error->code != 0) goto query_error;
+
     status = json_array_append_new(results, base_entry);
     if (status != 0) {
         set_baton_error(error, status,
@@ -1008,13 +962,8 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                 logmsg(TRACE, "Identified '%s/%s' as a data object",
                        coll_entry.collName, coll_entry.dataName);
                 entry = data_object_parts_to_json(coll_entry.collName,
-                                                  coll_entry.dataName);
-
-                if (!entry) {
-                    set_baton_error(error, -1, "Failed to pack '%s/%s' as JSON",
-                                    coll_entry.collName, coll_entry.dataName);
-                    goto query_error;
-                }
+                                                  coll_entry.dataName, error);
+                if (error->code != 0) goto query_error;
 
                 status = json_object_set_new(entry, JSON_SIZE_KEY,
                                              json_integer(coll_entry.dataSize));
@@ -1030,12 +979,8 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
             case COLL_OBJ_T:
                 logmsg(TRACE, "Identified '%s' as a collection",
                        coll_entry.collName);
-                entry = collection_path_to_json(coll_entry.collName);
-                if (!entry) {
-                    set_baton_error(error, -1, "Failed to pack '%s' as JSON",
-                                    coll_entry.collName);
-                    goto query_error;
-                }
+                entry = collection_path_to_json(coll_entry.collName, error);
+                if (error->code != 0) goto query_error;
                 break;
 
             default:

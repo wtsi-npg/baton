@@ -161,14 +161,12 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
 json_t *make_timestamp(const char* key, const char *value, const char *format,
                        int *repl_num, baton_error_t *error);
 
-json_t *data_object_parts_to_json(const char *coll_name, const char *data_name);
+json_t *data_object_parts_to_json(const char *coll_name, const char *data_name,
+                                  baton_error_t *error);
 
-json_t *data_object_path_to_json(const char *path);
+json_t *data_object_path_to_json(const char *path, baton_error_t *error);
 
-json_t *collection_path_to_json(const char *path);
-
-json_t *query_args_to_json(const char *attr_name, const char *attr_value,
-                           const char *root_path);
+json_t *collection_path_to_json(const char *path, baton_error_t *error);
 
 char *json_to_path(json_t *object, baton_error_t *error);
 
