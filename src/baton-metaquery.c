@@ -34,6 +34,7 @@ static int debug_flag;
 static int acl_flag;
 static int avu_flag;
 static int help_flag;
+static int size_flag;
 static int timestamp_flag;
 static int unbuffered_flag;
 static int verbose_flag;
@@ -55,6 +56,7 @@ int main(int argc, char *argv[]) {
             {"acl",        no_argument, &acl_flag,        1},
             {"avu",        no_argument, &avu_flag,        1},
             {"help",       no_argument, &help_flag,       1},
+            {"size",       no_argument, &size_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
             {"verbose",    no_argument, &verbose_flag,    1},
@@ -91,8 +93,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag) pflags       = pflags | PRINT_ACL;
-    if (avu_flag) pflags       = pflags | PRINT_AVU;
+    if (acl_flag)       pflags = pflags | PRINT_ACL;
+    if (avu_flag)       pflags = pflags | PRINT_AVU;
+    if (size_flag)      pflags = pflags | PRINT_SIZE;
     if (timestamp_flag) pflags = pflags | PRINT_TIMESTAMP;
 
     if (help_flag) {
@@ -101,7 +104,9 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-metaquery [--file <JSON file>] [--zone <name>]");
+        puts("    baton-metaquery [--acl] [--avu] [--file <JSON file>]");
+        puts("                    [--size] [--timestamp] [--unbuffered]");
+        puts("                    [--verbose] [--version] [--zone <name>]");
         puts("");
         puts("Description");
         puts("    Finds items in iRODS by AVU, given a query constructed");
@@ -114,7 +119,8 @@ int main(int argc, char *argv[]) {
         puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
-        puts("    --zone        The zone to search. Optional");
+        puts("    --version     Print the version number and exit.");
+        puts("    --zone        The zone to search. Optional.");
         puts("");
 
         exit(0);
