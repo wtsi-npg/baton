@@ -23,7 +23,7 @@
 
 #include <stdio.h>
 
-#define MAX_STR_LEN (1024 * 1024)
+#define MAX_STR_LEN (1024 * 10)
 
 #define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
 
@@ -36,7 +36,7 @@ int str_equals(const char *str1, const char *str2, size_t max_len);
 int str_equals_ignore_case(const char *str1, const char *str2,
                            size_t max_len);
 
-char *copy_str(const char *str);
+char *copy_str(const char *str, size_t max_len);
 
 const char *parse_base_name(const char *path);
 

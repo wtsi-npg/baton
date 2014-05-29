@@ -31,12 +31,24 @@
 #include "log.h"
 #include "utilities.h"
 
-char *copy_str(const char *str) {
-    size_t len = strlen(str) + 1;
-    char *copy = calloc(len, sizeof (char));
-    if (!copy) goto error;
+char *copy_str(const char *str, size_t max_len) {
+    size_t term_len = strnlen(str, max_len) + 1;
+    char *copy = NULL;
 
-    snprintf(copy, len, "%s", str);
+    if (term_len > MAX_STR_LEN) {
+        logmsg(ERROR, "Failed to allocate a string of length %d: "
+               "it exceeded the maximum length of %d characters",
+               term_len, MAX_STR_LEN);
+        goto error;
+    }
+
+    copy = calloc(term_len, sizeof (char));
+    if (!copy) {
+        logmsg(ERROR, "Failed to allocate memory: error %d %s",
+               errno, strerror(errno));
+    }
+
+    snprintf(copy, term_len, "%s", str);
 
     return copy;
 

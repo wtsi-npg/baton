@@ -324,20 +324,21 @@ error:
 }
 
 json_t *data_object_path_to_json(const char *path, baton_error_t *error) {
-    size_t len = strnlen(path, MAX_STR_LEN);
-    char path1[len];
-    char path2[len];
+    char path1[MAX_STR_LEN];
+    char path2[MAX_STR_LEN];
     char *coll_name;
     char *data_name;
 
-    if (len == MAX_STR_LEN) {
-        set_baton_error(error, -1, "Failed to pack data object path '%s' as "
-                        "JSON: path exceeded maximum length of %d characters",
+    size_t term_len = strnlen(path, MAX_STR_LEN) + 1;
+    if (term_len > MAX_STR_LEN) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Failed to pack the data object path '%s' as JSON: "
+                        "it exceeded the maximum length of %d characters",
                         path, MAX_STR_LEN);
         goto error;
     }
 
-    strncpy(path1, path, len);
+    snprintf(path1, sizeof path1, "%s", path);
     coll_name = dirname(path1);
     if (!coll_name) {
         set_baton_error(error, errno,
@@ -346,7 +347,7 @@ json_t *data_object_path_to_json(const char *path, baton_error_t *error) {
         goto error;
     }
 
-    strncpy(path2, path, len);
+    snprintf(path2, sizeof path2, "%s", path);
     data_name = basename(path2);
     if (!data_name) {
         set_baton_error(error, errno,
@@ -361,7 +362,6 @@ json_t *data_object_path_to_json(const char *path, baton_error_t *error) {
     return result;
 
 error:
-
     return NULL;
 }
 
@@ -380,50 +380,52 @@ error:
 }
 
 char *json_to_path(json_t *object, baton_error_t *error) {
-    char *path;
+    char *path = NULL;
     init_baton_error(error);
 
     const char *collection = get_collection_value(object, error);
     if (error->code != 0) goto error;
 
+    size_t term_clen = strnlen(collection, MAX_STR_LEN) + 1;
+    if (term_clen > MAX_STR_LEN) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "The collection path '%s' exceeded the maximum "
+                        "length of %d characters", collection, MAX_STR_LEN);
+        goto error;
+    }
+
     if (!represents_data_object(object)) {
-        path = copy_str(collection);
+        path = copy_str(collection, MAX_STR_LEN);
     }
     else {
         const char *data_object = get_data_object_value(object, error);
 
-        size_t clen = strnlen(collection,  MAX_STR_LEN);
-        size_t dlen = strnlen(data_object, MAX_STR_LEN);
-        size_t len = clen + dlen + 1;
+        size_t term_dlen = strnlen(data_object, MAX_STR_LEN) + 1;
+        size_t total_len = term_clen + term_dlen;
+        int includes_slash = str_ends_with(collection, "/", MAX_STR_LEN);
 
-        if (len > MAX_STR_LEN) {
+        if (includes_slash) total_len--;
+        if (total_len > MAX_STR_LEN) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Data object path length %d exceeds the maximum "
-                            "permitted (%d)", len, MAX_STR_LEN);
+                            "The collections and data object paths '%s' + '%s' "
+                            "combined exceeded the maximum length of %d "
+                            "characters", collection, data_object, MAX_STR_LEN);
             goto error;
         }
 
-        if (str_ends_with(collection, "/", MAX_STR_LEN)) {
-            path = calloc(len, sizeof (char));
-            if (!path) {
-                set_baton_error(error, errno,
-                                "Failed to allocate memory: error %d %s",
-                                errno, strerror(errno));
-                goto error;
-            }
+        path = calloc(total_len, sizeof (char));
+        if (!path) {
+            set_baton_error(error, errno,
+                            "Failed to allocate memory: error %d %s",
+                            errno, strerror(errno));
+            goto error;
+        }
 
-            snprintf(path, len, "%s%s", collection, data_object);
+        if (includes_slash) {
+            snprintf(path, total_len, "%s%s", collection, data_object);
         }
         else {
-            path = calloc(len + 1, sizeof (char));
-            if (!path) {
-                set_baton_error(error, errno,
-                                "Failed to allocate memory: error %d %s",
-                                errno, strerror(errno));
-                goto error;
-            }
-
-            snprintf(path, len + 1, "%s/%s", collection, data_object);
+            snprintf(path, total_len, "%s/%s", collection, data_object);
         }
     }
 
