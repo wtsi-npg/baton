@@ -310,9 +310,15 @@ genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                         .operator = operator,
                         .value    = attr_value };
     size_t num_conds = 2;
-    add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
+}
 
-    return limit_to_newest_repl(query_in);
+genQueryInp_t *prepare_obj_avu_search_lim(genQueryInp_t *query_in,
+                                          const char *attr_name,
+                                          const char *attr_value,
+                                          const char *operator) {
+    return limit_to_newest_repl(prepare_obj_avu_search(query_in, attr_name,
+                                                       attr_value, operator));
 }
 
 genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
