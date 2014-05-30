@@ -31,12 +31,12 @@
 #include "log.h"
 #include "utilities.h"
 
-static int debug_flag;
-static int help_flag;
-static int recurse_flag;
-static int unbuffered_flag;
-static int verbose_flag;
-static int version_flag;
+static int debug_flag      = 0;
+static int help_flag       = 0;
+static int recurse_flag    = 0;
+static int unbuffered_flag = 0;
+static int verbose_flag    = 0;
+static int version_flag    = 0;
 
 int do_modify_permissions(FILE *input, recursive_op recurse);
 

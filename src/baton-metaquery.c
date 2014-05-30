@@ -30,20 +30,22 @@
 #include "json.h"
 #include "log.h"
 
-static int debug_flag;
-static int acl_flag;
-static int avu_flag;
-static int help_flag;
-static int size_flag;
-static int timestamp_flag;
-static int unbuffered_flag;
-static int verbose_flag;
-static int version_flag;
+static int acl_flag        = 0;
+static int avu_flag        = 0;
+static int coll_flag       = 0;
+static int debug_flag      = 0;
+static int help_flag       = 0;
+static int obj_flag        = 0;
+static int size_flag       = 0;
+static int timestamp_flag  = 0;
+static int unbuffered_flag = 0;
+static int verbose_flag    = 0;
+static int version_flag    = 0;
 
-int do_search_metadata(FILE *input, char *zone_name, print_flags pflags);
+int do_search_metadata(FILE *input, char *zone_name, option_flags oflags);
 
 int main(int argc, char *argv[]) {
-    print_flags pflags = PRINT_DEFAULT;
+    option_flags oflags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
     int exit_status = 0;
     char *zone_name = NULL;
     char *json_file = NULL;
@@ -52,10 +54,12 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"debug",      no_argument, &debug_flag,      1},
             {"acl",        no_argument, &acl_flag,        1},
             {"avu",        no_argument, &avu_flag,        1},
+            {"coll",       no_argument, &coll_flag,       1},
+            {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
+            {"obj",        no_argument, &obj_flag,        1},
             {"size",       no_argument, &size_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
@@ -93,10 +97,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag)       pflags = pflags | PRINT_ACL;
-    if (avu_flag)       pflags = pflags | PRINT_AVU;
-    if (size_flag)      pflags = pflags | PRINT_SIZE;
-    if (timestamp_flag) pflags = pflags | PRINT_TIMESTAMP;
+    if (coll_flag && !obj_flag)  {
+        oflags = oflags ^ SEARCH_OBJECTS;
+    }
+    else if (obj_flag && !coll_flag)  {
+        oflags = oflags ^ SEARCH_COLLECTIONS;
+    }
+
+    if (acl_flag)       oflags = oflags | PRINT_ACL;
+    if (avu_flag)       oflags = oflags | PRINT_AVU;
+    if (size_flag)      oflags = oflags | PRINT_SIZE;
+    if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
 
     if (help_flag) {
         puts("Name");
@@ -136,13 +147,13 @@ int main(int argc, char *argv[]) {
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
-    int status = do_search_metadata(input, zone_name, pflags);
+    int status = do_search_metadata(input, zone_name, oflags);
     if (status != 0) exit_status = 5;
 
     exit(exit_status);
 }
 
-int do_search_metadata(FILE *input, char *zone_name, print_flags pflags) {
+int do_search_metadata(FILE *input, char *zone_name, option_flags oflags) {
     int error_count = 0;
 
     rodsEnv env;
@@ -163,7 +174,7 @@ int do_search_metadata(FILE *input, char *zone_name, print_flags pflags) {
         }
 
         baton_error_t error;
-        json_t *results = search_metadata(conn, target, zone_name, pflags,
+        json_t *results = search_metadata(conn, target, zone_name, oflags,
                                           &error);
         if (error.code != 0) {
             error_count++;
