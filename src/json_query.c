@@ -375,6 +375,9 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
         const char *valid_oper = ensure_valid_operator(oper, error);
         if (error->code != 0) goto error;
 
+        logmsg(DEBUG, "Preparing AVU search a: '%s' v: '%s', op: '%s'",
+               attr_name, attr_value, valid_oper);
+
         prepare(query_in, attr_name, attr_value, valid_oper);
      }
 

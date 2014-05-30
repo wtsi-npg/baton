@@ -176,6 +176,11 @@ genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_value,
                                       const char *operator);
 
+genQueryInp_t *prepare_obj_avu_search_lim(genQueryInp_t *query_in,
+                                          const char *attr_name,
+                                          const char *attr_value,
+                                          const char *operator);
+
 genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
