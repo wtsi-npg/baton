@@ -34,6 +34,7 @@ static int debug_flag;
 static int acl_flag;
 static int avu_flag;
 static int help_flag;
+static int size_flag;
 static int timestamp_flag;
 static int unbuffered_flag;
 static int verbose_flag;
@@ -54,6 +55,7 @@ int main(int argc, char *argv[]) {
             {"avu",        no_argument, &avu_flag,        1},
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
+            {"size",       no_argument, &size_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
             {"verbose",    no_argument, &verbose_flag,    1},
@@ -87,6 +89,7 @@ int main(int argc, char *argv[]) {
 
     if (acl_flag)       pflags = pflags | PRINT_ACL;
     if (avu_flag)       pflags = pflags | PRINT_AVU;
+    if (size_flag)      pflags = pflags | PRINT_SIZE;
     if (timestamp_flag) pflags = pflags | PRINT_TIMESTAMP;
 
     if (help_flag) {
@@ -95,7 +98,9 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-list [--acl] [--avu] [--file <json file>]");
+        puts("    baton-list [--acl] [--avu] [--file <json file>] [--size]");
+        puts("               [--timestamp] [--unbuffered] [--verbose]");
+        puts("               [--version]");
         puts("");
         puts("Description");
         puts("    Lists data objects and collections described in a JSON ");
@@ -105,9 +110,11 @@ int main(int argc, char *argv[]) {
         puts("    --avu         Print AVU lists in output.");
         puts("    --file        The JSON file describing the data objects and");
         puts("                  collections. Optional, defaults to STDIN.");
+        puts("    --size        Print data object sizes in output.");
         puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
+        puts("    --version     Print the version number and exit.");
         puts("");
 
         exit(0);

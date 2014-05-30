@@ -84,7 +84,8 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-metasuper [--file <json file>]");
+        puts("    baton-metasuper [--file <json file>] [--unbuffered]");
+        puts("                    [--verbose] [--version]");
         puts("");
         puts("Description");
         puts("    Supersedes metadata AVUs on collections and data objects");

@@ -87,7 +87,8 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-chmod [--file <json file>]");
+        puts("    baton-chmod [--file <json file>] [--recurse] [--unbuffered]");
+        puts("                [--verbose]");
         puts("");
         puts("Description");
         puts("    Set permissions on collections and data objects");

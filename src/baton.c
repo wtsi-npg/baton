@@ -40,10 +40,10 @@
 #include "utilities.h"
 
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
-                                baton_error_t *error);
+                                print_flags flags, baton_error_t *error);
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
-                               baton_error_t *error);
+                               print_flags flags, baton_error_t *error);
 
 static const char *metadata_op_name(metadata_op operation);
 
@@ -266,7 +266,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
         case DATA_OBJ_T:
             logmsg(TRACE, "Identified '%s' as a data object",
                    rods_path->outPath);
-            results = list_data_object(conn, rods_path, error);
+            results = list_data_object(conn, rods_path, flags, error);
             if (error->code != 0) goto error;
 
             if (flags & PRINT_ACL) {
@@ -287,7 +287,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
         case COLL_OBJ_T:
             logmsg(TRACE, "Identified '%s' as a collection",
                    rods_path->outPath);
-            results = list_collection(conn, rods_path, error);
+            results = list_collection(conn, rods_path, flags, error);
             if (error->code != 0) goto error;
 
             if (flags & PRINT_ACL) {
@@ -329,11 +329,11 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
     query_format_in_t obj_format =
         { .num_columns = 2,
           .columns     = { COL_USER_NAME, COL_DATA_ACCESS_NAME },
-          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY  } };
+          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY } };
     query_format_in_t col_format =
         { .num_columns = 2,
           .columns     = { COL_COLL_USER_NAME, COL_COLL_ACCESS_NAME },
-          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY  } };
+          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY } };
 
     init_baton_error(error);
 
@@ -406,6 +406,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
                             COL_META_DATA_ATTR_UNITS },
           .labels       = { JSON_ATTRIBUTE_KEY, JSON_VALUE_KEY,
                             JSON_UNITS_KEY } };
+
     query_format_in_t col_format =
         { .num_columns  = 3,
           .columns      = { COL_META_COLL_ATTR_NAME, COL_META_COLL_ATTR_VALUE,
@@ -477,15 +478,26 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     json_t *data_objects = NULL;
     int status;
 
-    query_format_in_t col_format =
+    query_format_in_t *col_format = &(query_format_in_t)
         { .num_columns = 1,
           .columns     = { COL_COLL_NAME },
           .labels      = { JSON_COLLECTION_KEY } };
-    query_format_in_t obj_format =
-        { .num_columns = 3,
-          .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
-          .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
-                           JSON_SIZE_KEY } };
+
+    query_format_in_t *obj_format;
+
+    if (flags & PRINT_SIZE) {
+        obj_format = &(query_format_in_t)
+            { .num_columns = 3,
+              .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
+              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
+                               JSON_SIZE_KEY } };
+    }
+    else {
+        obj_format = &(query_format_in_t)
+            { .num_columns = 2,
+              .columns     = { COL_COLL_NAME, COL_DATA_NAME },
+              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY } };
+    }
 
     init_baton_error(error);
 
@@ -504,14 +516,14 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     }
 
     logmsg(TRACE, "Searching for collections ...");
-    collections = do_search(conn, zone_name, query, &col_format,
+    collections = do_search(conn, zone_name, query, col_format,
                             prepare_col_avu_search, prepare_col_acl_search,
                             prepare_col_cre_search, prepare_col_mod_search,
                             error);
     if (error->code != 0) goto error;
 
     logmsg(TRACE, "Searching for data objects ...");
-    data_objects = do_search(conn, zone_name, query, &obj_format,
+    data_objects = do_search(conn, zone_name, query, obj_format,
                              prepare_obj_avu_search, prepare_obj_acl_search,
                              prepare_obj_cre_search, prepare_obj_mod_search,
                              error);
@@ -843,26 +855,36 @@ error:
 }
 
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
-                                baton_error_t *error) {
+                                print_flags flags, baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     json_t         *results = NULL;
     json_t *data_object;
     json_t *str_size;
     size_t num_size;
 
-    query_format_in_t obj_format =
-        { .num_columns  = 3,
-          .columns      = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
-          .labels       = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
-                            JSON_SIZE_KEY } };
+    query_format_in_t *obj_format;
+
+    if (flags & PRINT_SIZE) {
+        obj_format = &(query_format_in_t)
+            { .num_columns = 3,
+              .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
+              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
+                               JSON_SIZE_KEY } };
+    }
+    else {
+        obj_format = &(query_format_in_t)
+            { .num_columns = 2,
+              .columns     = { COL_COLL_NAME, COL_DATA_NAME },
+              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY } };
+    }
 
     init_baton_error(error);
 
-    query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
-                                obj_format.columns);
+    query_in = make_query_input(SEARCH_MAX_ROWS, obj_format->num_columns,
+                                obj_format->columns);
     query_in = prepare_obj_list(query_in, rods_path, NULL);
 
-    results = do_query(conn, query_in, obj_format.labels, error);
+    results = do_query(conn, query_in, obj_format->labels, error);
     if (error->code != 0) goto error;
 
     if (json_array_size(results) != 1) {
@@ -875,10 +897,12 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
     json_array_clear(results);
     json_decref(results);
 
-    str_size = json_object_get(data_object, JSON_SIZE_KEY);
-    num_size = atol(json_string_value(str_size));
-    json_object_del(data_object, JSON_SIZE_KEY);
-    json_object_set_new(data_object, JSON_SIZE_KEY, json_integer(num_size));
+    if (flags & PRINT_SIZE) {
+        str_size = json_object_get(data_object, JSON_SIZE_KEY);
+        num_size = atol(json_string_value(str_size));
+        json_object_del(data_object, JSON_SIZE_KEY);
+        json_object_set_new(data_object, JSON_SIZE_KEY, json_integer(num_size));
+    }
 
     if (query_in) free_query_input(query_in);
 
@@ -892,7 +916,7 @@ error:
 }
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
-                               baton_error_t *error) {
+                               print_flags flags, baton_error_t *error) {
     int query_flags = DATA_QUERY_FIRST_FG;
     collHandle_t coll_handle;
     collEnt_t coll_entry;
@@ -945,13 +969,17 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                                   coll_entry.dataName, error);
                 if (error->code != 0) goto query_error;
 
-                status = json_object_set_new(entry, JSON_SIZE_KEY,
-                                             json_integer(coll_entry.dataSize));
-                if (status != 0) {
-                    set_baton_error(error, status,
-                                    "Failed to add data size of '%s' to JSON: "
-                                    "error %d", rods_path->outPath, status);
-                    goto query_error;
+                if (flags & PRINT_SIZE) {
+                    int size_status =
+                        json_object_set_new(entry, JSON_SIZE_KEY,
+                                            json_integer(coll_entry.dataSize));
+                    if (size_status != 0) {
+                        set_baton_error(error, size_status,
+                                        "Failed to add data size of '%s' "
+                                        "to JSON: error %d",
+                                        rods_path->outPath, status);
+                        goto query_error;
+                    }
                 }
 
                 break;

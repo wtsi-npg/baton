@@ -97,18 +97,21 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-metamod -o <operation> [--file <json file>]");
+        puts("    baton-metamod [--file <json file>] --operation <operation>");
+        puts("                  [--unbuffered] [--verbose] [--version]");
         puts("");
         puts("Description");
         puts("    Modifies metadata AVUs on collections and data objects");
         puts("described in a JSON input file.");
         puts("");
+        puts("    --file        The JSON file describing the data objects and");
+        puts("                  collections. Optional, defaults to STDIN.");
         puts("    --operation   Operation to perform. One of [add, rem].");
         puts("                  Required.");
-        puts("    --file        The JSON file describing the data objects.");
-        puts("                  Optional, defaults to STDIN.");
+
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
+        puts("    --version     Print the version number and exit.");
         puts("");
 
         exit(0);
