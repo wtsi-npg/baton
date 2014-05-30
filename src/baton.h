@@ -59,20 +59,21 @@ typedef enum {
 } recursive_op;
 
 typedef enum {
-    /** Print minimal collections and data object */
-    PRINT_DEFAULT   = 0,
     /** Print AVUs on collections and data objects */
-    PRINT_AVU       = 1 << 0,
+    PRINT_AVU          = 1 << 0,
     /** Print ACLs on collections and data objects */
-    PRINT_ACL       = 1 << 2,
+    PRINT_ACL          = 1 << 2,
     /** Print timestamps on collections and data objects */
-    PRINT_TIMESTAMP = 1 << 3,
+    PRINT_TIMESTAMP    = 1 << 3,
     /** Print file sizes for data objects */
-    PRINT_SIZE      = 1 << 4,
+    PRINT_SIZE         = 1 << 4,
     /** Pretty-print JSON */
-    PRINT_PRETTY    = 1 << 5
-} print_flags;
-
+    PRINT_PRETTY       = 1 << 5,
+    /** Search collection AVUs */
+    SEARCH_COLLECTIONS = 1 << 6,
+    /** Search data object AVUs */
+    SEARCH_OBJECTS     = 1 << 7
+} option_flags;
 
 /**
  *  @struct metadata_op
@@ -167,15 +168,15 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
  * collection, return a JSON array containing zero or more JSON
  * representations of its contents.
  *
- * @param[in]  conn        An open iRODS connection.
- * @param[in]  rodspath    An iRODS path.
- * @param[in]  print_flags Result print options.
- * @param[out] error       An error report struct.
+ * @param[in]  conn         An open iRODS connection.
+ * @param[in]  rodspath     An iRODS path.
+ * @param[in]  option_flags Result print options.
+ * @param[out] error        An error report struct.
  *
  * @return A new struct representing the path content, which must be
  * freed by the caller.
  */
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                   baton_error_t *error);
 
 /**
@@ -223,21 +224,21 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
 /**
  * Search metadata to find matching data objects and collections.
  *
- * @param[in]  conn        An open iRODS connection.
- * @param[in]  query       A JSON query specification which includes the
- *                         attribute name and value to match. It may also have
- *                         an iRODS path to limit search scope. Only results
+ * @param[in]  conn         An open iRODS connection.
+ * @param[in]  query        A JSON query specification which includes the
+ *                          attribute name and value to match. It may also have
+ *                          an iRODS path to limit search scope. Only results
  *                          under this path will be returned. Omitting the path
- *                         means the search will be global.
- * @param[in]  zone_name   An iRODS zone name. Optional, NULL means the current
- *                         zone.
- * @param[in]  print_flags Result print options.
- * @param[out] error       An error report struct.
+ *                          means the search will be global.
+ * @param[in]  zone_name    An iRODS zone name. Optional, NULL means the current
+ *                          zone.
+ * @param[in]  option_flags Result print options.
+ * @param[out] error        An error report struct.
  *
  * @return A newly constructed JSON array of JSON result objects.
  */
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
-                        print_flags flags, baton_error_t *error);
+                        option_flags flags, baton_error_t *error);
 
 /**
  * Modify the access control list of a resolved iRODS path.

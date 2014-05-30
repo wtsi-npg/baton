@@ -40,10 +40,10 @@
 #include "utilities.h"
 
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
-                                print_flags flags, baton_error_t *error);
+                                option_flags flags, baton_error_t *error);
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
-                               print_flags flags, baton_error_t *error);
+                               option_flags flags, baton_error_t *error);
 
 static const char *metadata_op_name(metadata_op operation);
 
@@ -249,7 +249,7 @@ error:
     return NULL;
 }
 
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, print_flags flags,
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                   baton_error_t *error) {
     json_t *results = NULL;
 
@@ -472,7 +472,7 @@ error:
 }
 
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
-                        print_flags flags, baton_error_t *error) {
+                        option_flags flags, baton_error_t *error) {
     json_t *results      = NULL;
     json_t *collections  = NULL;
     json_t *data_objects = NULL;
@@ -518,34 +518,39 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         goto error;
     }
 
-    logmsg(TRACE, "Searching for collections ...");
-    collections = do_search(conn, zone_name, query, col_format,
-                            prepare_col_avu_search, prepare_col_acl_search,
-                            prepare_col_cre_search, prepare_col_mod_search,
-                            error);
-    if (error->code != 0) goto error;
+    if (flags & SEARCH_COLLECTIONS) {
+        logmsg(TRACE, "Searching for collections ...");
+        collections = do_search(conn, zone_name, query, col_format,
+                                prepare_col_avu_search, prepare_col_acl_search,
+                                prepare_col_cre_search, prepare_col_mod_search,
+                                error);
+        if (error->code != 0) goto error;
 
-    logmsg(TRACE, "Searching for data objects ...");
-    data_objects = do_search(conn, zone_name, query, obj_format,
-                             prepare_obj_avu_option, prepare_obj_acl_search,
-                             prepare_obj_cre_search, prepare_obj_mod_search,
-                             error);
-    if (error->code != 0) goto error;
+        status = json_array_extend(results, collections);
+        if (status != 0) {
+            set_baton_error(error, status, "Failed to add collection results");
+            goto error;
+        }
 
-    status = json_array_extend(results, collections);
-    if (status != 0) {
-        set_baton_error(error, status, "Failed to add collection results");
-        goto error;
+        json_decref(collections);
     }
 
-    status = json_array_extend(results, data_objects);
-    if (status != 0) {
-        set_baton_error(error, status, "Failed to add data object results");
-        goto error;
-    }
+    if (flags & SEARCH_OBJECTS) {
+        logmsg(TRACE, "Searching for data objects ...");
+        data_objects = do_search(conn, zone_name, query, obj_format,
+                                 prepare_obj_avu_option, prepare_obj_acl_search,
+                                 prepare_obj_cre_search, prepare_obj_mod_search,
+                                 error);
+        if (error->code != 0) goto error;
 
-    json_decref(collections);
-    json_decref(data_objects);
+        status = json_array_extend(results, data_objects);
+        if (status != 0) {
+            set_baton_error(error, status, "Failed to add data object results");
+            goto error;
+        }
+
+        json_decref(data_objects);
+    }
 
     if (flags & PRINT_ACL) {
         results = add_acl_json_array(conn, results, error);
@@ -858,7 +863,7 @@ error:
 }
 
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
-                                print_flags flags, baton_error_t *error) {
+                                option_flags flags, baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     json_t         *results = NULL;
     json_t *data_object;
@@ -919,7 +924,7 @@ error:
 }
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
-                               print_flags flags, baton_error_t *error) {
+                               option_flags flags, baton_error_t *error) {
     int query_flags = DATA_QUERY_FIRST_FG;
     collHandle_t coll_handle;
     collEnt_t coll_entry;

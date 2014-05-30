@@ -30,20 +30,20 @@
 #include "json.h"
 #include "log.h"
 
-static int debug_flag;
-static int acl_flag;
-static int avu_flag;
-static int help_flag;
-static int size_flag;
-static int timestamp_flag;
-static int unbuffered_flag;
-static int verbose_flag;
-static int version_flag;
+static int acl_flag        = 0;
+static int avu_flag        = 0;
+static int debug_flag      = 0;
+static int help_flag       = 0;
+static int size_flag       = 0;
+static int timestamp_flag  = 0;
+static int unbuffered_flag = 0;
+static int verbose_flag    = 0;
+static int version_flag    = 0;
 
-int do_list_paths(FILE *input, print_flags pflags);
+int do_list_paths(FILE *input, option_flags oflags);
 
 int main(int argc, char *argv[]) {
-    print_flags pflags = PRINT_DEFAULT;
+    option_flags oflags = 0;
     int exit_status = 0;
     char *json_file = NULL;
     FILE *input     = NULL;
@@ -87,10 +87,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag)       pflags = pflags | PRINT_ACL;
-    if (avu_flag)       pflags = pflags | PRINT_AVU;
-    if (size_flag)      pflags = pflags | PRINT_SIZE;
-    if (timestamp_flag) pflags = pflags | PRINT_TIMESTAMP;
+    if (acl_flag)       oflags = oflags | PRINT_ACL;
+    if (avu_flag)       oflags = oflags | PRINT_AVU;
+    if (size_flag)      oflags = oflags | PRINT_SIZE;
+    if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
 
     if (help_flag) {
         puts("Name");
@@ -131,13 +131,13 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    int status = do_list_paths(input, pflags);
+    int status = do_list_paths(input, oflags);
     if (status != 0) exit_status = 5;
 
     exit(exit_status);
 }
 
-int do_list_paths(FILE *input, print_flags pflags) {
+int do_list_paths(FILE *input, option_flags oflags) {
     int path_count  = 0;
     int error_count = 0;
 
@@ -179,7 +179,7 @@ int do_list_paths(FILE *input, print_flags pflags) {
             }
             else {
                 baton_error_t error;
-                json_t *results = list_path(conn, &rods_path, pflags, &error);
+                json_t *results = list_path(conn, &rods_path, oflags, &error);
 
                 if (error.code != 0) {
                     error_count++;
