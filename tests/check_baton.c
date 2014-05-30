@@ -284,9 +284,11 @@ START_TEST(test_list_obj) {
                             JSON_VALUE_KEY,     "value1",
                             JSON_UNITS_KEY,     "units1");
 
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+
     // Default representation
     baton_error_t error1;
-    json_t *results1 = list_path(conn, &rods_obj_path, PRINT_DEFAULT, &error1);
+    json_t *results1 = list_path(conn, &rods_obj_path, flags, &error1);
     json_t *expected1 = json_pack("{s:s, s:s}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt");
@@ -296,7 +298,8 @@ START_TEST(test_list_obj) {
 
     // With file size
     baton_error_t error2;
-    json_t *results2 = list_path(conn, &rods_obj_path, PRINT_SIZE, &error2);
+    json_t *results2 = list_path(conn, &rods_obj_path, flags | PRINT_SIZE,
+                                 &error2);
     json_t *expected2 = json_pack("{s:s, s:s, s:i}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
@@ -309,7 +312,7 @@ START_TEST(test_list_obj) {
     // With ACL
     baton_error_t error3;
     json_t *results3 = list_path(conn, &rods_obj_path,
-                                 PRINT_SIZE | PRINT_ACL, &error3);
+                                 flags | PRINT_SIZE | PRINT_ACL, &error3);
     json_t *expected3 = json_pack("{s:s, s:s, s:i, s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
@@ -322,7 +325,8 @@ START_TEST(test_list_obj) {
     // With AVUs
     baton_error_t error4;
     json_t *results4 = list_path(conn, &rods_obj_path,
-                                 PRINT_SIZE | PRINT_ACL | PRINT_AVU, &error4);
+                                 flags | PRINT_SIZE | PRINT_ACL | PRINT_AVU,
+                                 &error4);
     json_t *expected4 = json_pack("{s:s, s:s, s:i, s:[O], s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
@@ -336,8 +340,8 @@ START_TEST(test_list_obj) {
     // With timestamps
     baton_error_t error5;
     json_t *results5 = list_path(conn, &rods_obj_path,
-                                 PRINT_SIZE | PRINT_ACL |
-                                 PRINT_AVU  | PRINT_TIMESTAMP, &error5);
+                                 flags | PRINT_SIZE | PRINT_ACL | PRINT_AVU |
+                                 PRINT_TIMESTAMP, &error5);
     ck_assert_int_eq(error5.code, 0);
 
     json_t *timestamps = json_object_get(results5, JSON_TIMESTAMPS_KEY);
@@ -384,7 +388,7 @@ START_TEST(test_list_coll) {
                      EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_path(conn, &rods_path, PRINT_SIZE | PRINT_ACL,
+    json_t *results = list_path(conn, &rods_path, 0 | PRINT_SIZE | PRINT_ACL,
                                 &error);
 
     char a[MAX_PATH_LEN];
@@ -694,17 +698,20 @@ START_TEST(test_search_metadata_obj) {
     json_t *query = json_pack("{s:s, s:[o]}",
                               JSON_COLLECTION_KEY, rods_root,
                               JSON_AVUS_KEY,       avu);
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t expected_error1;
-    search_metadata(conn, NULL, NULL, PRINT_AVU, &expected_error1);
+    search_metadata(conn, NULL, NULL, flags | PRINT_AVU, &expected_error1);
     ck_assert_int_ne(expected_error1.code, 0);
 
     baton_error_t expected_error2;
-    search_metadata(conn, json_pack("[]"), NULL, PRINT_AVU, &expected_error2);
+    search_metadata(conn, json_pack("[]"), NULL, flags | PRINT_AVU,
+                    &expected_error2);
     ck_assert_int_ne(expected_error2.code, 0);
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    json_t *results = search_metadata(conn, query, NULL, flags | PRINT_AVU,
+                                      &error);
     ck_assert_int_eq(json_array_size(results), 12);
 
     for (size_t i = 0; i < 12; i++) {
@@ -738,9 +745,11 @@ START_TEST(test_search_metadata_path_obj) {
     json_t *query = json_pack("{s:s, s:[o]}",
                               JSON_COLLECTION_KEY, search_root,
                               JSON_AVUS_KEY,       avu);
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    json_t *results = search_metadata(conn, query, NULL, flags | PRINT_AVU,
+                                      &error);
     ck_assert_int_eq(error.code, 0);
     ck_assert_int_eq(json_array_size(results), 3);
 
@@ -791,8 +800,11 @@ START_TEST(test_search_metadata_perm_obj) {
                               JSON_AVUS_KEY,   avu,
                               JSON_ACCESS_KEY, perm);
 
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    json_t *results = search_metadata(conn, query, NULL, flags| PRINT_AVU,
+                                      &error);
     ck_assert_int_eq(error.code, 0);
     ck_assert_int_eq(json_array_size(results), 1);
 
@@ -838,9 +850,10 @@ START_TEST(test_search_metadata_tps_obj) {
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_root,
                                  JSON_TIMESTAMPS_KEY, created_lt);
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error_lt;
-    json_t *results_lt = search_metadata(conn, query_lt, NULL, PRINT_DEFAULT,
+    json_t *results_lt = search_metadata(conn, query_lt, NULL, flags,
                                          &error_lt);
     ck_assert_int_eq(error_lt.code, 0);
     ck_assert_int_eq(json_array_size(results_lt), 0);
@@ -856,7 +869,7 @@ START_TEST(test_search_metadata_tps_obj) {
                                  JSON_TIMESTAMPS_KEY, created_ge);
 
     baton_error_t error_ge;
-    json_t *results_ge = search_metadata(conn, query_ge, NULL, PRINT_DEFAULT,
+    json_t *results_ge = search_metadata(conn, query_ge, NULL, flags,
                                          &error_ge);
     ck_assert_int_eq(error_ge.code, 0);
     ck_assert_int_eq(json_array_size(results_ge), 28);
@@ -898,9 +911,11 @@ START_TEST(test_search_metadata_coll) {
     json_t *query = json_pack("{s:s, s:[o]}",
                               JSON_COLLECTION_KEY, rods_root,
                               JSON_AVUS_KEY,       avu);
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    json_t *results = search_metadata(conn, query, NULL, flags | PRINT_AVU,
+                                      &error);
     ck_assert_int_eq(json_array_size(results), 3);
     for (size_t i = 0; i < 3; i++) {
         json_t *coll = json_array_get(results, i);
