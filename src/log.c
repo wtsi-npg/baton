@@ -55,7 +55,7 @@ log_level get_log_threshold() {
 }
 
 log_level set_log_threshold(log_level level) {
-    log(DEBUG, "Setting log level to %s", get_log_level_name(level));
+    logmsg(DEBUG, "Setting log level to %s", get_log_level_name(level));
 
     THRESHOLD = level;
 

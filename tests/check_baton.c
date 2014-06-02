@@ -78,42 +78,50 @@ static void basic_teardown() {
 }
 
 START_TEST(test_str_starts_with) {
-    ck_assert_msg(str_starts_with("", ""),    "'' starts with ''");
-    ck_assert_msg(str_starts_with("a", ""),   "'a' starts with ''");
-    ck_assert_msg(str_starts_with("a", "a"),  "'a' starts with 'a'");
-    ck_assert_msg(str_starts_with("ab", "a"), "'ab' starts with 'a'");
+    size_t len = MAX_STR_LEN;
+    ck_assert_msg(str_starts_with("",   "",  len),    "'' starts with ''");
+    ck_assert_msg(str_starts_with("a",  "",  len),   "'a' starts with ''");
+    ck_assert_msg(str_starts_with("a", "a",  len),  "'a' starts with 'a'");
+    ck_assert_msg(str_starts_with("ab", "a", len), "'ab' starts with 'a'");
 
-    ck_assert_msg(!str_starts_with("", "a"),   "'' !starts with 'a'");
-    ck_assert_msg(!str_starts_with("b", "a"),  "'b' !starts with 'a'");
-    ck_assert_msg(!str_starts_with("ba", "a"), "'ba' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("",   "a", len),   "'' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("b",  "a", len),  "'b' !starts with 'a'");
+    ck_assert_msg(!str_starts_with("ba", "a", len), "'ba' !starts with 'a'");
 }
 END_TEST
 
 START_TEST(test_str_ends_with) {
-    ck_assert_msg(str_ends_with("", ""),    "'' ends with ''");
-    ck_assert_msg(str_ends_with("a", ""),   "'a' ends with ''");
-    ck_assert_msg(str_ends_with("a", "a"),  "'a' ends with 'a'");
-    ck_assert_msg(str_ends_with("ba", "a"), "'ba' ends with 'a'");
+    size_t len = MAX_STR_LEN;
+    ck_assert_msg(str_ends_with("",   "", len),    "'' ends with ''");
+    ck_assert_msg(str_ends_with("a",  "", len),   "'a' ends with ''");
+    ck_assert_msg(str_ends_with("a",  "a", len),  "'a' ends with 'a'");
+    ck_assert_msg(str_ends_with("ba", "a", len), "'ba' ends with 'a'");
 
-    ck_assert_msg(!str_ends_with("", "a"),   "'' !ends with 'a'");
-    ck_assert_msg(!str_ends_with("b", "a"),  "'b' !ends with 'a'");
-    ck_assert_msg(!str_ends_with("ab", "a"), "'ab' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("",   "a", len),   "'' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("b",  "a", len),  "'b' !ends with 'a'");
+    ck_assert_msg(!str_ends_with("ab", "a", len), "'ab' !ends with 'a'");
 }
 END_TEST
 
 START_TEST(test_str_equals) {
-    ck_assert_msg(str_equals("", ""),    "'' equals ''");
-    ck_assert_msg(str_equals(" ", " "),  "' ' equals ' '");
-    ck_assert_msg(str_equals("a", "a"),  "'a' equals 'a'");
-    ck_assert_msg(!str_equals("a", "A"), "'a' !equals 'A'");
+    size_t len = MAX_STR_LEN;
+    ck_assert_msg(str_equals("",     "", len),    "'' equals ''");
+    ck_assert_msg(str_equals(" ",   " ", len),  "' ' equals ' '");
+    ck_assert_msg(str_equals("a",   "a", len),  "'a' equals 'a'");
+    ck_assert_msg(!str_equals("a",  "A", len), "'a' !equals 'A'");
+    ck_assert_msg(!str_equals("aa", "a", len), "'aa' !equals 'a'");
+    ck_assert_msg(!str_equals("a", "aa", len), "'a' !equals 'aa'");
 }
 END_TEST
 
 START_TEST(test_str_equals_ignore_case) {
-    ck_assert_msg(str_equals_ignore_case("", ""),   "'' equals ''");
-    ck_assert_msg(str_equals_ignore_case(" ", " "), "' ' equals ' '");
-    ck_assert_msg(str_equals_ignore_case("a", "a"), "'a' equals 'a'");
-    ck_assert_msg(str_equals_ignore_case("a", "A"), "'a' equals 'A'");
+    size_t len = MAX_STR_LEN;
+    ck_assert_msg(str_equals_ignore_case("",     "", len),   "'' equals ''");
+    ck_assert_msg(str_equals_ignore_case(" ",   " ", len), "' ' equals ' '");
+    ck_assert_msg(str_equals_ignore_case("a",   "a", len), "'a' equals 'a'");
+    ck_assert_msg(str_equals_ignore_case("a",   "A", len), "'a' equals 'A'");
+    ck_assert_msg(!str_equals_ignore_case("aa", "A", len), "'aa' equals 'A'");
+    ck_assert_msg(!str_equals_ignore_case("a", "AA", len), "'a' equals 'AA'");
 }
 END_TEST
 
@@ -156,6 +164,22 @@ START_TEST(test_parse_timestamp) {
     ck_assert_str_eq(parsed, "1375107252");
 
     free(parsed);
+}
+END_TEST
+
+// Can we coerce ISO-8859-1 to UTF-8?
+START_TEST(test_to_utf8) {
+    char in[2]  = { 0, 0 };
+    char out[3] = { 0, 0, 0 };
+
+    for (unsigned int codepoint = 0; codepoint < 256; codepoint++) {
+        in[0] = codepoint;
+
+        memset(out, 0, sizeof out);
+        to_utf8(in, out, sizeof out);
+
+        ck_assert(maybe_utf8(out, sizeof out));
+    }
 }
 END_TEST
 
@@ -260,51 +284,67 @@ START_TEST(test_list_obj) {
                             JSON_VALUE_KEY,     "value1",
                             JSON_UNITS_KEY,     "units1");
 
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+
     // Default representation
     baton_error_t error1;
-    json_t *results1 = list_path(conn, &rods_obj_path, PRINT_DEFAULT, &error1);
-    json_t *expected1 = json_pack("{s:s, s:s, s:i}",
+    json_t *results1 = list_path(conn, &rods_obj_path, flags, &error1);
+    json_t *expected1 = json_pack("{s:s, s:s}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
-                                  JSON_DATA_OBJECT_KEY, "f1.txt",
-                                  JSON_SIZE_KEY,        0);
+                                  JSON_DATA_OBJECT_KEY, "f1.txt");
 
     ck_assert_int_eq(json_equal(results1, expected1), 1);
     ck_assert_int_eq(error1.code, 0);
 
-    // With ACL
+    // With file size
     baton_error_t error2;
-    json_t *results2 = list_path(conn, &rods_obj_path, PRINT_ACL, &error2);
-    json_t *expected2 = json_pack("{s:s, s:s, s:i, s:[O]}",
+    json_t *results2 = list_path(conn, &rods_obj_path, flags | PRINT_SIZE,
+                                 &error2);
+    json_t *expected2 = json_pack("{s:s, s:s, s:i}",
+                                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                                  JSON_DATA_OBJECT_KEY, "f1.txt",
+                                  JSON_SIZE_KEY,        0);
+
+    ck_assert_int_eq(json_equal(results2, expected2), 1);
+    ck_assert_int_eq(error2.code, 0);
+
+
+    // With ACL
+    baton_error_t error3;
+    json_t *results3 = list_path(conn, &rods_obj_path,
+                                 flags | PRINT_SIZE | PRINT_ACL, &error3);
+    json_t *expected3 = json_pack("{s:s, s:s, s:i, s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
                                   JSON_SIZE_KEY,        0,
                                   JSON_ACCESS_KEY,      perm);
 
-    ck_assert_int_eq(json_equal(results2, expected2), 1);
-    ck_assert_int_eq(error2.code, 0);
+    ck_assert_int_eq(json_equal(results3, expected3), 1);
+    ck_assert_int_eq(error3.code, 0);
 
     // With AVUs
-    baton_error_t error3;
-    json_t *results3 = list_path(conn, &rods_obj_path, PRINT_ACL | PRINT_AVU,
-                                 &error3);
-    json_t *expected3 = json_pack("{s:s, s:s, s:i, s:[O], s:[O]}",
+    baton_error_t error4;
+    json_t *results4 = list_path(conn, &rods_obj_path,
+                                 flags | PRINT_SIZE | PRINT_ACL | PRINT_AVU,
+                                 &error4);
+    json_t *expected4 = json_pack("{s:s, s:s, s:i, s:[O], s:[O]}",
                                   JSON_COLLECTION_KEY,  rods_path.outPath,
                                   JSON_DATA_OBJECT_KEY, "f1.txt",
                                   JSON_SIZE_KEY,        0,
                                   JSON_ACCESS_KEY,      perm,
                                   JSON_AVUS_KEY,        avu);
 
-    ck_assert_int_eq(json_equal(results3, expected3), 1);
-    ck_assert_int_eq(error3.code, 0);
-
-    // With timestamps
-    baton_error_t error4;
-    json_t *results4 = list_path(conn, &rods_obj_path,
-                                 PRINT_ACL | PRINT_AVU | PRINT_TIMESTAMP,
-                                 &error4);
+    ck_assert_int_eq(json_equal(results4, expected4), 1);
     ck_assert_int_eq(error4.code, 0);
 
-    json_t *timestamps = json_object_get(results4, JSON_TIMESTAMPS_KEY);
+    // With timestamps
+    baton_error_t error5;
+    json_t *results5 = list_path(conn, &rods_obj_path,
+                                 flags | PRINT_SIZE | PRINT_ACL | PRINT_AVU |
+                                 PRINT_TIMESTAMP, &error5);
+    ck_assert_int_eq(error5.code, 0);
+
+    json_t *timestamps = json_object_get(results5, JSON_TIMESTAMPS_KEY);
     ck_assert(json_is_array(timestamps));
     ck_assert_int_eq(json_array_size(timestamps), 2);
 
@@ -324,6 +364,9 @@ START_TEST(test_list_obj) {
     json_decref(expected3);
 
     json_decref(results4);
+    json_decref(expected4);
+
+    json_decref(results5);
 
     json_decref(perm);
     json_decref(avu);
@@ -345,7 +388,8 @@ START_TEST(test_list_coll) {
                      EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_path(conn, &rods_path, PRINT_ACL, &error);
+    json_t *results = list_path(conn, &rods_path, 0 | PRINT_SIZE | PRINT_ACL,
+                                &error);
 
     char a[MAX_PATH_LEN];
     char b[MAX_PATH_LEN];
@@ -428,7 +472,7 @@ START_TEST(test_make_query_input) {
 }
 END_TEST
 
-// Do we fail to list the ACL of a non-existant path?
+// Do we fail to list the ACL of a non-existent path?
 START_TEST(test_list_permissions_missing_path) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -588,10 +632,18 @@ START_TEST(test_list_timestamps_obj) {
     json_t *results = list_timestamps(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
-    ck_assert(json_is_object(results));
-    ck_assert_int_eq(json_object_size(results), 2);
-    ck_assert(json_object_get(results, JSON_CREATED_KEY));
-    ck_assert(json_object_get(results, JSON_MODIFIED_KEY));
+    ck_assert(json_is_array(results));
+    ck_assert_int_eq(json_array_size(results), 1);
+
+    size_t index;
+    json_t *elt;
+    json_array_foreach(results, index, elt) {
+         ck_assert(json_is_object(elt));
+        ck_assert_int_eq(json_object_size(elt), 3);
+        ck_assert(json_object_get(elt, JSON_CREATED_KEY));
+        ck_assert(json_object_get(elt, JSON_MODIFIED_KEY));
+        ck_assert(json_object_get(elt, JSON_REPLICATE_KEY));
+    }
 
     json_decref(results);
 
@@ -614,10 +666,17 @@ START_TEST(test_list_timestamps_coll) {
     json_t *results = list_timestamps(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
-    ck_assert(json_is_object(results));
-    ck_assert_int_eq(json_object_size(results), 2);
-    ck_assert(json_object_get(results, JSON_CREATED_KEY));
-    ck_assert(json_object_get(results, JSON_MODIFIED_KEY));
+    ck_assert(json_is_array(results));
+    ck_assert_int_eq(json_array_size(results), 1);
+
+    size_t index;
+    json_t *elt;
+    json_array_foreach(results, index, elt) {
+        ck_assert(json_is_object(elt));
+        ck_assert_int_eq(json_object_size(elt), 2);
+        ck_assert(json_object_get(elt, JSON_CREATED_KEY));
+        ck_assert(json_object_get(elt, JSON_MODIFIED_KEY));
+    }
 
     json_decref(results);
 
@@ -639,17 +698,20 @@ START_TEST(test_search_metadata_obj) {
     json_t *query = json_pack("{s:s, s:[o]}",
                               JSON_COLLECTION_KEY, rods_root,
                               JSON_AVUS_KEY,       avu);
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t expected_error1;
-    search_metadata(conn, NULL, NULL, PRINT_AVU, &expected_error1);
+    search_metadata(conn, NULL, NULL, flags | PRINT_AVU, &expected_error1);
     ck_assert_int_ne(expected_error1.code, 0);
 
     baton_error_t expected_error2;
-    search_metadata(conn, json_pack("[]"), NULL, PRINT_AVU, &expected_error2);
+    search_metadata(conn, json_pack("[]"), NULL, flags | PRINT_AVU,
+                    &expected_error2);
     ck_assert_int_ne(expected_error2.code, 0);
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    json_t *results = search_metadata(conn, query, NULL, flags | PRINT_AVU,
+                                      &error);
     ck_assert_int_eq(json_array_size(results), 12);
 
     for (size_t i = 0; i < 12; i++) {
@@ -683,9 +745,11 @@ START_TEST(test_search_metadata_path_obj) {
     json_t *query = json_pack("{s:s, s:[o]}",
                               JSON_COLLECTION_KEY, search_root,
                               JSON_AVUS_KEY,       avu);
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    json_t *results = search_metadata(conn, query, NULL, flags | PRINT_AVU,
+                                      &error);
     ck_assert_int_eq(error.code, 0);
     ck_assert_int_eq(json_array_size(results), 3);
 
@@ -736,8 +800,11 @@ START_TEST(test_search_metadata_perm_obj) {
                               JSON_AVUS_KEY,   avu,
                               JSON_ACCESS_KEY, perm);
 
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    json_t *results = search_metadata(conn, query, NULL, flags| PRINT_AVU,
+                                      &error);
     ck_assert_int_eq(error.code, 0);
     ck_assert_int_eq(json_array_size(results), 1);
 
@@ -752,6 +819,7 @@ START_TEST(test_search_metadata_perm_obj) {
 }
 END_TEST
 
+// Can we search for data objects, limited by creation timestamp?
 START_TEST(test_search_metadata_tps_obj) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -766,8 +834,9 @@ START_TEST(test_search_metadata_tps_obj) {
     baton_error_t ts_error;
     json_t *current_tps = list_timestamps(conn, &rods_path, &ts_error);
     ck_assert_int_eq(ts_error.code, 0);
+    json_t *first_tps = json_array_get(current_tps, 0);
 
-    const char *raw_created = get_created_timestamp(current_tps, &ts_error);
+    const char *raw_created = get_created_timestamp(first_tps, &ts_error);
     ck_assert_int_eq(ts_error.code, 0);
 
     char *iso_created = format_timestamp(raw_created, ISO8601_FORMAT);
@@ -780,10 +849,11 @@ START_TEST(test_search_metadata_tps_obj) {
     json_t *query_lt = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_root,
-                                 JSON_TIMESTAMPS_KEY,  created_lt);
+                                 JSON_TIMESTAMPS_KEY, created_lt);
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error_lt;
-    json_t *results_lt = search_metadata(conn, query_lt, NULL, PRINT_DEFAULT,
+    json_t *results_lt = search_metadata(conn, query_lt, NULL, flags,
                                          &error_lt);
     ck_assert_int_eq(error_lt.code, 0);
     ck_assert_int_eq(json_array_size(results_lt), 0);
@@ -796,10 +866,10 @@ START_TEST(test_search_metadata_tps_obj) {
     json_t *query_ge = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_root,
-                                 JSON_TIMESTAMPS_KEY,  created_ge);
+                                 JSON_TIMESTAMPS_KEY, created_ge);
 
     baton_error_t error_ge;
-    json_t *results_ge = search_metadata(conn, query_ge, NULL, PRINT_DEFAULT,
+    json_t *results_ge = search_metadata(conn, query_ge, NULL, flags,
                                          &error_ge);
     ck_assert_int_eq(error_ge.code, 0);
     ck_assert_int_eq(json_array_size(results_ge), 28);
@@ -841,9 +911,11 @@ START_TEST(test_search_metadata_coll) {
     json_t *query = json_pack("{s:s, s:[o]}",
                               JSON_COLLECTION_KEY, rods_root,
                               JSON_AVUS_KEY,       avu);
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, PRINT_AVU, &error);
+    json_t *results = search_metadata(conn, query, NULL, flags | PRINT_AVU,
+                                      &error);
     ck_assert_int_eq(json_array_size(results), 3);
     for (size_t i = 0; i < 3; i++) {
         json_t *coll = json_array_get(results, i);
@@ -925,6 +997,25 @@ START_TEST(test_add_metadata_obj) {
 
     json_decref(results);
     json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+
+// Do we fail to add metadata to a non-existent path?
+START_TEST(test_add_metadata_missing_path) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char *path = "no such path";
+    rodsPath_t rods_path;
+    baton_error_t expected_error;
+    resolve_rods_path(conn, &env, &rods_path, path);
+    int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
+                             "test_value", "test_units", &expected_error);
+    ck_assert_int_ne(rv, 0);
+    ck_assert_int_ne(expected_error.code, 0);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1138,7 +1229,7 @@ START_TEST(test_modify_json_permissions_obj) {
     ck_assert_int_ne(fail_rv1, 0);
     ck_assert_int_ne(expected_error1.code, 0);
 
-    json_t *bad_perm2 = json_pack("{s:s}", JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
+    json_t *bad_perm2 = json_pack("{s:s}", JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
     baton_error_t expected_error2;
     int fail_rv2 = modify_json_permissions(conn, &rods_path, NO_RECURSE,
                                            bad_perm2, &expected_error2);
@@ -1147,7 +1238,7 @@ START_TEST(test_modify_json_permissions_obj) {
     ck_assert_int_ne(fail_rv2, 0);
     json_t *perm = json_pack("{s:s, s:s}",
                              JSON_OWNER_KEY, "public",
-                             JSON_LEVEL_KEY,  ACCESS_LEVEL_READ);
+                             JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
 
     baton_error_t error;
     int rv = modify_json_permissions(conn, &rods_path, NO_RECURSE, perm,
@@ -1182,70 +1273,6 @@ START_TEST(test_modify_json_permissions_obj) {
     json_decref(perm);
     json_decref(expected);
     json_decref(acl);
-
-    if (conn) rcDisconnect(conn);
-}
-END_TEST
-
-// Can we convert an iRODS object to a JSON representation?
-START_TEST(test_rods_path_to_json_obj) {
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-
-    char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
-    char obj_path[MAX_PATH_LEN];
-    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
-
-    rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
-
-    json_t *path = data_object_path_to_json(rods_path.outPath);
-    json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            JSON_ATTRIBUTE_KEY, "attr1",
-                            JSON_VALUE_KEY,     "value1",
-                            JSON_UNITS_KEY,     "units1");
-    json_t *expected = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
-    json_object_update(expected, path);
-
-    json_t *obj = rods_path_to_json(conn, &rods_path);
-    ck_assert_int_eq(json_equal(obj, expected), 1);
-
-    json_decref(expected);
-    json_decref(obj);
-
-    if (conn) rcDisconnect(conn);
-}
-END_TEST
-
-// Can we convert an iRODS collection to a JSON representation?
-START_TEST(test_rods_path_to_json_coll) {
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-
-    char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
-    char coll_path[MAX_PATH_LEN];
-    snprintf(coll_path, MAX_PATH_LEN, "%s/a", rods_root);
-
-    rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, coll_path),
-                     EXIST_ST);
-
-    json_t *path = collection_path_to_json(rods_path.outPath);
-    json_t *avu = json_pack("{s:s, s:s, s:s}",
-                            JSON_ATTRIBUTE_KEY, "attr2",
-                            JSON_VALUE_KEY,     "value2",
-                            JSON_UNITS_KEY,     "units2");
-    json_t *expected = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
-    json_object_update(expected, path);
-
-    json_t *coll = rods_path_to_json(conn, &rods_path);
-    ck_assert_int_eq(json_equal(coll, expected), 1);
-
-    json_decref(expected);
-    json_decref(coll);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1347,34 +1374,6 @@ START_TEST(test_represents_data_object) {
 }
 END_TEST
 
-// Can we build query JSON from strings?
-START_TEST(test_query_args_to_json) {
-    json_t *args1 = query_args_to_json("foo", "bar", NULL);
-    json_t *expected1 = json_pack("{s:[{s:s, s:s}]}",
-                                  JSON_AVUS_KEY,
-                                  JSON_ATTRIBUTE_KEY, "foo",
-                                  JSON_VALUE_KEY,     "bar");
-
-    ck_assert_int_eq(json_equal(args1, expected1), 1);
-
-    json_t *args2 = query_args_to_json("foo", "bar", "baz");
-
-    json_t *expected2 = json_pack("{s:s, s:[{s:s, s:s}]}",
-                                  JSON_COLLECTION_KEY, "baz",
-                                  JSON_AVUS_KEY,
-                                  JSON_ATTRIBUTE_KEY, "foo",
-                                  JSON_VALUE_KEY,     "bar");
-
-    ck_assert_int_eq(json_equal(args2, expected2), 1);
-
-    json_decref(args1);
-    json_decref(expected1);
-
-    json_decref(args2);
-    json_decref(expected2);
-}
-END_TEST
-
 // Can we get user information?
 START_TEST(test_get_user) {
     rodsEnv env;
@@ -1414,6 +1413,7 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_maybe_stdin);
     tcase_add_test(utilities_tests, test_format_timestamp);
     tcase_add_test(utilities_tests, test_parse_timestamp);
+    tcase_add_test(utilities_tests, test_to_utf8);
 
     TCase *basic_tests = tcase_create("basic");
     tcase_add_unchecked_fixture(basic_tests, setup, teardown);
@@ -1445,7 +1445,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_search_metadata_perm_obj);
     tcase_add_test(basic_tests, test_search_metadata_tps_obj);
 
-    tcase_add_test(basic_tests, test_add_metadata_obj);
+    tcase_add_test(basic_tests, test_add_metadata_missing_path);
     tcase_add_test(basic_tests, test_remove_metadata_obj);
     tcase_add_test(basic_tests, test_add_json_metadata_obj);
     tcase_add_test(basic_tests, test_remove_json_metadata_obj);
@@ -1453,14 +1453,11 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_modify_permissions_obj);
     tcase_add_test(basic_tests, test_modify_json_permissions_obj);
 
-    tcase_add_test(basic_tests, test_rods_path_to_json_obj);
-    tcase_add_test(basic_tests, test_rods_path_to_json_coll);
     tcase_add_test(basic_tests, test_represents_collection);
     tcase_add_test(basic_tests, test_represents_data_object);
 
     tcase_add_test(basic_tests, test_json_to_path);
     tcase_add_test(basic_tests, test_contains_avu);
-    tcase_add_test(basic_tests, test_query_args_to_json);
 
     tcase_add_test(basic_tests, test_get_user);
 

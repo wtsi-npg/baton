@@ -52,7 +52,7 @@
 
 typedef struct query_format_in {
     /** The number of columns to return */
-    int num_columns;
+    unsigned num_columns;
     /** The ICAT columns to return */
     const int columns[MAX_NUM_COLUMNS];
     /** The labels to use for the returned column values */
@@ -100,7 +100,7 @@ void log_rods_errstack(log_level level, rError_t *error);
  * @return A pointer to a new genQueryInp_t which must be freed using
  * @ref free_query_input
  */
-genQueryInp_t *make_query_input(int max_rows, int num_columns,
+genQueryInp_t *make_query_input(size_t max_rows, size_t num_columns,
                                 const int columns[]);
 /**
  * Free memory used by an iRODS generic query (see rodsGenQuery.h).
@@ -128,7 +128,7 @@ void free_query_output(genQueryOut_t *query_out);
  *
  * @return The modified query.
  */
-genQueryInp_t *add_query_conds(genQueryInp_t *query_in, int num_conds,
+genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
                                const query_cond_t conds[]);
 
 /**
@@ -176,6 +176,11 @@ genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_value,
                                       const char *operator);
 
+genQueryInp_t *prepare_obj_avu_search_lim(genQueryInp_t *query_in,
+                                          const char *attr_name,
+                                          const char *attr_value,
+                                          const char *operator);
+
 genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
@@ -210,5 +215,7 @@ genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
 
 genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
                                    const char *user_name);
+
+genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in);
 
 #endif // _BATON_QUERY_H

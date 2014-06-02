@@ -1,5 +1,4 @@
 
-
 ACLOCAL_AMFLAGS= -I m4
 
 if HAVE_SPHINX
@@ -16,6 +15,10 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = baton.pc
 
 etcdir = $(sysconfdir)
+
+dist-hook:
+	./scripts/changelog.sh > ChangeLog
+
 
 if COVERAGE_ENABLED
 .PHONY: coverage coverage-report clean-coverage-report check-coverage

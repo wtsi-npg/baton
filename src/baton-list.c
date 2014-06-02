@@ -30,36 +30,43 @@
 #include "json.h"
 #include "log.h"
 
-static int debug_flag;
-static int help_flag;
-static int unbuffered_flag;
-static int verbose_flag;
-static int version_flag;
+static int acl_flag        = 0;
+static int avu_flag        = 0;
+static int debug_flag      = 0;
+static int help_flag       = 0;
+static int size_flag       = 0;
+static int timestamp_flag  = 0;
+static int unbuffered_flag = 0;
+static int verbose_flag    = 0;
+static int version_flag    = 0;
 
-int do_modify_metadata(FILE *input, metadata_op operation);
+int do_list_paths(FILE *input, option_flags oflags);
 
 int main(int argc, char *argv[]) {
+    option_flags oflags = 0;
     int exit_status = 0;
-    metadata_op meta_op = -1;
     char *json_file = NULL;
-    FILE *input = NULL;
+    FILE *input     = NULL;
 
     while (1) {
         static struct option long_options[] = {
             // Flag options
+            {"acl",        no_argument, &acl_flag,        1},
+            {"avu",        no_argument, &avu_flag,        1},
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
+            {"size",       no_argument, &size_flag,       1},
+            {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
             {"file",      required_argument, NULL, 'f'},
-            {"operation", required_argument, NULL, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:o:",
+        int c = getopt_long_only(argc, argv, "f:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -68,16 +75,6 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'f':
                 json_file = optarg;
-                break;
-
-            case 'o':
-                if (strcmp("add", optarg) ==  0) {
-                    meta_op = META_ADD;
-                }
-                if (strcmp("rem", optarg) == 0) {
-                    meta_op = META_REM;
-                }
-
                 break;
 
             case '?':
@@ -90,24 +87,34 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (acl_flag)       oflags = oflags | PRINT_ACL;
+    if (avu_flag)       oflags = oflags | PRINT_AVU;
+    if (size_flag)      oflags = oflags | PRINT_SIZE;
+    if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
+
     if (help_flag) {
         puts("Name");
-        puts("    json-metamod");
+        puts("    baton-list");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metamod -o <operation> [--file <json file>]");
+        puts("    baton-list [--acl] [--avu] [--file <json file>] [--size]");
+        puts("               [--timestamp] [--unbuffered] [--verbose]");
+        puts("               [--version]");
         puts("");
         puts("Description");
-        puts("    Modifies metadata AVUs on collections and data objects");
-        puts("described in a JSON input file.");
+        puts("    Lists data objects and collections described in a JSON ");
+        puts("    input file.");
         puts("");
-        puts("    --operation   Operation to perform. One of [add, rem].");
-        puts("                  Required.");
-        puts("    --file        The JSON file describing the data objects.");
-        puts("                  Optional, defaults to STDIN.");
+        puts("    --acl         Print access control lists in output.");
+        puts("    --avu         Print AVU lists in output.");
+        puts("    --file        The JSON file describing the data objects and");
+        puts("                  collections. Optional, defaults to STDIN.");
+        puts("    --size        Print data object sizes in output.");
+        puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
+        puts("    --version     Print the version number and exit.");
         puts("");
 
         exit(0);
@@ -122,46 +129,30 @@ int main(int argc, char *argv[]) {
     if (verbose_flag) set_log_threshold(NOTICE);
 
     declare_client_name(argv[0]);
+    input = maybe_stdin(json_file);
 
-    switch (meta_op) {
-        case META_ADD:
-        case META_REM:
-            input = maybe_stdin(json_file);
-            int status = do_modify_metadata(input, meta_op);
-            if (status != 0) exit_status = 5;
-            break;
-
-        default:
-            fprintf(stderr, "No valid operation was specified; valid "
-                    "operations are: [add rem]\n");
-            goto args_error;
-    }
-
-    exit(exit_status);
-
-args_error:
-    exit_status = 4;
+    int status = do_list_paths(input, oflags);
+    if (status != 0) exit_status = 5;
 
     exit(exit_status);
 }
 
-int do_modify_metadata(FILE *input, metadata_op operation) {
-    int path_count = 0;
+int do_list_paths(FILE *input, option_flags oflags) {
+    int path_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-
     while (!feof(input)) {
+        size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
-        json_t *target = json_loadf(input, flags, &load_error);
+        json_t *target = json_loadf(input, jflags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                log(ERROR, "JSON error at line %d, column %d: %s",
-                    load_error.line, load_error.column, load_error.text);
+                logmsg(ERROR, "JSON error at line %d, column %d: %s",
+                       load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -174,44 +165,36 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
         if (path_error.code != 0) {
             error_count++;
             add_error_value(target, &path_error);
+            print_json(target);
         }
         else {
-            json_t *avus = json_object_get(target, JSON_AVUS_KEY);
-            if (!json_is_array(avus)) {
+            rodsPath_t rods_path;
+            int status = resolve_rods_path(conn, &env, &rods_path, path);
+            if (status < 0) {
                 error_count++;
-                set_baton_error(&path_error, -1,
-                                "AVU data for %s is not in a JSON array", path);
+                set_baton_error(&path_error, status,
+                                "Failed to resolve path '%s'", path);
                 add_error_value(target, &path_error);
+                print_json(target);
             }
             else {
-                rodsPath_t rods_path;
-                int status = resolve_rods_path(conn, &env, &rods_path, path);
-                if (status < 0) {
+                baton_error_t error;
+                json_t *results = list_path(conn, &rods_path, oflags, &error);
+
+                if (error.code != 0) {
                     error_count++;
-                    set_baton_error(&path_error, status,
-                                    "Failed to resolve path '%s'", path);
-                    add_error_value(target, &path_error);
+                    add_error_value(target, &error);
+                    print_json(target);
                 }
                 else {
-                    for (size_t i = 0; i < json_array_size(avus); i++) {
-                        json_t *avu = json_array_get(avus, i);
-                        baton_error_t mod_error;
-                        modify_json_metadata(conn, &rods_path, operation, avu,
-                                             &mod_error);
-
-                        // FIXME: this only records the last error
-                        if (mod_error.code != 0) {
-                            error_count++;
-                            add_error_value(target, &mod_error);
-                        }
-                    }
+                    print_json(results);
+                    json_decref(results);
                 }
-
-                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
             }
+
+            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
         }
 
-        print_json(target);
         if (unbuffered_flag) fflush(stdout);
 
         json_decref(target);
@@ -220,14 +203,14 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
 
     rcDisconnect(conn);
 
-    log(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }

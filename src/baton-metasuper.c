@@ -30,18 +30,18 @@
 #include "json.h"
 #include "log.h"
 
-static int debug_flag;
-static int help_flag;
-static int unbuffered_flag;
-static int verbose_flag;
-static int version_flag;
+static int debug_flag      = 0;
+static int help_flag       = 0;
+static int unbuffered_flag = 0;
+static int verbose_flag    = 0;
+static int version_flag    = 0;
 
 int do_supersede_metadata(FILE *input);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
     char *json_file = NULL;
-    FILE *input = NULL;
+    FILE *input     = NULL;
 
     while (1) {
         static struct option long_options[] = {
@@ -80,11 +80,12 @@ int main(int argc, char *argv[]) {
 
     if (help_flag) {
         puts("Name");
-        puts("    json-metasuper");
+        puts("    baton-metasuper");
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    json-metasuper [--file <json file>]");
+        puts("    baton-metasuper [--file <json file>] [--unbuffered]");
+        puts("                    [--verbose] [--version]");
         puts("");
         puts("Description");
         puts("    Supersedes metadata AVUs on collections and data objects");
@@ -94,6 +95,7 @@ int main(int argc, char *argv[]) {
         puts("                  Optional, defaults to STDIN.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
+        puts("    --version     Print the version number and exit.");
         puts("");
 
         exit(0);
@@ -117,22 +119,21 @@ int main(int argc, char *argv[]) {
 }
 
 int do_supersede_metadata(FILE *input) {
-    int path_count = 0;
+    int path_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
 
-    size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-
     while (!feof(input)) {
+        size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *target = json_loadf(input, flags, &load_error);
         if (!target) {
             if (!feof(input)) {
-                log(ERROR, "JSON error at line %d, column %d: %s",
-                    load_error.line, load_error.column, load_error.text);
+                logmsg(ERROR, "JSON error at line %d, column %d: %s",
+                       load_error.line, load_error.column, load_error.text);
             }
 
             continue;
@@ -140,6 +141,8 @@ int do_supersede_metadata(FILE *input) {
 
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
+        json_t *avus;
+        int status;
         path_count++;
 
         if (path_error.code != 0) {
@@ -148,17 +151,17 @@ int do_supersede_metadata(FILE *input) {
             goto print_result;
         }
         else {
-            json_t *avus = json_object_get(target, JSON_AVUS_KEY);
+            avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
-                log(ERROR, "AVU data for '%s' is not in a JSON array", path);
+                logmsg(ERROR, "AVU data for '%s' is not in a JSON array", path);
                 goto error;
             }
 
             rodsPath_t rods_path;
-            int status = resolve_rods_path(conn, &env, &rods_path, path);
+            status = resolve_rods_path(conn, &env, &rods_path, path);
             if (status < 0) {
                 error_count++;
-                log(ERROR, "Failed to resolve path '%s'", path);
+                logmsg(ERROR, "Failed to resolve path '%s'", path);
             }
             else {
                 baton_error_t list_error;
@@ -176,11 +179,11 @@ int do_supersede_metadata(FILE *input) {
                     char *str = json_dumps(current_avu, JSON_DECODE_ANY);
 
                     if (contains_avu(avus, current_avu)) {
-                        log(TRACE, "Not removing AVU %s", str);
+                        logmsg(TRACE, "Not removing AVU %s", str);
                     }
                     else {
                         baton_error_t rem_error;
-                        log(TRACE, "Removing AVU %s", str);
+                        logmsg(TRACE, "Removing AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_REM,
                                                  current_avu, &rem_error);
                         if (rem_error.code != 0) {
@@ -200,11 +203,11 @@ int do_supersede_metadata(FILE *input) {
                     char *str = json_dumps(avu, JSON_DECODE_ANY);
 
                     if (contains_avu(current_avus, avu)) {
-                        log(TRACE, "Not adding AVU %s", str);
+                        logmsg(TRACE, "Not adding AVU %s", str);
                     }
                     else {
                         baton_error_t add_error;
-                        log(TRACE, "Adding AVU %s", str);
+                        logmsg(TRACE, "Adding AVU %s", str);
                         modify_json_metadata(conn, &rods_path, META_ADD,
                                              avu, &add_error);
                         if (add_error.code != 0) {
@@ -233,14 +236,14 @@ int do_supersede_metadata(FILE *input) {
 
     rcDisconnect(conn);
 
-    log(TRACE, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(TRACE, "Processed %d paths with %d errors", path_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    log(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
 
     return 1;
 }
