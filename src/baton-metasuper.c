@@ -95,6 +95,7 @@ int main(int argc, char *argv[]) {
         puts("                  Optional, defaults to STDIN.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
+        puts("    --version     Print the version number and exit.");
         puts("");
 
         exit(0);

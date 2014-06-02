@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
         puts("Synopsis");
         puts("");
         puts("    baton-chmod [--file <json file>] [--recurse] [--unbuffered]");
-        puts("                [--verbose]");
+        puts("                [--verbose] [--version]");
         puts("");
         puts("Description");
         puts("    Set permissions on collections and data objects");
@@ -100,6 +100,7 @@ int main(int argc, char *argv[]) {
         puts("                  Optional, defaults to false.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
+        puts("    --version     Print the version number and exit.");
         puts("");
 
         exit(0);
