@@ -160,7 +160,7 @@ Options
 .. program:: baton-list
 .. option:: --acl
 
-  Print access control lists in output, in the format described in
+  Print access control lists in the output, in the format described in
   :ref:`representing_path_permissions`.
 
 .. program:: baton-list
@@ -179,6 +179,18 @@ Options
 .. option:: --help
 
   Prints command line help.
+
+.. program:: baton-list
+.. option:: --size
+
+  Print data object sizes in the output. These appear as JSON integers under
+  the property 'size'.
+
+.. program:: baton-list
+.. option:: --timestamp
+
+  Print data object timestamps in the output, in the format described in
+  :ref:`representing_timestamps`.
 
 .. program:: baton-list
 .. option:: --unbuffered
@@ -263,14 +275,19 @@ Options
 .. program:: baton-metaquery
 .. option:: --acl
 
-  Print access control lists in output, in the format described in
+  Print access control lists in the output, in the format described in
   :ref:`representing_path_permissions`.
 
 .. program:: baton-metaquery
 .. option:: --avu
 
-  Print AVU lists in output, in the format described in
+  Print AVU lists in the output, in the format described in
   :ref:`representing_path_metadata`.
+
+.. program:: baton-metaquery
+.. option:: --coll
+
+   Limit the search to collection metadata only.
 
 .. program:: baton-metaquery
 .. option:: --file <file name>
@@ -284,9 +301,20 @@ Options
   Prints command line help.
 
 .. program:: baton-metaquery
+.. option:: --obj
+
+   Limit the search to data object metadata only.
+
+.. program:: baton-metaquery
+.. option:: --size
+
+  Print data object sizes in the output. These appear as JSON integers under
+  the property 'size'.
+
+.. program:: baton-metaquery
 .. option:: --timestamp
 
-  Print timestamp lists in output, in the format described in
+  Print timestamp lists in the output, in the format described in
   :ref:`representing_timestamps`.
 
 .. program:: baton-metaquery

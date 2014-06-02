@@ -115,9 +115,10 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-metaquery [--acl] [--avu] [--file <JSON file>]");
-        puts("                    [--size] [--timestamp] [--unbuffered]");
-        puts("                    [--verbose] [--version] [--zone <name>]");
+        puts("    baton-metaquery [--acl] [--avu] [--coll]");
+        puts("                    [--file <JSON file>] [--obj ] [--size]");
+        puts("                    [--timestamp] [--unbuffered] [--verbose]");
+        puts("                    [--version] [--zone <name>]");
         puts("");
         puts("Description");
         puts("    Finds items in iRODS by AVU, given a query constructed");
@@ -125,8 +126,10 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("    --acl         Print access control lists in output.");
         puts("    --avu         Print AVU lists in output.");
+        puts("    --coll        Limit search to collection metadata only.");
         puts("    --file        The JSON file describing the query. Optional,");
         puts("                  defaults to STDIN.");
+        puts("    --obj         Limit search to data object metadata only.");
         puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
