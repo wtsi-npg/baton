@@ -159,7 +159,10 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
             }
         }
 
-        if (!redundant) {
+        if (redundant) {
+            free(expr);
+        }
+        else {
             logmsg(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
                    "total len %d [%s]",
                    i, num_conds, name, strlen(name), operator, expr_size, expr);
@@ -169,6 +172,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
             query_in->sqlCondInp.value[current_index] = expr;
             query_in->sqlCondInp.len++;
         }
+
     }
 
     return query_in;
