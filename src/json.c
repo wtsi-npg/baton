@@ -123,6 +123,11 @@ const char* get_data_object_value(json_t *object, baton_error_t *error) {
                                 JSON_DATA_OBJECT_SHORT_KEY, error);
 }
 
+const char* get_query_collection(json_t *object, baton_error_t *error) {
+    return get_opt_string_value(object, "path spec", JSON_COLLECTION_KEY,
+                                JSON_COLLECTION_SHORT_KEY, error);
+}
+
 const char* get_created_timestamp(json_t *object, baton_error_t *error) {
     return get_string_value(object, "timestamps", JSON_CREATED_KEY,
                             JSON_CREATED_SHORT_KEY, error);

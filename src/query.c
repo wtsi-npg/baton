@@ -457,6 +457,8 @@ genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
                             .operator = SEARCH_OP_LIKE,
                             .value    = path };
 
+        logmsg(DEBUG, "Adding search clause path LIKE '%s'", path);
+
         size_t num_conds = 1;
         add_query_conds(query_in, num_conds, (query_cond_t []) { pv });
         free(path);

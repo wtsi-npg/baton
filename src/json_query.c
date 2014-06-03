@@ -83,20 +83,18 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     json_t *items           = NULL;
-    json_t *root_path;
     json_t *avus;
+    const char *root_path;
 
     query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns,
                                 format->columns);
 
-    root_path = json_object_get(query, JSON_COLLECTION_KEY);
+    root_path = get_query_collection(query, error);
+    if (error->code != 0) goto error;
+
     if (root_path) {
-        if (!json_is_string(root_path)) {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid root path: not a JSON string");
-            goto error;
-        }
-        query_in = prepare_path_search(query_in, json_string_value(root_path));
+        logmsg(DEBUG, "Limiting search to path '%s'", root_path);
+        query_in = prepare_path_search(query_in, root_path);
     }
 
     // AVUs are mandatory for searches

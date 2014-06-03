@@ -117,6 +117,8 @@ json_t *get_avus(json_t *object, baton_error_t *error);
  */
 json_t *get_timestamps(json_t *object, baton_error_t *error);
 
+const char* get_query_collection(json_t *object, baton_error_t *error);
+
 const char *get_created_timestamp(json_t *object, baton_error_t *error);
 
 const char *get_modified_timestamp(json_t *object, baton_error_t *error);
