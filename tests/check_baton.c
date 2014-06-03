@@ -308,7 +308,6 @@ START_TEST(test_list_obj) {
     ck_assert_int_eq(json_equal(results2, expected2), 1);
     ck_assert_int_eq(error2.code, 0);
 
-
     // With ACL
     baton_error_t error3;
     json_t *results3 = list_path(conn, &rods_obj_path,
@@ -742,25 +741,49 @@ START_TEST(test_search_metadata_path_obj) {
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
                             JSON_VALUE_KEY,     "value1");
-    json_t *query = json_pack("{s:s, s:[o]}",
-                              JSON_COLLECTION_KEY, search_root,
-                              JSON_AVUS_KEY,       avu);
+
     option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
-    baton_error_t error;
-    json_t *results = search_metadata(conn, query, NULL, flags | PRINT_AVU,
-                                      &error);
-    ck_assert_int_eq(error.code, 0);
-    ck_assert_int_eq(json_array_size(results), 3);
+    json_t *query1 = json_pack("{s:s, s:[O]}",
+                               JSON_COLLECTION_KEY, search_root,
+                               JSON_AVUS_KEY,       avu);
+    baton_error_t error1;
+    json_t *results1 = search_metadata(conn, query1, NULL, flags | PRINT_AVU,
+                                       &error1);
+
+    ck_assert_int_eq(error1.code, 0);
+    ck_assert_int_eq(json_array_size(results1), 3);
 
     for (size_t i = 0; i < 3; i++) {
-        json_t *obj = json_array_get(results, i);
+        json_t *obj = json_array_get(results1, i);
         ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
         ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
     }
 
-    json_decref(query);
-    json_decref(results);
+    // Short form JSON collection property
+    json_t *query2 = json_pack("{s:s, s:[O]}",
+                                JSON_COLLECTION_SHORT_KEY, search_root,
+                                JSON_AVUS_KEY,       avu);
+    baton_error_t error2;
+    json_t *results2 = search_metadata(conn, query2, NULL, flags | PRINT_AVU,
+                                        &error2);
+
+    ck_assert_int_eq(error2.code, 0);
+    ck_assert_int_eq(json_array_size(results2), 3);
+
+    for (size_t i = 0; i < 3; i++) {
+        json_t *obj = json_array_get(results2, i);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_COLLECTION_KEY), NULL);
+        ck_assert_ptr_ne(json_object_get(obj, JSON_DATA_OBJECT_KEY), NULL);
+    }
+
+    json_decref(query1);
+    json_decref(results1);
+
+    json_decref(query2);
+    json_decref(results2);
+
+    json_decref(avu);
 
     if (conn) rcDisconnect(conn);
 }
@@ -862,7 +885,7 @@ START_TEST(test_search_metadata_tps_obj) {
     // the time their containing collection was created
     json_t *created_ge = json_pack("{s:s, s:s}",
                                    JSON_CREATED_KEY,  iso_created,
-                                   JSON_OPERATOR_KEY, SEARCH_OP_NUM_LE);
+                                   JSON_OPERATOR_KEY, SEARCH_OP_NUM_GE);
     json_t *query_ge = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_root,
@@ -871,6 +894,7 @@ START_TEST(test_search_metadata_tps_obj) {
     baton_error_t error_ge;
     json_t *results_ge = search_metadata(conn, query_ge, NULL, flags,
                                          &error_ge);
+
     ck_assert_int_eq(error_ge.code, 0);
     ck_assert_int_eq(json_array_size(results_ge), 28);
 
