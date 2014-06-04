@@ -1,0 +1,929 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Welcome to baton‘s documentation &mdash; baton 0.9.1
+ documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/breathe.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.9.1
+',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="baton 0.9.1
+ documentation" href="#" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="#">baton 0.9.1
+ documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="welcome-to-baton-s-documentation">
+<h1>Welcome to <tt class="docutils literal"><span class="pre">baton</span></tt>&#8216;s documentation<a class="headerlink" href="#welcome-to-baton-s-documentation" title="Permalink to this headline">¶</a></h1>
+<dl class="docutils">
+<dt>baton |bəˈtän|</dt>
+<dd><em>noun, A short stick or staff or something resembling one.</em></dd>
+</dl>
+<p>Client programs and API for use with <a class="reference external" href="http://www.irods.org">iRODS</a>
+(Integrated Rule-Oriented Data System).</p>
+<p><tt class="docutils literal"><span class="pre">baton</span></tt> is intended as a supplement to the command line client
+programs (<tt class="docutils literal"><span class="pre">ils</span></tt>, <tt class="docutils literal"><span class="pre">imeta</span></tt> etc.) provided with a standard iRODS
+installation. Its provides the following features not included in
+iRODS:</p>
+<ul class="simple">
+<li>A single JSON format for listing results, composing queries and
+performing updates.</li>
+<li>Listing of data objects and collections as JSON, including their
+metadata (AVUs), file size, access control lists (ACLs) and creation
+and modification timestamps.</li>
+<li>Queries on metadata, on access control lists (ACLs), creation and
+modification timestamps and timestamp ranges. The full range of
+iRODS query operators is supported.</li>
+<li>Unbuffered option for IPC via pipes with fine-grained error
+reporting for batch operations.</li>
+<li>Simplified API over the iRODS general query API to ease construction
+of new custom queries.</li>
+</ul>
+<div class="toctree-wrapper compound">
+<ul class="simple">
+</ul>
+</div>
+</div>
+<div class="section" id="obtaining-and-installing-baton">
+<h1>Obtaining and installing <tt class="docutils literal"><span class="pre">baton</span></tt><a class="headerlink" href="#obtaining-and-installing-baton" title="Permalink to this headline">¶</a></h1>
+<p><tt class="docutils literal"><span class="pre">baton</span></tt> may be downloaded as source code from its <a class="reference external" href="http://github.com/wtsi-npg/baton.git/">GitHub homepage</a> . It is written using the
+iRODS C API and requires a C compiler to build.</p>
+<ol class="arabic simple">
+<li>Install iRODS and the <a class="reference external" href="http://www.digip.org/jansson/">Jansson JSON library</a> ) as described in their
+documentation.</li>
+<li>Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation
+(assuming bash)</li>
+</ol>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">IRODS_HOME</span><span class="o">=</span>&lt;path to iRODS&gt; <span class="nb">source </span>set_irods_home.sh
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li>Generate the configure script</li>
+</ol>
+<div class="highlight-sh"><div class="highlight"><pre>autoreconf -i
+</pre></div>
+</div>
+<ol class="arabic simple" start="4">
+<li>Generate the makefiles (see INSTALL for arguments to configure)</li>
+</ol>
+<div class="highlight-sh"><div class="highlight"><pre>./configure
+</pre></div>
+</div>
+<ol class="arabic simple" start="5">
+<li>Compile</li>
+</ol>
+<div class="highlight-sh"><div class="highlight"><pre>make
+</pre></div>
+</div>
+<ol class="arabic simple" start="6">
+<li>Optionally, run the test suite</li>
+</ol>
+<div class="highlight-sh"><div class="highlight"><pre>make check
+</pre></div>
+</div>
+<ol class="arabic simple" start="7">
+<li>If you have run configure with the optional &#8211;enable-coverage flag
+you can generate test coverage statistics with lcov.</li>
+</ol>
+<div class="highlight-sh"><div class="highlight"><pre>make check-coverage
+</pre></div>
+</div>
+<ol class="arabic simple" start="8">
+<li>Install, including HTML manual and manpage.</li>
+</ol>
+<div class="highlight-sh"><div class="highlight"><pre>make clean install
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-baton-suite-of-programs">
+<h1>The <tt class="docutils literal"><span class="pre">baton</span></tt> suite of programs<a class="headerlink" href="#the-baton-suite-of-programs" title="Permalink to this headline">¶</a></h1>
+<p><tt class="docutils literal"><span class="pre">baton</span></tt> comprises several command-line programs, all of which accept
+a stream of JSON objects on standard input (or from a file) and emit a
+stream of JSON objects on standard output. The <tt class="docutils literal"><span class="pre">baton</span></tt> programs are:</p>
+<ul>
+<li><p class="first"><a class="reference internal" href="#baton-list">baton-list</a></p>
+<p>Prints the paths, metadata and access control lists and timestamps
+of collections and data objects.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="#baton-metamod">baton-metamod</a></p>
+<p>Add or remove specfic <a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> s in the metadata on collections
+and data objects.</p>
+</li>
+<li><p class="first"><cite>baton-metasuper</cite></p>
+<p>Replace all <a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> s in the metadata on collections and data
+objects.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="#baton-metaquery">baton-metaquery</a></p>
+<p>Print the paths, metadata and access control lists of collections
+and data objects matching queries on metadata.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="#baton-chmod">baton-chmod</a></p>
+<p>Modify the access control lists of collections and data objects.</p>
+</li>
+</ul>
+<p>All of the programs are designed to accept a stream of JSON objects,
+one for each operation on a collection or data object. After each
+operation is complete, the programs may be forced flush their output
+(See the <tt class="docutils literal"><span class="pre">--unbuffered</span></tt> command line option.) to ease their use in
+bidirectional communication via Unix pipes.</p>
+<p>For details of how errors are handled, see <a class="reference internal" href="#representing-errors"><em>Representing Errors</em></a>.</p>
+<div class="section" id="baton-list">
+<h2>baton-list<a class="headerlink" href="#baton-list" title="Permalink to this headline">¶</a></h2>
+<p>Synopsis:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;}&#39;</span> | baton-list
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user/&quot;, data_object: &quot;a.txt&quot;}&#39;</span> | baton-list
+</pre></div>
+</div>
+<p>This program accepts JSON objects as described in
+<a class="reference internal" href="#representing-paths"><em>Representing data objects and collections</em></a> and prints results in the same format. If
+the target path is a data object, the printed result is also a data
+object. However, if the target path is a collection, the printed
+result is a JSON array of JSON objects containing one object
+representing the target collection followed by one for each collection
+or data object directly within the target.</p>
+<div class="section" id="options">
+<h3>Options<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h3>
+<dl class="option">
+<dt id="cmdoption-baton-list--acl">
+<tt class="descname">--acl</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--acl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print access control lists in the output, in the format described in
+<a class="reference internal" href="#representing-path-permissions"><em>ACLs of data objects and collections</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--avu">
+<tt class="descname">--avu</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--avu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print AVU lists in output, in the format described in
+<a class="reference internal" href="#representing-path-metadata"><em>Metadata on data objects and collections</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--file">
+<tt class="descname">--file</tt><tt class="descclassname"> &lt;file name&gt;</tt><a class="headerlink" href="#cmdoption-baton-list--file" title="Permalink to this definition">¶</a></dt>
+<dd><p>The JSON file describing the data objects and collections. Optional,
+defaults to STDIN.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--help">
+<tt class="descname">--help</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--help" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints command line help.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--size">
+<tt class="descname">--size</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print data object sizes in the output. These appear as JSON integers under
+the property &#8216;size&#8217;.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--timestamp">
+<tt class="descname">--timestamp</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--timestamp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print data object timestamps in the output, in the format described in
+<a class="reference internal" href="#representing-timestamps"><em>Representing timestamps</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--unbuffered">
+<tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--unbuffered" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="baton-metamod">
+<h2>baton-metamod<a class="headerlink" href="#baton-metamod" title="Permalink to this headline">¶</a></h2>
+<p>Synopsis:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;,      \</span>
+<span class="s1">               &quot;avus&quot;: [{attribute: &quot;x&quot;, value: &quot;y&quot;},   \</span>
+<span class="s1">                        {attribute: &quot;m&quot;, value: &quot;n&quot;}]}&#39;</span> | baton-metamod --operation add
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;,      \</span>
+<span class="s1">                avus: [{attribute: &quot;x&quot;, value: &quot;y&quot;},   \</span>
+<span class="s1">                       {attribute: &quot;m&quot;, value: &quot;n&quot;}]}&#39;</span> | baton-metamod --operation rem
+</pre></div>
+</div>
+<p>This program accepts JSON objects as described in
+<a class="reference internal" href="#representing-paths"><em>Representing data objects and collections</em></a> and adds or removes matching metadata as
+described in <a class="reference internal" href="#representing-path-metadata"><em>Metadata on data objects and collections</em></a>.</p>
+<div class="section" id="id1">
+<h3>Options<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<dl class="option">
+<dt id="cmdoption-baton-metamod--file">
+<tt class="descname">--file</tt><tt class="descclassname"> &lt;file name&gt;</tt><a class="headerlink" href="#cmdoption-baton-metamod--file" title="Permalink to this definition">¶</a></dt>
+<dd><p>The JSON file describing the data objects and collections. Optional,
+defaults to STDIN.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metamod--help">
+<tt class="descname">--help</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metamod--help" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints command line help.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metamod--operation">
+<tt class="descname">--operation</tt><tt class="descclassname"> &lt;operation name&gt;</tt><a class="headerlink" href="#cmdoption-baton-metamod--operation" title="Permalink to this definition">¶</a></dt>
+<dd><p>The operation to perform; one of <tt class="docutils literal"><span class="pre">add</span></tt> or <tt class="docutils literal"><span class="pre">remove</span></tt>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metamod--unbuffered">
+<tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metamod--unbuffered" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="baton-metaquery">
+<h2>baton-metaquery<a class="headerlink" href="#baton-metaquery" title="Permalink to this headline">¶</a></h2>
+<p>Synopsis:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: []}&#39;</span> | baton-metaquery
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, avus: []}&#39;</span> | baton-metaquery
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: [{attribute: &quot;x&quot;, value: &quot;y&quot;}]}&#39;</span> | baton-metaquery
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: [{attribute: &quot;x&quot;, value: &quot;y&quot;},   \</span>
+<span class="s1">                 {attribute: &quot;m&quot;, value: &quot;n&quot;}]}&#39;</span> | baton-metaquery
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: [{attribute: &quot;v&quot;, value: &quot;100&quot;, operator: &quot;n&lt;&quot;},    \</span>
+<span class="s1">                 {attribute: &quot;w&quot;, value: &quot;n%&quot;,  operator: &quot;like&quot;}]}&#39;</span> | baton-metaquery
+</pre></div>
+</div>
+<p>This program accepts JSON objects as described in
+<a class="reference internal" href="#representing-query-metadata"><em>Metadata queries</em></a> and prints results in the format
+described in <a class="reference internal" href="#representing-paths"><em>Representing data objects and collections</em></a> . Additionally, it accepts an
+optional <tt class="docutils literal"><span class="pre">collection</span></tt> property which limits the scope of the
+associated metadata query to returning only those results that lie
+somewhere under that collection.</p>
+<div class="section" id="id2">
+<h3>Options<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--acl">
+<tt class="descname">--acl</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--acl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print access control lists in the output, in the format described in
+<a class="reference internal" href="#representing-path-permissions"><em>ACLs of data objects and collections</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--avu">
+<tt class="descname">--avu</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--avu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print AVU lists in the output, in the format described in
+<a class="reference internal" href="#representing-path-metadata"><em>Metadata on data objects and collections</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--coll">
+<tt class="descname">--coll</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--coll" title="Permalink to this definition">¶</a></dt>
+<dd><p>Limit the search to collection metadata only.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--file">
+<tt class="descname">--file</tt><tt class="descclassname"> &lt;file name&gt;</tt><a class="headerlink" href="#cmdoption-baton-metaquery--file" title="Permalink to this definition">¶</a></dt>
+<dd><p>The JSON file describing the data objects and collections. Optional,
+defaults to STDIN.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--help">
+<tt class="descname">--help</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--help" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints command line help.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--obj">
+<tt class="descname">--obj</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--obj" title="Permalink to this definition">¶</a></dt>
+<dd><p>Limit the search to data object metadata only.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--size">
+<tt class="descname">--size</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print data object sizes in the output. These appear as JSON integers under
+the property &#8216;size&#8217;.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--timestamp">
+<tt class="descname">--timestamp</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--timestamp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print timestamp lists in the output, in the format described in
+<a class="reference internal" href="#representing-timestamps"><em>Representing timestamps</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--unbuffered">
+<tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--unbuffered" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--zone">
+<tt class="descname">--zone</tt><tt class="descclassname"> &lt;zone name&gt;</tt><a class="headerlink" href="#cmdoption-baton-metaquery--zone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Query in a specific zone.</p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="baton-chmod">
+<h2>baton-chmod<a class="headerlink" href="#baton-chmod" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;,                            \</span>
+<span class="s1">             access: [{owner: &quot;public&quot;, level: &quot;null&quot;},  \</span>
+<span class="s1">                      {owner: &quot;admin&quot;,  level: &quot;own&quot;}]}&#39;</span> | baton-chmod --recurse
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;          \</span>
+<span class="s1">              access: [{owner: &quot;oscar&quot;,  level: &quot;read&quot;},    \</span>
+<span class="s1">                       {owner: &quot;victor&quot;, level: &quot;write&quot;}]}&#39;</span> | baton-chmod
+</pre></div>
+</div>
+<div class="section" id="id3">
+<h3>Options<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<dl class="option">
+<dt id="cmdoption-baton-chmod--file">
+<tt class="descname">--file</tt><tt class="descclassname"> &lt;file name&gt;</tt><a class="headerlink" href="#cmdoption-baton-chmod--file" title="Permalink to this definition">¶</a></dt>
+<dd><p>The JSON file describing the data objects and collections. Optional,
+defaults to STDIN.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-chmod--help">
+<tt class="descname">--help</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-chmod--help" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints command line help.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-chmod--recurse">
+<tt class="descname">--recurse</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-chmod--recurse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recurse into collections. Defaults to false.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-chmod--unbuffered">
+<tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-chmod--unbuffered" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+</div>
+</div>
+</div>
+<div class="section" id="representing-data-objects-and-collections">
+<span id="representing-paths"></span><h1>Representing data objects and collections<a class="headerlink" href="#representing-data-objects-and-collections" title="Permalink to this headline">¶</a></h1>
+<p>Data objects and collections are represented as JSON objects. A
+collection is identified by the <tt class="docutils literal"><span class="pre">collection</span></tt> property or its shorter
+synonym <tt class="docutils literal"><span class="pre">c</span></tt>. For example, the current iRODS working collection may
+be represented by either of:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;.&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;coll&quot;</span><span class="p">:</span> <span class="s2">&quot;.&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The value associated with the <tt class="docutils literal"><span class="pre">collection</span></tt> property may be any iRODS
+path, absolute or relative, in UTF-8 encoding. A trailing slash on
+collections is permitted. This behaviour is different from iRODS
+icommands which do not recognise collections specified with a trailing
+slash:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/λ/&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>A data object is identified by having both a <tt class="docutils literal"><span class="pre">collection</span></tt> (or
+<tt class="docutils literal"><span class="pre">coll</span></tt>) property and a <tt class="docutils literal"><span class="pre">data_object</span></tt> property or its shorter
+synonym <tt class="docutils literal"><span class="pre">obj</span></tt>. For example, a file in the current iRODS working
+collection may be represented by either of:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;coll:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;obj&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The value associated with the <tt class="docutils literal"><span class="pre">data_object</span></tt> property may be any
+iRODS data object name, in UTF-8 encoding. The full path of the data
+object may be recreated by concatenating the <tt class="docutils literal"><span class="pre">collection</span></tt> and
+<tt class="docutils literal"><span class="pre">data_object</span></tt> values. Data objects reported by listing or searches
+will contain information on the file size under the <tt class="docutils literal"><span class="pre">size</span></tt>
+property. The value is a JSON integer indicating the file size in
+bytes as given in the ICAT database.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">,</span> <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The above JSON representations of collections and data objects are
+sufficient to be passed to baton&#8217;s <tt class="docutils literal"><span class="pre">baton-list</span></tt> program, which
+fulfils a similar role to the iRODS <tt class="docutils literal"><span class="pre">ils</span></tt> program, listing data
+objects and collection contents.</p>
+<p><tt class="docutils literal"><span class="pre">baton</span></tt> ignores JSON properties that it does not recognise, therefore it
+is harmless to include extra properties in program input.</p>
+</div>
+<div class="section" id="representing-metadata">
+<span id="id4"></span><h1>Representing metadata<a class="headerlink" href="#representing-metadata" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="metadata-on-data-objects-and-collections">
+<span id="representing-path-metadata"></span><h2>Metadata on data objects and collections<a class="headerlink" href="#metadata-on-data-objects-and-collections" title="Permalink to this headline">¶</a></h2>
+<p>Metadata attribute/value/units tuples are represented for both
+collections and data objects as a JSON array of objects under the
+<tt class="docutils literal"><span class="pre">avus</span></tt> property. Each <a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> JSON object within the array must
+have at least an <tt class="docutils literal"><span class="pre">attribute</span></tt> and a <tt class="docutils literal"><span class="pre">value</span></tt> property. A <tt class="docutils literal"><span class="pre">units</span></tt>
+property may be used where an <a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> has defined units. The
+values associated with all of these properties are strings. These
+properties have shorter synonyms <tt class="docutils literal"><span class="pre">a</span></tt>, <tt class="docutils literal"><span class="pre">v</span></tt> and <tt class="docutils literal"><span class="pre">u</span></tt>, respectively.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span>
+       <span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="nt">&quot;units&quot;</span><span class="p">:</span> <span class="s2">&quot;c&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;n&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="nt">&quot;units&quot;</span><span class="p">:</span> <span class="s2">&quot;z&quot;</span><span class="p">}]}</span>
+
+<span class="p">{</span><span class="nt">&quot;coll&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span>
+ <span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nt">&quot;v&quot;</span><span class="p">:</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="nt">&quot;u&quot;</span><span class="p">:</span> <span class="s2">&quot;c&quot;</span><span class="p">},</span>
+          <span class="p">{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span> <span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="nt">&quot;v&quot;</span><span class="p">:</span> <span class="s2">&quot;n&quot;</span><span class="p">},</span>
+          <span class="p">{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="nt">&quot;v&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="nt">&quot;u&quot;</span><span class="p">:</span> <span class="s2">&quot;z&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+<p>Any path that has no metadata may have an <tt class="docutils literal"><span class="pre">avus</span></tt> property with an
+empty JSON array as its value.</p>
+</div>
+<div class="section" id="metadata-queries">
+<span id="representing-query-metadata"></span><h2>Metadata queries<a class="headerlink" href="#metadata-queries" title="Permalink to this headline">¶</a></h2>
+<p>This format for <a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> s is used both in reporting existing
+metadata and in specifying baton queries. In the latter case a JSON
+<a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> object acts as a selector in the query, with multiple
+<a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> s being combined with logical <tt class="docutils literal"><span class="pre">AND</span></tt> and the comparison
+operator defaulting to <tt class="docutils literal"><span class="pre">=</span></tt>. As with the iRODS <tt class="docutils literal"><span class="pre">imeta</span></tt> program,
+units are ignored in queries.</p>
+<p>For example, the following JSON may be passed to the baton
+<tt class="docutils literal"><span class="pre">baton-metaquery</span></tt> program:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="nt">&quot;units&quot;</span><span class="p">:</span> <span class="s2">&quot;c&quot;</span><span class="p">},</span>
+          <span class="p">{</span><span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+<p>This is equivalent to a query using the iRODS <tt class="docutils literal"><span class="pre">imeta</span></tt> program of:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">a</span> <span class="o">=</span> <span class="n">b</span> <span class="ow">and</span> <span class="n">x</span> <span class="o">=</span> <span class="n">y</span>
+</pre></div>
+</div>
+<p>In cases where the <tt class="docutils literal"><span class="pre">=</span></tt> operator is not appropriate, an additional
+<tt class="docutils literal"><span class="pre">operator</span></tt> property may be supplied to override the default. The
+available operators are:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">=</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">like</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">&gt;</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">n&gt;</span></tt> (numeric coercion)</li>
+<li><tt class="docutils literal"><span class="pre">&lt;</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">n&lt;</span></tt> (numeric coercion)</li>
+<li><tt class="docutils literal"><span class="pre">&gt;=</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">n&gt;=</span></tt> (numeric coercion)</li>
+<li><tt class="docutils literal"><span class="pre">&lt;=</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">n&lt;=</span></tt> (numeric coercion)</li>
+</ul>
+<p>To modify the above query to return results only where the attribute
+<tt class="docutils literal"><span class="pre">x</span></tt> has values numerically less than 100, the JSON <a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> would
+become:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="nt">&quot;units&quot;</span><span class="p">:</span> <span class="s2">&quot;c&quot;</span><span class="p">},</span>
+          <span class="p">{</span><span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;100&quot;</span><span class="p">,</span> <span class="nt">&quot;operator&quot;</span><span class="p">:</span> <span class="s2">&quot;n&lt;&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+<p>This is equivalent to a query using the iRODS <tt class="docutils literal"><span class="pre">imeta</span></tt> program of:</p>
+<div class="highlight-python"><div class="highlight"><pre>a = b and x n&lt; y
+</pre></div>
+</div>
+<p>The shorter synonym <tt class="docutils literal"><span class="pre">o</span></tt> may be used as an alternative operator
+property so that the query above becomes:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nt">&quot;v&quot;</span><span class="p">:</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="nt">&quot;u&quot;</span><span class="p">:</span> <span class="s2">&quot;c&quot;</span><span class="p">},</span>
+          <span class="p">{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="nt">&quot;v&quot;</span><span class="p">:</span> <span class="s2">&quot;100&quot;</span><span class="p">,</span> <span class="nt">&quot;o&quot;</span><span class="p">:</span> <span class="s2">&quot;n&lt;&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="representing-timestamps">
+<span id="id5"></span><h1>Representing timestamps<a class="headerlink" href="#representing-timestamps" title="Permalink to this headline">¶</a></h1>
+<p>The ICAT database records timestamps indicating when collections and
+data objects were created and last modified. These are represented for
+both collections and data objects as a JSON array of objects under the
+<tt class="docutils literal"><span class="pre">timestamp</span></tt> property. Each timestamp within the array must have at
+least a <tt class="docutils literal"><span class="pre">created</span></tt> or a <tt class="docutils literal"><span class="pre">modified</span></tt> property. The values associated
+with these properties are <a class="reference external" href="https://en.wikipedia.org/wiki/ISO_8601">ISO8601 datetime strings</a>. These properties have
+shorter synonyms <tt class="docutils literal"><span class="pre">c</span></tt>, <tt class="docutils literal"><span class="pre">m</span></tt>, respectively.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span>
+ <span class="nt">&quot;timestamps&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;created&quot;</span><span class="p">:</span>  <span class="s2">&quot;2014-01-01T00:00:00&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="nt">&quot;modified&quot;</span><span class="p">:</span> <span class="s2">&quot;2014-01-01T00:00:00&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+<p>Data objects may have replicates in iRODS. Where data object
+timestamps are reported by <tt class="docutils literal"><span class="pre">baton</span></tt>, only the values for the
+lowest-numbered replicate are reported. The replicate number is given
+in the timestamp object as a JSON integer.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span>
+ <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;foo.txt&quot;</span><span class="p">,</span>
+ <span class="nt">&quot;timestamps&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;created&quot;</span><span class="p">:</span>  <span class="s2">&quot;2014-01-01T00:00:00&quot;</span><span class="p">,</span> <span class="nt">&quot;replicate&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+                <span class="p">{</span><span class="nt">&quot;modified&quot;</span><span class="p">:</span> <span class="s2">&quot;2014-01-01T00:00:00&quot;</span><span class="p">,</span> <span class="nt">&quot;replicate&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}]}</span>
+</pre></div>
+</div>
+<div class="section" id="timestamp-queries">
+<span id="representing-query-timestamps"></span><h2>Timestamp queries<a class="headerlink" href="#timestamp-queries" title="Permalink to this headline">¶</a></h2>
+<p>The format described in <a class="reference internal" href="#representing-timestamps"><em>Representing timestamps</em></a> is used in both
+reporting existing timestamps and in refining baton metadata queries.
+In the latter case a timestamp acts as a selector in the query, with
+multiple timestamps being combined with logical <tt class="docutils literal"><span class="pre">AND</span></tt> and the
+comparison operator defaulting to <tt class="docutils literal"><span class="pre">=</span></tt>. Time ranges may be queried by
+using multiple timestamp objects having the same key (<tt class="docutils literal"><span class="pre">created</span></tt> or
+<tt class="docutils literal"><span class="pre">modified</span></tt>).</p>
+<p>In most cases the the <tt class="docutils literal"><span class="pre">=</span></tt> operator is not appropriate and additional
+<tt class="docutils literal"><span class="pre">operator</span></tt> property should be supplied to override the default. The
+available operators are described in
+<a class="reference internal" href="#representing-query-metadata"><em>Metadata queries</em></a>. The numeric coercing operators are
+preferred because the ICAT database stores timestamps as seconds since
+the epoch.</p>
+<p>For example, to limit query results to anything created on or after
+2014-01-01, the syntax would be:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;timestamps&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;created&quot;</span><span class="p">:</span> <span class="s2">&quot;2014-01-01T00:00:00&quot;</span><span class="p">,</span> <span class="nt">&quot;operator&quot;</span><span class="p">:</span> <span class="s2">&quot;n&gt;=&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+<p>To limit query results to anything created before 2014-01-01 and
+modified in 2014-03, the syntax would be:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;timestamps&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;created&quot;</span><span class="p">:</span>  <span class="s2">&quot;2014-01-01T00:00:00&quot;</span><span class="p">,</span> <span class="nt">&quot;operator&quot;</span><span class="p">:</span> <span class="s2">&quot;n&lt;&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="nt">&quot;modified&quot;</span><span class="p">:</span> <span class="s2">&quot;2014-03-01T00:00:00&quot;</span><span class="p">,</span> <span class="nt">&quot;operator&quot;</span><span class="p">:</span> <span class="s2">&quot;n&gt;=&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="nt">&quot;modified&quot;</span><span class="p">:</span> <span class="s2">&quot;2014-03-31T00:00:00&quot;</span><span class="p">,</span> <span class="nt">&quot;operator&quot;</span><span class="p">:</span> <span class="s2">&quot;n&lt;&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="representing-access-control-lists">
+<span id="representing-permissions"></span><h1>Representing Access Control Lists<a class="headerlink" href="#representing-access-control-lists" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="acls-of-data-objects-and-collections">
+<span id="representing-path-permissions"></span><h2>ACLs of data objects and collections<a class="headerlink" href="#acls-of-data-objects-and-collections" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference internal" href="#term-acl"><em class="xref std std-term">ACL</em></a> s are represented for both collections and data objects as
+a JSON array of objects under the <tt class="docutils literal"><span class="pre">access</span></tt> property. Each JSON
+<a class="reference internal" href="#term-acl"><em class="xref std std-term">ACL</em></a> object within the array must have at least an <tt class="docutils literal"><span class="pre">owner</span></tt>
+and a <tt class="docutils literal"><span class="pre">level</span></tt> property.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span>
+     <span class="nt">&quot;access&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>   <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;own&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;public&quot;</span><span class="p">,</span> <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;read&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+<p>The value associated with the <tt class="docutils literal"><span class="pre">owner</span></tt> property must be an iRODS user
+or group name. The value associated with the <tt class="docutils literal"><span class="pre">level</span></tt> property must
+be an iRODS symbolic access level string (i.e. &#8220;null&#8221;, &#8220;read&#8221;, &#8220;write&#8221;
+or &#8220;own&#8221;).</p>
+</div>
+<div class="section" id="acl-queries">
+<span id="representing-query-permissions"></span><h2>ACL queries<a class="headerlink" href="#acl-queries" title="Permalink to this headline">¶</a></h2>
+<p>The format described in <a class="reference internal" href="#representing-permissions"><em>Representing Access Control Lists</em></a> is used in
+both reporting existing permissions and in refining baton metadata
+queries. In the latter case an ACL acts as a selector in the query.</p>
+<p>To limit query results to anything owned by <tt class="docutils literal"><span class="pre">user1</span></tt>, the syntax
+would be:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;access&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;user1&quot;</span><span class="p">,</span> <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;own&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+<p>However, care is required; there are two important points to bear in
+mind when composing ACL queries:</p>
+<ol class="arabic simple">
+<li>The ICAT database queries will match exact permissions only and
+will not return results for items whose permissions are subsumed
+under the query permission. For example, a query for items for
+which user <tt class="docutils literal"><span class="pre">user1</span></tt> has permissions <tt class="docutils literal"><span class="pre">read</span></tt> will not return any
+items where <tt class="docutils literal"><span class="pre">user1</span></tt> has permissions <tt class="docutils literal"><span class="pre">read-write</span></tt> or <tt class="docutils literal"><span class="pre">own</span></tt>,
+despite the fact that the latter subsume <tt class="docutils literal"><span class="pre">read</span></tt>.</li>
+<li>Only one permission clause per user may be included in the
+query. This is because ICAT combines queries using <tt class="docutils literal"><span class="pre">AND</span></tt> which,
+combined with its limitations described above, would yield queries
+that always return an empty set. E.g. the following query will
+never return any results:</li>
+</ol>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;access&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;user1&quot;</span><span class="p">,</span> <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;own&quot;</span><span class="p">},</span>
+            <span class="p">{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;user1&quot;</span><span class="p">,</span> <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;read&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="representing-errors">
+<span id="id6"></span><h1>Representing Errors<a class="headerlink" href="#representing-errors" title="Permalink to this headline">¶</a></h1>
+<p>When an error occurs while processing a particular JSON object in a
+stream, instead of printing the usual result object, the input JSON
+object is printed to standard output with an <tt class="docutils literal"><span class="pre">error</span></tt> property added
+to it. The value associated with this property is a JSON object that
+includes the iRODS error code under a <tt class="docutils literal"><span class="pre">code</span></tt> property and (where
+possible) and an error message under a <tt class="docutils literal"><span class="pre">message</span></tt> property.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;test&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;error&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;code&quot;</span><span class="p">:</span> <span class="mi">-310000</span><span class="p">,</span>
+                <span class="nt">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;Path &#39;/unit/home/user/test&#39; does not exist (or lacks access permission)&quot;</span><span class="p">}}</span>
+</pre></div>
+</div>
+<p>In this way, errors remain associated with the inputs that caused
+them.</p>
+</div>
+<div class="section" id="the-baton-cookbook">
+<h1>The <tt class="docutils literal"><span class="pre">baton</span></tt> Cookbook<a class="headerlink" href="#the-baton-cookbook" title="Permalink to this headline">¶</a></h1>
+<p><tt class="docutils literal"><span class="pre">baton</span></tt> benefits from the <a class="reference external" href="http://stedolan.github.io/jq/">lightweight command-line JSON processor
+&#8216;jq&#8217;</a> . In the following examples,
+<tt class="docutils literal"><span class="pre">jq</span></tt> is used to ease the <em>de novo</em> creation of JSON in the shell and
+to process the results returned by <tt class="docutils literal"><span class="pre">baton</span></tt>.</p>
+<div class="topic">
+<p class="topic-title first">List the contents of the current working collection</p>
+<p>List the contents of the current working collection as flat paths
+suitable for passing to standard Unix filters.</p>
+</div>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;.&quot;}&#39;</span> | baton-list | jq -r <span class="s1">&#39;.[] | .collection + &quot;/&quot; + .data_object&#39;</span>
+</pre></div>
+</div>
+<p>Result:</p>
+<div class="highlight-sh"><div class="highlight"><pre>/unit/home/user/data/
+/unit/home/user/data/f1.txt
+/unit/home/user/data/f2.txt
+/unit/home/user/data/f3.txt
+/unit/home/user/data/a/
+/unit/home/user/data/b/
+/unit/home/user/data/c/
+</pre></div>
+</div>
+<div class="topic">
+<p class="topic-title first">List the contents of a collection by metadata (I)</p>
+<p>List all the collections and data objects located directly within
+the collection <tt class="docutils literal"><span class="pre">data</span></tt>, that have the attribute <tt class="docutils literal"><span class="pre">attr_a</span></tt>
+somewhere in their AVUs:</p>
+</div>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;data&quot;}&#39;</span> | baton-list --avu | jq <span class="s1">&#39;map(select(.avus[] | select(.attribute == &quot;attr_a&quot;)))&#39;</span>
+</pre></div>
+</div>
+<p>Result:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_b&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_b&quot;</span>
+      <span class="p">},</span>
+      <span class="p">{</span>
+        <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_a&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_a&quot;</span>
+      <span class="p">},</span>
+      <span class="p">{</span>
+        <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_c&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_c&quot;</span>
+      <span class="p">}</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<div class="topic">
+<p class="topic-title first">List the contents of a collection by metadata (II)</p>
+<p>A similar operation to the previous one, except using an iRODS
+query with scope limited to the collection <tt class="docutils literal"><span class="pre">data</span></tt> or its
+subcollections, recursively.</p>
+</div>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;data&quot;, avus: [{a: &quot;attr_a&quot;, v: &quot;%&quot;, o: &quot;like&quot;}]}&#39;</span> | baton-metaquery --avu | jq <span class="s1">&#39;.&#39;</span>
+</pre></div>
+</div>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_b&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_b&quot;</span>
+      <span class="p">},</span>
+      <span class="p">{</span>
+        <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_a&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_a&quot;</span>
+      <span class="p">},</span>
+      <span class="p">{</span>
+        <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_c&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_c&quot;</span>
+      <span class="p">}</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<div class="topic">
+<p class="topic-title first">List the metadata on data objects</p>
+<p>List the metadata on all data objects in the collection <tt class="docutils literal"><span class="pre">data</span></tt>:</p>
+</div>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;data&quot;}&#39;</span> | baton-list --avu | jq <span class="s1">&#39;map(select(.data_object))[]&#39;</span>
+</pre></div>
+</div>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span>
+  <span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_b&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_b&quot;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_a&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_a&quot;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_c&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_c&quot;</span>
+    <span class="p">}</span>
+  <span class="p">],</span>
+  <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
+<span class="p">}</span>
+<span class="p">{</span>
+  <span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_c&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_c&quot;</span>
+    <span class="p">}</span>
+  <span class="p">],</span>
+  <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f2.txt&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
+<span class="p">}</span>
+<span class="p">{</span>
+  <span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;value_c&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;attr_c&quot;</span>
+    <span class="p">}</span>
+  <span class="p">],</span>
+  <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f3.txt&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="topic">
+<p class="topic-title first">Run a simple iRODS metadata query</p>
+<p>Run a simple iRODS metadata query for collections and data objects
+having both &#8216;attr_a&#8217; = &#8216;value_a&#8217; and &#8216;attr_c&#8217; == &#8216;value_c&#8217;. The
+final pass through <tt class="docutils literal"><span class="pre">jq</span></tt> simply pretty-prints the result. The
+result contains no AVU information because the <tt class="docutils literal"><span class="pre">--avu</span></tt> argument
+to <tt class="docutils literal"><span class="pre">baton-metaquery</span></tt> was not used:</p>
+</div>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{avus: [{a: &quot;attr_a&quot;, v: &quot;value_a&quot;},   \</span>
+<span class="s1">               {a: &quot;attr_c&quot;, v: &quot;value_c&quot;}]}&#39;</span> | baton-metaquery | jq <span class="s1">&#39;.&#39;</span>
+</pre></div>
+</div>
+<p>Result:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<div class="topic">
+<p class="topic-title first">Run a simple iRODS metadata query with timestamp selection</p>
+<p>Run an iRODS metadata query for collections and data objects having
+both &#8216;attr_a&#8217; = &#8216;value_a&#8217; and &#8216;attr_c&#8217; == &#8216;value_c&#8217; that were
+created before 2014-03-01T00:00:00 and modified between
+2014-03-17T00:00:00 and 2014-03-18T00:00:00:</p>
+</div>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{avus: [{a: &quot;attr_a&quot;, v: &quot;value_a&quot;},           \</span>
+<span class="s1">               {a: &quot;attr_c&quot;, v: &quot;value_c&quot;}],          \</span>
+<span class="s1">        time: [{c: &quot;2014-03-01T00:00:00&quot;, o: &quot;n&lt;&quot;},   \</span>
+<span class="s1">               {m: &quot;2014-03-17T00:00:00&quot;, o: &quot;n&gt;=&quot;},  \</span>
+<span class="s1">               {m: &quot;2014-03-18T00:00:00&quot;, o: &quot;n&lt;&quot;}]}&#39;</span> | baton-metaquery | jq <span class="s1">&#39;.&#39;</span>
+</pre></div>
+</div>
+<p>Result:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<dl class="glossary docutils">
+<dt id="term-acl">ACL</dt>
+<dd><strong>A</strong>ccess <strong>C</strong>ontrol <strong>L</strong>ist.</dd>
+<dt id="term-avu">AVU</dt>
+<dd><strong>A</strong>ttribute <strong>V</strong>alue <strong>U</strong>nit metadata tuple.</dd>
+</dl>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Welcome to <tt class="docutils literal"><span class="pre">baton</span></tt>&#8216;s documentation</a></li>
+<li><a class="reference internal" href="#obtaining-and-installing-baton">Obtaining and installing <tt class="docutils literal"><span class="pre">baton</span></tt></a></li>
+<li><a class="reference internal" href="#the-baton-suite-of-programs">The <tt class="docutils literal"><span class="pre">baton</span></tt> suite of programs</a><ul>
+<li><a class="reference internal" href="#baton-list">baton-list</a><ul>
+<li><a class="reference internal" href="#options">Options</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#baton-metamod">baton-metamod</a><ul>
+<li><a class="reference internal" href="#id1">Options</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#baton-metaquery">baton-metaquery</a><ul>
+<li><a class="reference internal" href="#id2">Options</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#baton-chmod">baton-chmod</a><ul>
+<li><a class="reference internal" href="#id3">Options</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#representing-data-objects-and-collections">Representing data objects and collections</a></li>
+<li><a class="reference internal" href="#representing-metadata">Representing metadata</a><ul>
+<li><a class="reference internal" href="#metadata-on-data-objects-and-collections">Metadata on data objects and collections</a></li>
+<li><a class="reference internal" href="#metadata-queries">Metadata queries</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#representing-timestamps">Representing timestamps</a><ul>
+<li><a class="reference internal" href="#timestamp-queries">Timestamp queries</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#representing-access-control-lists">Representing Access Control Lists</a><ul>
+<li><a class="reference internal" href="#acls-of-data-objects-and-collections">ACLs of data objects and collections</a></li>
+<li><a class="reference internal" href="#acl-queries">ACL queries</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#representing-errors">Representing Errors</a></li>
+<li><a class="reference internal" href="#the-baton-cookbook">The <tt class="docutils literal"><span class="pre">baton</span></tt> Cookbook</a></li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="#">baton 0.9.1
+ documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013-2014, Genome Research Ltd..
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>
