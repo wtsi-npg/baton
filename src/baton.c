@@ -138,12 +138,15 @@ error:
     return NULL;
 }
 
-int init_rods_path(rodsPath_t *rodspath, char *inpath) {
-    if (!rodspath) return USER__NULL_INPUT_ERR;
+int init_rods_path(rodsPath_t *rods_path, char *inpath) {
+    if (!rods_path) return USER__NULL_INPUT_ERR;
 
-    memset(rodspath, 0, sizeof (rodsPath_t));
-    char *dest = rstrcpy(rodspath->inPath, inpath, MAX_NAME_LEN);
+    memset(rods_path, 0, sizeof (rodsPath_t));
+    char *dest = rstrcpy(rods_path->inPath, inpath, MAX_NAME_LEN);
     if (!dest) return USER_PATH_EXCEEDS_MAX;
+
+    rods_path->objType  = UNKNOWN_OBJ_T;
+    rods_path->objState = UNKNOWN_ST;
 
     return 0;
 }
@@ -929,7 +932,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
     collHandle_t coll_handle;
     collEnt_t coll_entry;
 
-    json_t *results;
+    json_t *results = NULL;
     json_t *base_entry;
 
     char *err_name;
@@ -952,7 +955,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
     results = json_array();
     if (!results) {
         set_baton_error(error, -1, "Failed to allocate a new JSON array");
-        goto error;
+        goto query_error;
     }
 
     base_entry = collection_path_to_json(rods_path->outPath, error);
