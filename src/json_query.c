@@ -561,6 +561,7 @@ json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
+    logmsg(ERROR, error->message);
     return NULL;
 }
 
@@ -621,6 +622,7 @@ json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
+    logmsg(ERROR, error->message);
     return NULL;
 }
 
@@ -681,6 +683,7 @@ json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
+    logmsg(ERROR, error->message);
     return NULL;
 }
 

@@ -23,11 +23,21 @@ The features it provides are:
   modification timestamps and timestamp ranges. The full range of
   iRODS query operators is supported.
 
-- Unbuffered option for IPC via pipes with fine-grained error
+- Optional unbuffered IO for IPC via pipes, with fine-grained error
   reporting for batch operations.
 
 - Simplified API over the iRODS general query API to ease construction
   of new custom queries.
+
+
+iRODS compatibility:
+
+- Compatible with iRODS 3.2, 3.3 and 3.3.1
+
+- Currently, not compatible with iRODS 4.0.x
+
+  https://github.com/irods/irods/issues/2119
+
 
 Installation:
 
@@ -68,9 +78,13 @@ baton, see the manual in the doc directory.
 
 Dependencies:
 
-iRODS   http://www.irods.org
+iRODS   https://github.com/irods/irods-legacy
+
+        Versions 3.2, 3.3 or 3.3.1
 
 Jansson https://github.com/akheron/jansson.git
+
+        Versions >= 2.6
 
 Optional dependencies:
 

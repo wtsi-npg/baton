@@ -62,7 +62,9 @@ typedef enum {
     /** Print AVUs on collections and data objects */
     PRINT_AVU          = 1 << 0,
     /** Print ACLs on collections and data objects */
-    PRINT_ACL          = 1 << 2,
+    PRINT_ACL          = 1 << 1,
+    /** Print the contents of collections */
+    PRINT_CONTENTS     = 1 << 2,
     /** Print timestamps on collections and data objects */
     PRINT_TIMESTAMP    = 1 << 3,
     /** Print file sizes for data objects */
