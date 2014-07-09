@@ -138,12 +138,15 @@ error:
     return NULL;
 }
 
-int init_rods_path(rodsPath_t *rodspath, char *inpath) {
-    if (!rodspath) return USER__NULL_INPUT_ERR;
+int init_rods_path(rodsPath_t *rods_path, char *inpath) {
+    if (!rods_path) return USER__NULL_INPUT_ERR;
 
-    memset(rodspath, 0, sizeof (rodsPath_t));
-    char *dest = rstrcpy(rodspath->inPath, inpath, MAX_NAME_LEN);
+    memset(rods_path, 0, sizeof (rodsPath_t));
+    char *dest = rstrcpy(rods_path->inPath, inpath, MAX_NAME_LEN);
     if (!dest) return USER_PATH_EXCEEDS_MAX;
+
+    rods_path->objType  = UNKNOWN_OBJ_T;
+    rods_path->objState = UNKNOWN_ST;
 
     return 0;
 }
@@ -192,8 +195,8 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
     }
 
     status = getRodsObjType(conn, rods_path);
-    if (status < 0) {
-        logmsg(ERROR, "Failed to stat iRODS path '%s'", path);
+    if (status != EXIST_ST) {
+        logmsg(ERROR, "Failed to stat iRODS path '%s': %d", path, status);
         goto error;
     }
 
@@ -266,6 +269,13 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
         case DATA_OBJ_T:
             logmsg(TRACE, "Identified '%s' as a data object",
                    rods_path->outPath);
+
+            if (flags & PRINT_CONTENTS) {
+                logmsg(WARN, "Ignoring request to print the contents of data "
+                       "object '%s' as if it were a collection",
+                       rods_path->outPath);
+            }
+
             results = list_data_object(conn, rods_path, flags, error);
             if (error->code != 0) goto error;
 
@@ -287,20 +297,41 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
         case COLL_OBJ_T:
             logmsg(TRACE, "Identified '%s' as a collection",
                    rods_path->outPath);
-            results = list_collection(conn, rods_path, flags, error);
-            if (error->code != 0) goto error;
 
-            if (flags & PRINT_ACL) {
-                results = add_acl_json_array(conn, results, error);
+            if (flags & PRINT_CONTENTS) {
+                results = list_collection(conn, rods_path, flags, error);
                 if (error->code != 0) goto error;
+
+                if (flags & PRINT_ACL) {
+                    results = add_acl_json_array(conn, results, error);
+                    if (error->code != 0) goto error;
+                }
+                if (flags & PRINT_AVU) {
+                    results = add_avus_json_array(conn, results, error);
+                    if (error->code != 0) goto error;
+                }
+                if (flags & PRINT_TIMESTAMP) {
+                    results = add_tps_json_array(conn, results, error);
+                    if (error->code != 0) goto error;
+                }
             }
-            if (flags & PRINT_AVU) {
-                results = add_avus_json_array(conn, results, error);
+            else {
+                results = collection_path_to_json(rods_path->outPath, error);
+
                 if (error->code != 0) goto error;
-            }
-            if (flags & PRINT_TIMESTAMP) {
-                results = add_tps_json_array(conn, results, error);
-                if (error->code != 0) goto error;
+
+                if (flags & PRINT_ACL) {
+                    results = add_acl_json_object(conn, results, error);
+                                        if (error->code != 0) goto error;
+                }
+                if (flags & PRINT_AVU) {
+                    results = add_avus_json_object(conn, results, error);
+                    if (error->code != 0) goto error;
+                }
+                if (flags & PRINT_TIMESTAMP) {
+                    results = add_tps_json_object(conn, results, error);
+                    if (error->code != 0) goto error;
+                }
             }
 
             break;
@@ -317,6 +348,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
 
 error:
     if (results) json_decref(results);
+    logmsg(ERROR, error->message);
 
     return NULL;
 }
@@ -929,7 +961,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
     collHandle_t coll_handle;
     collEnt_t coll_entry;
 
-    json_t *results;
+    json_t *results = NULL;
     json_t *base_entry;
 
     char *err_name;
@@ -952,17 +984,6 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
     results = json_array();
     if (!results) {
         set_baton_error(error, -1, "Failed to allocate a new JSON array");
-        goto error;
-    }
-
-    base_entry = collection_path_to_json(rods_path->outPath, error);
-    if (error->code != 0) goto query_error;
-
-    status = json_array_append_new(results, base_entry);
-    if (status != 0) {
-        set_baton_error(error, status,
-                        "Failed to convert listing of '%s' to JSON: "
-                        "error %d", rods_path->outPath, status);
         goto query_error;
     }
 

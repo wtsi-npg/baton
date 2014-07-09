@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-metasuper [--file <json file>] [--unbuffered]");
+        puts("    baton-metasuper [--file <JSON file>] [--unbuffered]");
         puts("                    [--verbose] [--version]");
         puts("");
         puts("Description");

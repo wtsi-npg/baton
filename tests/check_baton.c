@@ -42,7 +42,7 @@ static void set_current_rods_root(char *in, char *out) {
 }
 
 static void setup() {
-
+    set_log_threshold(ERROR);
 }
 
 static void teardown() {
@@ -387,7 +387,41 @@ START_TEST(test_list_coll) {
                      EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_path(conn, &rods_path, 0 | PRINT_SIZE | PRINT_ACL,
+    json_t *results = list_path(conn, &rods_path, PRINT_ACL, &error);
+
+    json_t *perms = json_pack("{s:s, s:s}",
+                              JSON_OWNER_KEY, env.rodsUserName,
+                              JSON_LEVEL_KEY, ACCESS_OWN);
+    json_t *expected = json_pack("{s:s, s:[o]}",
+                                 JSON_COLLECTION_KEY, rods_path.outPath,
+                                 JSON_ACCESS_KEY,     perms);
+
+    ck_assert_ptr_ne(NULL, results);
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we list a collection's contents?
+START_TEST(test_list_coll_contents) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_path(conn, &rods_path,
+                                PRINT_SIZE | PRINT_ACL | PRINT_CONTENTS,
                                 &error);
 
     char a[MAX_PATH_LEN];
@@ -400,16 +434,14 @@ START_TEST(test_list_coll) {
     json_t *perms = json_pack("{s:s, s:s}",
                               JSON_OWNER_KEY, env.rodsUserName,
                               JSON_LEVEL_KEY, ACCESS_OWN);
+
     json_t *expected =
-        json_pack("[{s:s,           s:[o]},"  // base collection
-                  " {s:s, s:s, s:i, s:[o]},"  // f1.txt
+        json_pack("[{s:s, s:s, s:i, s:[o]},"  // f1.txt
                   " {s:s, s:s, s:i, s:[o]},"  // f2.txt
                   " {s:s, s:s, s:i, s:[o]},"  // f3.txt
                   " {s:s, s:[o]},"            // a
                   " {s:s, s:[o]},"            // b
                   " {s:s, s:[o]}]",           // c
-                  JSON_COLLECTION_KEY,  rods_path.outPath,
-                  JSON_ACCESS_KEY,      perms,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f1.txt",
@@ -1452,6 +1484,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_list_missing_path);
     tcase_add_test(basic_tests, test_list_obj);
     tcase_add_test(basic_tests, test_list_coll);
+    tcase_add_test(basic_tests, test_list_coll_contents);
 
     tcase_add_test(basic_tests, test_list_permissions_missing_path);
     tcase_add_test(basic_tests, test_list_permissions_obj);
