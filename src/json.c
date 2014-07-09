@@ -309,6 +309,19 @@ error:
     return error->code;
 }
 
+int add_contents(json_t *object, json_t *contents, baton_error_t *error) {
+  if (!json_is_object(object)) {
+      set_baton_error(error, -1, "Failed to add contents data: "
+                      "target not a JSON object");
+      goto error;
+  }
+
+  return json_object_set_new(object, JSON_CONTENTS_KEY, contents);
+
+error:
+    return error->code;
+}
+
 json_t *data_object_parts_to_json(const char *coll_name,
                                   const char *data_name,
                                   baton_error_t *error) {

@@ -254,7 +254,7 @@ error:
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                   baton_error_t *error) {
-    json_t *results = NULL;
+    json_t *result = NULL;
 
     init_baton_error(error);
 
@@ -276,19 +276,19 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                        rods_path->outPath);
             }
 
-            results = list_data_object(conn, rods_path, flags, error);
+            result = list_data_object(conn, rods_path, flags, error);
             if (error->code != 0) goto error;
 
             if (flags & PRINT_ACL) {
-                results = add_acl_json_object(conn, results, error);
+                result = add_acl_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
             if (flags & PRINT_AVU) {
-                results = add_avus_json_object(conn, results, error);
+                result = add_avus_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
             if (flags & PRINT_TIMESTAMP) {
-                results = add_tps_json_object(conn, results, error);
+                result = add_tps_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
 
@@ -298,40 +298,42 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
             logmsg(TRACE, "Identified '%s' as a collection",
                    rods_path->outPath);
 
-            if (flags & PRINT_CONTENTS) {
-                results = list_collection(conn, rods_path, flags, error);
-                if (error->code != 0) goto error;
+            result = collection_path_to_json(rods_path->outPath, error);
+            if (error->code != 0) goto error;
 
-                if (flags & PRINT_ACL) {
-                    results = add_acl_json_array(conn, results, error);
-                    if (error->code != 0) goto error;
-                }
-                if (flags & PRINT_AVU) {
-                    results = add_avus_json_array(conn, results, error);
-                    if (error->code != 0) goto error;
-                }
-                if (flags & PRINT_TIMESTAMP) {
-                    results = add_tps_json_array(conn, results, error);
-                    if (error->code != 0) goto error;
-                }
+            if (flags & PRINT_ACL) {
+                result = add_acl_json_object(conn, result, error);
+                if (error->code != 0) goto error;
             }
-            else {
-                results = collection_path_to_json(rods_path->outPath, error);
+            if (flags & PRINT_AVU) {
+                result = add_avus_json_object(conn, result, error);
+                if (error->code != 0) goto error;
+            }
+            if (flags & PRINT_TIMESTAMP) {
+                result = add_tps_json_object(conn, result, error);
+                if (error->code != 0) goto error;
+            }
 
+            if (flags & PRINT_CONTENTS) {
+                json_t *contents = list_collection(conn, rods_path, flags,
+                                                   error);
                 if (error->code != 0) goto error;
 
                 if (flags & PRINT_ACL) {
-                    results = add_acl_json_object(conn, results, error);
-                                        if (error->code != 0) goto error;
+                    contents = add_acl_json_array(conn, contents, error);
+                    if (error->code != 0) goto error;
                 }
                 if (flags & PRINT_AVU) {
-                    results = add_avus_json_object(conn, results, error);
+                    contents = add_avus_json_array(conn, contents, error);
                     if (error->code != 0) goto error;
                 }
                 if (flags & PRINT_TIMESTAMP) {
-                    results = add_tps_json_object(conn, results, error);
+                    contents = add_tps_json_array(conn, contents, error);
                     if (error->code != 0) goto error;
                 }
+
+                add_contents(result, contents, error);
+                if (error->code != 0) goto error;
             }
 
             break;
@@ -344,10 +346,10 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
             goto error;
     }
 
-    return results;
+    return result;
 
 error:
-    if (results) json_decref(results);
+    if (result) json_decref(result);
     logmsg(ERROR, error->message);
 
     return NULL;
@@ -962,7 +964,6 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
     collEnt_t coll_entry;
 
     json_t *results = NULL;
-    json_t *base_entry;
 
     char *err_name;
     char *err_subname;

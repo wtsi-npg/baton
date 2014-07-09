@@ -41,6 +41,7 @@
 
 #define JSON_SIZE_KEY              "size"
 #define JSON_AVUS_KEY              "avus"
+#define JSON_CONTENTS_KEY          "contents"
 
 #define JSON_ATTRIBUTE_KEY         "attribute"
 #define JSON_ATTRIBUTE_SHORT_KEY   "a"
@@ -156,6 +157,8 @@ int represents_data_object(json_t *object);
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error);
 
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
+
+int add_contents(json_t *object, json_t *contents, baton_error_t *error);
 
 int add_timestamps(json_t *object, const char *created, const char *modified,
                    int *repl_num, baton_error_t *error);
