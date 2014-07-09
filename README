@@ -34,9 +34,7 @@ iRODS compatibility:
 
 - Compatible with iRODS 3.2, 3.3 and 3.3.1
 
-- Currently, not compatible with iRODS 4.0.x
-
-  https://github.com/irods/irods/issues/2119
+- Not compatible with iRODS 4.0.1 and 4.0.2
 
 
 Installation:
@@ -90,6 +88,9 @@ Optional dependencies:
 
 Sphinx http://sphinx-doc.org/               (for the manual and manpages).
 check  http://check.sourceforge.net/        (for unit tests).
+
+       Versions >= 0.9.10
+
 lcov   http://ltp.sourceforge.net/coverage/ (for test coverage analysis)
 
 jq     http://stedolan.github.io/jq/        (for processing input and output)
