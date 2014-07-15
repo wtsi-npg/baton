@@ -34,6 +34,8 @@ static size_t parse_attr_value(int column, const char *label,
                                const char *input, char *output,
                                size_t max_len);
 
+static int is_zone_hint(const char *path);
+
 void log_json_error(log_level level, json_error_t *error) {
     logmsg(level, "JSON error: %s, line %d, column %d, position %d",
            error->text, error->line, error->column, error->position);
@@ -82,19 +84,48 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   prepare_tps_search_cb prepare_mod,
                   baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
+    char *zone_hint         = zone_name;
+    char *root_path         = NULL;
     json_t *items           = NULL;
     json_t *avus;
-    const char *root_path;
+
+    if (represents_collection(query)) {
+      root_path = json_to_path(query, error);
+      if (error->code != 0) goto error;
+    }
+
+    char *json_str = json_dumps(query, JSON_INDENT(0));
+    logmsg(DEBUG, "QUERY: %s\n", json_str);
+    free(json_str);
 
     query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns,
                                 format->columns);
 
-    root_path = get_query_collection(query, error);
-    if (error->code != 0) goto error;
-
     if (root_path) {
-        logmsg(DEBUG, "Limiting search to path '%s'", root_path);
-        query_in = prepare_path_search(query_in, root_path);
+        rodsPath_t rods_path;
+
+        int status = set_rods_path(conn, &rods_path, root_path);
+        if (status < 0) {
+            set_baton_error(error, status, "Failed to set iRODS path '%s'",
+                            root_path);
+            goto error;
+        }
+
+        if (str_starts_with(root_path, "/", MAX_STR_LEN)) {
+            // Is search path just a zone hint? e.g. "/seq"
+            if (is_zone_hint(root_path)) {
+                if (!zone_hint) {
+                    zone_hint = root_path;
+                    zone_hint++; // Skip the leading slash
+
+                    logmsg(DEBUG, "Using zone hint from JSON: '%s'", zone_hint);
+                }
+            }
+            else {
+                logmsg(DEBUG, "Limiting search to path '%s'", root_path);
+                query_in = prepare_path_search(query_in, root_path);
+            }
+        }
     }
 
     // AVUs are mandatory for searches
@@ -123,9 +154,9 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
         if (error->code != 0) goto error;
     }
 
-    if (zone_name) {
-        logmsg(TRACE, "Setting zone to '%s'", zone_name);
-        addKeyVal(&query_in->condInput, ZONE_KW, zone_name);
+    if (zone_hint) {
+        logmsg(TRACE, "Setting zone to '%s'", zone_hint);
+        addKeyVal(&query_in->condInput, ZONE_KW, zone_hint);
     }
 
     items = do_query(conn, query_in, format->labels, error);
@@ -685,6 +716,26 @@ json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
 error:
     logmsg(ERROR, error->message);
     return NULL;
+}
+
+static int is_zone_hint(const char *path) {
+    size_t len = strnlen(path, MAX_STR_LEN);
+    int is_zone = 1;
+
+    if (len < 2) {
+        is_zone = 0;
+    }
+    else {
+        for (size_t i = 0; i < len; i++) {
+            if (strncmp(path, "/", 1) == 0 && i != 0) {
+                is_zone = 0;
+                break;
+            }
+            path++;
+        }
+    }
+
+    return is_zone;
 }
 
 static size_t parse_attr_value(int column, const char *label,
