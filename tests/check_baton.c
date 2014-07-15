@@ -727,11 +727,15 @@ START_TEST(test_search_metadata_obj) {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
                             JSON_VALUE_KEY,     "value1");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              JSON_COLLECTION_KEY, rods_root,
+                              JSON_COLLECTION_KEY, rods_path.outPath,
                               JSON_AVUS_KEY,       avu);
     option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
@@ -771,8 +775,13 @@ START_TEST(test_search_metadata_path_obj) {
 
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
     char search_root[MAX_PATH_LEN];
-    snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_root);
+    snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_path.outPath);
 
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
@@ -907,7 +916,7 @@ START_TEST(test_search_metadata_tps_obj) {
                                    JSON_OPERATOR_KEY, SEARCH_OP_NUM_LT);
     json_t *query_lt = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
-                                 JSON_COLLECTION_KEY, rods_root,
+                                 JSON_COLLECTION_KEY, rods_path.outPath,
                                  JSON_TIMESTAMPS_KEY, created_lt);
     option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
@@ -965,11 +974,15 @@ START_TEST(test_search_metadata_coll) {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr2",
                             JSON_VALUE_KEY,     "value2");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              JSON_COLLECTION_KEY, rods_root,
+                              JSON_COLLECTION_KEY, rods_path.outPath,
                               JSON_AVUS_KEY,       avu);
     option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 

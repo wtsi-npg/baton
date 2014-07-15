@@ -384,6 +384,7 @@ error:
 }
 
 json_t *collection_path_to_json(const char *path, baton_error_t *error) {
+
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
         set_baton_error(error, -1, "Failed to pack collection '%s' as JSON",
@@ -412,18 +413,32 @@ char *json_to_path(json_t *object, baton_error_t *error) {
         goto error;
     }
 
+    int includes_slash = str_ends_with(collection, "/", MAX_STR_LEN);
+
     if (!represents_data_object(object)) {
-        path = copy_str(collection, MAX_STR_LEN);
+        size_t len = term_clen;
+
+        if (includes_slash) len--;
+
+        path = calloc(len, sizeof (char));
+        if (!path) {
+            set_baton_error(error, errno,
+                            "Failed to allocate memory: error %d %s",
+                            errno, strerror(errno));
+            goto error;
+        }
+
+        snprintf(path, len, "%s", collection);
     }
     else {
         const char *data_object = get_data_object_value(object, error);
 
         size_t term_dlen = strnlen(data_object, MAX_STR_LEN) + 1;
-        size_t total_len = term_clen + term_dlen;
-        int includes_slash = str_ends_with(collection, "/", MAX_STR_LEN);
+        size_t len = term_clen + term_dlen;
 
-        if (includes_slash) total_len--;
-        if (total_len > MAX_STR_LEN) {
+        if (includes_slash) len--;
+
+        if (len > MAX_STR_LEN) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "The collections and data object paths '%s' + '%s' "
                             "combined exceeded the maximum length of %d "
@@ -431,7 +446,7 @@ char *json_to_path(json_t *object, baton_error_t *error) {
             goto error;
         }
 
-        path = calloc(total_len, sizeof (char));
+        path = calloc(len, sizeof (char));
         if (!path) {
             set_baton_error(error, errno,
                             "Failed to allocate memory: error %d %s",
@@ -440,10 +455,10 @@ char *json_to_path(json_t *object, baton_error_t *error) {
         }
 
         if (includes_slash) {
-            snprintf(path, total_len, "%s%s", collection, data_object);
+            snprintf(path, len, "%s%s", collection, data_object);
         }
         else {
-            snprintf(path, total_len, "%s/%s", collection, data_object);
+            snprintf(path, len, "%s/%s", collection, data_object);
         }
     }
 
