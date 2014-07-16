@@ -518,22 +518,20 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
           .labels      = { JSON_COLLECTION_KEY } };
 
     query_format_in_t *obj_format;
-    prepare_avu_search_cb prepare_obj_avu_option;
-
     if (flags & PRINT_SIZE) {
         obj_format = &(query_format_in_t)
             { .num_columns = 3,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
-                               JSON_SIZE_KEY } };
-        prepare_obj_avu_option = prepare_obj_avu_search_lim;
+                               JSON_SIZE_KEY },
+              .latest      = 1 };
     }
     else {
         obj_format = &(query_format_in_t)
             { .num_columns = 2,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME },
-              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY } };
-        prepare_obj_avu_option = prepare_obj_avu_search;
+              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY },
+              .latest      = 0 };
     }
 
     init_baton_error(error);
@@ -572,7 +570,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     if (flags & SEARCH_OBJECTS) {
         logmsg(TRACE, "Searching for data objects ...");
         data_objects = do_search(conn, zone_name, query, obj_format,
-                                 prepare_obj_avu_option, prepare_obj_acl_search,
+                                 prepare_obj_avu_search, prepare_obj_acl_search,
                                  prepare_obj_cre_search, prepare_obj_mod_search,
                                  error);
         if (error->code != 0) goto error;

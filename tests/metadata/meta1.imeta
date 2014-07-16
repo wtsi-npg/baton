@@ -17,3 +17,9 @@ add -d IRODS_TEST_ROOT/a/x/m/f12.txt attr1 value1 units1
 add -C IRODS_TEST_ROOT/a attr2 value2 units2
 add -C IRODS_TEST_ROOT/a/x attr2 value2 units2
 add -C IRODS_TEST_ROOT/a/x/m attr2 value2 units2
+
+add -d IRODS_TEST_ROOT/r1.txt a x
+add -d IRODS_TEST_ROOT/r1.txt a y
+add -d IRODS_TEST_ROOT/r1.txt b x
+add -d IRODS_TEST_ROOT/r1.txt b y
+add -d IRODS_TEST_ROOT/r1.txt b z

@@ -94,10 +94,6 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
       if (error->code != 0) goto error;
     }
 
-    char *json_str = json_dumps(query, JSON_INDENT(0));
-    logmsg(DEBUG, "QUERY: %s\n", json_str);
-    free(json_str);
-
     query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns,
                                 format->columns);
 
@@ -134,6 +130,11 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
 
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
     if (error->code != 0) goto error;
+
+    // Report latest replicate only
+    if (format->latest) {
+        query_in = limit_to_newest_repl(query_in);
+    }
 
     // ACL is optional
     if (has_acl(query)) {
