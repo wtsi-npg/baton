@@ -90,8 +90,8 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     json_t *avus;
 
     if (represents_collection(query)) {
-      root_path = json_to_path(query, error);
-      if (error->code != 0) goto error;
+        root_path = json_to_path(query, error);
+        if (error->code != 0) goto error;
     }
 
     query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns,
@@ -123,6 +123,8 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
             }
         }
     }
+
+    if (root_path) free(root_path);
 
     // AVUs are mandatory for searches
     avus = get_avus(query, error);
@@ -169,8 +171,9 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     return items;
 
 error:
-    if (query_in) free_query_input(query_in);
-    if (items)    json_decref(items);
+    if (root_path) free(root_path);
+    if (query_in)  free_query_input(query_in);
+    if (items)     json_decref(items);
 
     return NULL;
 }
