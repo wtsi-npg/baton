@@ -124,8 +124,6 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
         }
     }
 
-    if (root_path) free(root_path);
-
     // AVUs are mandatory for searches
     avus = get_avus(query, error);
     if (error->code != 0) goto error;
@@ -165,6 +163,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     items = do_query(conn, query_in, format->labels, error);
     if (error->code != 0) goto error;
 
+    if (root_path) free(root_path);
     free_query_input(query_in);
     logmsg(TRACE, "Found %d matching items", json_array_size(items));
 
