@@ -29,6 +29,8 @@ The features it provides are:
 - Simplified API over the iRODS general query API to ease construction
   of new custom queries.
 
+For further details see the man pages or manual, which is available
+online at http://wtsi-npg.github.io/baton/
 
 iRODS compatibility:
 
