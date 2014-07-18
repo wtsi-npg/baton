@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Welcome to baton‘s documentation &mdash; baton 0.9.1
+    <title>Welcome to baton‘s documentation &mdash; baton 0.9.1-7-gb370
  documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '0.9.1
+        VERSION:     '0.9.1-7-gb370
 ',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
@@ -26,7 +26,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="baton 0.9.1
+    <link rel="top" title="baton 0.9.1-7-gb370
  documentation" href="#" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
-        <li><a href="#">baton 0.9.1
+        <li><a href="#">baton 0.9.1-7-gb370
  documentation</a> &raquo;</li> 
       </ul>
     </div>  
@@ -192,6 +192,14 @@ or data object directly within the target.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-list--contents">
+<tt class="descname">--contents</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--contents" title="Permalink to this definition">¶</a></dt>
+<dd><p>If the path is a collection print its contents, in the format described in
+<a class="reference internal" href="#representing-path-metadata"><em>Metadata on data objects and collections</em></a>. Only the paths contained directly
+within a collection are printed.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-list--file">
 <tt class="descname">--file</tt><tt class="descclassname"> &lt;file name&gt;</tt><a class="headerlink" href="#cmdoption-baton-list--file" title="Permalink to this definition">¶</a></dt>
 <dd><p>The JSON file describing the data objects and collections. Optional,
@@ -222,6 +230,18 @@ the property &#8216;size&#8217;.</p>
 <dt id="cmdoption-baton-list--unbuffered">
 <tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--unbuffered" title="Permalink to this definition">¶</a></dt>
 <dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--verbose">
+<tt class="descname">--verbose</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--verbose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print verbose messages to STDERR.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--version">
+<tt class="descname">--version</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the version number and exit.</p>
 </dd></dl>
 
 </div>
@@ -266,6 +286,18 @@ defaults to STDIN.</p>
 <dt id="cmdoption-baton-metamod--unbuffered">
 <tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metamod--unbuffered" title="Permalink to this definition">¶</a></dt>
 <dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metamod--verbose">
+<tt class="descname">--verbose</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metamod--verbose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print verbose messages to STDERR.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metamod--version">
+<tt class="descname">--version</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metamod--version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the version number and exit.</p>
 </dd></dl>
 
 </div>
@@ -354,6 +386,18 @@ the property &#8216;size&#8217;.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-metaquery--verbose">
+<tt class="descname">--verbose</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--verbose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print verbose messages to STDERR.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--version">
+<tt class="descname">--version</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the version number and exit.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-metaquery--zone">
 <tt class="descname">--zone</tt><tt class="descclassname"> &lt;zone name&gt;</tt><a class="headerlink" href="#cmdoption-baton-metaquery--zone" title="Permalink to this definition">¶</a></dt>
 <dd><p>Query in a specific zone.</p>
@@ -399,6 +443,18 @@ defaults to STDIN.</p>
 <dd><p>Flush output after each JSON object is processed.</p>
 </dd></dl>
 
+<dl class="option">
+<dt id="cmdoption-baton-chmod--verbose">
+<tt class="descname">--verbose</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-chmod--verbose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print verbose messages to STDERR.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-chmod--version">
+<tt class="descname">--version</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-chmod--version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the version number and exit.</p>
+</dd></dl>
+
 </div>
 </div>
 </div>
@@ -418,8 +474,14 @@ collections is permitted. This behaviour is different from iRODS
 icommands which do not recognise collections specified with a trailing
 slash:</p>
 <div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/λ/&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/&quot;</span><span class="p">,</span>
+   <span class="nt">&quot;contents&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/λ/&quot;</span><span class="p">}]}</span>
 </pre></div>
 </div>
+<p>A collection&#8217;s contents may be represented by the <tt class="docutils literal"><span class="pre">contents</span></tt>
+property. This is a JSON list which contains JSON objects representing
+other collections and data objects. A <tt class="docutils literal"><span class="pre">contents</span></tt> property on a data
+object JSON object has no meaning and will be ignored.</p>
 <p>A data object is identified by having both a <tt class="docutils literal"><span class="pre">collection</span></tt> (or
 <tt class="docutils literal"><span class="pre">coll</span></tt>) property and a <tt class="docutils literal"><span class="pre">data_object</span></tt> property or its shorter
 synonym <tt class="docutils literal"><span class="pre">obj</span></tt>. For example, a file in the current iRODS working
@@ -520,6 +582,28 @@ property so that the query above becomes:</p>
           <span class="p">{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="nt">&quot;v&quot;</span><span class="p">:</span> <span class="s2">&quot;100&quot;</span><span class="p">,</span> <span class="nt">&quot;o&quot;</span><span class="p">:</span> <span class="s2">&quot;n&lt;&quot;</span><span class="p">}]}</span>
 </pre></div>
 </div>
+<p>A query specified may include a <tt class="docutils literal"><span class="pre">collection</span></tt> property. The effect of
+this is to both direct the query to a specific zone and possibly to
+limit results to items contained in a specific collection. This
+property allows queries to different zones to be mixed in the input
+stream to a single invocation of the query program.</p>
+<p>To direct the query to a specific zone, only the zone portion of the
+path is required:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nt">&quot;v&quot;</span><span class="p">:</span> <span class="s2">&quot;b&quot;</span><span class="p">}],</span>
+ <span class="nt">&quot;coll&quot;</span><span class="p">:</span> <span class="s2">&quot;/public&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>This will direct the query to the <tt class="docutils literal"><span class="pre">public</span></tt> zone. If the query
+program has been started with a <tt class="docutils literal"><span class="pre">--zone</span></tt> argument explicitly, that
+will take precedence over the zone provided in the query.</p>
+<p>To limit results to a specific collection:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nt">&quot;v&quot;</span><span class="p">:</span> <span class="s2">&quot;b&quot;</span><span class="p">}],</span>
+ <span class="nt">&quot;coll&quot;</span><span class="p">:</span> <span class="s2">&quot;/public/seq/a/b/c&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>This will limit query results to those with AVU <tt class="docutils literal"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">b</span></tt> located in
+the collection &#8216;/public/seq/a/b/c&#8217;. Beware that this type of query may
+have significantly poor performance in the ICAT generated SQL.</p>
 </div>
 </div>
 <div class="section" id="representing-timestamps">
@@ -917,7 +1001,7 @@ created before 2014-03-01T00:00:00 and modified between
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
-        <li><a href="#">baton 0.9.1
+        <li><a href="#">baton 0.9.1-7-gb370
  documentation</a> &raquo;</li> 
       </ul>
     </div>
