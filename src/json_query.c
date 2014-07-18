@@ -90,13 +90,9 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     json_t *avus;
 
     if (represents_collection(query)) {
-      root_path = json_to_path(query, error);
-      if (error->code != 0) goto error;
+        root_path = json_to_path(query, error);
+        if (error->code != 0) goto error;
     }
-
-    char *json_str = json_dumps(query, JSON_INDENT(0));
-    logmsg(DEBUG, "QUERY: %s\n", json_str);
-    free(json_str);
 
     query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns,
                                 format->columns);
@@ -135,6 +131,11 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
     if (error->code != 0) goto error;
 
+    // Report latest replicate only
+    if (format->latest) {
+        query_in = limit_to_newest_repl(query_in);
+    }
+
     // ACL is optional
     if (has_acl(query)) {
         json_t *acl = get_acl(query, error);
@@ -162,14 +163,16 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     items = do_query(conn, query_in, format->labels, error);
     if (error->code != 0) goto error;
 
+    if (root_path) free(root_path);
     free_query_input(query_in);
     logmsg(TRACE, "Found %d matching items", json_array_size(items));
 
     return items;
 
 error:
-    if (query_in) free_query_input(query_in);
-    if (items)    json_decref(items);
+    if (root_path) free(root_path);
+    if (query_in)  free_query_input(query_in);
+    if (items)     json_decref(items);
 
     return NULL;
 }
