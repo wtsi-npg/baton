@@ -143,36 +143,14 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
 
         snprintf(expr, expr_size, "%s '%s'", operator, name);
 
-        // Find whether this condition has already been added by a
-        // previous builder call. If so, adding again would be
-        // redundant.
-        int redundant = 0;
+        logmsg(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
+               "total len %d [%s]",
+               i, num_conds, name, strlen(name), operator, expr_size, expr);
 
-        for (int j = 0; j < query_in->sqlCondInp.len; j++) {
-            int ci = query_in->sqlCondInp.inx[j];
-            char *cv = query_in->sqlCondInp.value[j];
-
-            if (ci == conds[i].column && str_equals(cv, expr, MAX_STR_LEN)) {
-                logmsg(DEBUG, "Condition exists in query at position %d, "
-                       "not adding: %d '%s'", j, ci, cv);
-                redundant = 1;
-            }
-        }
-
-        if (redundant) {
-            free(expr);
-        }
-        else {
-            logmsg(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
-                   "total len %d [%s]",
-                   i, num_conds, name, strlen(name), operator, expr_size, expr);
-
-            int current_index = query_in->sqlCondInp.len;
-            query_in->sqlCondInp.inx[current_index] = conds[i].column;
-            query_in->sqlCondInp.value[current_index] = expr;
-            query_in->sqlCondInp.len++;
-        }
-
+        int current_index = query_in->sqlCondInp.len;
+        query_in->sqlCondInp.inx[current_index] = conds[i].column;
+        query_in->sqlCondInp.value[current_index] = expr;
+        query_in->sqlCondInp.len++;
     }
 
     return query_in;
@@ -317,14 +295,6 @@ genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
 }
 
-genQueryInp_t *prepare_obj_avu_search_lim(genQueryInp_t *query_in,
-                                          const char *attr_name,
-                                          const char *attr_value,
-                                          const char *operator) {
-    return limit_to_newest_repl(prepare_obj_avu_search(query_in, attr_name,
-                                                       attr_value, operator));
-}
-
 genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
@@ -344,7 +314,7 @@ genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in) {
     int num_digits = (col_selector == 0) ? 1 : log10(col_selector) + 1;
 
     char buf[num_digits + 1];
-    snprintf(buf, sizeof buf, "%d",col_selector);
+    snprintf(buf, sizeof buf, "%d", col_selector);
 
     query_cond_t rs = { .column   = COL_D_REPL_STATUS,
                         .operator = SEARCH_OP_EQUALS,

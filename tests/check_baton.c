@@ -440,6 +440,7 @@ START_TEST(test_list_coll_contents) {
                   " s:[{s:s, s:s, s:i, s:[o]},"  // f1.txt
                   "    {s:s, s:s, s:i, s:[o]},"  // f2.txt
                   "    {s:s, s:s, s:i, s:[o]},"  // f3.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // r1.txt
                   "    {s:s, s:[o]},"            // a
                   "    {s:s, s:[o]},"            // b
                   "    {s:s, s:[o]}]}",          // c
@@ -459,6 +460,11 @@ START_TEST(test_list_coll_contents) {
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f3.txt",
+                  JSON_SIZE_KEY,        0,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "r1.txt",
                   JSON_SIZE_KEY,        0,
                   JSON_ACCESS_KEY,      perms,
 
@@ -941,7 +947,7 @@ START_TEST(test_search_metadata_tps_obj) {
                                          &error_ge);
 
     ck_assert_int_eq(error_ge.code, 0);
-    ck_assert_int_eq(json_array_size(results_ge), 28);
+    ck_assert_int_eq(json_array_size(results_ge), 29);
 
     int num_colls = 0;
     int num_objs  = 0;
@@ -954,7 +960,7 @@ START_TEST(test_search_metadata_tps_obj) {
     }
 
     ck_assert_int_eq(num_colls, 10);
-    ck_assert_int_eq(num_objs,  18); // Includes some .gitignore files
+    ck_assert_int_eq(num_objs,  19); // Includes some .gitignore files
 
     free(iso_created);
 
@@ -1474,6 +1480,73 @@ START_TEST(test_get_user) {
 }
 END_TEST
 
+START_TEST(test_regression_github_issue83) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    json_t *avu1 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "a",
+                             JSON_VALUE_KEY,     "x");
+    json_t *avu2 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "a",
+                             JSON_VALUE_KEY,     "y");
+
+    json_t *avu3 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "b",
+                             JSON_VALUE_KEY,     "x");
+    json_t *avu4 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "b",
+                             JSON_VALUE_KEY,     "y");
+    json_t *avu5 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "b",
+                             JSON_VALUE_KEY,     "z");
+
+    option_flags flags = SEARCH_OBJECTS;
+    json_t *expected = json_pack("[{s:s, s:s}]",
+                                 JSON_COLLECTION_KEY, rods_path.outPath,
+                                 JSON_DATA_OBJECT_KEY, "r1.txt");
+
+    // 2 AVUs, the base case.
+    json_t *query1 = json_pack("{s:s, s:[o, o]}",
+                               JSON_COLLECTION_KEY, rods_path.outPath,
+                               JSON_AVUS_KEY,
+                               avu1, avu2);
+    baton_error_t error1;
+    json_t *results1 = search_metadata(conn, query1, NULL, flags, &error1);
+
+    ck_assert_ptr_ne(NULL, results1);
+    ck_assert_int_eq(json_equal(results1, expected), 1);
+    ck_assert_int_eq(error1.code, 0);
+
+    // 3 AVUs, or any greater number should succeed too.
+    json_t *query2 = json_pack("{s:s, s:[o, o, o]}",
+                               JSON_COLLECTION_KEY, rods_path.outPath,
+                               JSON_AVUS_KEY,
+                               avu3, avu4, avu5);
+    baton_error_t error2;
+    json_t *results2 = search_metadata(conn, query2, NULL, flags, &error2);
+
+    ck_assert_ptr_ne(NULL, results2);
+    ck_assert_int_eq(json_equal(results2, expected), 1);
+    ck_assert_int_eq(error2.code, 0);
+
+    json_decref(query1);
+    json_decref(results1);
+
+    json_decref(query2);
+    json_decref(results2);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -1535,8 +1608,12 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_get_user);
 
+    // TCase *regression_tests = tcase_create("regression");
+    tcase_add_test(basic_tests, test_regression_github_issue83);
+
     suite_add_tcase(suite, utilities_tests);
     suite_add_tcase(suite, basic_tests);
+    // suite_add_tcase(suite, regression_tests);
 
     return suite;
 }

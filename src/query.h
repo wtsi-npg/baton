@@ -51,6 +51,8 @@
 #define ACCESS_LEVEL_WRITE "write"
 
 typedef struct query_format_in {
+    /** Return data for the latest replicate only */
+    unsigned int latest;
     /** The number of columns to return */
     unsigned num_columns;
     /** The ICAT columns to return */
