@@ -169,6 +169,15 @@ Options
   Print AVU lists in output, in the format described in
   :ref:`representing_path_metadata`.
 
+
+.. program:: baton-list
+.. option:: --contents
+
+  If the path is a collection print its contents, in the format described in
+  :ref:`representing_path_metadata`. Only the paths contained directly
+  within a collection are printed.
+
+
 .. program:: baton-list
 .. option:: --file <file name>
 
@@ -196,6 +205,16 @@ Options
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
+.. program:: baton-list
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-list
+.. option:: --version
+
+  Print the version number and exit.
 
 
 baton-metamod
@@ -240,6 +259,16 @@ Options
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
+.. program:: baton-metamod
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-metamod
+.. option:: --version
+
+  Print the version number and exit.
 
 
 baton-metaquery
@@ -323,6 +352,16 @@ Options
   Flush output after each JSON object is processed.
 
 .. program:: baton-metaquery
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-metaquery
+.. option:: --version
+
+  Print the version number and exit.
+
+.. program:: baton-metaquery
 .. option:: --zone <zone name>
 
    Query in a specific zone.
@@ -365,6 +404,16 @@ Options
 
   Flush output after each JSON object is processed.
 
+.. program:: baton-chmod
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-chmod
+.. option:: --version
+
+  Print the version number and exit.
+
 
 .. _representing_paths:
 
@@ -390,6 +439,13 @@ slash:
 .. code-block:: json
 
   {"collection": "/unit/home/user/λ/"}
+  {"collection": "/unit/home/",
+     "contents": [{"collection": "/unit/home/user/λ/"}]}
+
+A collection's contents may be represented by the ``contents``
+property. This is a JSON list which contains JSON objects representing
+other collections and data objects. A ``contents`` property on a data
+object JSON object has no meaning and will be ignored.
 
 A data object is identified by having both a ``collection`` (or
 ``coll``) property and a ``data_object`` property or its shorter
@@ -514,6 +570,37 @@ property so that the query above becomes:
 
    {"avus": [{"a": "a", "v": "b", "u": "c"},
              {"a": "x", "v": "100", "o": "n<"}]}
+
+
+A query specified may include a ``collection`` property. The effect of
+this is to both direct the query to a specific zone and possibly to
+limit results to items contained in a specific collection. This
+property allows queries to different zones to be mixed in the input
+stream to a single invocation of the query program.
+
+To direct the query to a specific zone, only the zone portion of the
+path is required:
+
+.. code-block:: json
+
+  {"avus": [{"a": "a", "v": "b"}],
+   "coll": "/public"}
+
+This will direct the query to the ``public`` zone. If the query
+program has been started with a ``--zone`` argument explicitly, that
+will take precedence over the zone provided in the query.
+
+To limit results to a specific collection:
+
+.. code-block:: json
+
+  {"avus": [{"a": "a", "v": "b"}],
+   "coll": "/public/seq/a/b/c"}
+
+This will limit query results to those with AVU ``a = b`` located in
+the collection '/public/seq/a/b/c'. Beware that this type of query may
+have significantly poor performance in the ICAT generated SQL.
+
 
 .. _representing_timestamps:
 
