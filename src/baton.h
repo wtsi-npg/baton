@@ -38,6 +38,8 @@
 
 #define FILE_SIZE_UNITS "KB"
 
+#define STREAM_BUFFER_SIZE 1024 * 64 * 16 * 2
+
 /**
  *  @enum metadata_op
  *  @brief AVU metadata operations.
@@ -71,10 +73,13 @@ typedef enum {
     PRINT_SIZE         = 1 << 4,
     /** Pretty-print JSON */
     PRINT_PRETTY       = 1 << 5,
+    /** Print raw output */
+    PRINT_RAW          = 1 << 6,
     /** Search collection AVUs */
-    SEARCH_COLLECTIONS = 1 << 6,
+    SEARCH_COLLECTIONS = 1 << 7,
     /** Search data object AVUs */
-    SEARCH_OBJECTS     = 1 << 7
+    SEARCH_OBJECTS     = 1 << 8
+
 } option_flags;
 
 /**
@@ -180,6 +185,16 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
  */
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                   baton_error_t *error);
+
+
+json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
+                  baton_error_t *error);
+
+int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
+                       const char *local_path, baton_error_t *error);
+
+int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
+                         baton_error_t *error);
 
 /**
  * Return a JSON representation of the created and modified timestamps

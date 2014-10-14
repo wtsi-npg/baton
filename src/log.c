@@ -27,7 +27,7 @@
 #include "log.h"
 #include "utilities.h"
 
-static log_level THRESHOLD = ERROR;
+static log_level THRESHOLD = WARN;
 
 const char *get_log_level_name(log_level level) {
     switch (level) {

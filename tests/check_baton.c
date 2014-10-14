@@ -26,6 +26,7 @@
 #include "../src/baton.h"
 #include "../src/json.h"
 #include "../src/log.h"
+#include "../src/read.h"
 
 static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
@@ -440,6 +441,9 @@ START_TEST(test_list_coll_contents) {
                   " s:[{s:s, s:s, s:i, s:[o]},"  // f1.txt
                   "    {s:s, s:s, s:i, s:[o]},"  // f2.txt
                   "    {s:s, s:s, s:i, s:[o]},"  // f3.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_10k.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_1b.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_1k.txt
                   "    {s:s, s:s, s:i, s:[o]},"  // r1.txt
                   "    {s:s, s:[o]},"            // a
                   "    {s:s, s:[o]},"            // b
@@ -461,6 +465,21 @@ START_TEST(test_list_coll_contents) {
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f3.txt",
                   JSON_SIZE_KEY,        0,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "lorem_10k.txt",
+                  JSON_SIZE_KEY,        10240,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "lorem_1b.txt",
+                  JSON_SIZE_KEY,        1,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "lorem_1k.txt",
+                  JSON_SIZE_KEY,        1024,
                   JSON_ACCESS_KEY,      perms,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
@@ -947,7 +966,7 @@ START_TEST(test_search_metadata_tps_obj) {
                                          &error_ge);
 
     ck_assert_int_eq(error_ge.code, 0);
-    ck_assert_int_eq(json_array_size(results_ge), 29);
+    ck_assert_int_eq(json_array_size(results_ge), 32);
 
     int num_colls = 0;
     int num_objs  = 0;
@@ -960,7 +979,7 @@ START_TEST(test_search_metadata_tps_obj) {
     }
 
     ck_assert_int_eq(num_colls, 10);
-    ck_assert_int_eq(num_objs,  19); // Includes some .gitignore files
+    ck_assert_int_eq(num_objs,  22); // Includes some .gitignore files
 
     free(iso_created);
 
@@ -1427,7 +1446,7 @@ END_TEST
 START_TEST(test_represents_collection) {
     json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
     json_t *obj = json_pack("{s:s, s:s}",
-                            JSON_COLLECTION_KEY, "foo",
+                            JSON_COLLECTION_KEY,  "foo",
                             JSON_DATA_OBJECT_KEY, "bar");
 
     ck_assert(represents_collection(col));
@@ -1442,7 +1461,7 @@ END_TEST
 START_TEST(test_represents_data_object) {
     json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
     json_t *obj = json_pack("{s:s, s:s}",
-                            JSON_COLLECTION_KEY, "foo",
+                            JSON_COLLECTION_KEY,  "foo",
                             JSON_DATA_OBJECT_KEY, "bar");
 
     ck_assert(!represents_data_object(col));
@@ -1450,6 +1469,36 @@ START_TEST(test_represents_data_object) {
 
     json_decref(col);
     json_decref(obj);
+}
+END_TEST
+
+// Can we test for JSON representation of a directory?
+START_TEST(test_represents_directory) {
+    json_t *dir  = json_pack("{s:s}", JSON_DIRECTORY_KEY, "foo");
+    json_t *file = json_pack("{s:s, s:s}",
+                             JSON_DIRECTORY_KEY, "foo",
+                             JSON_FILE_KEY,      "bar");
+
+    ck_assert(represents_directory(dir));
+    ck_assert(!represents_directory(file));
+
+    json_decref(dir);
+    json_decref(file);
+}
+END_TEST
+
+// Can we test for JSON representation of a file?
+START_TEST(test_represents_file) {
+    json_t *dir  = json_pack("{s:s}", JSON_DIRECTORY_KEY, "foo");
+    json_t *file = json_pack("{s:s, s:s}",
+                             JSON_DIRECTORY_KEY, "foo",
+                             JSON_FILE_KEY,      "bar");
+
+    ck_assert(!represents_file(dir));
+    ck_assert(represents_file(file));
+
+    json_decref(dir);
+    json_decref(file);
 }
 END_TEST
 
@@ -1475,6 +1524,49 @@ START_TEST(test_get_user) {
     ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ZONE_KEY));
 
     json_decref(user);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_slurp_file) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
+                     EXIST_ST);
+
+    // Test a range of buffer sizes, both smaller and larger than the
+    // data
+    size_t chunk_sizes[10] = {    1,  128,  256,   512,  1024,
+                               2048, 4096, 8192, 16384, 37268 };
+    for (int i = 0; i < 10; i++) {
+        baton_error_t open_error;
+        init_baton_error(&open_error);
+
+        data_obj_file_t *obj_file =
+            open_data_obj(conn, &rods_obj_path, &open_error);
+        ck_assert_int_eq(open_error.code, 0);
+
+        baton_error_t slurp_error;
+        init_baton_error(&slurp_error);
+
+        char *data = slurp_data_object(conn, obj_file, chunk_sizes[i],
+                                       &slurp_error);
+        ck_assert_int_eq(slurp_error.code, 0);
+        ck_assert_int_eq(strnlen(data, 10240), 10240);
+        ck_assert_str_eq(obj_file->md5_last_read,
+                         "4efe0c1befd6f6ac4621cbdb13241246");
+
+        if (data) free(data);
+    }
 
     if (conn) rcDisconnect(conn);
 }
@@ -1547,6 +1639,7 @@ START_TEST(test_regression_github_issue83) {
 }
 END_TEST
 
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -1602,18 +1695,26 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_represents_collection);
     tcase_add_test(basic_tests, test_represents_data_object);
+    tcase_add_test(basic_tests, test_represents_directory);
+    tcase_add_test(basic_tests, test_represents_file);
 
     tcase_add_test(basic_tests, test_json_to_path);
     tcase_add_test(basic_tests, test_contains_avu);
 
     tcase_add_test(basic_tests, test_get_user);
 
-    // TCase *regression_tests = tcase_create("regression");
-    tcase_add_test(basic_tests, test_regression_github_issue83);
+    tcase_add_test(basic_tests, test_slurp_file);
+
+
+    TCase *regression_tests = tcase_create("regression");
+    tcase_add_unchecked_fixture(regression_tests, setup, teardown);
+    tcase_add_checked_fixture (regression_tests, basic_setup, basic_teardown);
+
+    tcase_add_test(regression_tests, test_regression_github_issue83);
 
     suite_add_tcase(suite, utilities_tests);
     suite_add_tcase(suite, basic_tests);
-    // suite_add_tcase(suite, regression_tests);
+    suite_add_tcase(suite, regression_tests);
 
     return suite;
 }

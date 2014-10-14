@@ -37,6 +37,7 @@
 #include "json_query.h"
 #include "log.h"
 #include "query.h"
+#include "read.h"
 #include "utilities.h"
 
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
@@ -44,6 +45,9 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                option_flags flags, baton_error_t *error);
+
+static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error);
 
 static const char *metadata_op_name(metadata_op operation);
 
@@ -98,8 +102,8 @@ int declare_client_name(const char *prog_path) {
     char client_name[MAX_CLIENT_NAME_LEN];
     const char *prog_name = parse_base_name(prog_path);
 
-    snprintf(client_name, MAX_CLIENT_NAME_LEN, "%s-%s",
-             PACKAGE_NAME, prog_name);
+    snprintf(client_name, MAX_CLIENT_NAME_LEN, "%s:%s:%s",
+             PACKAGE_NAME, prog_name, VERSION);
 
     return setenv(SP_OPTION, client_name, 1);
 }
@@ -353,6 +357,119 @@ error:
     logmsg(ERROR, error->message);
 
     return NULL;
+}
+
+json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
+                    option_flags flags, baton_error_t *error) {
+    char *content = NULL;
+
+    // Currently only data objects are supported
+    if (rods_path->objType != DATA_OBJ_T) {
+        init_baton_error(error);
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot read the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
+        goto error;
+    }
+
+    json_t *results = list_path(conn, rods_path, flags, error);
+    if (error->code != 0) goto error;
+
+    content = slurp_file(conn, rods_path, error);
+
+    if (content) {
+        size_t len = strlen(content);
+        if (maybe_utf8(content, len)) {
+            json_object_set_new(results, JSON_DATA_KEY,
+                                json_pack("s", content));
+        }
+        else {
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "The contents of '%s' cannot be encoded as UTF-8 "
+                            "for JSON output", rods_path->outPath);
+            goto error;
+        }
+        free(content);
+    }
+
+    return results;
+
+error:
+    if (content) free(content);
+
+    return NULL;
+}
+
+int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
+                       const char *local_path, baton_error_t *error) {
+    FILE *stream = NULL;
+
+    init_baton_error(error);
+
+    logmsg(DEBUG, "Writing '%s' to '%s'", rods_path->outPath, local_path);
+
+    // Currently only data objects are supported
+    if (rods_path->objType != DATA_OBJ_T) {
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot write the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
+        goto error;
+    }
+
+    stream = fopen(local_path, "w");
+    if (!stream) {
+        set_baton_error(error, errno,
+                        "Failed to open '%s' for writing: error %d %s",
+                        local_path, errno, strerror(errno));
+        goto error;
+    }
+
+    write_path_to_stream(conn, rods_path, stream, error);
+    fclose(stream);
+
+    return error->code;
+
+error:
+    if (stream) fclose(stream);
+
+    return error->code;
+}
+
+int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
+                         baton_error_t *error) {
+    init_baton_error(error);
+
+    logmsg(DEBUG, "Buffer size %zu\n", STREAM_BUFFER_SIZE);
+    data_obj_file_t *obj_file = NULL;
+
+    logmsg(DEBUG, "Writing '%s' to a stream", rods_path->outPath);
+
+    // Currently only data objects are supported
+    if (rods_path->objType != DATA_OBJ_T) {
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot write the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
+        goto error;
+    }
+
+    obj_file = open_data_obj(conn, rods_path, error);
+    if (error->code != 0) goto error;
+
+    size_t n = stream_data_object(conn, obj_file, out, STREAM_BUFFER_SIZE,
+                                  error);
+
+    close_data_obj(conn, obj_file);
+    free_data_obj(obj_file);
+
+    return n;
+
+error:
+    if (obj_file) {
+        close_data_obj(conn, obj_file);
+        free_data_obj(obj_file);
+    }
+
+    return error->code;
 }
 
 json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
@@ -1051,6 +1168,31 @@ error:
     }
     else {
         logmsg(ERROR, error->message);
+    }
+
+    return NULL;
+}
+
+static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error) {
+    logmsg(DEBUG, "Buffer size %zu\n", STREAM_BUFFER_SIZE);
+
+    data_obj_file_t *obj_file = NULL;
+    obj_file = open_data_obj(conn, rods_path, error);
+    if (error->code != 0) goto error;
+
+    char *content = slurp_data_object(conn, obj_file, STREAM_BUFFER_SIZE,
+                                      error);
+
+    close_data_obj(conn, obj_file);
+    free_data_obj(obj_file);
+
+    return content;
+
+error:
+    if (obj_file) {
+        close_data_obj(conn, obj_file);
+        free_data_obj(obj_file);
     }
 
     return NULL;

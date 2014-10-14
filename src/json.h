@@ -66,6 +66,12 @@
 #define JSON_USER_TYPE_KEY         "user_type"
 #define JSON_USER_ZONE_KEY         "user_zone"
 
+#define JSON_DIRECTORY_KEY         "directory"
+#define JSON_DIRECTORY_SHORT_KEY   "dir"
+#define JSON_FILE_KEY              "file"
+
+#define JSON_DATA_KEY              "data"
+
 /**
  * Add a new property containing error information to a JSON object.
  *
@@ -154,6 +160,10 @@ int represents_collection(json_t *object);
 
 int represents_data_object(json_t *object);
 
+int represents_directory(json_t *object);
+
+int represents_file(json_t *object);
+
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error);
 
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
@@ -162,6 +172,8 @@ int add_contents(json_t *object, json_t *contents, baton_error_t *error);
 
 int add_timestamps(json_t *object, const char *created, const char *modified,
                    int *repl_num, baton_error_t *error);
+
+int add_error_report(json_t *target, baton_error_t *error);
 
 json_t *make_timestamp(const char* key, const char *value, const char *format,
                        int *repl_num, baton_error_t *error);
@@ -174,6 +186,10 @@ json_t *data_object_path_to_json(const char *path, baton_error_t *error);
 json_t *collection_path_to_json(const char *path, baton_error_t *error);
 
 char *json_to_path(json_t *object, baton_error_t *error);
+
+char *json_to_local_path(json_t *object, baton_error_t *error);
+
+void print_json_stream(json_t *json, FILE *stream);
 
 void print_json(json_t *json);
 
