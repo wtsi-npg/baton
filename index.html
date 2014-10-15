@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Welcome to baton‘s documentation &mdash; baton 0.10.0
+    <title>Welcome to baton‘s documentation &mdash; baton 0.11.0
  documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '0.10.0
+        VERSION:     '0.11.0
 ',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
@@ -26,7 +26,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="baton 0.10.0
+    <link rel="top" title="baton 0.11.0
  documentation" href="#" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
-        <li><a href="#">baton 0.10.0
+        <li><a href="#">baton 0.11.0
  documentation</a> &raquo;</li> 
       </ul>
     </div>  
@@ -67,6 +67,8 @@ and modification timestamps.</li>
 <li>Queries on metadata, on access control lists (ACLs), creation and
 modification timestamps and timestamp ranges. The full range of
 iRODS query operators is supported.</li>
+<li>Fetching data object content inlined within JSON (text files only)
+or downloading data objects to local files.</li>
 <li>Unbuffered option for IPC via pipes with fine-grained error
 reporting for batch operations.</li>
 <li>Simplified API over the iRODS general query API to ease construction
@@ -246,14 +248,120 @@ the property &#8216;size&#8217;.</p>
 
 </div>
 </div>
+<div class="section" id="baton-get">
+<h2>baton-get<a class="headerlink" href="#baton-get" title="Permalink to this headline">¶</a></h2>
+<p>Synopsis:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user/&quot;, data_object: &quot;a.txt&quot;}&#39;</span> | baton-get
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user/&quot;, data_object: &quot;a.txt&quot;, \</span>
+<span class="s1">          directory: &quot;/data/user/local&quot; }&#39;</span>                      | baton-get --save
+
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user/&quot;, data_object: &quot;a.txt&quot;, \</span>
+<span class="s1">          directory: &quot;/data/user/local&quot;,  file: &quot;a_copy.txt&quot;}&#39;</span>  | baton-get --save
+</pre></div>
+</div>
+<p>This program accepts JSON objects as described in
+<a class="reference internal" href="#representing-paths"><em>Representing data objects and collections</em></a> and prints results in the same format. The
+target path must represent a data object. It&#8217;s default mode is to JSON
+encode the file content under the JSON property <tt class="docutils literal"><span class="pre">data</span></tt> in the output.</p>
+<p>Some local path properties may be omitted from the input JSON and will
+be inferred from the iRODS paths. If the <tt class="docutils literal"><span class="pre">file</span></tt> property is omitted,
+the local file will take its name from the data object. If the
+<tt class="docutils literal"><span class="pre">directory</span></tt> property is omitted, the current working directory will
+be used for any saved downloads.</p>
+<p><tt class="docutils literal"><span class="pre">baton-get</span></tt> performs an on the-the-fly MD5 checksum of the data
+object content as it processes. It compares this with the expected MD5
+checksum held in iRODS and will raise an error if they do not
+match. The program does not verify the checksum of the file(s) after
+they have been written to disk.</p>
+<div class="section" id="id1">
+<h3>Options<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<dl class="option">
+<dt id="cmdoption-baton-get--acl">
+<tt class="descname">--acl</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--acl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print access control lists in the output, in the format described in
+<a class="reference internal" href="#representing-path-permissions"><em>ACLs of data objects and collections</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--avu">
+<tt class="descname">--avu</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--avu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print AVU lists in output, in the format described in
+<a class="reference internal" href="#representing-path-metadata"><em>Metadata on data objects and collections</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--file">
+<tt class="descname">--file</tt><tt class="descclassname"> &lt;file name&gt;</tt><a class="headerlink" href="#cmdoption-baton-get--file" title="Permalink to this definition">¶</a></dt>
+<dd><p>The JSON file describing the data objects and collections. Optional,
+defaults to STDIN.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--help">
+<tt class="descname">--help</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--help" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints command line help.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--raw">
+<tt class="descname">--raw</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--raw" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints the contents of the data object instead of a JSON response. In this
+mode the program acts rather like the Unix program &#8216;cat&#8217;. This mode, or the
+&#8211;save mode must be used for any file that is not UTF-8 encoded text.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--save">
+<tt class="descname">--save</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves the contents of the data object to a local file. The local file
+path is defined by the JSON input in the format described in
+<a class="reference internal" href="#representing-local-paths"><em>Representing Local Paths</em></a>. Prints a JSON response to STDOUT for
+each file downloaded.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--size">
+<tt class="descname">--size</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print data object sizes in the output. These appear as JSON integers under
+the property &#8216;size&#8217;.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--timestamp">
+<tt class="descname">--timestamp</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--timestamp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print data object timestamps in the output, in the format described in
+<a class="reference internal" href="#representing-timestamps"><em>Representing timestamps</em></a>.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--unbuffered">
+<tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--unbuffered" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--verbose">
+<tt class="descname">--verbose</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--verbose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print verbose messages to STDERR.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-get--version">
+<tt class="descname">--version</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the version number and exit.</p>
+</dd></dl>
+
+</div>
+</div>
 <div class="section" id="baton-metamod">
 <h2>baton-metamod<a class="headerlink" href="#baton-metamod" title="Permalink to this headline">¶</a></h2>
 <p>Synopsis:</p>
-<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;,      \</span>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;,     \</span>
 <span class="s1">               &quot;avus&quot;: [{attribute: &quot;x&quot;, value: &quot;y&quot;},   \</span>
 <span class="s1">                        {attribute: &quot;m&quot;, value: &quot;n&quot;}]}&#39;</span> | baton-metamod --operation add
 
-<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;,      \</span>
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;,    \</span>
 <span class="s1">                avus: [{attribute: &quot;x&quot;, value: &quot;y&quot;},   \</span>
 <span class="s1">                       {attribute: &quot;m&quot;, value: &quot;n&quot;}]}&#39;</span> | baton-metamod --operation rem
 </pre></div>
@@ -261,8 +369,8 @@ the property &#8216;size&#8217;.</p>
 <p>This program accepts JSON objects as described in
 <a class="reference internal" href="#representing-paths"><em>Representing data objects and collections</em></a> and adds or removes matching metadata as
 described in <a class="reference internal" href="#representing-path-metadata"><em>Metadata on data objects and collections</em></a>.</p>
-<div class="section" id="id1">
-<h3>Options<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id2">
+<h3>Options<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
 <dl class="option">
 <dt id="cmdoption-baton-metamod--file">
 <tt class="descname">--file</tt><tt class="descclassname"> &lt;file name&gt;</tt><a class="headerlink" href="#cmdoption-baton-metamod--file" title="Permalink to this definition">¶</a></dt>
@@ -314,7 +422,7 @@ defaults to STDIN.</p>
 <span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: [{attribute: &quot;x&quot;, value: &quot;y&quot;},   \</span>
 <span class="s1">                 {attribute: &quot;m&quot;, value: &quot;n&quot;}]}&#39;</span> | baton-metaquery
 
-<span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: [{attribute: &quot;v&quot;, value: &quot;100&quot;, operator: &quot;n&lt;&quot;},    \</span>
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: [{attribute: &quot;v&quot;, value: &quot;100&quot;, operator: &quot;n&lt;&quot;},     \</span>
 <span class="s1">                 {attribute: &quot;w&quot;, value: &quot;n%&quot;,  operator: &quot;like&quot;}]}&#39;</span> | baton-metaquery
 </pre></div>
 </div>
@@ -324,8 +432,8 @@ described in <a class="reference internal" href="#representing-paths"><em>Repres
 optional <tt class="docutils literal"><span class="pre">collection</span></tt> property which limits the scope of the
 associated metadata query to returning only those results that lie
 somewhere under that collection.</p>
-<div class="section" id="id2">
-<h3>Options<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id3">
+<h3>Options<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
 <dl class="option">
 <dt id="cmdoption-baton-metaquery--acl">
 <tt class="descname">--acl</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--acl" title="Permalink to this definition">¶</a></dt>
@@ -416,8 +524,8 @@ the property &#8216;size&#8217;.</p>
 <span class="s1">                       {owner: &quot;victor&quot;, level: &quot;write&quot;}]}&#39;</span> | baton-chmod
 </pre></div>
 </div>
-<div class="section" id="id3">
-<h3>Options<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id4">
+<h3>Options<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
 <dl class="option">
 <dt id="cmdoption-baton-chmod--file">
 <tt class="descname">--file</tt><tt class="descclassname"> &lt;file name&gt;</tt><a class="headerlink" href="#cmdoption-baton-chmod--file" title="Permalink to this definition">¶</a></dt>
@@ -494,9 +602,9 @@ collection may be represented by either of:</p>
 iRODS data object name, in UTF-8 encoding. The full path of the data
 object may be recreated by concatenating the <tt class="docutils literal"><span class="pre">collection</span></tt> and
 <tt class="docutils literal"><span class="pre">data_object</span></tt> values. Data objects reported by listing or searches
-will contain information on the file size under the <tt class="docutils literal"><span class="pre">size</span></tt>
-property. The value is a JSON integer indicating the file size in
-bytes as given in the ICAT database.</p>
+will may information on the file size under the <tt class="docutils literal"><span class="pre">size</span></tt> property. The
+value is a JSON integer indicating the file size in bytes as given in
+the ICAT database.</p>
 <div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">,</span> <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">}</span>
 </pre></div>
 </div>
@@ -507,8 +615,40 @@ objects and collection contents.</p>
 <p><tt class="docutils literal"><span class="pre">baton</span></tt> ignores JSON properties that it does not recognise, therefore it
 is harmless to include extra properties in program input.</p>
 </div>
+<div class="section" id="representing-local-paths">
+<span id="id5"></span><h1>Representing Local Paths<a class="headerlink" href="#representing-local-paths" title="Permalink to this headline">¶</a></h1>
+<p>Copies of data objects on a filesystem local to the client are
+represented as JSON objects. A directory is identified by the
+<tt class="docutils literal"><span class="pre">directory</span></tt> property or is shorter synonym <tt class="docutils literal"><span class="pre">dir</span></tt>.</p>
+<p>For example, the current working directory may be represented by
+either of:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;directory&quot;</span><span class="p">:</span> <span class="s2">&quot;.&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;dir&quot;</span><span class="p">:</span> <span class="s2">&quot;.&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The value associated with the <tt class="docutils literal"><span class="pre">directory</span></tt> property may be any path,
+absolute or relative, in UTF-8 encoding.</p>
+<p>A file is identified by having both a <tt class="docutils literal"><span class="pre">directory</span></tt> (or <tt class="docutils literal"><span class="pre">dir</span></tt>)
+property and a <tt class="docutils literal"><span class="pre">file</span></tt> property. For example, a file in the current
+working directory may be represented by either of:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;directory:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;file&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;dir:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;file&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The value associated with the <tt class="docutils literal"><span class="pre">file</span></tt> property may be any iRODS data
+object name, in UTF-8 encoding. The full path of the local file may be
+recreated by concatenating the <tt class="docutils literal"><span class="pre">directory</span></tt> and <tt class="docutils literal"><span class="pre">file</span></tt> values.</p>
+<p>A JSON object may have both iRODS path and local path properties,
+thereby indicating a mapping between a data object and a local
+file. The <tt class="docutils literal"><span class="pre">data_object</span></tt> and <tt class="docutils literal"><span class="pre">file</span></tt> values are not required to be
+identical.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">,</span>
+ <span class="nt">&quot;directory:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span>  <span class="nt">&quot;file&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="representing-metadata">
-<span id="id4"></span><h1>Representing metadata<a class="headerlink" href="#representing-metadata" title="Permalink to this headline">¶</a></h1>
+<span id="id6"></span><h1>Representing metadata<a class="headerlink" href="#representing-metadata" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="metadata-on-data-objects-and-collections">
 <span id="representing-path-metadata"></span><h2>Metadata on data objects and collections<a class="headerlink" href="#metadata-on-data-objects-and-collections" title="Permalink to this headline">¶</a></h2>
 <p>Metadata attribute/value/units tuples are represented for both
@@ -607,7 +747,7 @@ have significantly poor performance in the ICAT generated SQL.</p>
 </div>
 </div>
 <div class="section" id="representing-timestamps">
-<span id="id5"></span><h1>Representing timestamps<a class="headerlink" href="#representing-timestamps" title="Permalink to this headline">¶</a></h1>
+<span id="id7"></span><h1>Representing timestamps<a class="headerlink" href="#representing-timestamps" title="Permalink to this headline">¶</a></h1>
 <p>The ICAT database records timestamps indicating when collections and
 data objects were created and last modified. These are represented for
 both collections and data objects as a JSON array of objects under the
@@ -709,7 +849,7 @@ never return any results:</li>
 </div>
 </div>
 <div class="section" id="representing-errors">
-<span id="id6"></span><h1>Representing Errors<a class="headerlink" href="#representing-errors" title="Permalink to this headline">¶</a></h1>
+<span id="id8"></span><h1>Representing Errors<a class="headerlink" href="#representing-errors" title="Permalink to this headline">¶</a></h1>
 <p>When an error occurs while processing a particular JSON object in a
 stream, instead of printing the usual result object, the input JSON
 object is printed to standard output with an <tt class="docutils literal"><span class="pre">error</span></tt> property added
@@ -939,21 +1079,26 @@ created before 2014-03-01T00:00:00 and modified between
 <li><a class="reference internal" href="#options">Options</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#baton-metamod">baton-metamod</a><ul>
+<li><a class="reference internal" href="#baton-get">baton-get</a><ul>
 <li><a class="reference internal" href="#id1">Options</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#baton-metaquery">baton-metaquery</a><ul>
+<li><a class="reference internal" href="#baton-metamod">baton-metamod</a><ul>
 <li><a class="reference internal" href="#id2">Options</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#baton-chmod">baton-chmod</a><ul>
+<li><a class="reference internal" href="#baton-metaquery">baton-metaquery</a><ul>
 <li><a class="reference internal" href="#id3">Options</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#baton-chmod">baton-chmod</a><ul>
+<li><a class="reference internal" href="#id4">Options</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li><a class="reference internal" href="#representing-data-objects-and-collections">Representing data objects and collections</a></li>
+<li><a class="reference internal" href="#representing-local-paths">Representing Local Paths</a></li>
 <li><a class="reference internal" href="#representing-metadata">Representing metadata</a><ul>
 <li><a class="reference internal" href="#metadata-on-data-objects-and-collections">Metadata on data objects and collections</a></li>
 <li><a class="reference internal" href="#metadata-queries">Metadata queries</a></li>
@@ -1001,7 +1146,7 @@ created before 2014-03-01T00:00:00 and modified between
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
-        <li><a href="#">baton 0.10.0
+        <li><a href="#">baton 0.11.0
  documentation</a> &raquo;</li> 
       </ul>
     </div>

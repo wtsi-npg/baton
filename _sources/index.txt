@@ -1,3 +1,4 @@
+
 .. baton documentation master file, created by
    sphinx-quickstart on Thu Feb  6 09:45:48 2014.
    You can adapt this file completely to your liking, but it should at least
@@ -27,6 +28,9 @@ iRODS:
 * Queries on metadata, on access control lists (ACLs), creation and
   modification timestamps and timestamp ranges. The full range of
   iRODS query operators is supported.
+
+* Fetching data object content inlined within JSON (text files only)
+  or downloading data objects to local files.
 
 * Unbuffered option for IPC via pipes with fine-grained error
   reporting for batch operations.
@@ -217,6 +221,107 @@ Options
   Print the version number and exit.
 
 
+baton-get
+---------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | baton-get
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt", \
+             directory: "/data/user/local" }'                      | baton-get --save
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt", \
+             directory: "/data/user/local",  file: "a_copy.txt"}'  | baton-get --save
+
+This program accepts JSON objects as described in
+:ref:`representing_paths` and prints results in the same format. The
+target path must represent a data object. It's default mode is to JSON
+encode the file content under the JSON property ``data`` in the output.
+
+Some local path properties may be omitted from the input JSON and will
+be inferred from the iRODS paths. If the ``file`` property is omitted,
+the local file will take its name from the data object. If the
+``directory`` property is omitted, the current working directory will
+be used for any saved downloads.
+
+``baton-get`` performs an on the-the-fly MD5 checksum of the data
+object content as it processes. It compares this with the expected MD5
+checksum held in iRODS and will raise an error if they do not
+match. The program does not verify the checksum of the file(s) after
+they have been written to disk.
+
+Options
+^^^^^^^
+
+.. program:: baton-get
+.. option:: --acl
+
+  Print access control lists in the output, in the format described in
+  :ref:`representing_path_permissions`.
+
+.. program:: baton-get
+.. option:: --avu
+
+  Print AVU lists in output, in the format described in
+  :ref:`representing_path_metadata`.
+
+.. program:: baton-get
+.. option:: --file <file name>
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+.. program:: baton-get
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-get
+.. option:: --raw
+
+  Prints the contents of the data object instead of a JSON response. In this
+  mode the program acts rather like the Unix program 'cat'. This mode, or the
+  --save mode must be used for any file that is not UTF-8 encoded text.
+
+.. program:: baton-get
+.. option:: --save
+
+  Saves the contents of the data object to a local file. The local file
+  path is defined by the JSON input in the format described in
+  :ref:`representing_local_paths`. Prints a JSON response to STDOUT for
+  each file downloaded.
+
+.. program:: baton-get
+.. option:: --size
+
+  Print data object sizes in the output. These appear as JSON integers under
+  the property 'size'.
+
+.. program:: baton-get
+.. option:: --timestamp
+
+  Print data object timestamps in the output, in the format described in
+  :ref:`representing_timestamps`.
+
+.. program:: baton-get
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-get
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-get
+.. option:: --version
+
+  Print the version number and exit.
+
+
 baton-metamod
 -------------
 
@@ -224,11 +329,11 @@ Synopsis:
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "test", data_object: "a.txt",      \
+   $ jq -n '{collection: "test", data_object: "a.txt",     \
                   "avus": [{attribute: "x", value: "y"},   \
                            {attribute: "m", value: "n"}]}' | baton-metamod --operation add
 
-   $ jq -n '{collection: "test", data_object: "a.txt",      \
+   $ jq -n '{collection: "test", data_object: "a.txt",    \
                    avus: [{attribute: "x", value: "y"},   \
                           {attribute: "m", value: "n"}]}' | baton-metamod --operation rem
 
@@ -287,7 +392,7 @@ Synopsis:
    $ jq -n '{avus: [{attribute: "x", value: "y"},   \
                     {attribute: "m", value: "n"}]}' | baton-metaquery
 
-   $ jq -n '{avus: [{attribute: "v", value: "100", operator: "n<"},    \
+   $ jq -n '{avus: [{attribute: "v", value: "100", operator: "n<"},     \
                     {attribute: "w", value: "n%",  operator: "like"}]}' | baton-metaquery
 
 This program accepts JSON objects as described in
@@ -461,9 +566,9 @@ The value associated with the ``data_object`` property may be any
 iRODS data object name, in UTF-8 encoding. The full path of the data
 object may be recreated by concatenating the ``collection`` and
 ``data_object`` values. Data objects reported by listing or searches
-will contain information on the file size under the ``size``
-property. The value is a JSON integer indicating the file size in
-bytes as given in the ICAT database.
+will may information on the file size under the ``size`` property. The
+value is a JSON integer indicating the file size in bytes as given in
+the ICAT database.
 
 .. code-block:: json
 
@@ -476,6 +581,50 @@ objects and collection contents.
 
 ``baton`` ignores JSON properties that it does not recognise, therefore it
 is harmless to include extra properties in program input.
+
+.. _representing_local_paths:
+
+Representing Local Paths
+========================
+
+Copies of data objects on a filesystem local to the client are
+represented as JSON objects. A directory is identified by the
+``directory`` property or is shorter synonym ``dir``.
+
+For example, the current working directory may be represented by
+either of:
+
+.. code-block:: json
+
+   {"directory": "."}
+   {"dir": "."}
+
+The value associated with the ``directory`` property may be any path,
+absolute or relative, in UTF-8 encoding.
+
+A file is identified by having both a ``directory`` (or ``dir``)
+property and a ``file`` property. For example, a file in the current
+working directory may be represented by either of:
+
+.. code-block:: json
+
+  {"directory:" ".", "file": "README.txt"}
+  {"dir:" ".", "file": "README.txt"}
+
+The value associated with the ``file`` property may be any iRODS data
+object name, in UTF-8 encoding. The full path of the local file may be
+recreated by concatenating the ``directory`` and ``file`` values.
+
+A JSON object may have both iRODS path and local path properties,
+thereby indicating a mapping between a data object and a local
+file. The ``data_object`` and ``file`` values are not required to be
+identical.
+
+.. code-block:: json
+
+  {"collection": ".", "data_object": "README.txt",
+   "directory:" ".",  "file": "README.txt"}
+
 
 .. _representing_metadata:
 
