@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
             {"raw",        no_argument, &raw_flag,        1},
-            {"save",       no_argument, &save_flag,     1},
+            {"save",       no_argument, &save_flag,       1},
             {"size",       no_argument, &size_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
@@ -240,7 +240,7 @@ int do_get_files(FILE *input, option_flags oflags) {
                         print_json_stream(target, report_stream);
                     }
                     else {
-                        print_json_stream(target, report_stream);
+                        print_json_stream(results, report_stream);
                         json_decref(results);
                     }
                 }
