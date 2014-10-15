@@ -11,13 +11,16 @@ endif
 lib_LTLIBRARIES = libbaton.la
 
 libbaton_includedir = $(includedir)/baton
-libbaton_include_HEADERS = baton.h error.h log.h json.h json_query.h query.h utilities.h
-libbaton_la_SOURCES = baton.c error.c log.c json.c json_query.c query.c utilities.c
+libbaton_include_HEADERS = baton.h error.h log.h json.h json_query.h query.h read.h utilities.h
+libbaton_la_SOURCES = baton.c error.c log.c json.c json_query.c query.c read.c utilities.c
 
-bin_PROGRAMS = baton-chmod baton-list baton-metamod baton-metaquery baton-metasuper
+bin_PROGRAMS = baton-chmod baton-get baton-list baton-metamod baton-metaquery baton-metasuper
 
 baton_chmod_SOURCES = baton-chmod.c
 baton_chmod_LDADD = libbaton.la
+
+baton_get_SOURCES = baton-get.c
+baton_get_LDADD = libbaton.la
 
 baton_list_SOURCES = baton-list.c
 baton_list_LDADD = libbaton.la
