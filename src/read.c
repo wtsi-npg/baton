@@ -37,7 +37,6 @@ data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
 
     logmsg(DEBUG, "Opening data object '%s'", rods_path->outPath);
 
-    // FIXME -- check string length
     snprintf(obj_open_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
     int descriptor = rcDataObjOpen(conn, &obj_open_in);
 
@@ -240,7 +239,6 @@ int validate_md5_last_read(rcComm_t *conn, data_obj_file_t *obj_file) {
     dataObjInp_t obj_md5_in;
     memset(&obj_md5_in, 0, sizeof obj_md5_in);
 
-    // FIXME -- check string length
     snprintf(obj_md5_in.objPath, MAX_NAME_LEN, "%s", obj_file->path);
 
     char *md5 = NULL;
