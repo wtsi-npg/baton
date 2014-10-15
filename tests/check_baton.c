@@ -1529,6 +1529,57 @@ START_TEST(test_get_user) {
 }
 END_TEST
 
+START_TEST(test_write_path_to_stream) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
+                     EXIST_ST);
+
+    FILE *tmp = tmpfile();
+    ck_assert_ptr_ne(NULL, tmp);
+
+    baton_error_t error;
+    int status = write_path_to_stream(conn, &rods_obj_path, tmp, &error);
+    ck_assert_int_eq(status, 10240);
+    ck_assert_int_eq(error.code, 0);
+
+    rewind(tmp);
+
+    unsigned char digest[16];
+    MD5_CTX context;
+    MD5Init(&context);
+
+    char buffer[1024];
+
+    size_t n;
+    while ((n = fread(buffer, 1, 1024, tmp)) > 0) {
+        MD5Update(&context, buffer, n);
+    }
+
+    MD5Final(digest, &context);
+
+    char *md5 = calloc(33, sizeof (char));
+    for (int i = 0; i < 16; i++) {
+        snprintf(md5 + i * 2, 3, "%02x", digest[i]);
+    }
+
+    ck_assert_str_eq(md5, "4efe0c1befd6f6ac4621cbdb13241246");
+
+    fclose(tmp);
+    tmp = NULL;
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 START_TEST(test_slurp_file) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -1703,8 +1754,8 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_get_user);
 
+    tcase_add_test(basic_tests, test_write_path_to_stream);
     tcase_add_test(basic_tests, test_slurp_file);
-
 
     TCase *regression_tests = tcase_create("regression");
     tcase_add_unchecked_fixture(regression_tests, setup, teardown);

@@ -179,7 +179,7 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
     size_t num_written = 0;
     char *buffer = NULL;
 
-    buffer = malloc(chunk_size * sizeof (char));
+    buffer = calloc(chunk_size, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
