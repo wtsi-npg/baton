@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
         puts("              [--unbuffered] [--verbose] [--version]");
         puts("");
         puts("Description");
-        puts("    Gets the contents of data objects and described in a JSON ");
+        puts("    Gets the contents of data objects described in a JSON");
         puts("    input file.");
         puts("");
         puts("    --acl         Print access control lists in output.");
