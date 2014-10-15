@@ -379,9 +379,10 @@ json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
 
     if (content) {
         size_t len = strlen(content);
+
         if (maybe_utf8(content, len)) {
-            json_object_set_new(results, JSON_DATA_KEY,
-                                json_pack("s", content));
+            json_t *packed = json_pack("s", content);
+            json_object_set_new(results, JSON_DATA_KEY, packed);
         }
         else {
             set_baton_error(error, USER_INPUT_PATH_ERR,
@@ -1183,6 +1184,7 @@ static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
 
     char *content = slurp_data_object(conn, obj_file, STREAM_BUFFER_SIZE,
                                       error);
+    if (error->code != 0) goto error;
 
     close_data_obj(conn, obj_file);
     free_data_obj(obj_file);

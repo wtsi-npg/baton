@@ -105,7 +105,7 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
     char *buffer  = NULL;
     char *content = NULL;
 
-    buffer = malloc(chunk_size * sizeof (char));
+    buffer = calloc(chunk_size, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
@@ -119,7 +119,7 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
     size_t capacity = chunk_size;
     size_t num_read = 0;
 
-    content = malloc(capacity * sizeof (char));
+    content = calloc(capacity, sizeof (char));
     if (!content) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
@@ -250,7 +250,10 @@ int validate_md5_last_read(rcComm_t *conn, data_obj_file_t *obj_file) {
     logmsg(DEBUG, "Comparing last read MD5 of '%s' with expected MD5 of '%s'",
            obj_file->md5_last_read, md5);
 
-    return str_equals_ignore_case(obj_file->md5_last_read, md5, 32);
+    status = str_equals_ignore_case(obj_file->md5_last_read, md5, 32);
+    free(md5);
+
+    return status;
 
 error:
     if (md5) free(md5);

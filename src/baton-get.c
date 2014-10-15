@@ -233,7 +233,7 @@ int do_get_files(FILE *input, option_flags oflags) {
                 }
                 else {
                     json_t *results =
-                        ingest_path(conn, &rods_path, oflags,  &error);
+                        ingest_path(conn, &rods_path, oflags, &error);
 
                     if (add_error_report(target, &error)) {
                         error_count++;
