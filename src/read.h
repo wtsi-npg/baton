@@ -77,32 +77,32 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file,
 /**
  * Copy a data object to a stream.
  *
- * @param[in]  conn       An open iRODS connection.
- * @param[in]  obj_file   A data object handle.
- * @param[in]  out        A file to write to.
- * @param[in]  chunk_size The number of bytes to copy at one time.
- * @param[out] error      An error report struct.
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  obj_file    A data object handle.
+ * @param[in]  out         A file to write to.
+ * @param[in]  buffer_size The number of bytes to copy at one time.
+ * @param[out] error       An error report struct.
  *
  * @return The number of bytes copied in total.
  */
 size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
-                          size_t chunk_size, baton_error_t *error);
+                          size_t buffer_size, baton_error_t *error);
 
 /**
- * Copy a data object to a new buffer.
+ * Copy a data object to a new byte string.
  *
- * @param[in]  conn       An open iRODS connection.
- * @param[in]  obj_file   A data object handle.
- * @param[in]  out        A file to write to.
- * @param[in]  chunk_size The number of bytes to copy at a time while filling
-                          the new buffer.
- * @param[out] error      An error report struct.
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  obj_file    A data object handle.
+ * @param[in]  out         A file to write to.
+ * @param[in]  buffer_size The number of bytes to copy at a time while filling
+                           the new buffer.
+ * @param[out] error       An error report struct.
  *
- * @return A new buffer containing the entire data object, which must be
+ * @return A new byte string containing the entire data object, which must be
  *         freed by the caller.
  */
 char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
-                        size_t chunk_size, baton_error_t *error);
+                        size_t buffer_size, baton_error_t *error);
 
 void set_md5_last_read(data_obj_file_t *obj_file, unsigned char digest[16]);
 

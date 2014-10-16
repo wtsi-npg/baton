@@ -38,8 +38,6 @@
 
 #define FILE_SIZE_UNITS "KB"
 
-#define STREAM_BUFFER_SIZE 1024 * 64 * 16 * 2
-
 /**
  *  @enum metadata_op
  *  @brief AVU metadata operations.
@@ -188,13 +186,14 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
 
 
 json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
-                  baton_error_t *error);
+                    size_t buffer_size, baton_error_t *error);
 
 int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
-                       const char *local_path, baton_error_t *error);
+                       const char *local_path, size_t buffer_size,
+                       baton_error_t *error);
 
 int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
-                         baton_error_t *error);
+                         size_t buffer_size, baton_error_t *error);
 
 /**
  * Return a JSON representation of the created and modified timestamps

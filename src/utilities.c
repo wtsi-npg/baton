@@ -22,6 +22,7 @@
 #include <config.h>
 
 #include <errno.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,6 +112,34 @@ const char *parse_base_name(const char *path) {
     }
 
     return base_name;
+}
+
+size_t parse_size(const char *str) {
+    char *end;
+    int base = 10;
+
+    errno = 0;
+    unsigned long int value = strtoul(str, &end, base);
+
+    if (errno != 0) {
+        logmsg(ERROR, "Failed recognise '%s' as a number: error %d %s",
+               str, errno, strerror(errno));
+        goto error;
+    }
+
+    if (end == str) {
+        logmsg(ERROR, "Failed to recognise '%s' as a number", str);
+    }
+    else if (*end != '\0') {
+        logmsg(WARN, "Further are characters present after number: %s", end);
+    }
+
+    logmsg(DEBUG, "Parsed size of %", value);
+
+    return value;
+
+error:
+    return value;
 }
 
 FILE *maybe_stdin(const char *path) {

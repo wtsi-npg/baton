@@ -1546,8 +1546,9 @@ START_TEST(test_write_path_to_stream) {
     FILE *tmp = tmpfile();
     ck_assert_ptr_ne(NULL, tmp);
 
+    size_t size = 1024;
     baton_error_t error;
-    int status = write_path_to_stream(conn, &rods_obj_path, tmp, &error);
+    int status = write_path_to_stream(conn, &rods_obj_path, tmp, size, &error);
     ck_assert_int_eq(status, 10240);
     ck_assert_int_eq(error.code, 0);
 
@@ -1596,8 +1597,8 @@ START_TEST(test_slurp_file) {
 
     // Test a range of buffer sizes, both smaller and larger than the
     // data
-    size_t chunk_sizes[10] = {    1,  128,  256,   512,  1024,
-                               2048, 4096, 8192, 16384, 37268 };
+    size_t buffer_sizes[10] = {    1,  128,  256,   512,  1024,
+                                2048, 4096, 8192, 16384, 37268 };
     for (int i = 0; i < 10; i++) {
         baton_error_t open_error;
         init_baton_error(&open_error);
@@ -1609,7 +1610,7 @@ START_TEST(test_slurp_file) {
         baton_error_t slurp_error;
         init_baton_error(&slurp_error);
 
-        char *data = slurp_data_object(conn, obj_file, chunk_sizes[i],
+        char *data = slurp_data_object(conn, obj_file, buffer_sizes[i],
                                        &slurp_error);
         ck_assert_int_eq(slurp_error.code, 0);
         ck_assert_int_eq(strnlen(data, 10240), 10240);
