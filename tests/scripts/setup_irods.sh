@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This script is run on fixture setup. It copies test data to iRODS
 # and if provided with a file of imeta commands, executes imeta to add

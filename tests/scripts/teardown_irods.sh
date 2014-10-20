@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This script is run on fixture teardown. It deletes the test data
 # from iRODS on a successful result.
