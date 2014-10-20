@@ -100,11 +100,11 @@ error:
 }
 
 char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
-                        size_t chunk_size, baton_error_t *error) {
+                        size_t buffer_size, baton_error_t *error) {
     char *buffer  = NULL;
     char *content = NULL;
 
-    buffer = calloc(chunk_size, sizeof (char));
+    buffer = calloc(buffer_size, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
@@ -115,7 +115,7 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
     MD5_CTX context;
     MD5Init(&context);
 
-    size_t capacity = chunk_size;
+    size_t capacity = buffer_size;
     size_t num_read = 0;
 
     content = calloc(capacity, sizeof (char));
@@ -126,7 +126,7 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
     }
 
     size_t n;
-    while ((n = read_data_obj(conn, obj_file, buffer, chunk_size,
+    while ((n = read_data_obj(conn, obj_file, buffer, buffer_size,
                               error)) > 0) {
         logmsg(DEBUG, "Read %zu bytes. Capacity %zu, num read %zu",
                n, capacity, num_read);
@@ -175,11 +175,17 @@ error:
 }
 
 size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
-                          size_t chunk_size, baton_error_t *error) {
+                          size_t buffer_size, baton_error_t *error) {
     size_t num_written = 0;
     char *buffer = NULL;
 
-    buffer = calloc(chunk_size, sizeof (char));
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
+
+    buffer = calloc(buffer_size, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
@@ -191,7 +197,7 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
     MD5Init(&context);
 
     size_t n;
-    while ((n = read_data_obj(conn, obj_file, buffer, chunk_size,
+    while ((n = read_data_obj(conn, obj_file, buffer, buffer_size,
                               error)) > 0) {
         logmsg(DEBUG, "Writing %zu bytes from '%s' to stream",
                n, obj_file->path);

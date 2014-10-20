@@ -43,7 +43,10 @@ static int unbuffered_flag = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
-int do_get_files(FILE *input, option_flags oflags);
+static size_t default_buffer_size = 1024 * 64 * 16 * 2;
+static size_t max_buffer_size     = 1024 * 1024 * 1024;
+
+int do_get_files(FILE *input, option_flags oflags, size_t buffer_size);
 int write_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
                     baton_error_t *error);
 
@@ -52,34 +55,41 @@ int main(int argc, char *argv[]) {
     int exit_status = 0;
     char *json_file = NULL;
     FILE *input     = NULL;
+    size_t buffer_size = default_buffer_size;
 
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"acl",        no_argument, &acl_flag,        1},
-            {"avu",        no_argument, &avu_flag,        1},
-            {"debug",      no_argument, &debug_flag,      1},
-            {"help",       no_argument, &help_flag,       1},
-            {"raw",        no_argument, &raw_flag,        1},
-            {"save",       no_argument, &save_flag,       1},
-            {"size",       no_argument, &size_flag,       1},
-            {"timestamp",  no_argument, &timestamp_flag,  1},
-            {"unbuffered", no_argument, &unbuffered_flag, 1},
-            {"verbose",    no_argument, &verbose_flag,    1},
-            {"version",    no_argument, &version_flag,    1},
+            {"acl",         no_argument, &acl_flag,        1},
+            {"avu",         no_argument, &avu_flag,        1},
+            {"debug",       no_argument, &debug_flag,      1},
+            {"help",        no_argument, &help_flag,       1},
+            {"raw",         no_argument, &raw_flag,        1},
+            {"save",        no_argument, &save_flag,       1},
+            {"size",        no_argument, &size_flag,       1},
+            {"timestamp",   no_argument, &timestamp_flag,  1},
+            {"unbuffered",  no_argument, &unbuffered_flag, 1},
+            {"verbose",     no_argument, &verbose_flag,    1},
+            {"version",     no_argument, &version_flag,    1},
             // Indexed options
-            {"file",      required_argument, NULL, 'f'},
+            {"file",        required_argument, NULL, 'f'},
+            {"buffer-size", required_argument, NULL, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:",
+        int c = getopt_long_only(argc, argv, "b:f:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
 
         switch (c) {
+            case 'b':
+                buffer_size = parse_size(optarg);
+                if (errno != 0) buffer_size = default_buffer_size;
+                break;
+
             case 'f':
                 json_file = optarg;
                 break;
@@ -116,6 +126,7 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("    --acl         Print access control lists in output.");
         puts("    --avu         Print AVU lists in output.");
+        puts("    --buffer-size Set the transfer buffer size.");
         puts("    --file        The JSON file describing the data objects.");
         puts("                  Optional, defaults to STDIN.");
         puts("    --raw         Print data object content without any JSON");
@@ -151,7 +162,29 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    int status = do_get_files(input, oflags);
+    if (buffer_size > max_buffer_size) {
+        logmsg(WARN, "Requested transfer buffer size %zu exceeds maximum of "
+               "%zu. Setting buffer size to %zu",
+               buffer_size, max_buffer_size, max_buffer_size);
+        buffer_size = max_buffer_size;
+    }
+
+    if (buffer_size % 1024 != 0) {
+        size_t tmp = ((buffer_size / 1024) + 1) * 1024;
+        if (tmp > max_buffer_size) {
+            tmp = max_buffer_size;
+        }
+
+        if (tmp > buffer_size) {
+            buffer_size = tmp;
+            logmsg(NOTICE, "Rounding transfer buffer size upwards from "
+                   "%zu to %zu", buffer_size, tmp);
+        }
+    }
+
+    logmsg(DEBUG, "Using a transfer buffer size of %zu", buffer_size);
+
+    int status = do_get_files(input, oflags, buffer_size);
     if (input != stdin) fclose(input);
 
     if (status != 0) exit_status = 5;
@@ -159,7 +192,7 @@ int main(int argc, char *argv[]) {
     exit(exit_status);
 }
 
-int do_get_files(FILE *input, option_flags oflags) {
+int do_get_files(FILE *input, option_flags oflags, size_t buffer_size) {
     int path_count  = 0;
     int error_count = 0;
 
@@ -214,7 +247,8 @@ int do_get_files(FILE *input, option_flags oflags) {
                     char *file = NULL;
                     file = json_to_local_path(target, &error);
                     if (file) {
-                        write_path_to_file(conn, &rods_path, file, &error);
+                        write_path_to_file(conn, &rods_path, file,
+                                           buffer_size, &error);
                         free(file);
                     }
 
@@ -224,7 +258,8 @@ int do_get_files(FILE *input, option_flags oflags) {
                     }
                 }
                 else if (raw_flag) {
-                    write_path_to_stream(conn, &rods_path, stdout, &error);
+                    write_path_to_stream(conn, &rods_path, stdout,
+                                         buffer_size, &error);
 
                     if (add_error_report(target, &error)) {
                         error_count++;
@@ -233,7 +268,8 @@ int do_get_files(FILE *input, option_flags oflags) {
                 }
                 else {
                     json_t *results =
-                        ingest_path(conn, &rods_path, oflags, &error);
+                        ingest_path(conn, &rods_path, oflags,
+                                    buffer_size, &error);
 
                     if (add_error_report(target, &error)) {
                         error_count++;

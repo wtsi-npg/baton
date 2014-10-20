@@ -1,0 +1,47 @@
+
+before_install:
+- sudo apt-get update -qq
+- sudo apt-get install -qq odbc-postgresql unixodbc-dev
+
+language: c
+
+compiler: gcc
+
+addons:
+  postgresql: "9.3"
+
+env:
+  global:
+    - PGVERSION="9.3"
+    - CK_DEFAULT_TIMEOUT=10
+    - IRODS_VAULT=/usr/local/var/lib/irods/Vault
+
+before_script:
+  - wget http://downloads.sourceforge.net/project/check/check/0.9.14/check-0.9.14.tar.gz -O /tmp/check-0.9.14.tar.gz
+  - tar xfz /tmp/check-0.9.14.tar.gz -C /tmp
+  - cd /tmp/check-0.9.14 ; autoreconf -fi ; ./configure ; make ; sudo make install
+  - wget https://github.com/akheron/jansson/archive/v2.6.tar.gz -O /tmp/jansson-2.6.tar.gz
+  - tar xfz /tmp/jansson-2.6.tar.gz -C /tmp
+  - cd /tmp/jansson-2.6 ; autoreconf -fi ; ./configure ; make ; sudo make install
+  - sudo ldconfig
+  - cd $TRAVIS_BUILD_DIR
+  - wget https://github.com/wtsi-npg/irods-legacy/releases/download/3.3.1-travis-463f13/irods.tar.gz -O /tmp/irods.tar.gz
+  - tar xfz /tmp/irods.tar.gz
+  - source $TRAVIS_BUILD_DIR/travis_linux_env.sh
+  - export PATH=$PATH:$IRODS_HOME/clients/icommands/bin
+  - sudo mkdir -p $IRODS_VAULT
+  - sudo chown $USER:$USER $IRODS_VAULT
+  - sudo -E -u postgres $TRAVIS_BUILD_DIR/setup_pgusers.sh
+  - sudo -E -u postgres $TRAVIS_BUILD_DIR/irodscontrol psetup
+  - $TRAVIS_BUILD_DIR/irodscontrol istart ; sleep 10
+  - echo irods | script -q -c "iinit" > /dev/null
+  - ienv
+
+script:
+  - source ./scripts/set_irods_home.sh
+  - autoreconf -fi
+  - ./configure
+  - make check
+
+after_script:
+  - $TRAVIS_BUILD_DIR/irodscontrol istop

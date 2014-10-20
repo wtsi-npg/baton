@@ -47,7 +47,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                option_flags flags, baton_error_t *error);
 
 static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
-                        baton_error_t *error);
+                        size_t buffer_size, baton_error_t *error);
 
 static const char *metadata_op_name(metadata_op operation);
 
@@ -360,8 +360,15 @@ error:
 }
 
 json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
-                    option_flags flags, baton_error_t *error) {
+                    option_flags flags, size_t buffer_size,
+                    baton_error_t *error) {
     char *content = NULL;
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
 
     // Currently only data objects are supported
     if (rods_path->objType != DATA_OBJ_T) {
@@ -375,7 +382,7 @@ json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *results = list_path(conn, rods_path, flags, error);
     if (error->code != 0) goto error;
 
-    content = slurp_file(conn, rods_path, error);
+    content = slurp_file(conn, rods_path, buffer_size, error);
 
     if (content) {
         size_t len = strlen(content);
@@ -402,10 +409,17 @@ error:
 }
 
 int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
-                       const char *local_path, baton_error_t *error) {
+                       const char *local_path, size_t buffer_size,
+                       baton_error_t *error) {
     FILE *stream = NULL;
 
     init_baton_error(error);
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
 
     logmsg(DEBUG, "Writing '%s' to '%s'", rods_path->outPath, local_path);
 
@@ -425,7 +439,7 @@ int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
-    write_path_to_stream(conn, rods_path, stream, error);
+    write_path_to_stream(conn, rods_path, stream, buffer_size, error);
     fclose(stream);
 
     return error->code;
@@ -437,11 +451,16 @@ error:
 }
 
 int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
-                         baton_error_t *error) {
+                         size_t buffer_size, baton_error_t *error) {
+    data_obj_file_t *obj_file = NULL;
+
     init_baton_error(error);
 
-    logmsg(DEBUG, "Buffer size %zu\n", STREAM_BUFFER_SIZE);
-    data_obj_file_t *obj_file = NULL;
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
 
     logmsg(DEBUG, "Writing '%s' to a stream", rods_path->outPath);
 
@@ -456,8 +475,7 @@ int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
     obj_file = open_data_obj(conn, rods_path, error);
     if (error->code != 0) goto error;
 
-    size_t n = stream_data_object(conn, obj_file, out, STREAM_BUFFER_SIZE,
-                                  error);
+    size_t n = stream_data_object(conn, obj_file, out, buffer_size, error);
 
     close_data_obj(conn, obj_file);
     free_data_obj(obj_file);
@@ -1175,15 +1193,21 @@ error:
 }
 
 static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
-                        baton_error_t *error) {
-    logmsg(DEBUG, "Buffer size %zu\n", STREAM_BUFFER_SIZE);
-
+                        size_t buffer_size, baton_error_t *error) {
     data_obj_file_t *obj_file = NULL;
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
+
+    logmsg(DEBUG, "Buffer size %zu", buffer_size);
+
     obj_file = open_data_obj(conn, rods_path, error);
     if (error->code != 0) goto error;
 
-    char *content = slurp_data_object(conn, obj_file, STREAM_BUFFER_SIZE,
-                                      error);
+    char *content = slurp_data_object(conn, obj_file, buffer_size, error);
     if (error->code != 0) goto error;
 
     close_data_obj(conn, obj_file);
