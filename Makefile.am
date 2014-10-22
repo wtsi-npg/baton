@@ -1,6 +1,9 @@
 
 ACLOCAL_AMFLAGS= -I m4
 
+EXTRA_DIST = ChangeLog
+DISTCLEANFILES = ChangeLog
+
 if HAVE_SPHINX
 MAYBE_DOC = doc
 endif
@@ -16,7 +19,7 @@ pkgconfig_DATA = baton.pc
 
 etcdir = $(sysconfdir)
 
-dist-hook:
+ChangeLog:
 	./scripts/changelog.sh > ChangeLog
 
 

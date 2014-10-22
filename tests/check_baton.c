@@ -32,11 +32,11 @@ static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
 
 static char *BASIC_COLL          = "baton-basic-test";
-static char *BASIC_DATA_PATH     = "./data/";
-static char *BASIC_METADATA_PATH = "./metadata/meta1.imeta";
+static char *BASIC_DATA_PATH     = "data";
+static char *BASIC_METADATA_PATH = "metadata/meta1.imeta";
 
-static char *SETUP_SCRIPT    = "./scripts/setup_irods.sh";
-static char *TEARDOWN_SCRIPT = "./scripts/teardown_irods.sh";
+static char *SETUP_SCRIPT    = "scripts/setup_irods.sh";
+static char *TEARDOWN_SCRIPT = "scripts/teardown_irods.sh";
 
 static void set_current_rods_root(char *in, char *out) {
     snprintf(out, MAX_PATH_LEN, "%s.%d", in, getpid());
@@ -55,11 +55,14 @@ static void basic_setup() {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
-    snprintf(command, MAX_COMMAND_LEN, "%s %s %s %s",
-                      SETUP_SCRIPT, BASIC_DATA_PATH, rods_root,
-                      BASIC_METADATA_PATH);
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s %s %s/%s",
+             TEST_ROOT, SETUP_SCRIPT,
+             TEST_ROOT, BASIC_DATA_PATH,
+             rods_root,
+             TEST_ROOT, BASIC_METADATA_PATH);
 
     printf("Setup: %s\n", command);
+
     int ret = system(command);
 
     if (ret != 0) raise(SIGINT);
@@ -70,7 +73,9 @@ static void basic_teardown() {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
-    snprintf(command, MAX_COMMAND_LEN, "%s %s", TEARDOWN_SCRIPT, rods_root);
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s",
+             TEST_ROOT, TEARDOWN_SCRIPT,
+             rods_root);
 
     printf("Teardown: %s\n", command);
     int ret = system(command);
@@ -137,12 +142,9 @@ END_TEST
 START_TEST(test_maybe_stdin) {
     ck_assert_ptr_eq(stdin, maybe_stdin(NULL));
 
-    char buf[MAX_PATH_LEN];
-    char *wd = getcwd(buf, MAX_PATH_LEN);
-    ck_assert_ptr_ne(wd , NULL);
-
     char file_path[MAX_PATH_LEN];
-    snprintf(file_path, MAX_PATH_LEN, "%s/data/f1.txt", wd);
+    snprintf(file_path, MAX_PATH_LEN, "%s/%s/f1.txt",
+             TEST_ROOT, BASIC_DATA_PATH);
 
     FILE *f = maybe_stdin(file_path);
     ck_assert_ptr_ne(f, NULL);
