@@ -12,6 +12,7 @@ addons:
 
 env:
   global:
+    - secure: kPHaDhR3o/9k0F3wuxvE7SlFr+TVVx4niPeHGo//gjYZ2CmJg21wDcxTWgSlNz6iOzkhMUWQe1P1fv/qQHBjNCWfCHTgCqZnAf6kr1So4R3Q/nvdO2pUWYH9N9JUeaSDMXpzbaSilNWft3Qu0slS5C2E+6SY/9FbgBqdtvh78MY=
     - PGVERSION="9.3"
     - CK_DEFAULT_TIMEOUT=10
     - IRODS_VAULT=/usr/local/var/lib/irods/Vault
@@ -41,7 +42,20 @@ script:
   - source ./scripts/set_irods_home.sh
   - autoreconf -fi
   - ./configure
-  - make check
+  - make distcheck
 
 after_script:
   - $TRAVIS_BUILD_DIR/irodscontrol istop
+
+after_success:
+  - make dist
+  - export DIST_FILE=$(ls baton-*.tar.gz | tr -d '\012')
+
+deploy:
+  provider: releases
+  api-key: $GH_OAUTH
+  file: $DIST_FILE
+  skip_cleanup: true
+  on:
+    tags: true
+    all_branches: true
