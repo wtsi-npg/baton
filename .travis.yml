@@ -4,7 +4,7 @@ before_install:
   - sudo apt-get install -qq odbc-postgresql unixodbc-dev python-sphinx
 
 install:
-  - pip install breathe
+  - sudo pip install breathe
 
 language: c
 
