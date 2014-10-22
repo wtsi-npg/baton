@@ -1,7 +1,7 @@
 
 before_install:
 - sudo apt-get update -qq
-- sudo apt-get install -qq odbc-postgresql unixodbc-dev
+- sudo apt-get install -qq odbc-postgresql unixodbc-dev python-sphinx
 
 language: c
 
