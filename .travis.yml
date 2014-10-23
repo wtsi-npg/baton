@@ -15,7 +15,7 @@ addons:
 
 env:
   global:
-    - secure: kPHaDhR3o/9k0F3wuxvE7SlFr+TVVx4niPeHGo//gjYZ2CmJg21wDcxTWgSlNz6iOzkhMUWQe1P1fv/qQHBjNCWfCHTgCqZnAf6kr1So4R3Q/nvdO2pUWYH9N9JUeaSDMXpzbaSilNWft3Qu0slS5C2E+6SY/9FbgBqdtvh78MY=
+    - secure: RwN70g8YsrUuaJVkb3JJBUkttGb+oM+shJjl/9N0XScMNYclGqbqFcFGxU7P4NVjAUEzAoxwTRBDqH/OEJBBmBMpl0m1e4cIzqbZG3pfZ+hlhRGKt0jbHtehSstdHyNcfpTwgjyESHaIo96GbcUTLGq2BHOFcgaa3vHHdJn4ckU=
     - PGVERSION="9.3"
     - CK_DEFAULT_TIMEOUT=10
     - IRODS_VAULT=/usr/local/var/lib/irods/Vault
@@ -29,7 +29,7 @@ before_script:
   - cd /tmp/jansson-2.6 ; autoreconf -fi ; ./configure ; make ; sudo make install
   - sudo ldconfig
   - cd $TRAVIS_BUILD_DIR
-  - wget https://github.com/wtsi-npg/irods-legacy/releases/download/3.3.1-travis-463f13/irods.tar.gz -O /tmp/irods.tar.gz
+  - wget https://github.com/wtsi-npg/irods-legacy/releases/download/3.3.1-travis-bc85aa/irods.tar.gz -O /tmp/irods.tar.gz
   - tar xfz /tmp/irods.tar.gz
   - source $TRAVIS_BUILD_DIR/travis_linux_env.sh
   - export PATH=$PATH:$IRODS_HOME/clients/icommands/bin
@@ -40,6 +40,7 @@ before_script:
   - $TRAVIS_BUILD_DIR/irodscontrol istart ; sleep 10
   - echo irods | script -q -c "iinit" > /dev/null
   - ienv
+  - ils
 
 script:
   - source ./scripts/set_irods_home.sh
