@@ -29,7 +29,7 @@ before_script:
   - cd /tmp/jansson-2.6 ; autoreconf -fi ; ./configure ; make ; sudo make install
   - sudo ldconfig
   - cd $TRAVIS_BUILD_DIR
-  - wget https://github.com/wtsi-npg/irods-legacy/releases/download/3.3.1-travis-463f13/irods.tar.gz -O /tmp/irods.tar.gz
+  - wget https://github.com/wtsi-npg/irods-legacy/releases/download/3.3.1-travis-bc85aa/irods.tar.gz -O /tmp/irods.tar.gz
   - tar xfz /tmp/irods.tar.gz
   - source $TRAVIS_BUILD_DIR/travis_linux_env.sh
   - export PATH=$PATH:$IRODS_HOME/clients/icommands/bin
