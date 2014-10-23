@@ -15,7 +15,7 @@ addons:
 
 env:
   global:
-    - secure: XyvnFLHHu9ABC7R0k0QtDBEIvNz1UgwiB2aAbN+mbTuNH5Bjgb7RqA0iLmXjjAyvfKarQOgzmvJXnrZvT47+9glDtPNPl6EwVZneGKpPqqh/2ScypfEnBW3LJfg1Jh6e4D41SJuXbcj5hXaLjjyhsjtDV/2HN1BVH1LCicTe/jM=
+    - secure: cDfB188ECmloGfScZQezqwiFef7l+gXgn2RiTOxINriy9wYS6RmZxuZBHGuR36u7QV3QEJtMdihyQ+XBN2eQPf5jULQXV15t7gArXEVPzzF8i+f8MTgVHugU3TqmPLQkY94wBBbpzvRD9xCAC/uNiQcLLwuD2SjPfTXkqgqqtd0=
     - PGVERSION="9.3"
     - CK_DEFAULT_TIMEOUT=10
     - IRODS_VAULT=/usr/local/var/lib/irods/Vault
