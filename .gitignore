@@ -27,3 +27,9 @@ GTAGS
 aclocal.m4
 configure
 m4/*.m4
+src/baton-chmod
+src/baton-get
+src/baton-list
+src/baton-metamod
+src/baton-metaquery
+src/baton-metasuper
