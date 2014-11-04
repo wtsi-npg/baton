@@ -24,3 +24,6 @@ baton.pc
 GPATH
 GRTAGS
 GTAGS
+aclocal.m4
+configure
+m4/*.m4
