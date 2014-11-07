@@ -136,6 +136,8 @@ const char *get_avu_attribute(json_t *avu, baton_error_t *error);
 
 const char *get_avu_value(json_t *avu, baton_error_t *error);
 
+const char *get_avu_in_value(json_t *avu, baton_error_t *error);
+
 const char *get_avu_units(json_t *avu, baton_error_t *error);
 
 const char *get_avu_operator(json_t *avu, baton_error_t *error);

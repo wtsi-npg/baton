@@ -31,16 +31,18 @@
 
 #define SEARCH_MAX_ROWS      10
 
-#define SEARCH_OP_EQUALS "="
-#define SEARCH_OP_LIKE   "like"
-#define SEARCH_OP_STR_GT ">"
-#define SEARCH_OP_STR_LT "<"
-#define SEARCH_OP_NUM_GT "n>"
-#define SEARCH_OP_NUM_LT "n<"
-#define SEARCH_OP_STR_GE ">="
-#define SEARCH_OP_STR_LE "<="
-#define SEARCH_OP_NUM_GE "n>="
-#define SEARCH_OP_NUM_LE "n<="
+#define SEARCH_OP_EQUALS   "="
+#define SEARCH_OP_LIKE     "like"
+#define SEARCH_OP_NOT_LIKE "not like"
+#define SEARCH_OP_IN       "in"
+#define SEARCH_OP_STR_GT   ">"
+#define SEARCH_OP_STR_LT   "<"
+#define SEARCH_OP_NUM_GT   "n>"
+#define SEARCH_OP_NUM_LT   "n<"
+#define SEARCH_OP_STR_GE   ">="
+#define SEARCH_OP_STR_LE   "<="
+#define SEARCH_OP_NUM_GE   "n>="
+#define SEARCH_OP_NUM_LE   "n<="
 
 #define DEFAULT_REPL_NUM "0"
 
