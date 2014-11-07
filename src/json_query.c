@@ -43,11 +43,12 @@ void log_json_error(log_level level, json_error_t *error) {
 
 const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
     static size_t num_operators = 10;
-    static char *operators[] = { SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
-                                 SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
-                                 SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
-                                 SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
-                                 SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE };
+    static char *operators[] = { SEARCH_OP_EQUALS,   SEARCH_OP_LIKE,
+                                 SEARCH_OP_NOT_LIKE, SEARCH_OP_IN,
+                                 SEARCH_OP_STR_GT,   SEARCH_OP_STR_LT,
+                                 SEARCH_OP_NUM_GT,   SEARCH_OP_NUM_LT,
+                                 SEARCH_OP_STR_GE,   SEARCH_OP_STR_LE,
+                                 SEARCH_OP_NUM_GE,   SEARCH_OP_NUM_LE };
     size_t valid_index;
     int valid = 0;
     for (size_t i = 0; i < num_operators; i++) {
@@ -62,11 +63,12 @@ const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid operator: expected one of "
                         "[%s, %s, %s, %s, %s, %s, %s, %s, %s, %s]",
-                        SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
-                        SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
-                        SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
-                        SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
-                        SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE);
+                        SEARCH_OP_EQUALS,   SEARCH_OP_LIKE,
+                        SEARCH_OP_NOT_LIKE, SEARCH_OP_IN,
+                        SEARCH_OP_STR_GT,   SEARCH_OP_STR_LT,
+                        SEARCH_OP_NUM_GT,   SEARCH_OP_NUM_LT,
+                        SEARCH_OP_STR_GE,   SEARCH_OP_STR_LE,
+                        SEARCH_OP_NUM_GE,   SEARCH_OP_NUM_LE);
         goto error;
     }
 
@@ -394,9 +396,6 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
         const char *attr_name = get_avu_attribute(avu, error);
         if (error->code != 0) goto error;
 
-        const char *attr_value = get_avu_value(avu, error);
-        if (error->code != 0) goto error;
-
         const char *oper = get_avu_operator(avu, error);
         if (error->code != 0) goto error;
 
@@ -407,10 +406,25 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
         const char *valid_oper = ensure_valid_operator(oper, error);
         if (error->code != 0) goto error;
 
+        const char *attr_value;
+        void *free_me = NULL;
+        if (str_equals_ignore_case(oper, SEARCH_OP_IN, MAX_STR_LEN)) {
+            // this is an IN query, parse value as JSON array instead of string
+            attr_value = get_avu_in_value(avu, error);
+            free_me = (void *)attr_value;
+            if (error->code != 0) goto error;
+        } else {
+            attr_value = get_avu_value(avu, error);
+            if (error->code != 0) goto error;
+        }
+
         logmsg(DEBUG, "Preparing AVU search a: '%s' v: '%s', op: '%s'",
                attr_name, attr_value, valid_oper);
 
         prepare(query_in, attr_name, attr_value, valid_oper);
+        if (free_me != NULL) {
+            free(free_me);
+        }
      }
 
     return query_in;

@@ -141,7 +141,11 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
         char *expr = calloc(expr_size, sizeof (char));
         if (!expr) goto error;
 
-        snprintf(expr, expr_size, "%s '%s'", operator, name);
+        if (str_equals_ignore_case(operator, SEARCH_OP_IN, MAX_STR_LEN)) {
+            snprintf(expr, expr_size, "%s %s", operator, name);
+        } else {
+            snprintf(expr, expr_size, "%s '%s'", operator, name);
+	}
 
         logmsg(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
                "total len %d [%s]",
