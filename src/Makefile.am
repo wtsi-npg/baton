@@ -1,11 +1,15 @@
 
 MOSTLYCLEANFILES = *.gcda *.gcno
 
+AM_CPPFLAGS = @IRODS_CPPFLAGS@
+AM_LDFLAGS  = @IRODS_LDFLAGS@
+AM_LDLIBS   = @IRODS_LDLIBS@
+
 if COVERAGE_ENABLED
-AM_CFLAGS = -fprofile-arcs -ftest-coverage
-AM_LDFLAGS = --coverage
+AM_CFLAGS   = -fprofile-arcs -ftest-coverage
+AM_LDFLAGS += --coverage
 else
-AM_CFLAGS = -Wall -Werror -Wextra -pedantic
+AM_CFLAGS   = -Wall -Werror -Wextra -pedantic
 endif
 
 lib_LTLIBRARIES = libbaton.la

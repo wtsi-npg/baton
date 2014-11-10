@@ -53,45 +53,42 @@ iRODS C API and requires a C compiler to build.
    <http://www.digip.org/jansson/>`_ ) as described in their
    documentation.
 
-2. Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation
-   (assuming bash)
-
-.. code-block:: sh
-
-   IRODS_HOME=<path to iRODS> source set_irods_home.sh
-
-3. Generate the configure script
+2. Generate the configure script. If you download a release tar.gz
+   archive, you may skip this step because the configure script is
+   included.
 
 .. code-block:: sh
 
    autoreconf -i
 
-4. Generate the makefiles (see INSTALL for arguments to configure)
+3. Generate the makefiles (see INSTALL for arguments to configure).
+   The path to iRODS must be the root directory of the iRODS installation,
+   which defaults to ``/usr/local/lib/irods``.
 
 .. code-block:: sh
 
-   ./configure
+   ./configure --with-irods=/path/to/irods
 
-5. Compile
+4. Compile
 
 .. code-block:: sh
 
    make
 
-6.  Optionally, run the test suite
+5.  Optionally, run the test suite
 
 .. code-block:: sh
 
    make check
 
-7. If you have run configure with the optional --enable-coverage flag
+6. If you have run configure with the optional --enable-coverage flag
    you can generate test coverage statistics with lcov.
 
 .. code-block:: sh
 
    make check-coverage
 
-8. Install, including HTML manual and manpage.
+7. Install, including HTML manual and manpage.
 
 .. code-block:: sh
 
@@ -690,6 +687,8 @@ available operators are:
 
 * ``=``
 * ``like``
+* ``not like``
+* ``in``
 * ``>``
 * ``n>`` (numeric coercion)
 * ``<``
@@ -698,6 +697,15 @@ available operators are:
 * ``n>=`` (numeric coercion)
 * ``<=``
 * ``n<=`` (numeric coercion)
+
+The ``in`` operator requires that the attribute's value in the query
+be a JSON list of possible strings to test. A successful match will be
+any metadata having one of those strings as a value for that
+attribute. e.g.
+
+.. code-block:: json
+
+   {"avus": [{"attribute": "a", "value": ["a", "b", "c"]}]}
 
 To modify the above query to return results only where the attribute
 ``x`` has values numerically less than 100, the JSON :term:`AVU` would

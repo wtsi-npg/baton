@@ -1,0 +1,15 @@
+
+	Added support for the 'NOT LIKE' and 'IN' query
+	operators. Contribution from Joshua Randall.
+
+	Added --with-irods=/path/to/irods option to the configure script.
+
+	[0.11.1]
+
+	Added a --buffer-size option to baton-get. This enables the data
+	transfer buffer size to be set by the user.
+
+	[0.11.0]
+
+	Added baton-get program to allow data to be downloaded as files
+	or inline JSON.

@@ -185,33 +185,36 @@ const char *get_avu_in_value(json_t *avu, baton_error_t *error) {
 
     if (!valarray) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid iRODS AVU: value property is missing for `in` condition");
+                        "Invalid iRODS AVU: value property is missing "
+                        "for `in` condition");
         goto error;
     }
 
     if (!json_is_array(valarray)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid 'value' attribute: not a JSON array (required for `in` condition)");
+                        "Invalid 'value' attribute: not a JSON array "
+                        "(required for `in` condition)");
         goto error;
     }
 
     size_t index;
     json_t *value;
-
     size_t length = 2; // start with length 2 for the empty set: ()
+
     json_array_foreach(valarray, index, value) {
         if (!json_is_string(value)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid AVU value: not a JSON string in item %d of in array", index);
+                            "Invalid AVU value: not a JSON string "
+                            "in item %d of `in` array", index);
             goto error;
         }
-        length += 3 + strlen(json_string_value(value)); // add length of value plus surrounding quotes and comma: 'value',
+        // add length of value plus surrounding quotes and comma: 'value',
+        length += 3 + strlen(json_string_value(value));
     }
-    if (length > 2) {
-      // subtract final comma
-      length--;
-    }
-    char *invalue = (char*)malloc(length+1); // length plus terminating null
+
+    if (length > 2) length--; // subtract final comma
+
+    char *invalue = (char *) malloc(length + 1); // length plus terminating null
     invalue[0] = '\0';
     strcat(invalue, "(");
     json_array_foreach(valarray, index, value) {
@@ -219,8 +222,10 @@ const char *get_avu_in_value(json_t *avu, baton_error_t *error) {
         strcat(invalue, json_string_value(value));
         strcat(invalue, "',");
     }
+
     // overwrite final comma with ')'
-    invalue[strlen(invalue)-1] = ')';
+    invalue[strlen(invalue) - 1] = ')';
+
     return invalue;
 
 error:

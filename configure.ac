@@ -18,16 +18,52 @@ LT_INIT
 
 AC_CONFIG_MACRO_DIR([m4])
 
-# Notes for OSX with homebrew:
-# Ensure that check.m4 and pkg.m4 are in a system aclocal path or
-# a path added by ACLOCAL_AMFLAGS in Makefile.am
+dnl Save the current values to restore later
+CPPFLAGS_RESTORE=$CPPFLAGS
+LDFLAGS_RESTORE=$LDFLAGS
 
-# Unit tests using the check library
+IRODS_HOME=
+AC_ARG_WITH([irods],
+ [AS_HELP_STRING([--with-irods],
+   [Specify the location of the iRODS installation (default: /usr/local/lib/irods)])],
+ [AS_IF([test "x$with_irods" == xno],
+        [AC_MSG_FAILURE([iRODS is required to build baton])],
+        [test "x$with_irods" == xyes],
+        [AC_MSG_NOTICE(Using default iRODS location)],
+        [IRODS_HOME="$with_irods"])],
+ [IRODS_HOME=/usr/local/lib/irods])
+
+AC_SUBST(IRODS_HOME)
+
+dnl iRODS leaves its headers and shared libraries in non-standard
+dnl places. However, these places may be determined relative to
+dnl IRODS_HOME.
+IRODS_CPPFLAGS=\
+"-I${IRODS_HOME}/lib/api/include \
+-I${IRODS_HOME}/lib/core/include \
+-I${IRODS_HOME}/lib/md5/include \
+-I${IRODS_HOME}/lib/sha1/include \
+-I${IRODS_HOME}/server/core/include \
+-I${IRODS_HOME}/server/drivers/include \
+-I${IRODS_HOME}/server/icat/include \
+-I${IRODS_HOME}/server/re/include"
+
+IRODS_LDFLAGS="-L${IRODS_HOME}/lib/core/obj"
+
+AC_SUBST([IRODS_CPPFLAGS], ["${IRODS_CPPFLAGS}"])
+AC_SUBST([IRODS_LDFLAGS],  ["${IRODS_LDFLAGS}"])
+AC_SUBST([IRODS_LDLIBS],   ["-lRodsAPIs -lgssapi_krb5"])
+
+dnl Notes for OSX with homebrew:
+dnl Ensure that check.m4 and pkg.m4 are in a system aclocal path or
+dnl a path added by ACLOCAL_AMFLAGS in Makefile.am
+
+dnl Unit tests using the check library
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4], [check_present=yes],
                   [check_present=no])
 AM_CONDITIONAL(HAVE_CHECK, test "x$check_present" = "xyes")
 
-# Sphinx documentation build (HTML manual and manpage)
+dnl Sphinx documentation build (HTML manual and manpage)
 AC_ARG_VAR([SPHINXBUILD], [Sphinx documentation builder])
 AC_ARG_VAR([LCOV], [lcov code coverage analysis tool])
 AC_ARG_VAR([GENHTML], [lcov HTML reporting tool])
@@ -43,7 +79,7 @@ fi
 
 AM_CONDITIONAL(HAVE_SPHINX, [test "x${SPHINXBUILD}" != "xno"])
 
-# Lcov code coverage analysis
+dnl Lcov code coverage analysis
 AC_ARG_ENABLE([coverage],
   [AS_HELP_STRING([--enable-coverage],
     [Enable code coverage analysis (default is no)])],
@@ -53,21 +89,25 @@ if test "x${coverage_enabled}" = "xyes"; then
   AC_CHECK_LIB(gcov, __gcov_init, [], [])
 
   AC_PATH_PROG([LCOV], lcov, no)
-    if test "x${LCOV}" = "xno"; then
-      AC_MSG_ERROR([Could not find lcov, necessary for coverage analysis.])
-    fi
+  if test "x${LCOV}" = "xno"; then
+    AC_MSG_ERROR([Could not find lcov, necessary for coverage analysis.])
+  fi
 
   AC_PATH_PROG([GENHTML], genhtml, no)
-    if test "x${GENHTML}" = "xno"; then
-      AC_MSG_ERROR([Could not find genhtml, necessary for coverage reporting.])
-    fi
+  if test "x${GENHTML}" = "xno"; then
+    AC_MSG_ERROR([Could not find genhtml, necessary for coverage reporting.])
+  fi
 fi
 
 AM_CONDITIONAL(COVERAGE_ENABLED, [test "x${coverage_enabled}" = "xyes"])
 
-# Required library checks
+dnl Required library checks
 AC_CHECK_LIB([pthread], [pthread_kill])
 AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
+
+dnl Set these temporarily for AC_CHECK_LIB
+CPPFLAGS="$CPPFLAGS ${IRODS_CPPFLAGS}"
+LDFLAGS="$LDFLAGS ${IRODS_LDFLAGS}"
 
 AC_CHECK_LIB([RodsAPIs], [getRodsEnvFileName], [],
              [AC_MSG_ERROR([
@@ -85,6 +125,10 @@ Unable to find the required JSON library
 jannson. Please ensure that it is installed.
 -----------------------------------------------])
 ])
+
+dnl Restore the original values
+CPPFLAGS=$CPPFLAGS_RESTORE
+LDFLAGS=$LDFLAGS_RESTORE
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([src/baton.h])
