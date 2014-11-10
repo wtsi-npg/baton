@@ -43,9 +43,8 @@ before_script:
   - ils
 
 script:
-  - source ./scripts/set_irods_home.sh
   - autoreconf -fi
-  - ./configure
+  - ./configure --with-irods=$IRODS_HOME
   - make distcheck
 
 after_script:
