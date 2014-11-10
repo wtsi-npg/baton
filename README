@@ -43,18 +43,17 @@ Installation:
 
 Install iRODS and baton dependencies (Jansson) as described in their
 documentation. iRODS does not install its headers and libraries in the
-standard locations, therefore you should set the environment variable
-IRODS_HOME to the root of your iRODS installation before executing the
-following commands.
+standard locations, therefore you should set the location of the root
+of the installation using the --with-irods option to the configure
+script.
 
 # Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation (assuming bash)
-IRODS_HOME=<path to iRODS> source ./scripts/set_irods_home.sh
 
 # Generate the configure script
 autoreconf -i
 
 # Generate the makefiles (see INSTALL for arguments to configure)
-./configure
+./configure --with-irods=/path/to/irods
 
 # Compile
 make

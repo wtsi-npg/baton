@@ -18,6 +18,7 @@ env:
     - secure: cDfB188ECmloGfScZQezqwiFef7l+gXgn2RiTOxINriy9wYS6RmZxuZBHGuR36u7QV3QEJtMdihyQ+XBN2eQPf5jULQXV15t7gArXEVPzzF8i+f8MTgVHugU3TqmPLQkY94wBBbpzvRD9xCAC/uNiQcLLwuD2SjPfTXkqgqqtd0=
     - PGVERSION="9.3"
     - CK_DEFAULT_TIMEOUT=10
+    - IRODS_HOME=$TRAVIS_BUILD_DIR/iRODS
     - IRODS_VAULT=/usr/local/var/lib/irods/Vault
 
 before_script:
@@ -43,10 +44,9 @@ before_script:
   - ils
 
 script:
-  - source ./scripts/set_irods_home.sh
   - autoreconf -fi
-  - ./configure
-  - make distcheck
+  - ./configure --with-irods=$IRODS_HOME
+  - make distcheck DISTCHECK_CONFIGURE_FLAGS=--with-irods=$IRODS_HOME
 
 after_script:
   - $TRAVIS_BUILD_DIR/irodscontrol istop
