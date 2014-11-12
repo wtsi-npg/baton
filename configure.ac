@@ -102,6 +102,7 @@ fi
 AM_CONDITIONAL(COVERAGE_ENABLED, [test "x${coverage_enabled}" = "xyes"])
 
 dnl Required library checks
+AC_CHECK_LIB([m], [log10])
 AC_CHECK_LIB([pthread], [pthread_kill])
 AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
 
