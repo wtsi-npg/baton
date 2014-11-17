@@ -167,28 +167,10 @@ const char *get_avu_value(json_t *avu, baton_error_t *error) {
                             JSON_VALUE_SHORT_KEY, error);
 }
 
-// return value from get_avu_in_value must be freed after use
-const char *get_avu_in_value(json_t *avu, baton_error_t *error) {
-
-    if (!json_is_object(avu)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid AVU: not a JSON object");
-        goto error;
-    }
-
-    json_t *valarray;
-
-    valarray = json_object_get(avu, JSON_VALUE_KEY);
-    if (!valarray && JSON_VALUE_SHORT_KEY) {
-        valarray = json_object_get(avu, JSON_VALUE_SHORT_KEY);
-    }
-
-    if (!valarray) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid iRODS AVU: value property is missing "
-                        "for `in` condition");
-        goto error;
-    }
+char *make_in_op_value(json_t *avu, baton_error_t *error) {
+    json_t *valarray = get_json_value(avu, "value", JSON_VALUE_KEY,
+                                      JSON_VALUE_SHORT_KEY, error);
+    if (error->code != 0) goto error;
 
     if (!json_is_array(valarray)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -197,10 +179,12 @@ const char *get_avu_in_value(json_t *avu, baton_error_t *error) {
         goto error;
     }
 
+    // Open paren
+    json_t *op_value = json_pack("s", "(");
+    json_t *prev_value;
+
     size_t index;
     json_t *value;
-    size_t length = 2; // start with length 2 for the empty set: ()
-
     json_array_foreach(valarray, index, value) {
         if (!json_is_string(value)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -208,27 +192,42 @@ const char *get_avu_in_value(json_t *avu, baton_error_t *error) {
                             "in item %d of `in` array", index);
             goto error;
         }
-        // add length of value plus surrounding quotes and comma: 'value',
-        length += 3 + strlen(json_string_value(value));
+
+        prev_value = op_value;
+        json_t *tmp;
+        if (index == 0) {
+            tmp = json_pack("s+++", json_string_value(prev_value),
+                            "'", json_string_value(value),  "'");
+
+        }
+        else {
+            tmp = json_pack("s+++", json_string_value(prev_value),
+                            ", '", json_string_value(value), "'");
+        }
+
+        if (tmp) {
+            op_value = tmp;
+            json_decref(prev_value);
+        }
     }
 
-    if (length > 2) length--; // subtract final comma
-
-    char *invalue = (char *) malloc(length + 1); // length plus terminating null
-    invalue[0] = '\0';
-    strcat(invalue, "(");
-    json_array_foreach(valarray, index, value) {
-        strcat(invalue, "'");
-        strcat(invalue, json_string_value(value));
-        strcat(invalue, "',");
+    // Close paren
+    prev_value = op_value;
+    json_t *tmp = json_pack("s+", json_string_value(op_value), ")");
+    if (tmp) {
+        op_value = tmp;
+        json_decref(prev_value);
     }
 
-    // overwrite final comma with ')'
-    invalue[strlen(invalue) - 1] = ')';
+    logmsg(DEBUG, "Using IN value of %s", json_string_value(op_value));
 
-    return invalue;
+    char *copy = copy_str(json_string_value(op_value), MAX_STR_LEN);
+    json_decref(op_value);
+    return copy;
 
 error:
+    if (op_value) json_decref(op_value);
+
     return NULL;
 }
 
