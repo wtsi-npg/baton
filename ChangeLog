@@ -1,4 +1,6 @@
 
+	[0.12.0]
+
 	Added support for the 'NOT LIKE' and 'IN' query
 	operators. Contribution from Joshua Randall.
 
