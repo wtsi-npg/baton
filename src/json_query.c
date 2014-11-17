@@ -355,8 +355,9 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
         goto error;
     }
 
-    for (size_t i = 0; i < num_clauses; i++) {
-        json_t *access = json_array_get(mapped_acl, i);
+    size_t i;
+    json_t *access;
+    json_array_foreach(mapped_acl, i, access) {
         if (!json_is_object(access)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid permissions specification at position "
@@ -383,9 +384,12 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
                                        json_t *avus,
                                        prepare_avu_search_cb prepare,
                                        baton_error_t *error) {
+    json_t *in_opvalue = NULL;
     size_t num_clauses = json_array_size(avus);
-    for (size_t i = 0; i < num_clauses; i++) {
-        json_t *avu = json_array_get(avus, i);
+
+    size_t i;
+    json_t *avu;
+    json_array_foreach(avus, i, avu) {
         if (!json_is_object(avu)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid AVU at position %d of %d: ",
@@ -407,11 +411,9 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
         if (error->code != 0) goto error;
 
         const char *attr_value;
-        void *free_me = NULL;
         if (str_equals_ignore_case(oper, SEARCH_OP_IN, MAX_STR_LEN)) {
             // this is an IN query, parse value as JSON array instead of string
-            attr_value = get_avu_in_value(avu, error);
-            free_me = (void *)attr_value;
+            attr_value = make_in_op_value(avu, error);
             if (error->code != 0) goto error;
         } else {
             attr_value = get_avu_value(avu, error);
@@ -422,14 +424,17 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
                attr_name, attr_value, valid_oper);
 
         prepare(query_in, attr_name, attr_value, valid_oper);
-        if (free_me != NULL) {
-            free(free_me);
+
+        if (in_opvalue) {
+            json_decref(in_opvalue);
+            in_opvalue = NULL; // Reset for any subsequent IN clause
         }
      }
 
     return query_in;
 
 error:
+    if (in_opvalue) json_decref(in_opvalue);
     return query_in;
 }
 
@@ -439,8 +444,10 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error) {
     size_t num_clauses = json_array_size(timestamps);
-    for (size_t i = 0; i < num_clauses; i++) {
-        json_t *tp = json_array_get(timestamps, i);
+
+    size_t i;
+    json_t *tp;
+    json_array_foreach(timestamps, i, tp) {
         if (!json_is_object(tp)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid timestamp at position %d of %d: "

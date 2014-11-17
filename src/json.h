@@ -136,8 +136,6 @@ const char *get_avu_attribute(json_t *avu, baton_error_t *error);
 
 const char *get_avu_value(json_t *avu, baton_error_t *error);
 
-const char *get_avu_in_value(json_t *avu, baton_error_t *error);
-
 const char *get_avu_units(json_t *avu, baton_error_t *error);
 
 const char *get_avu_operator(json_t *avu, baton_error_t *error);
@@ -190,6 +188,8 @@ json_t *collection_path_to_json(const char *path, baton_error_t *error);
 char *json_to_path(json_t *object, baton_error_t *error);
 
 char *json_to_local_path(json_t *object, baton_error_t *error);
+
+char *make_in_op_value(json_t *avu, baton_error_t *error);
 
 void print_json_stream(json_t *json, FILE *stream);
 
