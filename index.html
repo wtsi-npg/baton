@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Welcome to baton‘s documentation &mdash; baton 0.11.0
+    <title>Welcome to baton‘s documentation &mdash; baton 0.12.1
  documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '0.11.0
+        VERSION:     '0.12.1
 ',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
@@ -26,7 +26,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="baton 0.11.0
+    <link rel="top" title="baton 0.12.1
  documentation" href="#" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
-        <li><a href="#">baton 0.11.0
+        <li><a href="#">baton 0.12.1
  documentation</a> &raquo;</li> 
       </ul>
     </div>  
@@ -86,44 +86,41 @@ iRODS C API and requires a C compiler to build.</p>
 <ol class="arabic simple">
 <li>Install iRODS and the <a class="reference external" href="http://www.digip.org/jansson/">Jansson JSON library</a> ) as described in their
 documentation.</li>
-<li>Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation
-(assuming bash)</li>
-</ol>
-<div class="highlight-sh"><div class="highlight"><pre><span class="nv">IRODS_HOME</span><span class="o">=</span>&lt;path to iRODS&gt; <span class="nb">source </span>set_irods_home.sh
-</pre></div>
-</div>
-<ol class="arabic simple" start="3">
-<li>Generate the configure script</li>
+<li>Generate the configure script. If you download a release tar.gz
+archive, you may skip this step because the configure script is
+included.</li>
 </ol>
 <div class="highlight-sh"><div class="highlight"><pre>autoreconf -i
 </pre></div>
 </div>
-<ol class="arabic simple" start="4">
-<li>Generate the makefiles (see INSTALL for arguments to configure)</li>
+<ol class="arabic simple" start="3">
+<li>Generate the makefiles (see INSTALL for arguments to configure).
+The path to iRODS must be the root directory of the iRODS installation,
+which defaults to <tt class="docutils literal"><span class="pre">/usr/local/lib/irods</span></tt>.</li>
 </ol>
-<div class="highlight-sh"><div class="highlight"><pre>./configure
+<div class="highlight-sh"><div class="highlight"><pre>./configure --with-irods<span class="o">=</span>/path/to/irods
 </pre></div>
 </div>
-<ol class="arabic simple" start="5">
+<ol class="arabic simple" start="4">
 <li>Compile</li>
 </ol>
 <div class="highlight-sh"><div class="highlight"><pre>make
 </pre></div>
 </div>
-<ol class="arabic simple" start="6">
+<ol class="arabic simple" start="5">
 <li>Optionally, run the test suite</li>
 </ol>
 <div class="highlight-sh"><div class="highlight"><pre>make check
 </pre></div>
 </div>
-<ol class="arabic simple" start="7">
+<ol class="arabic simple" start="6">
 <li>If you have run configure with the optional &#8211;enable-coverage flag
 you can generate test coverage statistics with lcov.</li>
 </ol>
 <div class="highlight-sh"><div class="highlight"><pre>make check-coverage
 </pre></div>
 </div>
-<ol class="arabic simple" start="8">
+<ol class="arabic simple" start="7">
 <li>Install, including HTML manual and manpage.</li>
 </ol>
 <div class="highlight-sh"><div class="highlight"><pre>make clean install
@@ -696,6 +693,8 @@ available operators are:</p>
 <ul class="simple">
 <li><tt class="docutils literal"><span class="pre">=</span></tt></li>
 <li><tt class="docutils literal"><span class="pre">like</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">not</span> <span class="pre">like</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">in</span></tt></li>
 <li><tt class="docutils literal"><span class="pre">&gt;</span></tt></li>
 <li><tt class="docutils literal"><span class="pre">n&gt;</span></tt> (numeric coercion)</li>
 <li><tt class="docutils literal"><span class="pre">&lt;</span></tt></li>
@@ -705,6 +704,13 @@ available operators are:</p>
 <li><tt class="docutils literal"><span class="pre">&lt;=</span></tt></li>
 <li><tt class="docutils literal"><span class="pre">n&lt;=</span></tt> (numeric coercion)</li>
 </ul>
+<p>The <tt class="docutils literal"><span class="pre">in</span></tt> operator requires that the attribute&#8217;s value in the query
+be a JSON list of possible strings to test. A successful match will be
+any metadata having one of those strings as a value for that
+attribute. e.g.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;avus&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;attribute&quot;</span><span class="p">:</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">],</span> <span class="nt">&quot;operator&quot;</span><span class="p">:</span> <span class="s2">&quot;in&quot;</span><span class="p">}]}</span>
+</pre></div>
+</div>
 <p>To modify the above query to return results only where the attribute
 <tt class="docutils literal"><span class="pre">x</span></tt> has values numerically less than 100, the JSON <a class="reference internal" href="#term-avu"><em class="xref std std-term">AVU</em></a> would
 become:</p>
@@ -1146,7 +1152,7 @@ created before 2014-03-01T00:00:00 and modified between
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
-        <li><a href="#">baton 0.11.0
+        <li><a href="#">baton 0.12.1
  documentation</a> &raquo;</li> 
       </ul>
     </div>
