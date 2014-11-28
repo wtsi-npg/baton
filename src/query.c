@@ -131,25 +131,26 @@ void free_query_output(genQueryOut_t *query_out) {
 genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
                                const query_cond_t conds[]) {
     for (size_t i = 0; i < num_conds; i++) {
+        char *column = getAttrNameFromAttrId(conds[i].column);
         const char *operator = conds[i].operator;
-        const char *name     = conds[i].value;
+        const char *value    = conds[i].value;
 
-        logmsg(DEBUG, "Adding condition %d of %d: %s %s",
-               1, num_conds, name, operator);
+        logmsg(DEBUG, "Adding condition %d of %d: %s %s %s",
+               1, num_conds, column, operator, value);
 
-        int expr_size = strlen(name) + strlen(operator) + 3 + 1;
+        int expr_size = strlen(value) + strlen(operator) + 3 + 1;
         char *expr = calloc(expr_size, sizeof (char));
         if (!expr) goto error;
 
         if (str_equals_ignore_case(operator, SEARCH_OP_IN, MAX_STR_LEN)) {
-            snprintf(expr, expr_size, "%s %s", operator, name);
+            snprintf(expr, expr_size, "%s %s", operator, value);
         } else {
-            snprintf(expr, expr_size, "%s '%s'", operator, name);
+            snprintf(expr, expr_size, "%s '%s'", operator, value);
 	}
 
-        logmsg(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
+        logmsg(DEBUG, "Made string %d of %d: op: %s value: %s, len %d, "
                "total len %d [%s]",
-               i, num_conds, name, strlen(name), operator, expr_size, expr);
+               i, num_conds, operator, value, strlen(value), expr_size, expr);
 
         int current_index = query_in->sqlCondInp.len;
         query_in->sqlCondInp.inx[current_index] = conds[i].column;
@@ -367,11 +368,8 @@ genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
     query_cond_t ts = { .column   = COL_D_CREATE_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
-    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = DEFAULT_REPL_NUM };
-    size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
+    size_t num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
 genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
@@ -380,11 +378,8 @@ genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
     query_cond_t ts = { .column   = COL_D_MODIFY_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
-    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = DEFAULT_REPL_NUM };
-    size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
+    size_t num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
 genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,
