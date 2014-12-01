@@ -53,7 +53,7 @@ after_script:
 
 after_success:
   - make dist
-  - export DIST_FILE=$(ls baton-*.tar.gz | tr -d '\012')
+  - export DIST_FILE=$(ls baton-*.tar.gz)
 
 deploy:
   provider: releases
