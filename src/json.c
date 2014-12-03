@@ -524,40 +524,37 @@ char *json_to_local_path(json_t *object, baton_error_t *error) {
     if (error->code != 0) goto error;
     const char *filename = get_file_value(object, error);
     if (error->code != 0) goto error;
+    //const char *collection = get_collection_value(object, error);
+    //if (error->code != 0) goto error;
+    const char *data_object = get_data_object_value(object, error);
+    if (error->code != 0) goto error;
 
-    if (represents_directory(object) && !represents_data_object(object)) {
-        // A collection to local directory mapping
+    if (directory && filename) {
+        path = make_file_path(directory, filename, error);
+    }
+    else if (directory && data_object) {
+        path = make_file_path(directory, data_object, error);
+    }
+    /* else if (collection && filename) { */
+    /*     path = make_file_path(collection, filename, error); */
+    /* } */
+    /* else if (collection && data_object) { */
+    /*     path = make_file_path(collection, data_object, error); */
+    /* } */
+    else if (filename) {
+        path = make_file_path(".", filename, error);
+    }
+     else if (data_object) {
+        path = make_file_path(".", data_object, error);
+    }
+    else if (directory) {
         path = make_dir_path(directory, error);
-        if (error->code != 0) goto error;
     }
     else {
-        // All these are data object to local file mappings
-        if (represents_directory(object) && represents_data_object(object)) {
-            // No local filename; use the data object name as
-            // surrogate filename
-            const char *surrogate = get_data_object_value(object, error);
-            if (error->code != 0) goto error;
-            path = make_file_path(directory, surrogate, error);
-            if (error->code != 0) goto error;
-        }
-        else if (represents_file(object)) {
-            // Both local directory and filename specified
-            path = make_file_path(directory, filename, error);
-            if (error->code != 0) goto error;
-        }
-        else if (!directory && filename) {
-            // No local directory, use CWD as surrogate
-            path = make_file_path(".", filename, error);
-            if (error->code != 0) goto error;
-        }
-        else if (!filename) {
-            // No local filename, use data object name as surrogate
-            const char *surrogate = get_data_object_value(object, error);
-            if (error->code != 0) goto error;
-            path = make_file_path(".", surrogate, error);
-            if (error->code != 0) goto error;
-        }
+        path = make_dir_path(".", error);
     }
+
+    if (error->code != 0) goto error;
 
     return path;
 
