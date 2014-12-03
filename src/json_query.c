@@ -507,6 +507,7 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     rodsPath_t rods_path;
     char *path             = NULL;
     json_t *raw_timestamps = NULL;
+    json_t *timestamps     = NULL;
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -526,12 +527,15 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     raw_timestamps = list_timestamps(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
-    json_t *timestamps = json_array();
+    timestamps = json_array();
     if (!timestamps) {
         set_baton_error(error, -1, "Failed to allocate a new JSON array");
         goto error;
     }
 
+    // We report timestamps only on data objects. They exist on
+    // collections too, but we don't report them to be consistent with
+    // the 'ils' command.
     if (represents_data_object(object)) {
         int base = 10;
         size_t i;
