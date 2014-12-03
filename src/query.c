@@ -30,11 +30,9 @@
 #include "utilities.h"
 
 void log_rods_errstack(log_level level, rError_t *error) {
-    rErrMsg_t *errmsg;
-
     int len = error->len;
     for (int i = 0; i < len; i++) {
-	    errmsg = error->errMsg[i];
+	    rErrMsg_t *errmsg = error->errMsg[i];
         logmsg(level, "Level %d: %s", i, errmsg->msg);
     }
 }
