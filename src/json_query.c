@@ -34,6 +34,8 @@ static size_t parse_attr_value(int column, const char *label,
                                const char *input, char *output,
                                size_t max_len);
 
+static int is_zone_hint(const char *path);
+
 void log_json_error(log_level level, json_error_t *error) {
     logmsg(level, "JSON error: %s, line %d, column %d, position %d",
            error->text, error->line, error->column, error->position);
@@ -41,11 +43,12 @@ void log_json_error(log_level level, json_error_t *error) {
 
 const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
     static size_t num_operators = 10;
-    static char *operators[] = { SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
-                                 SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
-                                 SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
-                                 SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
-                                 SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE };
+    static char *operators[] = { SEARCH_OP_EQUALS,   SEARCH_OP_LIKE,
+                                 SEARCH_OP_NOT_LIKE, SEARCH_OP_IN,
+                                 SEARCH_OP_STR_GT,   SEARCH_OP_STR_LT,
+                                 SEARCH_OP_NUM_GT,   SEARCH_OP_NUM_LT,
+                                 SEARCH_OP_STR_GE,   SEARCH_OP_STR_LE,
+                                 SEARCH_OP_NUM_GE,   SEARCH_OP_NUM_LE };
     size_t valid_index;
     int valid = 0;
     for (size_t i = 0; i < num_operators; i++) {
@@ -60,11 +63,12 @@ const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid operator: expected one of "
                         "[%s, %s, %s, %s, %s, %s, %s, %s, %s, %s]",
-                        SEARCH_OP_EQUALS, SEARCH_OP_LIKE,
-                        SEARCH_OP_STR_GT, SEARCH_OP_STR_LT,
-                        SEARCH_OP_NUM_GT, SEARCH_OP_NUM_LT,
-                        SEARCH_OP_STR_GE, SEARCH_OP_STR_LE,
-                        SEARCH_OP_NUM_GE, SEARCH_OP_NUM_LE);
+                        SEARCH_OP_EQUALS,   SEARCH_OP_LIKE,
+                        SEARCH_OP_NOT_LIKE, SEARCH_OP_IN,
+                        SEARCH_OP_STR_GT,   SEARCH_OP_STR_LT,
+                        SEARCH_OP_NUM_GT,   SEARCH_OP_NUM_LT,
+                        SEARCH_OP_STR_GE,   SEARCH_OP_STR_LE,
+                        SEARCH_OP_NUM_GE,   SEARCH_OP_NUM_LE);
         goto error;
     }
 
@@ -82,19 +86,44 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   prepare_tps_search_cb prepare_mod,
                   baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
+    char *zone_hint         = zone_name;
+    char *root_path         = NULL;
     json_t *items           = NULL;
     json_t *avus;
-    const char *root_path;
+
+    if (represents_collection(query)) {
+        root_path = json_to_path(query, error);
+        if (error->code != 0) goto error;
+    }
 
     query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns,
                                 format->columns);
 
-    root_path = get_query_collection(query, error);
-    if (error->code != 0) goto error;
-
     if (root_path) {
-        logmsg(DEBUG, "Limiting search to path '%s'", root_path);
-        query_in = prepare_path_search(query_in, root_path);
+        rodsPath_t rods_path;
+
+        int status = set_rods_path(conn, &rods_path, root_path);
+        if (status < 0) {
+            set_baton_error(error, status, "Failed to set iRODS path '%s'",
+                            root_path);
+            goto error;
+        }
+
+        if (str_starts_with(root_path, "/", MAX_STR_LEN)) {
+            // Is search path just a zone hint? e.g. "/seq"
+            if (is_zone_hint(root_path)) {
+                if (!zone_hint) {
+                    zone_hint = root_path;
+                    zone_hint++; // Skip the leading slash
+
+                    logmsg(DEBUG, "Using zone hint from JSON: '%s'", zone_hint);
+                }
+            }
+            else {
+                logmsg(DEBUG, "Limiting search to path '%s'", root_path);
+                query_in = prepare_path_search(query_in, root_path);
+            }
+        }
     }
 
     // AVUs are mandatory for searches
@@ -103,6 +132,11 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
 
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
     if (error->code != 0) goto error;
+
+    // Report latest replicate only
+    if (format->latest) {
+        query_in = limit_to_newest_repl(query_in);
+    }
 
     // ACL is optional
     if (has_acl(query)) {
@@ -123,22 +157,24 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
         if (error->code != 0) goto error;
     }
 
-    if (zone_name) {
-        logmsg(TRACE, "Setting zone to '%s'", zone_name);
-        addKeyVal(&query_in->condInput, ZONE_KW, zone_name);
+    if (zone_hint) {
+        logmsg(TRACE, "Setting zone to '%s'", zone_hint);
+        addKeyVal(&query_in->condInput, ZONE_KW, zone_hint);
     }
 
     items = do_query(conn, query_in, format->labels, error);
     if (error->code != 0) goto error;
 
+    if (root_path) free(root_path);
     free_query_input(query_in);
     logmsg(TRACE, "Found %d matching items", json_array_size(items));
 
     return items;
 
 error:
-    if (query_in) free_query_input(query_in);
-    if (items)    json_decref(items);
+    if (root_path) free(root_path);
+    if (query_in)  free_query_input(query_in);
+    if (items)     json_decref(items);
 
     return NULL;
 }
@@ -169,6 +205,13 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
         if (status == 0) {
             logmsg(DEBUG, "Successfully fetched chunk %d of query", chunk_num);
 
+            if (!query_out) {
+                set_baton_error(error, -1,
+                                "Query result unexpectedly NULL "
+                                "in chunk %d error %d", chunk_num, -1);
+                goto error;
+            }
+
             // Allows query_out to be freed
             continue_flag = query_out->continueInx;
 
@@ -197,7 +240,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
                 goto error;
             }
 
-            if (query_out) free_query_output(query_out);
+            free_query_output(query_out);
         }
         else if (status == CAT_NO_ROWS_FOUND && chunk_num > 0) {
             // Oddly CAT_NO_ROWS_FOUND is also returned at the end of a
@@ -319,8 +362,9 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
         goto error;
     }
 
-    for (size_t i = 0; i < num_clauses; i++) {
-        json_t *access = json_array_get(mapped_acl, i);
+    size_t i;
+    json_t *access;
+    json_array_foreach(mapped_acl, i, access) {
         if (!json_is_object(access)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid permissions specification at position "
@@ -347,9 +391,12 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
                                        json_t *avus,
                                        prepare_avu_search_cb prepare,
                                        baton_error_t *error) {
+    json_t *in_opvalue = NULL;
     size_t num_clauses = json_array_size(avus);
-    for (size_t i = 0; i < num_clauses; i++) {
-        json_t *avu = json_array_get(avus, i);
+
+    size_t i;
+    json_t *avu;
+    json_array_foreach(avus, i, avu) {
         if (!json_is_object(avu)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid AVU at position %d of %d: ",
@@ -358,9 +405,6 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
         }
 
         const char *attr_name = get_avu_attribute(avu, error);
-        if (error->code != 0) goto error;
-
-        const char *attr_value = get_avu_value(avu, error);
         if (error->code != 0) goto error;
 
         const char *oper = get_avu_operator(avu, error);
@@ -373,15 +417,31 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
         const char *valid_oper = ensure_valid_operator(oper, error);
         if (error->code != 0) goto error;
 
+        const char *attr_value;
+        if (str_equals_ignore_case(oper, SEARCH_OP_IN, MAX_STR_LEN)) {
+            // this is an IN query, parse value as JSON array instead of string
+            attr_value = make_in_op_value(avu, error);
+            if (error->code != 0) goto error;
+        } else {
+            attr_value = get_avu_value(avu, error);
+            if (error->code != 0) goto error;
+        }
+
         logmsg(DEBUG, "Preparing AVU search a: '%s' v: '%s', op: '%s'",
                attr_name, attr_value, valid_oper);
 
         prepare(query_in, attr_name, attr_value, valid_oper);
+
+        if (in_opvalue) {
+            json_decref(in_opvalue);
+            in_opvalue = NULL; // Reset for any subsequent IN clause
+        }
      }
 
     return query_in;
 
 error:
+    if (in_opvalue) json_decref(in_opvalue);
     return query_in;
 }
 
@@ -391,8 +451,10 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error) {
     size_t num_clauses = json_array_size(timestamps);
-    for (size_t i = 0; i < num_clauses; i++) {
-        json_t *tp = json_array_get(timestamps, i);
+
+    size_t i;
+    json_t *tp;
+    json_array_foreach(timestamps, i, tp) {
         if (!json_is_object(tp)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid timestamp at position %d of %d: "
@@ -561,6 +623,7 @@ json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
+    logmsg(ERROR, error->message);
     return NULL;
 }
 
@@ -621,6 +684,7 @@ json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
+    logmsg(ERROR, error->message);
     return NULL;
 }
 
@@ -681,7 +745,28 @@ json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
+    logmsg(ERROR, error->message);
     return NULL;
+}
+
+static int is_zone_hint(const char *path) {
+    size_t len = strnlen(path, MAX_STR_LEN);
+    int is_zone = 1;
+
+    if (len < 2) {
+        is_zone = 0;
+    }
+    else {
+        for (size_t i = 0; i < len; i++) {
+            if (strncmp(path, "/", 1) == 0 && i != 0) {
+                is_zone = 0;
+                break;
+            }
+            path++;
+        }
+    }
+
+    return is_zone;
 }
 
 static size_t parse_attr_value(int column, const char *label,

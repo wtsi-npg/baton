@@ -40,6 +40,8 @@ char *copy_str(const char *str, size_t max_len);
 
 const char *parse_base_name(const char *path);
 
+size_t parse_size(const char *str);
+
 FILE *maybe_stdin(const char *path);
 
 char *format_timestamp(const char *timestamp, const char *format);

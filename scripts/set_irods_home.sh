@@ -24,6 +24,6 @@ CPPFLAGS="$CPPFLAGS \
 -I$IRODS_HOME/server/icat/include \
 -I$IRODS_HOME/server/re/include"
 
-LDFLAGS="$LDFLAGS -L$IRODS_HOME/lib/core/obj -lRodsAPIs"
+LIBS="-L$IRODS_HOME/lib/core/obj -lRodsAPIs"
 
-export IRODS_HOME CPPFLAGS LDFLAGS
+export IRODS_HOME CPPFLAGS LIBS

@@ -37,6 +37,7 @@
 #include "json_query.h"
 #include "log.h"
 #include "query.h"
+#include "read.h"
 #include "utilities.h"
 
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
@@ -44,6 +45,9 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                option_flags flags, baton_error_t *error);
+
+static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
+                        size_t buffer_size, baton_error_t *error);
 
 static const char *metadata_op_name(metadata_op operation);
 
@@ -98,8 +102,8 @@ int declare_client_name(const char *prog_path) {
     char client_name[MAX_CLIENT_NAME_LEN];
     const char *prog_name = parse_base_name(prog_path);
 
-    snprintf(client_name, MAX_CLIENT_NAME_LEN, "%s-%s",
-             PACKAGE_NAME, prog_name);
+    snprintf(client_name, MAX_CLIENT_NAME_LEN, "%s:%s:%s",
+             PACKAGE_NAME, prog_name, VERSION);
 
     return setenv(SP_OPTION, client_name, 1);
 }
@@ -138,12 +142,15 @@ error:
     return NULL;
 }
 
-int init_rods_path(rodsPath_t *rodspath, char *inpath) {
-    if (!rodspath) return USER__NULL_INPUT_ERR;
+int init_rods_path(rodsPath_t *rods_path, char *inpath) {
+    if (!rods_path) return USER__NULL_INPUT_ERR;
 
-    memset(rodspath, 0, sizeof (rodsPath_t));
-    char *dest = rstrcpy(rodspath->inPath, inpath, MAX_NAME_LEN);
+    memset(rods_path, 0, sizeof (rodsPath_t));
+    char *dest = rstrcpy(rods_path->inPath, inpath, MAX_NAME_LEN);
     if (!dest) return USER_PATH_EXCEEDS_MAX;
+
+    rods_path->objType  = UNKNOWN_OBJ_T;
+    rods_path->objState = UNKNOWN_ST;
 
     return 0;
 }
@@ -192,8 +199,8 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
     }
 
     status = getRodsObjType(conn, rods_path);
-    if (status < 0) {
-        logmsg(ERROR, "Failed to stat iRODS path '%s'", path);
+    if (status != EXIST_ST) {
+        logmsg(ERROR, "Failed to stat iRODS path '%s': %d", path, status);
         goto error;
     }
 
@@ -251,7 +258,7 @@ error:
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                   baton_error_t *error) {
-    json_t *results = NULL;
+    json_t *result = NULL;
 
     init_baton_error(error);
 
@@ -266,19 +273,26 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
         case DATA_OBJ_T:
             logmsg(TRACE, "Identified '%s' as a data object",
                    rods_path->outPath);
-            results = list_data_object(conn, rods_path, flags, error);
+
+            if (flags & PRINT_CONTENTS) {
+                logmsg(WARN, "Ignoring request to print the contents of data "
+                       "object '%s' as if it were a collection",
+                       rods_path->outPath);
+            }
+
+            result = list_data_object(conn, rods_path, flags, error);
             if (error->code != 0) goto error;
 
             if (flags & PRINT_ACL) {
-                results = add_acl_json_object(conn, results, error);
+                result = add_acl_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
             if (flags & PRINT_AVU) {
-                results = add_avus_json_object(conn, results, error);
+                result = add_avus_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
             if (flags & PRINT_TIMESTAMP) {
-                results = add_tps_json_object(conn, results, error);
+                result = add_tps_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
 
@@ -287,19 +301,42 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
         case COLL_OBJ_T:
             logmsg(TRACE, "Identified '%s' as a collection",
                    rods_path->outPath);
-            results = list_collection(conn, rods_path, flags, error);
+
+            result = collection_path_to_json(rods_path->outPath, error);
             if (error->code != 0) goto error;
 
             if (flags & PRINT_ACL) {
-                results = add_acl_json_array(conn, results, error);
+                result = add_acl_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
             if (flags & PRINT_AVU) {
-                results = add_avus_json_array(conn, results, error);
+                result = add_avus_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
             if (flags & PRINT_TIMESTAMP) {
-                results = add_tps_json_array(conn, results, error);
+                result = add_tps_json_object(conn, result, error);
+                if (error->code != 0) goto error;
+            }
+
+            if (flags & PRINT_CONTENTS) {
+                json_t *contents = list_collection(conn, rods_path, flags,
+                                                   error);
+                if (error->code != 0) goto error;
+
+                if (flags & PRINT_ACL) {
+                    contents = add_acl_json_array(conn, contents, error);
+                    if (error->code != 0) goto error;
+                }
+                if (flags & PRINT_AVU) {
+                    contents = add_avus_json_array(conn, contents, error);
+                    if (error->code != 0) goto error;
+                }
+                if (flags & PRINT_TIMESTAMP) {
+                    contents = add_tps_json_array(conn, contents, error);
+                    if (error->code != 0) goto error;
+                }
+
+                add_contents(result, contents, error);
                 if (error->code != 0) goto error;
             }
 
@@ -313,12 +350,145 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
             goto error;
     }
 
+    return result;
+
+error:
+    if (result) json_decref(result);
+    logmsg(ERROR, error->message);
+
+    return NULL;
+}
+
+json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
+                    option_flags flags, size_t buffer_size,
+                    baton_error_t *error) {
+    char *content = NULL;
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
+
+    // Currently only data objects are supported
+    if (rods_path->objType != DATA_OBJ_T) {
+        init_baton_error(error);
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot read the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
+        goto error;
+    }
+
+    json_t *results = list_path(conn, rods_path, flags, error);
+    if (error->code != 0) goto error;
+
+    content = slurp_file(conn, rods_path, buffer_size, error);
+
+    if (content) {
+        size_t len = strlen(content);
+
+        if (maybe_utf8(content, len)) {
+            json_t *packed = json_pack("s", content);
+            json_object_set_new(results, JSON_DATA_KEY, packed);
+        }
+        else {
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "The contents of '%s' cannot be encoded as UTF-8 "
+                            "for JSON output", rods_path->outPath);
+            goto error;
+        }
+        free(content);
+    }
+
     return results;
 
 error:
-    if (results) json_decref(results);
+    if (content) free(content);
 
     return NULL;
+}
+
+int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
+                       const char *local_path, size_t buffer_size,
+                       baton_error_t *error) {
+    FILE *stream = NULL;
+
+    init_baton_error(error);
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
+
+    logmsg(DEBUG, "Writing '%s' to '%s'", rods_path->outPath, local_path);
+
+    // Currently only data objects are supported
+    if (rods_path->objType != DATA_OBJ_T) {
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot write the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
+        goto error;
+    }
+
+    stream = fopen(local_path, "w");
+    if (!stream) {
+        set_baton_error(error, errno,
+                        "Failed to open '%s' for writing: error %d %s",
+                        local_path, errno, strerror(errno));
+        goto error;
+    }
+
+    write_path_to_stream(conn, rods_path, stream, buffer_size, error);
+    fclose(stream);
+
+    return error->code;
+
+error:
+    if (stream) fclose(stream);
+
+    return error->code;
+}
+
+int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
+                         size_t buffer_size, baton_error_t *error) {
+    data_obj_file_t *obj_file = NULL;
+
+    init_baton_error(error);
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
+
+    logmsg(DEBUG, "Writing '%s' to a stream", rods_path->outPath);
+
+    // Currently only data objects are supported
+    if (rods_path->objType != DATA_OBJ_T) {
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot write the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
+        goto error;
+    }
+
+    obj_file = open_data_obj(conn, rods_path, error);
+    if (error->code != 0) goto error;
+
+    size_t n = stream_data_object(conn, obj_file, out, buffer_size, error);
+
+    close_data_obj(conn, obj_file);
+    free_data_obj(obj_file);
+
+    return n;
+
+error:
+    if (obj_file) {
+        close_data_obj(conn, obj_file);
+        free_data_obj(obj_file);
+    }
+
+    return error->code;
 }
 
 json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
@@ -484,22 +654,20 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
           .labels      = { JSON_COLLECTION_KEY } };
 
     query_format_in_t *obj_format;
-    prepare_avu_search_cb prepare_obj_avu_option;
-
     if (flags & PRINT_SIZE) {
         obj_format = &(query_format_in_t)
             { .num_columns = 3,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
-                               JSON_SIZE_KEY } };
-        prepare_obj_avu_option = prepare_obj_avu_search_lim;
+                               JSON_SIZE_KEY },
+              .latest      = 1 };
     }
     else {
         obj_format = &(query_format_in_t)
             { .num_columns = 2,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME },
-              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY } };
-        prepare_obj_avu_option = prepare_obj_avu_search;
+              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY },
+              .latest      = 0 };
     }
 
     init_baton_error(error);
@@ -538,7 +706,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     if (flags & SEARCH_OBJECTS) {
         logmsg(TRACE, "Searching for data objects ...");
         data_objects = do_search(conn, zone_name, query, obj_format,
-                                 prepare_obj_avu_option, prepare_obj_acl_search,
+                                 prepare_obj_avu_search, prepare_obj_acl_search,
                                  prepare_obj_cre_search, prepare_obj_mod_search,
                                  error);
         if (error->code != 0) goto error;
@@ -929,8 +1097,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
     collHandle_t coll_handle;
     collEnt_t coll_entry;
 
-    json_t *results;
-    json_t *base_entry;
+    json_t *results = NULL;
 
     char *err_name;
     char *err_subname;
@@ -952,17 +1119,6 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
     results = json_array();
     if (!results) {
         set_baton_error(error, -1, "Failed to allocate a new JSON array");
-        goto error;
-    }
-
-    base_entry = collection_path_to_json(rods_path->outPath, error);
-    if (error->code != 0) goto query_error;
-
-    status = json_array_append_new(results, base_entry);
-    if (status != 0) {
-        set_baton_error(error, status,
-                        "Failed to convert listing of '%s' to JSON: "
-                        "error %d", rods_path->outPath, status);
         goto query_error;
     }
 
@@ -1031,6 +1187,38 @@ error:
     }
     else {
         logmsg(ERROR, error->message);
+    }
+
+    return NULL;
+}
+
+static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
+                        size_t buffer_size, baton_error_t *error) {
+    data_obj_file_t *obj_file = NULL;
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
+
+    logmsg(DEBUG, "Buffer size %zu", buffer_size);
+
+    obj_file = open_data_obj(conn, rods_path, error);
+    if (error->code != 0) goto error;
+
+    char *content = slurp_data_object(conn, obj_file, buffer_size, error);
+    if (error->code != 0) goto error;
+
+    close_data_obj(conn, obj_file);
+    free_data_obj(obj_file);
+
+    return content;
+
+error:
+    if (obj_file) {
+        close_data_obj(conn, obj_file);
+        free_data_obj(obj_file);
     }
 
     return NULL;

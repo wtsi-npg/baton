@@ -26,23 +26,24 @@
 #include "../src/baton.h"
 #include "../src/json.h"
 #include "../src/log.h"
+#include "../src/read.h"
 
 static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
 
 static char *BASIC_COLL          = "baton-basic-test";
-static char *BASIC_DATA_PATH     = "./data/";
-static char *BASIC_METADATA_PATH = "./metadata/meta1.imeta";
+static char *BASIC_DATA_PATH     = "data";
+static char *BASIC_METADATA_PATH = "metadata/meta1.imeta";
 
-static char *SETUP_SCRIPT    = "./scripts/setup_irods.sh";
-static char *TEARDOWN_SCRIPT = "./scripts/teardown_irods.sh";
+static char *SETUP_SCRIPT    = "scripts/setup_irods.sh";
+static char *TEARDOWN_SCRIPT = "scripts/teardown_irods.sh";
 
 static void set_current_rods_root(char *in, char *out) {
     snprintf(out, MAX_PATH_LEN, "%s.%d", in, getpid());
 }
 
 static void setup() {
-
+    set_log_threshold(ERROR);
 }
 
 static void teardown() {
@@ -54,11 +55,14 @@ static void basic_setup() {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
-    snprintf(command, MAX_COMMAND_LEN, "%s %s %s %s",
-                      SETUP_SCRIPT, BASIC_DATA_PATH, rods_root,
-                      BASIC_METADATA_PATH);
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s %s %s/%s",
+             TEST_ROOT, SETUP_SCRIPT,
+             TEST_ROOT, BASIC_DATA_PATH,
+             rods_root,
+             TEST_ROOT, BASIC_METADATA_PATH);
 
     printf("Setup: %s\n", command);
+
     int ret = system(command);
 
     if (ret != 0) raise(SIGINT);
@@ -69,7 +73,9 @@ static void basic_teardown() {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
-    snprintf(command, MAX_COMMAND_LEN, "%s %s", TEARDOWN_SCRIPT, rods_root);
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s",
+             TEST_ROOT, TEARDOWN_SCRIPT,
+             rods_root);
 
     printf("Teardown: %s\n", command);
     int ret = system(command);
@@ -136,12 +142,9 @@ END_TEST
 START_TEST(test_maybe_stdin) {
     ck_assert_ptr_eq(stdin, maybe_stdin(NULL));
 
-    char buf[MAX_PATH_LEN];
-    char *wd = getcwd(buf, MAX_PATH_LEN);
-    ck_assert_ptr_ne(wd , NULL);
-
     char file_path[MAX_PATH_LEN];
-    snprintf(file_path, MAX_PATH_LEN, "%s/data/f1.txt", wd);
+    snprintf(file_path, MAX_PATH_LEN, "%s/%s/f1.txt",
+             TEST_ROOT, BASIC_DATA_PATH);
 
     FILE *f = maybe_stdin(file_path);
     ck_assert_ptr_ne(f, NULL);
@@ -387,7 +390,41 @@ START_TEST(test_list_coll) {
                      EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_path(conn, &rods_path, 0 | PRINT_SIZE | PRINT_ACL,
+    json_t *results = list_path(conn, &rods_path, PRINT_ACL, &error);
+
+    json_t *perms = json_pack("{s:s, s:s}",
+                              JSON_OWNER_KEY, env.rodsUserName,
+                              JSON_LEVEL_KEY, ACCESS_OWN);
+    json_t *expected = json_pack("{s:s, s:[o]}",
+                                 JSON_COLLECTION_KEY, rods_path.outPath,
+                                 JSON_ACCESS_KEY,     perms);
+
+    ck_assert_ptr_ne(NULL, results);
+    ck_assert_int_eq(json_equal(results, expected), 1);
+    ck_assert_int_eq(error.code, 0);
+
+    json_decref(results);
+    json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we list a collection's contents?
+START_TEST(test_list_coll_contents) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    baton_error_t error;
+    json_t *results = list_path(conn, &rods_path,
+                                PRINT_SIZE | PRINT_ACL | PRINT_CONTENTS,
                                 &error);
 
     char a[MAX_PATH_LEN];
@@ -400,17 +437,23 @@ START_TEST(test_list_coll) {
     json_t *perms = json_pack("{s:s, s:s}",
                               JSON_OWNER_KEY, env.rodsUserName,
                               JSON_LEVEL_KEY, ACCESS_OWN);
-    json_t *expected =
-        json_pack("[{s:s,           s:[o]},"  // base collection
-                  " {s:s, s:s, s:i, s:[o]},"  // f1.txt
-                  " {s:s, s:s, s:i, s:[o]},"  // f2.txt
-                  " {s:s, s:s, s:i, s:[o]},"  // f3.txt
-                  " {s:s, s:[o]},"            // a
-                  " {s:s, s:[o]},"            // b
-                  " {s:s, s:[o]}]",           // c
-                  JSON_COLLECTION_KEY,  rods_path.outPath,
-                  JSON_ACCESS_KEY,      perms,
 
+    json_t *expected =
+        json_pack("{s:s, s:[o],"
+                  " s:[{s:s, s:s, s:i, s:[o]},"  // f1.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // f2.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // f3.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_10k.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_1b.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_1k.txt
+                  "    {s:s, s:s, s:i, s:[o]},"  // r1.txt
+                  "    {s:s, s:[o]},"            // a
+                  "    {s:s, s:[o]},"            // b
+                  "    {s:s, s:[o]}]}",          // c
+                  JSON_COLLECTION_KEY, rods_path.outPath,
+                  JSON_ACCESS_KEY,     perms,
+
+                  JSON_CONTENTS_KEY,
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f1.txt",
                   JSON_SIZE_KEY,        0,
@@ -423,6 +466,26 @@ START_TEST(test_list_coll) {
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f3.txt",
+                  JSON_SIZE_KEY,        0,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "lorem_10k.txt",
+                  JSON_SIZE_KEY,        10240,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "lorem_1b.txt",
+                  JSON_SIZE_KEY,        1,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "lorem_1k.txt",
+                  JSON_SIZE_KEY,        1024,
+                  JSON_ACCESS_KEY,      perms,
+
+                  JSON_COLLECTION_KEY,  rods_path.outPath,
+                  JSON_DATA_OBJECT_KEY, "r1.txt",
                   JSON_SIZE_KEY,        0,
                   JSON_ACCESS_KEY,      perms,
 
@@ -691,11 +754,15 @@ START_TEST(test_search_metadata_obj) {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
                             JSON_VALUE_KEY,     "value1");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              JSON_COLLECTION_KEY, rods_root,
+                              JSON_COLLECTION_KEY, rods_path.outPath,
                               JSON_AVUS_KEY,       avu);
     option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
@@ -735,8 +802,13 @@ START_TEST(test_search_metadata_path_obj) {
 
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
     char search_root[MAX_PATH_LEN];
-    snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_root);
+    snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_path.outPath);
 
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
@@ -871,7 +943,7 @@ START_TEST(test_search_metadata_tps_obj) {
                                    JSON_OPERATOR_KEY, SEARCH_OP_NUM_LT);
     json_t *query_lt = json_pack("{s:[], s:s, s:[o]}",
                                  JSON_AVUS_KEY,
-                                 JSON_COLLECTION_KEY, rods_root,
+                                 JSON_COLLECTION_KEY, rods_path.outPath,
                                  JSON_TIMESTAMPS_KEY, created_lt);
     option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
@@ -896,7 +968,7 @@ START_TEST(test_search_metadata_tps_obj) {
                                          &error_ge);
 
     ck_assert_int_eq(error_ge.code, 0);
-    ck_assert_int_eq(json_array_size(results_ge), 28);
+    ck_assert_int_eq(json_array_size(results_ge), 32);
 
     int num_colls = 0;
     int num_objs  = 0;
@@ -909,7 +981,7 @@ START_TEST(test_search_metadata_tps_obj) {
     }
 
     ck_assert_int_eq(num_colls, 10);
-    ck_assert_int_eq(num_objs,  18); // Includes some .gitignore files
+    ck_assert_int_eq(num_objs,  22); // Includes some .gitignore files
 
     free(iso_created);
 
@@ -929,11 +1001,15 @@ START_TEST(test_search_metadata_coll) {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr2",
                             JSON_VALUE_KEY,     "value2");
     json_t *query = json_pack("{s:s, s:[o]}",
-                              JSON_COLLECTION_KEY, rods_root,
+                              JSON_COLLECTION_KEY, rods_path.outPath,
                               JSON_AVUS_KEY,       avu);
     option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
@@ -1372,7 +1448,7 @@ END_TEST
 START_TEST(test_represents_collection) {
     json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
     json_t *obj = json_pack("{s:s, s:s}",
-                            JSON_COLLECTION_KEY, "foo",
+                            JSON_COLLECTION_KEY,  "foo",
                             JSON_DATA_OBJECT_KEY, "bar");
 
     ck_assert(represents_collection(col));
@@ -1387,7 +1463,7 @@ END_TEST
 START_TEST(test_represents_data_object) {
     json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
     json_t *obj = json_pack("{s:s, s:s}",
-                            JSON_COLLECTION_KEY, "foo",
+                            JSON_COLLECTION_KEY,  "foo",
                             JSON_DATA_OBJECT_KEY, "bar");
 
     ck_assert(!represents_data_object(col));
@@ -1395,6 +1471,36 @@ START_TEST(test_represents_data_object) {
 
     json_decref(col);
     json_decref(obj);
+}
+END_TEST
+
+// Can we test for JSON representation of a directory?
+START_TEST(test_represents_directory) {
+    json_t *dir  = json_pack("{s:s}", JSON_DIRECTORY_KEY, "foo");
+    json_t *file = json_pack("{s:s, s:s}",
+                             JSON_DIRECTORY_KEY, "foo",
+                             JSON_FILE_KEY,      "bar");
+
+    ck_assert(represents_directory(dir));
+    ck_assert(!represents_directory(file));
+
+    json_decref(dir);
+    json_decref(file);
+}
+END_TEST
+
+// Can we test for JSON representation of a file?
+START_TEST(test_represents_file) {
+    json_t *dir  = json_pack("{s:s}", JSON_DIRECTORY_KEY, "foo");
+    json_t *file = json_pack("{s:s, s:s}",
+                             JSON_DIRECTORY_KEY, "foo",
+                             JSON_FILE_KEY,      "bar");
+
+    ck_assert(!represents_file(dir));
+    ck_assert(represents_file(file));
+
+    json_decref(dir);
+    json_decref(file);
 }
 END_TEST
 
@@ -1425,6 +1531,169 @@ START_TEST(test_get_user) {
 }
 END_TEST
 
+START_TEST(test_write_path_to_stream) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
+                     EXIST_ST);
+
+    FILE *tmp = tmpfile();
+    ck_assert_ptr_ne(NULL, tmp);
+
+    size_t size = 1024;
+    baton_error_t error;
+    int status = write_path_to_stream(conn, &rods_obj_path, tmp, size, &error);
+    ck_assert_int_eq(status, 10240);
+    ck_assert_int_eq(error.code, 0);
+
+    rewind(tmp);
+
+    unsigned char digest[16];
+    MD5_CTX context;
+    MD5Init(&context);
+
+    char buffer[1024];
+
+    size_t n;
+    while ((n = fread(buffer, 1, 1024, tmp)) > 0) {
+        MD5Update(&context, buffer, n);
+    }
+
+    MD5Final(digest, &context);
+
+    char *md5 = calloc(33, sizeof (char));
+    for (int i = 0; i < 16; i++) {
+        snprintf(md5 + i * 2, 3, "%02x", digest[i]);
+    }
+
+    ck_assert_str_eq(md5, "4efe0c1befd6f6ac4621cbdb13241246");
+
+    fclose(tmp);
+    tmp = NULL;
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_slurp_file) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
+                     EXIST_ST);
+
+    // Test a range of buffer sizes, both smaller and larger than the
+    // data
+    size_t buffer_sizes[10] = {    1,  128,  256,   512,  1024,
+                                2048, 4096, 8192, 16384, 37268 };
+    for (int i = 0; i < 10; i++) {
+        baton_error_t open_error;
+        init_baton_error(&open_error);
+
+        data_obj_file_t *obj_file =
+            open_data_obj(conn, &rods_obj_path, &open_error);
+        ck_assert_int_eq(open_error.code, 0);
+
+        baton_error_t slurp_error;
+        init_baton_error(&slurp_error);
+
+        char *data = slurp_data_object(conn, obj_file, buffer_sizes[i],
+                                       &slurp_error);
+        ck_assert_int_eq(slurp_error.code, 0);
+        ck_assert_int_eq(strnlen(data, 10240), 10240);
+        ck_assert_str_eq(obj_file->md5_last_read,
+                         "4efe0c1befd6f6ac4621cbdb13241246");
+
+        if (data) free(data);
+    }
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_regression_github_issue83) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    rodsPath_t rods_path;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
+                     EXIST_ST);
+
+    json_t *avu1 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "a",
+                             JSON_VALUE_KEY,     "x");
+    json_t *avu2 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "a",
+                             JSON_VALUE_KEY,     "y");
+
+    json_t *avu3 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "b",
+                             JSON_VALUE_KEY,     "x");
+    json_t *avu4 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "b",
+                             JSON_VALUE_KEY,     "y");
+    json_t *avu5 = json_pack("{s:s, s:s}",
+                             JSON_ATTRIBUTE_KEY, "b",
+                             JSON_VALUE_KEY,     "z");
+
+    option_flags flags = SEARCH_OBJECTS;
+    json_t *expected = json_pack("[{s:s, s:s}]",
+                                 JSON_COLLECTION_KEY, rods_path.outPath,
+                                 JSON_DATA_OBJECT_KEY, "r1.txt");
+
+    // 2 AVUs, the base case.
+    json_t *query1 = json_pack("{s:s, s:[o, o]}",
+                               JSON_COLLECTION_KEY, rods_path.outPath,
+                               JSON_AVUS_KEY,
+                               avu1, avu2);
+    baton_error_t error1;
+    json_t *results1 = search_metadata(conn, query1, NULL, flags, &error1);
+
+    ck_assert_ptr_ne(NULL, results1);
+    ck_assert_int_eq(json_equal(results1, expected), 1);
+    ck_assert_int_eq(error1.code, 0);
+
+    // 3 AVUs, or any greater number should succeed too.
+    json_t *query2 = json_pack("{s:s, s:[o, o, o]}",
+                               JSON_COLLECTION_KEY, rods_path.outPath,
+                               JSON_AVUS_KEY,
+                               avu3, avu4, avu5);
+    baton_error_t error2;
+    json_t *results2 = search_metadata(conn, query2, NULL, flags, &error2);
+
+    ck_assert_ptr_ne(NULL, results2);
+    ck_assert_int_eq(json_equal(results2, expected), 1);
+    ck_assert_int_eq(error2.code, 0);
+
+    json_decref(query1);
+    json_decref(results1);
+
+    json_decref(query2);
+    json_decref(results2);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -1452,6 +1721,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_list_missing_path);
     tcase_add_test(basic_tests, test_list_obj);
     tcase_add_test(basic_tests, test_list_coll);
+    tcase_add_test(basic_tests, test_list_coll_contents);
 
     tcase_add_test(basic_tests, test_list_permissions_missing_path);
     tcase_add_test(basic_tests, test_list_permissions_obj);
@@ -1479,14 +1749,26 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_represents_collection);
     tcase_add_test(basic_tests, test_represents_data_object);
+    tcase_add_test(basic_tests, test_represents_directory);
+    tcase_add_test(basic_tests, test_represents_file);
 
     tcase_add_test(basic_tests, test_json_to_path);
     tcase_add_test(basic_tests, test_contains_avu);
 
     tcase_add_test(basic_tests, test_get_user);
 
+    tcase_add_test(basic_tests, test_write_path_to_stream);
+    tcase_add_test(basic_tests, test_slurp_file);
+
+    TCase *regression_tests = tcase_create("regression");
+    tcase_add_unchecked_fixture(regression_tests, setup, teardown);
+    tcase_add_checked_fixture (regression_tests, basic_setup, basic_teardown);
+
+    tcase_add_test(regression_tests, test_regression_github_issue83);
+
     suite_add_tcase(suite, utilities_tests);
     suite_add_tcase(suite, basic_tests);
+    suite_add_tcase(suite, regression_tests);
 
     return suite;
 }

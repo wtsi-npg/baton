@@ -34,6 +34,7 @@ static int acl_flag        = 0;
 static int avu_flag        = 0;
 static int debug_flag      = 0;
 static int help_flag       = 0;
+static int contents_flag   = 0;
 static int size_flag       = 0;
 static int timestamp_flag  = 0;
 static int unbuffered_flag = 0;
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]) {
             // Flag options
             {"acl",        no_argument, &acl_flag,        1},
             {"avu",        no_argument, &avu_flag,        1},
+            {"contents",   no_argument, &contents_flag,   1},
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
             {"size",       no_argument, &size_flag,       1},
@@ -89,6 +91,7 @@ int main(int argc, char *argv[]) {
 
     if (acl_flag)       oflags = oflags | PRINT_ACL;
     if (avu_flag)       oflags = oflags | PRINT_AVU;
+    if (contents_flag)  oflags = oflags | PRINT_CONTENTS;
     if (size_flag)      oflags = oflags | PRINT_SIZE;
     if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
 
@@ -98,9 +101,9 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-list [--acl] [--avu] [--file <json file>] [--size]");
-        puts("               [--timestamp] [--unbuffered] [--verbose]");
-        puts("               [--version]");
+        puts("    baton-list [--acl] [--avu] [--contents]");
+        puts("               [--file <JSON file>] [--size] [--timestamp]");
+        puts("               [--unbuffered] [--verbose] [--version]");
         puts("");
         puts("Description");
         puts("    Lists data objects and collections described in a JSON ");
@@ -108,6 +111,7 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("    --acl         Print access control lists in output.");
         puts("    --avu         Print AVU lists in output.");
+        puts("    --contents    Print collection contents in output.");
         puts("    --file        The JSON file describing the data objects and");
         puts("                  collections. Optional, defaults to STDIN.");
         puts("    --size        Print data object sizes in output.");

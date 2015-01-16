@@ -1,3 +1,4 @@
+
 .. baton documentation master file, created by
    sphinx-quickstart on Thu Feb  6 09:45:48 2014.
    You can adapt this file completely to your liking, but it should at least
@@ -28,6 +29,9 @@ iRODS:
   modification timestamps and timestamp ranges. The full range of
   iRODS query operators is supported.
 
+* Fetching data object content inlined within JSON (text files only)
+  or downloading data objects to local files.
+
 * Unbuffered option for IPC via pipes with fine-grained error
   reporting for batch operations.
 
@@ -49,45 +53,42 @@ iRODS C API and requires a C compiler to build.
    <http://www.digip.org/jansson/>`_ ) as described in their
    documentation.
 
-2. Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation
-   (assuming bash)
-
-.. code-block:: sh
-
-   IRODS_HOME=<path to iRODS> source set_irods_home.sh
-
-3. Generate the configure script
+2. Generate the configure script. If you download a release tar.gz
+   archive, you may skip this step because the configure script is
+   included.
 
 .. code-block:: sh
 
    autoreconf -i
 
-4. Generate the makefiles (see INSTALL for arguments to configure)
+3. Generate the makefiles (see INSTALL for arguments to configure).
+   The path to iRODS must be the root directory of the iRODS installation,
+   which defaults to ``/usr/local/lib/irods``.
 
 .. code-block:: sh
 
-   ./configure
+   ./configure --with-irods=/path/to/irods
 
-5. Compile
+4. Compile
 
 .. code-block:: sh
 
    make
 
-6.  Optionally, run the test suite
+5.  Optionally, run the test suite
 
 .. code-block:: sh
 
    make check
 
-7. If you have run configure with the optional --enable-coverage flag
+6. If you have run configure with the optional --enable-coverage flag
    you can generate test coverage statistics with lcov.
 
 .. code-block:: sh
 
    make check-coverage
 
-8. Install, including HTML manual and manpage.
+7. Install, including HTML manual and manpage.
 
 .. code-block:: sh
 
@@ -169,6 +170,15 @@ Options
   Print AVU lists in output, in the format described in
   :ref:`representing_path_metadata`.
 
+
+.. program:: baton-list
+.. option:: --contents
+
+  If the path is a collection print its contents, in the format described in
+  :ref:`representing_path_metadata`. Only the paths contained directly
+  within a collection are printed.
+
+
 .. program:: baton-list
 .. option:: --file <file name>
 
@@ -197,6 +207,117 @@ Options
 
   Flush output after each JSON object is processed.
 
+.. program:: baton-list
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-list
+.. option:: --version
+
+  Print the version number and exit.
+
+
+baton-get
+---------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | baton-get
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt", \
+             directory: "/data/user/local" }'                      | baton-get --save
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt", \
+             directory: "/data/user/local",  file: "a_copy.txt"}'  | baton-get --save
+
+This program accepts JSON objects as described in
+:ref:`representing_paths` and prints results in the same format. The
+target path must represent a data object. It's default mode is to JSON
+encode the file content under the JSON property ``data`` in the output.
+
+Some local path properties may be omitted from the input JSON and will
+be inferred from the iRODS paths. If the ``file`` property is omitted,
+the local file will take its name from the data object. If the
+``directory`` property is omitted, the current working directory will
+be used for any saved downloads.
+
+``baton-get`` performs an on the-the-fly MD5 checksum of the data
+object content as it processes. It compares this with the expected MD5
+checksum held in iRODS and will raise an error if they do not
+match. The program does not verify the checksum of the file(s) after
+they have been written to disk.
+
+Options
+^^^^^^^
+
+.. program:: baton-get
+.. option:: --acl
+
+  Print access control lists in the output, in the format described in
+  :ref:`representing_path_permissions`.
+
+.. program:: baton-get
+.. option:: --avu
+
+  Print AVU lists in output, in the format described in
+  :ref:`representing_path_metadata`.
+
+.. program:: baton-get
+.. option:: --file <file name>
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+.. program:: baton-get
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-get
+.. option:: --raw
+
+  Prints the contents of the data object instead of a JSON response. In this
+  mode the program acts rather like the Unix program 'cat'. This mode, or the
+  --save mode must be used for any file that is not UTF-8 encoded text.
+
+.. program:: baton-get
+.. option:: --save
+
+  Saves the contents of the data object to a local file. The local file
+  path is defined by the JSON input in the format described in
+  :ref:`representing_local_paths`. Prints a JSON response to STDOUT for
+  each file downloaded.
+
+.. program:: baton-get
+.. option:: --size
+
+  Print data object sizes in the output. These appear as JSON integers under
+  the property 'size'.
+
+.. program:: baton-get
+.. option:: --timestamp
+
+  Print data object timestamps in the output, in the format described in
+  :ref:`representing_timestamps`.
+
+.. program:: baton-get
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-get
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-get
+.. option:: --version
+
+  Print the version number and exit.
+
 
 baton-metamod
 -------------
@@ -205,11 +326,11 @@ Synopsis:
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "test", data_object: "a.txt",      \
+   $ jq -n '{collection: "test", data_object: "a.txt",     \
                   "avus": [{attribute: "x", value: "y"},   \
                            {attribute: "m", value: "n"}]}' | baton-metamod --operation add
 
-   $ jq -n '{collection: "test", data_object: "a.txt",      \
+   $ jq -n '{collection: "test", data_object: "a.txt",    \
                    avus: [{attribute: "x", value: "y"},   \
                           {attribute: "m", value: "n"}]}' | baton-metamod --operation rem
 
@@ -241,6 +362,16 @@ Options
 
   Flush output after each JSON object is processed.
 
+.. program:: baton-metamod
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-metamod
+.. option:: --version
+
+  Print the version number and exit.
+
 
 baton-metaquery
 ---------------
@@ -258,7 +389,7 @@ Synopsis:
    $ jq -n '{avus: [{attribute: "x", value: "y"},   \
                     {attribute: "m", value: "n"}]}' | baton-metaquery
 
-   $ jq -n '{avus: [{attribute: "v", value: "100", operator: "n<"},    \
+   $ jq -n '{avus: [{attribute: "v", value: "100", operator: "n<"},     \
                     {attribute: "w", value: "n%",  operator: "like"}]}' | baton-metaquery
 
 This program accepts JSON objects as described in
@@ -323,6 +454,16 @@ Options
   Flush output after each JSON object is processed.
 
 .. program:: baton-metaquery
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-metaquery
+.. option:: --version
+
+  Print the version number and exit.
+
+.. program:: baton-metaquery
 .. option:: --zone <zone name>
 
    Query in a specific zone.
@@ -365,6 +506,16 @@ Options
 
   Flush output after each JSON object is processed.
 
+.. program:: baton-chmod
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-chmod
+.. option:: --version
+
+  Print the version number and exit.
+
 
 .. _representing_paths:
 
@@ -390,6 +541,13 @@ slash:
 .. code-block:: json
 
   {"collection": "/unit/home/user/λ/"}
+  {"collection": "/unit/home/",
+     "contents": [{"collection": "/unit/home/user/λ/"}]}
+
+A collection's contents may be represented by the ``contents``
+property. This is a JSON list which contains JSON objects representing
+other collections and data objects. A ``contents`` property on a data
+object JSON object has no meaning and will be ignored.
 
 A data object is identified by having both a ``collection`` (or
 ``coll``) property and a ``data_object`` property or its shorter
@@ -405,9 +563,9 @@ The value associated with the ``data_object`` property may be any
 iRODS data object name, in UTF-8 encoding. The full path of the data
 object may be recreated by concatenating the ``collection`` and
 ``data_object`` values. Data objects reported by listing or searches
-will contain information on the file size under the ``size``
-property. The value is a JSON integer indicating the file size in
-bytes as given in the ICAT database.
+will may information on the file size under the ``size`` property. The
+value is a JSON integer indicating the file size in bytes as given in
+the ICAT database.
 
 .. code-block:: json
 
@@ -420,6 +578,50 @@ objects and collection contents.
 
 ``baton`` ignores JSON properties that it does not recognise, therefore it
 is harmless to include extra properties in program input.
+
+.. _representing_local_paths:
+
+Representing Local Paths
+========================
+
+Copies of data objects on a filesystem local to the client are
+represented as JSON objects. A directory is identified by the
+``directory`` property or is shorter synonym ``dir``.
+
+For example, the current working directory may be represented by
+either of:
+
+.. code-block:: json
+
+   {"directory": "."}
+   {"dir": "."}
+
+The value associated with the ``directory`` property may be any path,
+absolute or relative, in UTF-8 encoding.
+
+A file is identified by having both a ``directory`` (or ``dir``)
+property and a ``file`` property. For example, a file in the current
+working directory may be represented by either of:
+
+.. code-block:: json
+
+  {"directory:" ".", "file": "README.txt"}
+  {"dir:" ".", "file": "README.txt"}
+
+The value associated with the ``file`` property may be any iRODS data
+object name, in UTF-8 encoding. The full path of the local file may be
+recreated by concatenating the ``directory`` and ``file`` values.
+
+A JSON object may have both iRODS path and local path properties,
+thereby indicating a mapping between a data object and a local
+file. The ``data_object`` and ``file`` values are not required to be
+identical.
+
+.. code-block:: json
+
+  {"collection": ".", "data_object": "README.txt",
+   "directory:" ".",  "file": "README.txt"}
+
 
 .. _representing_metadata:
 
@@ -485,6 +687,8 @@ available operators are:
 
 * ``=``
 * ``like``
+* ``not like``
+* ``in``
 * ``>``
 * ``n>`` (numeric coercion)
 * ``<``
@@ -493,6 +697,15 @@ available operators are:
 * ``n>=`` (numeric coercion)
 * ``<=``
 * ``n<=`` (numeric coercion)
+
+The ``in`` operator requires that the attribute's value in the query
+be a JSON list of possible strings to test. A successful match will be
+any metadata having one of those strings as a value for that
+attribute. e.g.
+
+.. code-block:: json
+
+   {"avus": [{"attribute": "a", "value": ["a", "b", "c"]}]}
 
 To modify the above query to return results only where the attribute
 ``x`` has values numerically less than 100, the JSON :term:`AVU` would
@@ -514,6 +727,37 @@ property so that the query above becomes:
 
    {"avus": [{"a": "a", "v": "b", "u": "c"},
              {"a": "x", "v": "100", "o": "n<"}]}
+
+
+A query specified may include a ``collection`` property. The effect of
+this is to both direct the query to a specific zone and possibly to
+limit results to items contained in a specific collection. This
+property allows queries to different zones to be mixed in the input
+stream to a single invocation of the query program.
+
+To direct the query to a specific zone, only the zone portion of the
+path is required:
+
+.. code-block:: json
+
+  {"avus": [{"a": "a", "v": "b"}],
+   "coll": "/public"}
+
+This will direct the query to the ``public`` zone. If the query
+program has been started with a ``--zone`` argument explicitly, that
+will take precedence over the zone provided in the query.
+
+To limit results to a specific collection:
+
+.. code-block:: json
+
+  {"avus": [{"a": "a", "v": "b"}],
+   "coll": "/public/seq/a/b/c"}
+
+This will limit query results to those with AVU ``a = b`` located in
+the collection '/public/seq/a/b/c'. Beware that this type of query may
+have significantly poor performance in the ICAT generated SQL.
+
 
 .. _representing_timestamps:
 

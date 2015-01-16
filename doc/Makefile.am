@@ -1,24 +1,24 @@
 
 EXTRA_DIST = conf.py index.rst
 
-SPHINXOPTS = -d _build/doctrees
+SPHINXOPTS = -d html/doctrees
 
-man1_MANS = baton.1
+dist_man_MANS = baton.1
 
 baton.1: index.rst
 	$(SPHINXBUILD) -b man $(SPHINXOPTS) $(srcdir) $(srcdir)
 
 html-local:
-	@mkdir -p _static
-	@mkdir -p _build/doctrees
-	$(SPHINXBUILD) -b html $(SPHINXOPTS) $(srcdir) _build/html
+	@mkdir -p html/_static
+	@mkdir -p html/doctrees
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) $(srcdir) html
 
 install-html-local: html
 	@mkdir -p $(docdir)
-	@cp -r _build/html $(docdir)
+	@cp -r html $(docdir)
 
 uninstall-local:
 	@rm -rf $(docdir)
 
 clean-local:
-	@rm -rf _build
+	@rm -rf html

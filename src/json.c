@@ -47,6 +47,10 @@ static const char *get_opt_string_value(json_t *object, const char *name,
 static int has_json_str_value(json_t *object, const char *key,
                               const char *short_key);
 
+static char *make_dir_path(const char *path, baton_error_t *error);
+static char *make_file_path(const char *path, const char *filename,
+                            baton_error_t *error);
+
 json_t *error_to_json(baton_error_t *error) {
     json_t *err = json_pack("{s:s, s:i}",
                             JSON_ERROR_MSG_KEY , error->message,
@@ -67,6 +71,7 @@ int add_error_value(json_t *object, baton_error_t *error) {
 json_t *get_acl(json_t *object, baton_error_t *error) {
     json_t *acl = get_json_value(object, "path spec", JSON_ACCESS_KEY, NULL,
                                  error);
+    if (error->code != 0) goto error;
     if (!json_is_array(acl)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON array",
@@ -83,6 +88,7 @@ error:
 json_t *get_avus(json_t *object, baton_error_t *error) {
     json_t *avus = get_json_value(object, "path spec", JSON_AVUS_KEY, NULL,
                                   error);
+    if (error->code != 0) goto error;
     if (!json_is_array(avus)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON array",
@@ -100,6 +106,7 @@ json_t *get_timestamps(json_t *object, baton_error_t *error) {
     json_t *timestamps = get_json_value(object, "path spec",
                                         JSON_TIMESTAMPS_KEY,
                                         JSON_TIMESTAMPS_SHORT_KEY, error);
+    if (error->code != 0) goto error;
     if (!json_is_array(timestamps)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON array",
@@ -113,32 +120,42 @@ error:
     return NULL;
 }
 
-const char* get_collection_value(json_t *object, baton_error_t *error) {
+const char *get_collection_value(json_t *object, baton_error_t *error) {
     return get_string_value(object, "path spec", JSON_COLLECTION_KEY,
                             JSON_COLLECTION_SHORT_KEY, error);
 }
 
-const char* get_data_object_value(json_t *object, baton_error_t *error) {
+const char *get_data_object_value(json_t *object, baton_error_t *error) {
     return get_opt_string_value(object, "path spec", JSON_DATA_OBJECT_KEY,
                                 JSON_DATA_OBJECT_SHORT_KEY, error);
 }
 
-const char* get_query_collection(json_t *object, baton_error_t *error) {
+const char *get_directory_value(json_t *object, baton_error_t *error) {
+    return get_opt_string_value(object, "path spec", JSON_DIRECTORY_KEY,
+                                JSON_DIRECTORY_SHORT_KEY, error);
+}
+
+const char *get_file_value(json_t *object, baton_error_t *error) {
+    return get_opt_string_value(object, "path spec", JSON_FILE_KEY,
+                                NULL, error);
+}
+
+const char *get_query_collection(json_t *object, baton_error_t *error) {
     return get_opt_string_value(object, "path spec", JSON_COLLECTION_KEY,
                                 JSON_COLLECTION_SHORT_KEY, error);
 }
 
-const char* get_created_timestamp(json_t *object, baton_error_t *error) {
+const char *get_created_timestamp(json_t *object, baton_error_t *error) {
     return get_string_value(object, "timestamps", JSON_CREATED_KEY,
                             JSON_CREATED_SHORT_KEY, error);
 }
 
-const char* get_modified_timestamp(json_t *object, baton_error_t *error) {
+const char *get_modified_timestamp(json_t *object, baton_error_t *error) {
     return get_string_value(object, "timestamps", JSON_MODIFIED_KEY,
                             JSON_MODIFIED_SHORT_KEY, error);
 }
 
-const char* get_replicate_num(json_t *object, baton_error_t *error) {
+const char *get_replicate_num(json_t *object, baton_error_t *error) {
     return get_opt_string_value(object, "timestamps", JSON_REPLICATE_KEY,
                                 JSON_REPLICATE_SHORT_KEY, error);
 }
@@ -151,6 +168,71 @@ const char *get_avu_attribute(json_t *avu, baton_error_t *error) {
 const char *get_avu_value(json_t *avu, baton_error_t *error) {
     return get_string_value(avu, "AVU", JSON_VALUE_KEY,
                             JSON_VALUE_SHORT_KEY, error);
+}
+
+char *make_in_op_value(json_t *avu, baton_error_t *error) {
+    json_t *op_value = NULL;
+    json_t *valarray = get_json_value(avu, "value", JSON_VALUE_KEY,
+                                      JSON_VALUE_SHORT_KEY, error);
+    if (error->code != 0) goto error;
+    if (!json_is_array(valarray)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid 'value' attribute: not a JSON array "
+                        "(required for `in` condition)");
+        goto error;
+    }
+
+    json_t *prev_value;
+    // Open paren
+    op_value = json_string("(");
+
+    size_t index;
+    json_t *value;
+    json_array_foreach(valarray, index, value) {
+        if (!json_is_string(value)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid AVU value: not a JSON string "
+                            "in item %d of `in` array", index);
+            goto error;
+        }
+
+        prev_value = op_value;
+        json_t *tmp;
+        if (index == 0) {
+            tmp = json_pack("s+++", json_string_value(prev_value),
+                            "'", json_string_value(value),  "'");
+
+        }
+        else {
+            tmp = json_pack("s+++", json_string_value(prev_value),
+                            ", '", json_string_value(value), "'");
+        }
+
+        if (tmp) {
+            op_value = tmp;
+            json_decref(prev_value);
+        }
+    }
+
+    // Close paren
+    prev_value = op_value;
+    json_t *tmp = json_pack("s+", json_string_value(op_value), ")");
+    if (tmp) {
+        op_value = tmp;
+        json_decref(prev_value);
+    }
+
+    logmsg(DEBUG, "Using IN value of %s", json_string_value(op_value));
+
+    char *copy = copy_str(json_string_value(op_value), MAX_STR_LEN);
+    json_decref(op_value);
+
+    return copy;
+
+error:
+    if (op_value) json_decref(op_value);
+
+    return NULL;
 }
 
 const char *get_avu_units(json_t *avu, baton_error_t *error) {
@@ -222,6 +304,18 @@ int represents_data_object(json_t *object) {
                                JSON_COLLECTION_SHORT_KEY) &&
             has_json_str_value(object, JSON_DATA_OBJECT_KEY,
                                JSON_DATA_OBJECT_SHORT_KEY));
+}
+
+int represents_directory(json_t *object) {
+    return (has_json_str_value(object, JSON_DIRECTORY_KEY,
+                               JSON_DIRECTORY_SHORT_KEY) &&
+            !has_json_str_value(object, JSON_FILE_KEY, NULL));
+}
+
+int represents_file(json_t *object) {
+    return (has_json_str_value(object, JSON_DIRECTORY_KEY,
+                               JSON_DIRECTORY_SHORT_KEY) &&
+            has_json_str_value(object, JSON_FILE_KEY, NULL));
 }
 
 json_t *make_timestamp(const char* key, const char *value, const char *format,
@@ -309,6 +403,19 @@ error:
     return error->code;
 }
 
+int add_contents(json_t *object, json_t *contents, baton_error_t *error) {
+  if (!json_is_object(object)) {
+      set_baton_error(error, -1, "Failed to add contents data: "
+                      "target not a JSON object");
+      goto error;
+  }
+
+  return json_object_set_new(object, JSON_CONTENTS_KEY, contents);
+
+error:
+    return error->code;
+}
+
 json_t *data_object_parts_to_json(const char *coll_name,
                                   const char *data_name,
                                   baton_error_t *error) {
@@ -371,6 +478,7 @@ error:
 }
 
 json_t *collection_path_to_json(const char *path, baton_error_t *error) {
+
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
         set_baton_error(error, -1, "Failed to pack collection '%s' as JSON",
@@ -385,52 +493,69 @@ error:
 }
 
 char *json_to_path(json_t *object, baton_error_t *error) {
-    char *path = NULL;
     init_baton_error(error);
 
     const char *collection = get_collection_value(object, error);
     if (error->code != 0) goto error;
 
-    size_t term_clen = strnlen(collection, MAX_STR_LEN) + 1;
-    if (term_clen > MAX_STR_LEN) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "The collection path '%s' exceeded the maximum "
-                        "length of %d characters", collection, MAX_STR_LEN);
-        goto error;
-    }
-
-    if (!represents_data_object(object)) {
-        path = copy_str(collection, MAX_STR_LEN);
+    char *path = NULL;
+    if (represents_collection(object)) {
+        path = make_dir_path(collection, error);
     }
     else {
         const char *data_object = get_data_object_value(object, error);
+        path = make_file_path(collection, data_object, error);
+    }
 
-        size_t term_dlen = strnlen(data_object, MAX_STR_LEN) + 1;
-        size_t total_len = term_clen + term_dlen;
-        int includes_slash = str_ends_with(collection, "/", MAX_STR_LEN);
+    if (error->code != 0) goto error;
 
-        if (includes_slash) total_len--;
-        if (total_len > MAX_STR_LEN) {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "The collections and data object paths '%s' + '%s' "
-                            "combined exceeded the maximum length of %d "
-                            "characters", collection, data_object, MAX_STR_LEN);
-            goto error;
+    return path;
+
+error:
+    return NULL;
+}
+
+char *json_to_local_path(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
+    char *path = NULL;
+
+    const char *directory = get_directory_value(object, error);
+    if (error->code != 0) goto error;
+    const char *filename = get_file_value(object, error);
+    if (error->code != 0) goto error;
+
+    if (represents_directory(object) && !represents_data_object(object)) {
+        // A collection to local directory mapping
+        path = make_dir_path(directory, error);
+        if (error->code != 0) goto error;
+    }
+    else {
+        // All these are data object to local file mappings
+        if (represents_directory(object) && represents_data_object(object)) {
+            // No local filename; use the data object name as
+            // surrogate filename
+            const char *surrogate = get_data_object_value(object, error);
+            if (error->code != 0) goto error;
+            path = make_file_path(directory, surrogate, error);
+            if (error->code != 0) goto error;
         }
-
-        path = calloc(total_len, sizeof (char));
-        if (!path) {
-            set_baton_error(error, errno,
-                            "Failed to allocate memory: error %d %s",
-                            errno, strerror(errno));
-            goto error;
+        else if (represents_file(object)) {
+            // Both local directory and filename specified
+            path = make_file_path(directory, filename, error);
+            if (error->code != 0) goto error;
         }
-
-        if (includes_slash) {
-            snprintf(path, total_len, "%s%s", collection, data_object);
+        else if (!directory && filename) {
+            // No local directory, use CWD as surrogate
+            path = make_file_path(".", filename, error);
+            if (error->code != 0) goto error;
         }
-        else {
-            snprintf(path, total_len, "%s/%s", collection, data_object);
+        else if (!filename) {
+            // No local filename, use data object name as surrogate
+            const char *surrogate = get_data_object_value(object, error);
+            if (error->code != 0) goto error;
+            path = make_file_path(".", surrogate, error);
+            if (error->code != 0) goto error;
         }
     }
 
@@ -440,12 +565,27 @@ error:
     return NULL;
 }
 
-void print_json(json_t *json) {
+void print_json_stream(json_t *json, FILE *stream) {
     char *json_str = json_dumps(json, JSON_INDENT(0));
-    printf("%s\n", json_str);
-    free(json_str);
+    if (json_str) {
+        fprintf(stream, "%s\n", json_str);
+        free(json_str);
+    }
 
     return;
+}
+void print_json(json_t *json) {
+    print_json_stream(json, stdout);
+
+    return;
+}
+
+int add_error_report(json_t *target, baton_error_t *error) {
+    if (error->code != 0) {
+        add_error_value(target, error);
+    }
+
+    return error->code;
 }
 
 static json_t *get_json_value(json_t *object, const char *name,
@@ -555,4 +695,72 @@ static int has_json_str_value(json_t *object, const char *key,
     }
 
     return value && json_is_string(value);
+}
+
+static char *make_dir_path(const char *path, baton_error_t *error) {
+    size_t dlen = strnlen(path, MAX_STR_LEN) + 1; // +1 for NUL
+    if (str_ends_with(path, "/", MAX_STR_LEN)) {
+        dlen--;
+    }
+
+    if (dlen > MAX_STR_LEN) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "The path '%s' exceeded the maximum "
+                        "length of %d characters", path, MAX_STR_LEN);
+        goto error;
+    }
+
+    char *dpath = NULL;
+    dpath = calloc(dlen, sizeof (char));
+    if (!dpath) {
+        set_baton_error(error, errno, "Failed to allocate memory: error %d %s",
+                        errno, strerror(errno));
+        goto error;
+    }
+
+    snprintf(dpath, dlen, "%s", path);
+
+    return dpath;
+
+error:
+    return NULL;
+}
+
+static char *make_file_path(const char *path, const char *filename,
+                            baton_error_t *error) {
+    size_t dlen = strnlen(path, MAX_STR_LEN);
+    size_t flen = strnlen(filename, MAX_STR_LEN);
+    size_t len = dlen + flen + 1; // +1 for NUL
+
+    int includes_slash = str_ends_with(path, "/", MAX_STR_LEN);
+    if (!includes_slash) len++;
+
+    if (len > MAX_STR_LEN) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "The path components '%s' + '%s' "
+                        "combined exceeded the maximum length of %d "
+                        "characters", path, filename, MAX_STR_LEN);
+        goto error;
+    }
+
+    char *fpath = NULL;
+    fpath = calloc(len, sizeof (char));
+    if (!fpath) {
+        set_baton_error(error, errno,
+                        "Failed to allocate memory: error %d %s",
+                        errno, strerror(errno));
+        goto error;
+    }
+
+    if (includes_slash) {
+        snprintf(fpath, len, "%s%s", path, filename);
+    }
+    else {
+        snprintf(fpath, len, "%s/%s", path, filename);
+    }
+
+    return fpath;
+
+error:
+    return NULL;
 }

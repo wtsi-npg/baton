@@ -23,28 +23,37 @@ The features it provides are:
   modification timestamps and timestamp ranges. The full range of
   iRODS query operators is supported.
 
-- Unbuffered option for IPC via pipes with fine-grained error
+- Optional unbuffered IO for IPC via pipes, with fine-grained error
   reporting for batch operations.
 
 - Simplified API over the iRODS general query API to ease construction
   of new custom queries.
 
+For further details see the man pages or manual, which is available
+online at http://wtsi-npg.github.io/baton/
+
+iRODS compatibility:
+
+- Compatible with iRODS 3.2, 3.3 and 3.3.1
+
+- Not compatible with iRODS 4.0.1 and 4.0.2
+
+
 Installation:
 
 Install iRODS and baton dependencies (Jansson) as described in their
 documentation. iRODS does not install its headers and libraries in the
-standard locations, therefore you should set the environment variable
-IRODS_HOME to the root of your iRODS installation before executing the
-following commands.
+standard locations, therefore you should set the location of the root
+of the installation using the --with-irods option to the configure
+script.
 
 # Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation (assuming bash)
-IRODS_HOME=<path to iRODS> source ./scripts/set_irods_home.sh
 
 # Generate the configure script
 autoreconf -i
 
 # Generate the makefiles (see INSTALL for arguments to configure)
-./configure
+./configure --with-irods=/path/to/irods
 
 # Compile
 make
@@ -68,14 +77,21 @@ baton, see the manual in the doc directory.
 
 Dependencies:
 
-iRODS   http://www.irods.org
+iRODS   https://github.com/irods/irods-legacy
+
+        Versions 3.2, 3.3 or 3.3.1
 
 Jansson https://github.com/akheron/jansson.git
+
+        Versions >= 2.6
 
 Optional dependencies:
 
 Sphinx http://sphinx-doc.org/               (for the manual and manpages).
 check  http://check.sourceforge.net/        (for unit tests).
+
+       Versions >= 0.9.10
+
 lcov   http://ltp.sourceforge.net/coverage/ (for test coverage analysis)
 
 jq     http://stedolan.github.io/jq/        (for processing input and output)
