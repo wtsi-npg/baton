@@ -705,7 +705,7 @@ attribute. e.g.
 
 .. code-block:: json
 
-   {"avus": [{"attribute": "a", "value": ["a", "b", "c"]}]}
+   {"avus": [{"attribute": "a", "value": ["a", "b", "c"], "operator": "in"}]}
 
 To modify the above query to return results only where the attribute
 ``x`` has values numerically less than 100, the JSON :term:`AVU` would

@@ -264,16 +264,6 @@ genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, tn });
 }
 
-genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path) {
-    char *data_id = rods_path->dataId;
-    query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = data_id };
-    size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { di });
-}
-
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path) {
     char *path = rods_path->outPath;
