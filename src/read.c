@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2014, 2015 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,10 +20,21 @@
 
 #include <assert.h>
 
+#include "config.h"
+
+#ifdef HAVE_IRODS3
 #include "dataObjOpen.h"
 #include "dataObjRead.h"
 #include "dataObjChksum.h"
 #include "dataObjClose.h"
+#endif
+
+#ifdef HAVE_IRODS4
+#include "dataObjOpen.hpp"
+#include "dataObjRead.hpp"
+#include "dataObjChksum.hpp"
+#include "dataObjClose.hpp"
+#endif
 
 #include "error.h"
 #include "read.h"
@@ -151,7 +162,7 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
 
     logmsg(DEBUG, "Final capacity %zu, offset %zu", capacity, num_read);
 
-    MD5Update(&context, content, num_read);
+    MD5Update(&context, (unsigned char*) content, num_read);
     MD5Final(digest, &context);
     set_md5_last_read(obj_file, digest);
 
@@ -209,7 +220,7 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
             goto error;
         }
 
-        MD5Update(&context, buffer, n);
+        MD5Update(&context, (unsigned char*) buffer, n);
         num_written += n;
     }
 
