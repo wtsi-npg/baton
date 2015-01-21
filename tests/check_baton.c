@@ -18,6 +18,7 @@
  */
 
 #include <assert.h>
+#include <limits.h>
 #include <unistd.h>
 
 #include <jansson.h>
@@ -167,6 +168,16 @@ START_TEST(test_parse_timestamp) {
     ck_assert_str_eq(parsed, "1375107252");
 
     free(parsed);
+}
+END_TEST
+
+// Can we parse file size strings?
+START_TEST(test_parse_size) {
+    ck_assert_int_eq(0, parse_size("0"));
+
+    char max[1024];
+    snprintf(max, sizeof max, "%lu", ULONG_MAX);
+    ck_assert_int_eq(ULONG_MAX, parse_size(max));
 }
 END_TEST
 
@@ -1422,6 +1433,49 @@ START_TEST(test_json_to_path) {
 }
 END_TEST
 
+// Can we convert JSON representation to a useful local path string?
+START_TEST(test_json_to_local_path) {
+    const char *file_name = "file1.txt";
+    const char *file_path = "/file1/path";
+
+    const char *obj_name = "obj1.txt";
+    const char *coll_path = "/obj/path";
+
+    json_t *path1 = json_pack("{s:s s:s s:s s:s}",
+                              JSON_DIRECTORY_KEY,   file_path,
+                              JSON_FILE_KEY,        file_name,
+                              JSON_COLLECTION_KEY,  coll_path,
+                              JSON_DATA_OBJECT_KEY, obj_name);
+
+    baton_error_t error_path1;
+    ck_assert_str_eq(json_to_local_path(path1, &error_path1),
+                     "/file1/path/file1.txt");
+    ck_assert_int_eq(error_path1.code, 0);
+    json_decref(path1);
+
+    json_t *path2 = json_pack("{s:s s:s s:s}",
+                              JSON_FILE_KEY,        file_name,
+                              JSON_COLLECTION_KEY,  coll_path,
+                              JSON_DATA_OBJECT_KEY, obj_name);
+
+    baton_error_t error_path2;
+    ck_assert_str_eq(json_to_local_path(path1, &error_path2),
+                     "./file1.txt");
+    ck_assert_int_eq(error_path2.code, 0);
+    json_decref(path2);
+
+    json_t *path3 = json_pack("{s:s s:s}",
+                              JSON_COLLECTION_KEY,  coll_path,
+                              JSON_DATA_OBJECT_KEY, obj_name);
+
+    baton_error_t error_path3;
+    ck_assert_str_eq(json_to_local_path(path1, &error_path3),
+                     "./obj1.txt");
+    ck_assert_int_eq(error_path3.code, 0);
+    json_decref(path3);
+}
+END_TEST
+
 // Can we test JSON for the presence of an AVU?
 START_TEST(test_contains_avu) {
     json_t *avu1 = json_pack("{s:s, s:s}",
@@ -1706,6 +1760,7 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_maybe_stdin);
     tcase_add_test(utilities_tests, test_format_timestamp);
     tcase_add_test(utilities_tests, test_parse_timestamp);
+    tcase_add_test(utilities_tests, test_parse_size);
     tcase_add_test(utilities_tests, test_to_utf8);
 
     TCase *basic_tests = tcase_create("basic");
@@ -1753,6 +1808,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_represents_file);
 
     tcase_add_test(basic_tests, test_json_to_path);
+    tcase_add_test(basic_tests, test_json_to_local_path);
     tcase_add_test(basic_tests, test_contains_avu);
 
     tcase_add_test(basic_tests, test_get_user);

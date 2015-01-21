@@ -514,14 +514,7 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     rodsPath_t rods_path;
     char *path             = NULL;
     json_t *raw_timestamps = NULL;
-
-    json_t *timestamps;
-    const char *created;
-    const char *modified;
-
-    size_t selected_index = 0;
-    int selected_repl = -1;
-    int status;
+    json_t *timestamps     = NULL;
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -532,7 +525,7 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    status = set_rods_path(conn, &rods_path, path);
+    int status = set_rods_path(conn, &rods_path, path);
     if (status < 0) {
         set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
         goto error;
@@ -541,17 +534,21 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     raw_timestamps = list_timestamps(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
-    // For data objects, we filter the results to present only the
-    // lowest replicate number.  The iRODS generic query API doesn't
-    // permit this selection at the query level.
+    timestamps = json_array();
+    if (!timestamps) {
+        set_baton_error(error, -1, "Failed to allocate a new JSON array");
+        goto error;
+    }
 
+    // We report timestamps only on data objects. They exist on
+    // collections too, but we don't report them to be consistent with
+    // the 'ils' command.
     if (represents_data_object(object)) {
-        size_t index;
-        json_t *timestamps;
         int base = 10;
-
-        json_array_foreach(raw_timestamps, index, timestamps) {
-            const char *repl_str = get_replicate_num(timestamps, error);
+        size_t i;
+        json_t *item;
+        json_array_foreach(raw_timestamps, i, item) {
+            const char *repl_str = get_replicate_num(item, error);
             if (error->code != 0) goto error;
 
             char *endptr;
@@ -563,32 +560,30 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
                 goto error;
             }
 
-            if (index == 0 || repl_num < selected_repl) {
-                selected_repl = repl_num;
-                selected_index = index;
-            }
+            const char *created = get_created_timestamp(item, error);
+            if (error->code != 0) goto error;
+            const char *modified = get_modified_timestamp(item, error);
+            if (error->code != 0) goto error;
+
+            json_t *iso_created =
+                make_timestamp(JSON_CREATED_KEY, created, ISO8601_FORMAT,
+                               &repl_num, error);
+            if (error->code != 0) goto error;
+
+            json_t *iso_modified =
+                make_timestamp(JSON_MODIFIED_KEY, modified, ISO8601_FORMAT,
+                               &repl_num, error);
+            if (error->code != 0) goto error;
+
+            json_array_append_new(timestamps, iso_created);
+            json_array_append_new(timestamps, iso_modified);
+
+            logmsg(DEBUG, "Adding timestamps from replicate %d of '%s'",
+                   repl_num, path);
         }
-
-        logmsg(DEBUG, "Adding timestamps from replicate %d of '%s'",
-               selected_repl, path);
     }
 
-    timestamps = json_array_get(raw_timestamps, selected_index);
-
-    created = get_created_timestamp(timestamps, error);
-    if (error->code != 0) goto error;
-    modified = get_modified_timestamp(timestamps, error);
-    if (error->code != 0) goto error;
-
-    int *repl_ptr;
-    if (selected_repl < 0) {
-        repl_ptr = NULL;
-    }
-    else {
-        repl_ptr = &selected_repl;
-    }
-
-    add_timestamps(object, created, modified, repl_ptr, error);
+    json_object_set_new(object, JSON_TIMESTAMPS_KEY, timestamps);
     if (error->code != 0) goto error;
 
     if (path)                  free(path);
@@ -602,6 +597,7 @@ error:
     if (path)                  free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (raw_timestamps)        json_decref(raw_timestamps);
+    if (timestamps)            json_decref(timestamps);
 
     return NULL;
 }
@@ -614,8 +610,9 @@ json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
         goto error;
     }
 
-    for (size_t i = 0; i < json_array_size(array); i++) {
-        json_t *item = json_array_get(array, i);
+    size_t i;
+    json_t *item;
+    json_array_foreach(array, i, item) {
         add_tps_json_object(conn, item, error);
         if (error->code != 0) goto error;
     }
@@ -675,8 +672,9 @@ json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
         goto error;
     }
 
-    for (size_t i = 0; i < json_array_size(array); i++) {
-        json_t *item = json_array_get(array, i);
+    size_t i;
+    json_t *item;
+    json_array_foreach(array, i, item) {
         add_avus_json_object(conn, item, error);
         if (error->code != 0) goto error;
     }
@@ -736,8 +734,9 @@ json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
         goto error;
     }
 
-    for (size_t i = 0; i < json_array_size(array); i++) {
-        json_t *item = json_array_get(array, i);
+    size_t i;
+    json_t *item;
+    json_array_foreach(array, i, item) {
         add_acl_json_object(conn, item, error);
         if (error->code != 0) goto error;
     }

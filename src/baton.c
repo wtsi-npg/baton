@@ -776,7 +776,7 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
                    rods_path->outPath);
             query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
                                         obj_format.columns);
-            query_in = prepare_obj_tps_list(query_in, rods_path);
+            query_in = prepare_obj_list(query_in, rods_path, NULL);
             break;
 
         case COLL_OBJ_T:
@@ -1043,7 +1043,8 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
     if (flags & PRINT_SIZE) {
         obj_format = &(query_format_in_t)
             { .num_columns = 3,
-              .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
+              .columns     = { COL_COLL_NAME, COL_DATA_NAME,
+                               COL_DATA_SIZE },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
                                JSON_SIZE_KEY } };
     }
