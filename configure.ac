@@ -250,7 +250,7 @@ AS_IF(
 
      AC_CHECK_LIB([irods_client], [getRodsEnvFileName], [],
        [AC_MSG_ERROR([unable to find the iRODS library libirods_client])],
-       [-rdynamic -ldl])]
+       [-rdynamic -ldl])],
 
   [test "x$IS_PACKAGED_INSTALL" = "xno" && test "x$HAVE_IRODS3" = "xno"],
     dnl Run-in-place iRODS 4.x has only RodsAPIs
