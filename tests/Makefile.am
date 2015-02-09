@@ -1,9 +1,6 @@
 
-AM_CPPFLAGS = @IRODS_CPPFLAGS@
-AM_LDFLAGS  = @IRODS_LDFLAGS@
-AM_LDLIBS   = @IRODS_LDLIBS@
-
-AM_CPPFLAGS += -DTEST_ROOT='"$(top_srcdir)/tests"'
+AM_CPPFLAGS = -DTEST_ROOT='"$(top_srcdir)/tests"'
+AM_CFLAGS = -Wall -Werror -Wextra -pedantic
 
 TESTS = check_baton
 

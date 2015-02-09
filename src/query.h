@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +22,15 @@
 #ifndef _BATON_QUERY_H
 #define _BATON_QUERY_H
 
+#include "config.h"
+
+#ifdef HAVE_IRODS3
 #include "rodsClient.h"
+#endif
+
+#ifdef HAVE_IRODS4
+#include "rodsClient.hpp"
+#endif
 
 #include "log.h"
 #include "utilities.h"
