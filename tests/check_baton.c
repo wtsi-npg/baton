@@ -1618,7 +1618,7 @@ START_TEST(test_write_path_to_stream) {
 
     size_t n;
     while ((n = fread(buffer, 1, 1024, tmp)) > 0) {
-        MD5Update(&context, buffer, n);
+        MD5Update(&context, (unsigned char *) buffer, n);
     }
 
     MD5Final(digest, &context);

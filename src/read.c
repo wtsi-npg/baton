@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2014, 2015 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,10 +20,21 @@
 
 #include <assert.h>
 
+#include "config.h"
+
+#ifdef HAVE_IRODS3
 #include "dataObjOpen.h"
 #include "dataObjRead.h"
 #include "dataObjChksum.h"
 #include "dataObjClose.h"
+#endif
+
+#ifdef HAVE_IRODS4
+#include "dataObjOpen.hpp"
+#include "dataObjRead.hpp"
+#include "dataObjChksum.hpp"
+#include "dataObjClose.hpp"
+#endif
 
 #include "error.h"
 #include "read.h"
@@ -78,25 +89,30 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
     obj_read_in.len       = len;
 
     bytesBuf_t obj_read_out;
-    obj_read_out.buf = buffer;
+    memset(&obj_read_out, 0, sizeof obj_read_out);
     obj_read_out.len = len;
 
     logmsg(DEBUG, "Reading up to %zu bytes from '%s'", len, obj_file->path);
 
-    int response = rcDataObjRead(conn, &obj_read_in, &obj_read_out);
-    if (response < 0) {
+    int num_read = rcDataObjRead(conn, &obj_read_in, &obj_read_out);
+    if (num_read < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(response, &err_subname);
-        set_baton_error(error, response,
+        char *err_name = rodsErrorName(num_read, &err_subname);
+        set_baton_error(error, num_read,
                         "Failed to read up to %zu bytes from '%s': %s %s",
                         len, obj_file->path, err_name, err_subname);
         goto error;
     }
 
-    return response;
+    memcpy(buffer, obj_read_out.buf, num_read);
+    free(obj_read_out.buf);
+
+    logmsg(DEBUG, "Read %d bytes from '%s'", num_read, obj_file->path);
+    
+    return num_read;
 
 error:
-    return response;
+    return num_read;
 }
 
 char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
@@ -104,7 +120,7 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
     char *buffer  = NULL;
     char *content = NULL;
 
-    buffer = calloc(buffer_size, sizeof (char));
+    buffer = calloc(buffer_size +1, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
@@ -128,8 +144,8 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
     size_t n;
     while ((n = read_data_obj(conn, obj_file, buffer, buffer_size,
                               error)) > 0) {
-        logmsg(DEBUG, "Read %zu bytes. Capacity %zu, num read %zu",
-               n, capacity, num_read);
+      logmsg(TRACE, "Read %zu bytes. Capacity %zu, num read %zu",
+	     n, capacity, num_read);
         if (num_read + n > capacity) {
             capacity = capacity * 2;
 
@@ -146,12 +162,13 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
         }
 
         memcpy(content + num_read, buffer, n);
+	memset(buffer, 0, buffer_size);
         num_read += n;
     }
 
     logmsg(DEBUG, "Final capacity %zu, offset %zu", capacity, num_read);
 
-    MD5Update(&context, content, num_read);
+    MD5Update(&context, (unsigned char*) content, num_read);
     MD5Final(digest, &context);
     set_md5_last_read(obj_file, digest);
 
@@ -185,7 +202,7 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
         goto error;
     }
 
-    buffer = calloc(buffer_size, sizeof (char));
+    buffer = calloc(buffer_size +1, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
@@ -200,7 +217,7 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
     while ((n = read_data_obj(conn, obj_file, buffer, buffer_size,
                               error)) > 0) {
         logmsg(DEBUG, "Writing %zu bytes from '%s' to stream",
-               n, obj_file->path);
+	       n, obj_file->path);
 
         int status = fwrite(buffer, 1, n, out);
         if (status < 0) {
@@ -209,7 +226,8 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
             goto error;
         }
 
-        MD5Update(&context, buffer, n);
+        MD5Update(&context, (unsigned char*) buffer, n);
+	memset(buffer, 0, buffer_size);
         num_written += n;
     }
 

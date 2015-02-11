@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2014, 2015 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,21 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-#include "rodsClient.h"
-#include "rodsPath.h"
 #include <jansson.h>
 
-#include "baton.h"
 #include "config.h"
+
+#ifdef HAVE_IRODS3
+#include "rodsClient.h"
+#include "rodsPath.h"
+#endif
+
+#ifdef HAVE_IRODS4
+#include "rodsClient.hpp"
+#include "rodsPath.hpp"
+#endif
+
+#include "baton.h"
 #include "json.h"
 #include "log.h"
 #include "read.h"

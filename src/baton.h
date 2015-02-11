@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +22,22 @@
 #ifndef _BATON_H
 #define _BATON_H
 
-#include "rcConnect.h"
-#include "rodsClient.h"
-#include "rodsPath.h"
 #include <jansson.h>
 
 #include "config.h"
+
+#ifdef HAVE_IRODS3
+#include "rcConnect.h"
+#include "rodsClient.h"
+#include "rodsPath.h"
+#endif
+
+#ifdef HAVE_IRODS4
+#include "rcConnect.hpp"
+#include "rodsClient.hpp"
+#include "rodsPath.hpp"
+#endif
+
 #include "error.h"
 #include "query.h"
 #include "utilities.h"

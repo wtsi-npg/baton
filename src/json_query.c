@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,8 +21,17 @@
 
 #include <stdlib.h>
 
-#include "rodsClient.h"
 #include <jansson.h>
+
+#include "config.h"
+
+#ifdef HAVE_IRODS3
+#include "rodsClient.h"
+#endif
+
+#ifdef HAVE_IRODS4
+#include "rodsClient.hpp"
+#endif
 
 #include "baton.h"
 #include "json.h"
@@ -205,6 +215,13 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
         if (status == 0) {
             logmsg(DEBUG, "Successfully fetched chunk %d of query", chunk_num);
 
+            if (!query_out) {
+                set_baton_error(error, -1,
+                                "Query result unexpectedly NULL "
+                                "in chunk %d error %d", chunk_num, -1);
+                goto error;
+            }
+
             // Allows query_out to be freed
             continue_flag = query_out->continueInx;
 
@@ -233,7 +250,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
                 goto error;
             }
 
-            if (query_out) free_query_output(query_out);
+            free_query_output(query_out);
         }
         else if (status == CAT_NO_ROWS_FOUND && chunk_num > 0) {
             // Oddly CAT_NO_ROWS_FOUND is also returned at the end of a

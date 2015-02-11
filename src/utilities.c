@@ -19,7 +19,7 @@
  */
 
 // For strptime
-#include <config.h>
+#include "config.h"
 
 #include <errno.h>
 #include <limits.h>

@@ -33,8 +33,8 @@ typedef enum {
     WARN   = 2,
     NOTICE = 3,
     INFO   = 4,
-    TRACE  = 5,
-    DEBUG  = 6
+    DEBUG  = 5,
+    TRACE  = 6
 } log_level;
 
 #define logmsg(level, ...) \
