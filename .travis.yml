@@ -1,27 +1,4 @@
 
-before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq odbc-postgresql unixodbc-dev super
-  - sudo apt-get install -qq python-sphinx
-  - sudo apt-get install -qq libboost-filesystem-dev libboost-regex-dev libboost-thread-dev
-  - wget ftp://ftp.renci.org/pub/irods/releases/4.0.3/irods-icat-4.0.3-64bit.deb
-  - wget ftp://ftp.renci.org/pub/irods/releases/4.0.3/irods-database-plugin-postgres-1.3.deb
-  - wget ftp://ftp.renci.org/pub/irods/releases/4.0.3/irods-runtime-4.0.3-64bit.deb
-  - wget ftp://ftp.renci.org/pub/irods/releases/4.0.3/irods-dev-4.0.3-64bit.deb
-  - sudo dpkg -i irods-icat-4.0.3-64bit.deb irods-database-plugin-postgres-1.3.deb
-  - sudo dpkg -i irods-runtime-4.0.3-64bit.deb irods-dev-4.0.3-64bit.deb
-
-install:
-  - wget http://downloads.sourceforge.net/project/check/check/0.9.14/check-0.9.14.tar.gz -O /tmp/check-0.9.14.tar.gz
-  - tar xfz /tmp/check-0.9.14.tar.gz -C /tmp
-  - cd /tmp/check-0.9.14 ; autoreconf -fi ; ./configure ; make ; sudo make install
-  - wget https://github.com/akheron/jansson/archive/v2.6.tar.gz -O /tmp/jansson-2.6.tar.gz
-  - tar xfz /tmp/jansson-2.6.tar.gz -C /tmp
-  - cd /tmp/jansson-2.6 ; autoreconf -fi ; ./configure ; make ; sudo make install
-  - cd $TRAVIS_BUILD_DIR
-  - sudo ldconfig
-  - sudo pip install breathe
-
 language: c
 
 compiler: gcc
@@ -33,7 +10,34 @@ env:
   global:
     - secure: cDfB188ECmloGfScZQezqwiFef7l+gXgn2RiTOxINriy9wYS6RmZxuZBHGuR36u7QV3QEJtMdihyQ+XBN2eQPf5jULQXV15t7gArXEVPzzF8i+f8MTgVHugU3TqmPLQkY94wBBbpzvRD9xCAC/uNiQcLLwuD2SjPfTXkqgqqtd0=
     - CK_DEFAULT_TIMEOUT=10
-    - LD_LIBRARY_PATH=/usr/lib/irods
+    - IRODS_VERSION=4.1.0
+    - WTSI_NPG_URL=https://github.com/wtsi-npg/irods
+    - WTSI_NPG_SHA1=f8aa58e
+    - WTSI_NPG_VERSION=${IRODS_VERSION}-${WTSI_NPG_SHA1}
+    - PG_PLUGIN_VERSION=1.5
+
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq odbc-postgresql unixodbc-dev super
+  - sudo apt-get install -qq python-sphinx
+  - sudo apt-get install -qq libboost-filesystem-dev libboost-regex-dev libboost-thread-dev
+  - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-icat-${IRODS_VERSION}-64bit.deb
+  - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-database-plugin-postgres-${PG_PLUGIN_VERSION}.deb
+  - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-runtime-${IRODS_VERSION}-64bit.deb
+  - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-dev-${IRODS_VERSION}-64bit.deb
+  - sudo dpkg -i irods-icat-${IRODS_VERSION}-64bit.deb irods-database-plugin-postgres-${PG_PLUGIN_VERSION}.deb
+  - sudo dpkg -i irods-runtime-${IRODS_VERSION}-64bit.deb irods-dev-${IRODS_VERSION}-64bit.deb
+
+install:
+  - wget http://downloads.sourceforge.net/project/check/check/0.9.14/check-0.9.14.tar.gz -O /tmp/check-0.9.14.tar.gz
+  - tar xfz /tmp/check-0.9.14.tar.gz -C /tmp
+  - cd /tmp/check-0.9.14 ; autoreconf -fi ; ./configure ; make ; sudo make install
+  - wget https://github.com/akheron/jansson/archive/v2.6.tar.gz -O /tmp/jansson-2.6.tar.gz
+  - tar xfz /tmp/jansson-2.6.tar.gz -C /tmp
+  - cd /tmp/jansson-2.6 ; autoreconf -fi ; ./configure ; make ; sudo make install
+  - cd $TRAVIS_BUILD_DIR
+  - sudo ldconfig
+  - sudo pip install breathe
 
 before_script:
   - sudo -E -u postgres createuser -D -R -S irods
