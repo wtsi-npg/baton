@@ -142,7 +142,7 @@ AC_RUN_IFELSE(
   exit(-1);
 #endif
 ])],
-  [ dnl AC_DEFINE([HAVE_IRODS3], [], [iRODS 3.3.x])
+  [
    AC_MSG_NOTICE([detected iRODS 3.3.x])
    [HAVE_IRODS3=yes]
    AC_CHECK_LIB([RodsAPIs], [getRodsEnvFileName], [],
@@ -180,12 +180,12 @@ IRODS4_RIP_LIBS="-lRodsAPIs"
 
 IRODS4_RIP_BOOST_CPPFLAGS="-I${IRODS_HOME}/../external/${BOOST_VERSION}/boost"
 IRODS4_RIP_BOOST_LDFLAGS="-L${IRODS_HOME}/../external/${BOOST_VERSION}/stage/lib"
-IRODS4_RIP_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread"
+IRODS4_RIP_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread -lboost_chrono"
 
 IRODS4_PKG_CPPFLAGS="-I/usr/include/irods"
 IRODS4_PKG_LDFLAGS="-L/usr/lib/irods"
 IRODS4_PKG_LIBS="-lrods_client_api -lrods_client"
-IRODS4_PKG_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread"
+IRODS4_PKG_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread -lboost_chrono"
 
 HAVE_IRODS4=no
 
