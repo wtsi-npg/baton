@@ -65,6 +65,9 @@ after_success:
   - make dist
   - export DIST_FILE=$(ls baton-*.tar.gz)
 
+after_failure:
+  - cat config.log
+
 deploy:
   provider: releases
   api-key: $GH_OAUTH
