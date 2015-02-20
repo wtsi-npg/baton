@@ -20,6 +20,13 @@ LT_INIT
 
 AC_CONFIG_MACRO_DIR([m4])
 
+LT_LIB_CURRENT=0
+LT_LIB_REVISION=0
+LT_LIB_AGE=0
+AC_SUBST(LT_LIB_CURRENT)
+AC_SUBST(LT_LIB_REVISION)
+AC_SUBST(LT_LIB_AGE)
+
 dnl Notes for OSX with homebrew:
 dnl Ensure that check.m4 and pkg.m4 are in a system aclocal path or
 dnl a path added by ACLOCAL_AMFLAGS in Makefile.am
