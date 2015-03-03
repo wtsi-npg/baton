@@ -12,7 +12,7 @@ env:
     - CK_DEFAULT_TIMEOUT=10
     - IRODS_VERSION=4.1.0
     - WTSI_NPG_URL=https://github.com/wtsi-npg/irods
-    - WTSI_NPG_SHA1=f8aa58e
+    - WTSI_NPG_SHA1=5164451
     - WTSI_NPG_VERSION=${IRODS_VERSION}-${WTSI_NPG_SHA1}
     - PG_PLUGIN_VERSION=1.5
 
@@ -20,8 +20,8 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq odbc-postgresql unixodbc-dev super
   - sudo apt-get install -qq python-sphinx
+  - sudo apt-get install libjson-perl jq
   - sudo apt-get install -qq libboost-filesystem-dev libboost-regex-dev libboost-thread-dev
-  - sudo apt-get install cpanminus
   - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-icat-${IRODS_VERSION}-64bit.deb
   - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-database-plugin-postgres-${PG_PLUGIN_VERSION}.deb
   - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-runtime-${IRODS_VERSION}-64bit.deb
@@ -30,7 +30,6 @@ before_install:
   - sudo dpkg -i irods-runtime-${IRODS_VERSION}-64bit.deb irods-dev-${IRODS_VERSION}-64bit.deb
 
 install:
-  - sudo cpanm --notest JSON
   - wget http://downloads.sourceforge.net/project/check/check/0.9.14/check-0.9.14.tar.gz -O /tmp/check-0.9.14.tar.gz
   - tar xfz /tmp/check-0.9.14.tar.gz -C /tmp
   - cd /tmp/check-0.9.14 ; autoreconf -fi ; ./configure ; make ; sudo make install
@@ -46,7 +45,7 @@ before_script:
   - sudo -E -u postgres createdb -O irods ICAT
   - sudo -E -u postgres sh -c "echo \"ALTER USER irods WITH PASSWORD 'irods'\" | psql"
   - sudo /var/lib/irods/packaging/setup_irods.sh < .travis.setup_irods
-  - sudo perl -p -i.bak -e 's/(default_hash_scheme\s+)SHA256/$1MD5/' /etc/irods/server.config
+  - sudo jq '. + {default_hash_scheme: "MD5"}' /etc/irods/server_config.json > server_config.tmp ; mv server_config.tmp /etc/irods/server_config.json
   - ls -l /etc/irods
   - sudo /etc/init.d/irods restart
   - mkdir $HOME/.irods
