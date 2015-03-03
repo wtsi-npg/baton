@@ -183,7 +183,7 @@ IRODS4_RIP_BOOST_LDFLAGS="-L${IRODS_HOME}/../external/${BOOST_VERSION}/stage/lib
 IRODS4_RIP_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread -lboost_chrono"
 
 IRODS4_PKG_CPPFLAGS="-I/usr/include/irods"
-IRODS4_PKG_LDFLAGS="-L/usr/lib/irods"
+IRODS4_PKG_LDFLAGS="-L/usr/lib/irods/externals"
 IRODS4_PKG_LIBS="-lrods_client_api -lrods_client"
 IRODS4_PKG_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread -lboost_chrono"
 
