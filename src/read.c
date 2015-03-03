@@ -90,6 +90,7 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
 
     bytesBuf_t obj_read_out;
     memset(&obj_read_out, 0, sizeof obj_read_out);
+    obj_read_out.buf = buffer;
     obj_read_out.len = len;
 
     logmsg(DEBUG, "Reading up to %zu bytes from '%s'", len, obj_file->path);
@@ -103,9 +104,6 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
                         len, obj_file->path, err_name, err_subname);
         goto error;
     }
-
-    memcpy(buffer, obj_read_out.buf, num_read);
-    free(obj_read_out.buf);
 
     logmsg(DEBUG, "Read %d bytes from '%s'", num_read, obj_file->path);
 
