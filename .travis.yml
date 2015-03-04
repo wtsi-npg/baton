@@ -12,7 +12,7 @@ env:
     - CK_DEFAULT_TIMEOUT=10
     - IRODS_VERSION=4.1.0
     - WTSI_NPG_URL=https://github.com/wtsi-npg/irods
-    - WTSI_NPG_SHA1=549e108
+    - WTSI_NPG_SHA1=65ba192
     - WTSI_NPG_VERSION=${IRODS_VERSION}-${WTSI_NPG_SHA1}
     - PG_PLUGIN_VERSION=1.5
 
@@ -21,7 +21,6 @@ before_install:
   - sudo apt-get install -qq odbc-postgresql unixodbc-dev super
   - sudo apt-get install -qq python-sphinx
   - sudo apt-get install libjson-perl jq
-  - sudo apt-get install -qq libboost-filesystem-dev libboost-regex-dev libboost-thread-dev
   - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-icat-${IRODS_VERSION}-64bit.deb
   - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-database-plugin-postgres-${PG_PLUGIN_VERSION}.deb
   - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-runtime-${IRODS_VERSION}-64bit.deb
