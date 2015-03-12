@@ -72,6 +72,11 @@ AM_CONDITIONAL(HAVE_SPHINX, [test "x${SPHINXBUILD}" != "xno"])
 dnl End Sphinx
 
 dnl Begin Lcov code coverage analysis
+
+dnl Be aware on OS X that gcc may not really be gcc, but a symlink to
+dnl llvm-gcc. In this case, the coverage files will not be generated
+dnl unless CC is set to the real gcc when running configure.
+
 AC_ARG_ENABLE([coverage],
   [AS_HELP_STRING([--enable-coverage],
     [Enable code coverage analysis (default is no)])],

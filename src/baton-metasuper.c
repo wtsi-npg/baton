@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
 }
 
 int do_supersede_metadata(FILE *input) {
-    int path_count  = 0;
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -149,111 +149,94 @@ int do_supersede_metadata(FILE *input) {
             continue;
         }
 
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
+            error_count++;
+            json_decref(target);
+            continue;
+        }
+
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
-        json_t *avus;
-        int status;
-        path_count++;
 
-        if (path_error.code != 0) {
+        if (add_error_report(target, &path_error)) {
             error_count++;
-            add_error_value(target, &path_error);
-            goto print_result;
         }
         else {
-            avus = json_object_get(target, JSON_AVUS_KEY);
+            json_t *avus = json_object_get(target, JSON_AVUS_KEY);
             if (!json_is_array(avus)) {
-                logmsg(ERROR, "AVU data for '%s' is not in a JSON array", path);
-                goto error;
-            }
-
-            rodsPath_t rods_path;
-            status = resolve_rods_path(conn, &env, &rods_path, path);
-            if (status < 0) {
                 error_count++;
-                logmsg(ERROR, "Failed to resolve path '%s'", path);
+                set_baton_error(&path_error, -1,
+                                "AVU data for %s is not in a JSON array", path);
+                add_error_report(target, &path_error);
             }
             else {
-                baton_error_t list_error;
-                json_t *current_avus = list_metadata(conn, &rods_path, NULL,
-                                                     &list_error);
-                if (list_error.code != 0) {
+                rodsPath_t rods_path;
+                int status = resolve_rods_path(conn, &env, &rods_path, path);
+                if (status < 0) {
                     error_count++;
-                    add_error_value(target, &list_error);
-                    goto print_result;
+                    set_baton_error(&path_error, status,
+                                    "Failed to resolve path '%s'", path);
+                    add_error_report(target, &path_error);
                 }
-
-                // Remove any current AVUs that are not equal to target AVUs
-                for (size_t i = 0; i < json_array_size(current_avus); i++) {
-                    json_t *current_avu = json_array_get(current_avus, i);
-                    char *str = json_dumps(current_avu, JSON_DECODE_ANY);
-
-                    if (contains_avu(avus, current_avu)) {
-                        logmsg(TRACE, "Not removing AVU %s", str);
+                else {
+                    baton_error_t list_error;
+                    json_t *current_avus = list_metadata(conn, &rods_path, NULL,
+                                                         &list_error);
+                    if (add_error_report(target, &list_error)) {
+                        error_count++;
                     }
                     else {
                         baton_error_t rem_error;
-                        logmsg(TRACE, "Removing AVU %s", str);
-                        modify_json_metadata(conn, &rods_path, META_REM,
-                                                 current_avu, &rem_error);
-                        if (rem_error.code != 0) {
+                        // Remove any current AVUs that are not equal
+                        // to target AVUs. Stops on first error.
+                        maybe_modify_json_metadata(conn, &rods_path,
+                                                   META_REM,
+                                                   current_avus, avus,
+                                                   &rem_error);
+                        if (add_error_report(target, &rem_error)) {
                             error_count++;
-                            add_error_value(target, &rem_error);
-                            free(str);
-                            goto print_result;
+                        }
+                        else {
+                            // Add any target AVUs that are not equal to
+                            // current AVUs. Stops on first error.
+                            baton_error_t add_error;
+                            maybe_modify_json_metadata(conn, &rods_path,
+                                                       META_ADD,
+                                                       avus, current_avus,
+                                                       &add_error);
+                            if (add_error_report(target, &add_error)) {
+                                error_count++;
+                            }
                         }
                     }
 
-                    free(str);
+                    json_decref(current_avus);
                 }
 
-                // Add any target AVUs that are not equal to current AVUs
-                for (size_t i = 0; i < json_array_size(avus); i++) {
-                    json_t *avu = json_array_get(avus, i);
-                    char *str = json_dumps(avu, JSON_DECODE_ANY);
-
-                    if (contains_avu(current_avus, avu)) {
-                        logmsg(TRACE, "Not adding AVU %s", str);
-                    }
-                    else {
-                        baton_error_t add_error;
-                        logmsg(TRACE, "Adding AVU %s", str);
-                        modify_json_metadata(conn, &rods_path, META_ADD,
-                                             avu, &add_error);
-                        if (add_error.code != 0) {
-                            error_count++;
-                            add_error_value(target, &add_error);
-                            free(str);
-                            goto print_result;
-                        }
-                    }
-
-                    free(str);
-                }
-
-                json_decref(current_avus);
+                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
             }
 
-        print_result:
             print_json(target);
             if (unbuffered_flag) fflush(stdout);
 
             json_decref(target);
-            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-            free(path);
+            if (path) free(path);
         }
     } // while
 
     rcDisconnect(conn);
 
-    logmsg(TRACE, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(TRACE, "Processed %d items with %d errors", item_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }

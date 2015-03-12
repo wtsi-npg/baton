@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
 }
 
 int do_list_paths(FILE *input, option_flags oflags) {
-    int path_count  = 0;
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -172,13 +172,20 @@ int do_list_paths(FILE *input, option_flags oflags) {
             continue;
         }
 
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
+            error_count++;
+            json_decref(target);
+            continue;
+        }
+
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
-        path_count++;
 
-        if (path_error.code != 0) {
+        if (add_error_report(target, &path_error)) {
             error_count++;
-            add_error_value(target, &path_error);
             print_json(target);
         }
         else {
@@ -188,16 +195,15 @@ int do_list_paths(FILE *input, option_flags oflags) {
                 error_count++;
                 set_baton_error(&path_error, status,
                                 "Failed to resolve path '%s'", path);
-                add_error_value(target, &path_error);
+                add_error_report(target, &path_error);
                 print_json(target);
             }
             else {
                 baton_error_t error;
                 json_t *results = list_path(conn, &rods_path, oflags, &error);
 
-                if (error.code != 0) {
+                if (add_error_report(target, &error)) {
                     error_count++;
-                    add_error_value(target, &error);
                     print_json(target);
                 }
                 else {
@@ -217,14 +223,14 @@ int do_list_paths(FILE *input, option_flags oflags) {
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }

@@ -179,8 +179,14 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath) {
 
 int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
                       rodsPath_t *rods_path, char *inpath) {
-    int status;
+    if (!str_starts_with(inpath, "/", 1)) {
+        logmsg(WARN, "Found relative collection path '%s'. "
+               "Using relative collection paths in iRODS may be "
+               "dangerous because the CWD may change unexpectedly. "
+               "See https://github.com/irods/irods/issues/2406", inpath);
+    }
 
+    int status;
     status = init_rods_path(rods_path, inpath);
     if (status < 0) {
         logmsg(ERROR, "Failed to create iRODS path '%s'", inpath);
@@ -230,6 +236,55 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
 
 error:
     return status;
+}
+
+int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
+                       baton_error_t *error) {
+    init_baton_error(error);
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to resolve the iRODS collection: "
+                        "target not a JSON object");
+        goto error;
+    }
+    if (!has_collection(object)) {
+        set_baton_error(error, -1, "Failed to resolve the iRODS collection: "
+                        "target has no collection property");
+        goto error;
+    }
+
+    rodsPath_t rods_path;
+    const char *unresolved = get_collection_value(object, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Attempting to resolve collection '%s'", unresolved);
+
+    char *coll = json_to_collection_path(object, error);
+    if (error->code != 0) goto error;
+
+    int status = resolve_rods_path(conn, env, &rods_path, coll);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to resolve collection '%s'",
+                        unresolved);
+        goto error;
+    }
+
+    logmsg(DEBUG, "Resolved collection '%s' to '%s'", unresolved,
+           rods_path.outPath);
+
+    json_object_del(object, JSON_COLLECTION_KEY);
+    json_object_del(object, JSON_COLLECTION_SHORT_KEY);
+
+    status = add_collection(object, rods_path.outPath, error);
+    if (error->code != 0) goto error;
+
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return status;
+
+error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+    return error->code;
 }
 
 json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error) {
@@ -1011,6 +1066,37 @@ error:
         logmsg(ERROR, error->message);
     }
 
+    return error->code;
+}
+
+int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                               metadata_op operation,
+                               json_t *candidate_avus, json_t *reference_avus,
+                               baton_error_t *error) {
+    const char *op_name = metadata_op_name(operation);
+    init_baton_error(error);
+
+    for (size_t i = 0; i < json_array_size(candidate_avus); i++) {
+        json_t *candidate_avu = json_array_get(candidate_avus, i);
+        char *str = json_dumps(candidate_avu, JSON_DECODE_ANY);
+
+        if (contains_avu(reference_avus, candidate_avu)) {
+            logmsg(TRACE, "Skipping '%s' operation on AVU %s", op_name, str);
+        }
+        else {
+            logmsg(TRACE, "Performing '%s' operation on AVU %s", op_name, str);
+            modify_json_metadata(conn, rods_path, operation, candidate_avu,
+                                 error);
+        }
+
+        free(str);
+
+        if (error->code != 0) goto error;
+    }
+
+    return error->code;
+
+error:
     return error->code;
 }
 

@@ -136,6 +136,8 @@ json_t *get_timestamps(json_t *object, baton_error_t *error);
 
 const char* get_query_collection(json_t *object, baton_error_t *error);
 
+const char *get_collection_value(json_t *object, baton_error_t *error);
+
 const char *get_created_timestamp(json_t *object, baton_error_t *error);
 
 const char *get_modified_timestamp(json_t *object, baton_error_t *error);
@@ -156,6 +158,8 @@ const char *get_access_level(json_t *access, baton_error_t *error);
 
 const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error);
 
+int has_collection(json_t *object);
+
 int has_acl(json_t *object);
 
 int has_timestamps(json_t *object);
@@ -173,6 +177,8 @@ int represents_data_object(json_t *object);
 int represents_directory(json_t *object);
 
 int represents_file(json_t *object);
+
+int add_collection(json_t *object, const char *coll_name, baton_error_t *error);
 
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error);
 
@@ -196,6 +202,8 @@ json_t *data_object_path_to_json(const char *path, baton_error_t *error);
 json_t *collection_path_to_json(const char *path, baton_error_t *error);
 
 char *json_to_path(json_t *object, baton_error_t *error);
+
+char *json_to_collection_path(json_t *object, baton_error_t *error);
 
 char *json_to_local_path(json_t *object, baton_error_t *error);
 
