@@ -1,4 +1,4 @@
-AC_INIT([baton], m4_esyscmd([git describe --dirty | tr -d '\012']), [kdj@sanger.ac.uk])
+AC_INIT([baton], m4_esyscmd([git describe --always --dirty | tr -d '\012']), [kdj@sanger.ac.uk])
 
 AC_PREREQ(2.68)
 AC_USE_SYSTEM_EXTENSIONS
