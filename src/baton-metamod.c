@@ -159,7 +159,7 @@ args_error:
 }
 
 int do_modify_metadata(FILE *input, metadata_op operation) {
-    int path_count  = 0;
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -179,13 +179,20 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
             continue;
         }
 
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
+            error_count++;
+            json_decref(target);
+            continue;
+        }
+
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
-        path_count++;
 
-        if (path_error.code != 0) {
+        if (add_error_report(target, &path_error)) {
             error_count++;
-            add_error_value(target, &path_error);
         }
         else {
             json_t *avus = json_object_get(target, JSON_AVUS_KEY);
@@ -193,7 +200,7 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
                 error_count++;
                 set_baton_error(&path_error, -1,
                                 "AVU data for %s is not in a JSON array", path);
-                add_error_value(target, &path_error);
+                add_error_report(target, &path_error);
             }
             else {
                 rodsPath_t rods_path;
@@ -202,7 +209,7 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
                     error_count++;
                     set_baton_error(&path_error, status,
                                     "Failed to resolve path '%s'", path);
-                    add_error_value(target, &path_error);
+                    add_error_report(target, &path_error);
                 }
                 else {
                     for (size_t i = 0; i < json_array_size(avus); i++) {
@@ -212,9 +219,8 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
                                              &mod_error);
 
                         // FIXME: this only records the last error
-                        if (mod_error.code != 0) {
+                        if (add_error_report(target, &mod_error)) {
                             error_count++;
-                            add_error_value(target, &mod_error);
                         }
                     }
                 }
@@ -227,19 +233,19 @@ int do_modify_metadata(FILE *input, metadata_op operation) {
         if (unbuffered_flag) fflush(stdout);
 
         json_decref(target);
-        free(path);
+        if (path) free(path);
     } // while
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }

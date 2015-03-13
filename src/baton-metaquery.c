@@ -168,6 +168,7 @@ int main(int argc, char *argv[]) {
 }
 
 int do_search_metadata(FILE *input, char *zone_name, option_flags oflags) {
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -187,29 +188,66 @@ int do_search_metadata(FILE *input, char *zone_name, option_flags oflags) {
             continue;
         }
 
-        baton_error_t error;
-        json_t *results = search_metadata(conn, target, zone_name, oflags,
-                                          &error);
-        if (error.code != 0) {
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
             error_count++;
-            add_error_value(target, &error);
-            print_json(target);
+            json_decref(target);
+            continue;
+        }
+
+        json_t *results = NULL;
+
+        if (has_collection(target)) {
+            baton_error_t resolve_error;
+            resolve_collection(target, conn, &env, &resolve_error);
+
+            if (add_error_report(target, &resolve_error)) {
+                error_count++;
+            }
+            else {
+                baton_error_t search_error;
+                results = search_metadata(conn, target, zone_name, oflags,
+                                          &search_error);
+                if (add_error_report(target, &search_error)) {
+                    error_count++;
+                    print_json(target);
+                }
+                else {
+                    print_json(results);
+                }
+            }
         }
         else {
-            print_json(results);
-            json_decref(results);
+            baton_error_t search_error;
+            results = search_metadata(conn, target, zone_name, oflags,
+                                      &search_error);
+            if (add_error_report(target, &search_error)) {
+                error_count++;
+                print_json(target);
+            }
+            else {
+                print_json(results);
+            }
         }
 
         if (unbuffered_flag) fflush(stdout);
+
+        if (results) json_decref(results);
         json_decref(target);
     } // while
 
     rcDisconnect(conn);
 
-    return 0;
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
+
+    return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
+
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }

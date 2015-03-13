@@ -271,6 +271,14 @@ const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
                                 JSON_OPERATOR_SHORT_KEY, error);
 }
 
+int has_collection(json_t *object) {
+    baton_error_t error;
+    init_baton_error(&error); // Ignore error
+
+    return get_opt_string_value(object, "path spec", JSON_COLLECTION_KEY,
+                                JSON_COLLECTION_SHORT_KEY, &error) != NULL;
+}
+
 int has_acl(json_t *object) {
     return json_object_get(object, JSON_ACCESS_KEY) != NULL;
 }
@@ -390,6 +398,27 @@ error:
     return error->code;
 }
 
+int add_collection(json_t *object, const char *coll_name,
+                   baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add collection data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    json_t *coll = json_pack("s", coll_name);
+    if (!coll) {
+        set_baton_error(error, -1, "Failed to pack data object '%s' as JSON",
+                        coll_name);
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_COLLECTION_KEY, coll);
+
+error:
+    return error->code;
+}
+
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error) {
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add AVU data: "
@@ -491,7 +520,6 @@ error:
 }
 
 json_t *collection_path_to_json(const char *path, baton_error_t *error) {
-
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
         set_baton_error(error, -1, "Failed to pack collection '%s' as JSON",
@@ -506,12 +534,12 @@ error:
 }
 
 char *json_to_path(json_t *object, baton_error_t *error) {
+    char *path = NULL;
     init_baton_error(error);
 
     const char *collection = get_collection_value(object, error);
     if (error->code != 0) goto error;
 
-    char *path = NULL;
     if (represents_collection(object)) {
         path = make_dir_path(collection, error);
     }
@@ -525,20 +553,37 @@ char *json_to_path(json_t *object, baton_error_t *error) {
     return path;
 
 error:
+    if (path) free(path);
+
+    return NULL;
+}
+
+char *json_to_collection_path(json_t *object, baton_error_t *error) {
+    char *path = NULL;
+    init_baton_error(error);
+
+    const char *collection = get_collection_value(object, error);
+    if (error->code != 0) goto error;
+
+    path = make_dir_path(collection, error);
+    if (error->code != 0) goto error;
+
+    return path;
+
+error:
+    if (path) free(path);
+
     return NULL;
 }
 
 char *json_to_local_path(json_t *object, baton_error_t *error) {
-    init_baton_error(error);
-
     char *path = NULL;
+    init_baton_error(error);
 
     const char *directory = get_directory_value(object, error);
     if (error->code != 0) goto error;
     const char *filename = get_file_value(object, error);
     if (error->code != 0) goto error;
-    //const char *collection = get_collection_value(object, error);
-    //if (error->code != 0) goto error;
     const char *data_object = get_data_object_value(object, error);
     if (error->code != 0) goto error;
 
@@ -548,12 +593,6 @@ char *json_to_local_path(json_t *object, baton_error_t *error) {
     else if (directory && data_object) {
         path = make_file_path(directory, data_object, error);
     }
-    /* else if (collection && filename) { */
-    /*     path = make_file_path(collection, filename, error); */
-    /* } */
-    /* else if (collection && data_object) { */
-    /*     path = make_file_path(collection, data_object, error); */
-    /* } */
     else if (filename) {
         path = make_file_path(".", filename, error);
     }
@@ -572,6 +611,8 @@ char *json_to_local_path(json_t *object, baton_error_t *error) {
     return path;
 
 error:
+    if (path) free(path);
+
     return NULL;
 }
 

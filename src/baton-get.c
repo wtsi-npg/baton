@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
 }
 
 int do_get_files(FILE *input, option_flags oflags, size_t buffer_size) {
-    int path_count  = 0;
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -231,9 +231,17 @@ int do_get_files(FILE *input, option_flags oflags, size_t buffer_size) {
             continue;
         }
 
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
+            error_count++;
+            json_decref(target);
+            continue;
+        }
+
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
-        path_count++;
 
         if (add_error_report(target, &path_error)) {
             error_count++;
@@ -297,19 +305,19 @@ int do_get_files(FILE *input, option_flags oflags, size_t buffer_size) {
         if (unbuffered_flag) fflush(stdout);
 
         json_decref(target);
-        free(path);
+        if (path) free(path);
     } // while
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }

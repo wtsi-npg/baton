@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 }
 
 int do_modify_permissions(FILE *input, recursive_op recurse) {
-    int path_count = 0;
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -160,28 +160,38 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
             continue;
         }
 
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
+            error_count++;
+            json_decref(target);
+            continue;
+        }
+
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
-        path_count++;
 
-        if (path_error.code != 0) {
+        if (add_error_report(target, &path_error)) {
             error_count++;
-            add_error_value(target, &path_error);
         }
         else {
             json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
-            if (perms) {
-                if (!json_is_array(perms)) {
-                    logmsg(ERROR, "Permissions data for %s is not in "
-                           "a JSON array", path);
-                    goto error;
-                }
-
+            if (!json_is_array(perms)) {
+                error_count++;
+                set_baton_error(&path_error, -1,
+                                "Permissions data for %s is not in "
+                                "a JSON array", path);
+                add_error_report(target, &path_error);
+            }
+            else {
                 rodsPath_t rods_path;
                 int status = resolve_rods_path(conn, &env, &rods_path, path);
                 if (status < 0) {
                     error_count++;
-                    logmsg(ERROR, "Failed to resolve path '%s'", path);
+                    set_baton_error(&path_error, status,
+                                    "Failed to resolve path '%s'", path);
+                    add_error_report(target, &path_error);
                 }
                 else {
                     for (size_t i = 0; i < json_array_size(perms); i++) {
@@ -190,9 +200,8 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
                         modify_json_permissions(conn, &rods_path, recurse, perm,
                                                 &mod_error);
 
-                        if (mod_error.code != 0) {
+                        if (add_error_report(target, &mod_error)) {
                             error_count++;
-                            add_error_value(target, &mod_error);
                         }
                     }
                 }
@@ -205,19 +214,19 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
         if (unbuffered_flag) fflush(stdout);
 
         json_decref(target);
-        free(path);
+        if (path) free(path);
     } // while
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }
