@@ -43,13 +43,17 @@
 static int debug_flag      = 0;
 static int help_flag       = 0;
 static int recurse_flag    = 0;
+static int silent_flag     = 0;
 static int unbuffered_flag = 0;
+static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
-int do_modify_permissions(FILE *input, recursive_op recurse);
+int do_modify_permissions(FILE *input, recursive_op recurse,
+                          option_flags flags);
 
 int main(int argc, char *argv[]) {
+    option_flags oflags = 0;
     int exit_status = 0;
     char *json_file = NULL;
     FILE *input     = NULL;
@@ -60,7 +64,9 @@ int main(int argc, char *argv[]) {
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
             {"recurse",    no_argument, &recurse_flag,    1},
+            {"silent",     no_argument, &silent_flag,     1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"unsafe",     no_argument, &unsafe_flag,     1},
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
@@ -96,8 +102,9 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("Synopsis");
         puts("");
-        puts("    baton-chmod [--file <json file>] [--recurse] [--unbuffered]");
-        puts("                [--verbose] [--version]");
+        puts("    baton-chmod [--file <json file>] [--recurse] [--silent]");
+        puts("                [--unbuffered] [--unsafe] [--verbose]");
+        puts("                [--version]");
         puts("");
         puts("Description");
         puts("    Set permissions on collections and data objects");
@@ -107,7 +114,9 @@ int main(int argc, char *argv[]) {
         puts("                  Optional, defaults to STDIN.");
         puts("    --recurse     Modify collection permissions recursively.");
         puts("                  Optional, defaults to false.");
+        puts("    --silent      Silence error messages.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
+        puts("    --unsafe      Permit unsafe relative iRODS paths.");
         puts("    --verbose     Print verbose messages to STDERR.");
         puts("    --version     Print the version number and exit.");
         puts("");
@@ -120,18 +129,21 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
+    if (unsafe_flag) oflags = oflags | UNSAFE_RESOLVE;
+
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
+    if (silent_flag)  set_log_threshold(FATAL);
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
     int status;
 
     if (recurse_flag) {
-        status = do_modify_permissions(input, RECURSE);
+        status = do_modify_permissions(input, RECURSE, oflags);
     }
     else {
-        status = do_modify_permissions(input, NO_RECURSE);
+        status = do_modify_permissions(input, NO_RECURSE, oflags);
     }
 
     if (status != 0) exit_status = 5;
@@ -139,7 +151,8 @@ int main(int argc, char *argv[]) {
     exit(exit_status);
 }
 
-int do_modify_permissions(FILE *input, recursive_op recurse) {
+int do_modify_permissions(FILE *input, recursive_op recurse,
+                          option_flags oflags) {
     int item_count  = 0;
     int error_count = 0;
 
@@ -186,12 +199,10 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
             }
             else {
                 rodsPath_t rods_path;
-                int status = resolve_rods_path(conn, &env, &rods_path, path);
-                if (status < 0) {
+                resolve_rods_path(conn, &env, &rods_path, path,
+                                  oflags, &path_error);
+                if (add_error_report(target, &path_error)) {
                     error_count++;
-                    set_baton_error(&path_error, status,
-                                    "Failed to resolve path '%s'", path);
-                    add_error_report(target, &path_error);
                 }
                 else {
                     for (size_t i = 0; i < json_array_size(perms); i++) {
@@ -204,9 +215,9 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
                             error_count++;
                         }
                     }
-                }
 
-                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+                    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+                }
             }
         }
 

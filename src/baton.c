@@ -80,7 +80,6 @@ static const char *revmap_access_level(const char *icat_level);
 static int check_str_arg(const char *arg_name, const char *arg_value,
                          size_t arg_size, baton_error_t *error);
 
-
 int is_irods_available() {
     rcComm_t *conn = NULL;
     rErrMsg_t errmsg;
@@ -137,7 +136,7 @@ rcComm_t *rods_login(rodsEnv *env) {
                      env->rodsZone, RECONN_TIMEOUT, &errmsg);
     if (!conn) {
         logmsg(ERROR, "Failed to connect to %s:%d zone '%s' as '%s'",
-            env->rodsHost, env->rodsPort, env->rodsZone, env->rodsUserName);
+               env->rodsHost, env->rodsPort, env->rodsZone, env->rodsUserName);
         goto error;
     }
 
@@ -177,25 +176,37 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath) {
     return 0;
 }
 
-int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
-                      rodsPath_t *rods_path, char *inpath) {
+int resolve_rods_path(rcComm_t *conn, rodsEnv *env, rodsPath_t *rods_path,
+                      char *inpath, option_flags flags, baton_error_t *error) {
+    init_baton_error(error);
+
     if (!str_starts_with(inpath, "/", 1)) {
-        logmsg(WARN, "Found relative collection path '%s'. "
-               "Using relative collection paths in iRODS may be "
-               "dangerous because the CWD may change unexpectedly. "
-               "See https://github.com/irods/irods/issues/2406", inpath);
+        const char *message = "Found relative collection path '%s'. "
+            "Using relative collection paths in iRODS may be "
+            "dangerous because the CWD may change unexpectedly. "
+            "See https://github.com/irods/irods/issues/2406";
+
+        if (flags & UNSAFE_RESOLVE) {
+            logmsg(WARN, message, inpath);
+        }
+        else {
+            set_baton_error(error, -1, message, inpath);
+            goto error;
+        }
     }
 
     int status;
     status = init_rods_path(rods_path, inpath);
     if (status < 0) {
-        logmsg(ERROR, "Failed to create iRODS path '%s'", inpath);
+        set_baton_error(error, status,
+                        "Failed to create iRODS path '%s'", inpath);
         goto error;
     }
 
     status = parseRodsPath(rods_path, env);
     if (status < 0) {
-        logmsg(ERROR, "Failed to parse path '%s'", rods_path->inPath);
+        set_baton_error(error, status, "Failed to parse path '%s'",
+                        rods_path->inPath);
         goto error;
     }
 
@@ -207,7 +218,7 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
     return status;
 
 error:
-    return status;
+    return error->code;
 }
 
 int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
@@ -239,7 +250,7 @@ error:
 }
 
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
-                       baton_error_t *error) {
+                       option_flags flags, baton_error_t *error) {
     init_baton_error(error);
 
     if (!json_is_object(object)) {
@@ -262,12 +273,8 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
     char *coll = json_to_collection_path(object, error);
     if (error->code != 0) goto error;
 
-    int status = resolve_rods_path(conn, env, &rods_path, coll);
-    if (status < 0) {
-        set_baton_error(error, status, "Failed to resolve collection '%s'",
-                        unresolved);
-        goto error;
-    }
+    resolve_rods_path(conn, env, &rods_path, coll, flags, error);
+    if (error->code != 0) goto error;
 
     logmsg(DEBUG, "Resolved collection '%s' to '%s'", unresolved,
            rods_path.outPath);
@@ -275,15 +282,14 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
     json_object_del(object, JSON_COLLECTION_KEY);
     json_object_del(object, JSON_COLLECTION_SHORT_KEY);
 
-    status = add_collection(object, rods_path.outPath, error);
+    add_collection(object, rods_path.outPath, error);
     if (error->code != 0) goto error;
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
-    return status;
+    return error->code;
 
 error:
-    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     return error->code;
 }
 

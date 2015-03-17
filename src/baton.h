@@ -87,8 +87,9 @@ typedef enum {
     /** Search collection AVUs */
     SEARCH_COLLECTIONS = 1 << 7,
     /** Search data object AVUs */
-    SEARCH_OBJECTS     = 1 << 8
-
+    SEARCH_OBJECTS     = 1 << 8,
+    /** Unsafely resolve relative paths */
+    UNSAFE_RESOLVE     = 1 << 9
 } option_flags;
 
 /**
@@ -151,15 +152,18 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath);
  * Initialise and resolve an iRODS path by copying a string into its
  * inPath, parsing it and resolving it on the server.
  *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  env       A populated iRODS environment.
- * @param[out] rodspath  An iRODS path.
- * @param[in]  inpath    A string representing an unresolved iRODS path.
+ * @param[in]  conn         An open iRODS connection.
+ * @param[in]  env          A populated iRODS environment.
+ * @param[out] rodspath     An iRODS path.
+ * @param[in]  inpath       A string representing an unresolved iRODS path.
+ * @param[in]  option_flags Result print options.
+ * @param[out] error        An error report struct.
  *
  * @return 0 on success, iRODS error code on failure.
  */
 int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
-                      rodsPath_t *rods_path, char *inpath);
+                      rodsPath_t *rods_path, char *inpath, option_flags flags,
+                      baton_error_t *error);
 
 /**
  * Initialise and set an iRODS path by copying a string into both its
@@ -175,9 +179,8 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
  */
 int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
 
-
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
-                       baton_error_t *error);
+                       option_flags flags, baton_error_t *error);
 
 json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
 
