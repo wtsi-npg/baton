@@ -44,7 +44,7 @@ static void set_current_rods_root(char *in, char *out) {
     rodsEnv rodsEnv;
 
     int status = getRodsEnv(&rodsEnv);
-    if (status != 1) raise(SIGTERM);
+    if (status != 0) raise(SIGTERM);
 
     // Create an absolute iRODS path.  Using rodsCwd is generally
     // unsafe. However, we assume that the test environment is
