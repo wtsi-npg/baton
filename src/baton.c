@@ -66,7 +66,7 @@ static const char *metadata_op_name(metadata_op operation);
 
 static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in);
 
-static json_t *map_access_args(rcComm_t *conn, json_t *access,
+static json_t *map_access_args(json_t *access,
                                baton_error_t *error);
 
 static json_t *revmap_access_result(json_t *access,
@@ -760,7 +760,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         if (error->code != 0) goto error;
     }
 
-    query = map_access_args(conn, query, error);
+    query = map_access_args(query, error);
     if (error->code != 0) goto error;
 
     results = json_array();
@@ -1371,7 +1371,7 @@ static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in) {
     out->arg9 = "";
 }
 
-static json_t *map_access_args(rcComm_t *conn, json_t *query,
+static json_t *map_access_args(json_t *query,
                                baton_error_t *error) {
     json_t *user_info = NULL;
 
@@ -1388,22 +1388,6 @@ static json_t *map_access_args(rcComm_t *conn, json_t *query,
                                 "not a JSON object", i, num_elts);
                 goto error;
             }
-
-            // Map user name to user_id
-            const char *owner_name = get_access_owner(access, error);
-            if (error->code != 0) goto error;
-
-            logmsg(DEBUG, "Getting user information for '%s'", owner_name);
-            user_info = get_user(conn, owner_name, error);
-            if (error->code != 0) goto error;
-
-            json_t *user_id =
-                json_incref(json_object_get(user_info, JSON_USER_ID_KEY));
-            logmsg(DEBUG, "Mapping user name '%s' to user id '%s'",
-                owner_name, json_string_value(user_id));
-
-            json_object_set_new(access, JSON_OWNER_KEY, user_id);
-            json_decref(user_info);
 
             // Map CLI access level to iCAT access type token
             const char *access_level = get_access_level(access, error);
