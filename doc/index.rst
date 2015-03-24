@@ -191,6 +191,11 @@ Options
   Prints command line help.
 
 .. program:: baton-list
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-list
 .. option:: --size
 
   Print data object sizes in the output. These appear as JSON integers under
@@ -206,6 +211,11 @@ Options
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
+.. program:: baton-list
+.. option:: --unsafe
+
+   Permit unsafe relative iRODS paths.
 
 .. program:: baton-list
 .. option:: --verbose
@@ -292,6 +302,11 @@ Options
   each file downloaded.
 
 .. program:: baton-get
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-get
 .. option:: --size
 
   Print data object sizes in the output. These appear as JSON integers under
@@ -307,6 +322,11 @@ Options
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
+.. program:: baton-get
+.. option:: --unsafe
+
+   Permit unsafe relative iRODS paths.
 
 .. program:: baton-get
 .. option:: --verbose
@@ -358,9 +378,19 @@ Options
   The operation to perform; one of ``add`` or ``remove``.
 
 .. program:: baton-metamod
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-metamod
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
+.. program:: baton-metamod
+.. option:: --unsafe
+
+   Permit unsafe relative iRODS paths.
 
 .. program:: baton-metamod
 .. option:: --verbose
@@ -399,7 +429,6 @@ optional ``collection`` property which limits the scope of the
 associated metadata query to returning only those results that lie
 somewhere under that collection.
 
-
 Options
 ^^^^^^^
 
@@ -437,6 +466,11 @@ Options
    Limit the search to data object metadata only.
 
 .. program:: baton-metaquery
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-metaquery
 .. option:: --size
 
   Print data object sizes in the output. These appear as JSON integers under
@@ -452,6 +486,11 @@ Options
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
+.. program:: baton-metaquery
+.. option:: --unsafe
+
+   Permit unsafe relative iRODS paths.
 
 .. program:: baton-metaquery
 .. option:: --verbose
@@ -502,9 +541,19 @@ Options
   Recurse into collections. Defaults to false.
 
 .. program:: baton-chmod
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-chmod
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
+.. program:: baton-chmod
+.. option:: --unsafe
+
+   Permit unsafe relative iRODS paths.
 
 .. program:: baton-chmod
 .. option:: --verbose
@@ -923,6 +972,37 @@ The ``baton`` Cookbook
 ``jq`` is used to ease the *de novo* creation of JSON in the shell and
 to process the results returned by ``baton``.
 
+.. topic:: Perform operations on a large number of iRODS items
+
+   Perform operations on a large number of iRODS items, over a single
+   connection.
+
+.. code-block:: sh
+
+   jq -n -c '{coll: "/zone1/home/user/data", obj: "f1.txt"}'  > in.json
+   jq -n -c '{coll: "/zone1/home/user/data", obj: "f2.txt"}' >> in.json
+   jq -n -c '{coll: "/zone1/home/user/data", obj: "f3.txt"}' >> in.json
+
+   baton-list < in.json
+
+Result:
+
+.. code-block:: json
+
+   {
+      "data_object": "f1.txt",
+      "collection": "/zone1/home/user/data"
+   }
+   {
+      "data_object": "f2.txt",
+      "collection": "/zone1/home/user/data"
+   }
+   {
+      "data_object": "f3.txt",
+      "collection": "/zone1/home/user/data"
+   }
+
+
 .. topic:: List the contents of the current working collection
 
    List the contents of the current working collection as flat paths
@@ -930,19 +1010,19 @@ to process the results returned by ``baton``.
 
 .. code-block:: sh
 
-   jq -n '{coll: "."}' | baton-list | jq -r '.[] | .collection + "/" + .data_object'
+   jq -n '{coll: "/zone1/home/user/data"}' | baton-list | jq -r '.[] | .collection + "/" + .data_object'
 
 Result:
 
 .. code-block:: sh
 
-    /unit/home/user/data/
-    /unit/home/user/data/f1.txt
-    /unit/home/user/data/f2.txt
-    /unit/home/user/data/f3.txt
-    /unit/home/user/data/a/
-    /unit/home/user/data/b/
-    /unit/home/user/data/c/
+    /zone1/home/user/data/
+    /zone1/home/user/data/f1.txt
+    /zone1/home/user/data/f2.txt
+    /zone1/home/user/data/f3.txt
+    /zone1/home/user/data/a/
+    /zone1/home/user/data/b/
+    /zone1/home/user/data/c/
 
 
 .. topic:: List the contents of a collection by metadata (I)
@@ -953,7 +1033,7 @@ Result:
 
 .. code-block:: sh
 
-   jq -n '{coll: "data"}' | baton-list --avu | jq 'map(select(.avus[] | select(.attribute == "attr_a")))'
+   jq -n '{coll: "/zone1/home/user/data"}' | baton-list --avu | jq 'map(select(.avus[] | select(.attribute == "attr_a")))'
 
 Result:
 
@@ -989,7 +1069,7 @@ Result:
 
 .. code-block:: sh
 
-   jq -n '{coll: "data", avus: [{a: "attr_a", v: "%", o: "like"}]}' | baton-metaquery --avu | jq '.'
+   jq -n '{coll: "/zone1/home/user", avus: [{a: "attr_a", v: "%", o: "like"}]}' | baton-metaquery --avu | jq '.'
 
 
 .. code-block:: json
@@ -1011,7 +1091,7 @@ Result:
           }
         ],
         "data_object": "f1.txt",
-        "collection": "/unit/home/user/data",
+        "collection": "/zone1/home/user/data",
         "size": 0
       }
     ]
@@ -1023,7 +1103,7 @@ Result:
 
 .. code-block:: sh
 
-    jq -n '{coll: "data"}' | baton-list --avu | jq 'map(select(.data_object))[]'
+    jq -n '{coll: "/zone1/home/user/data"}' | baton-list --avu | jq 'map(select(.data_object))[]'
 
 .. code-block:: json
 
@@ -1043,7 +1123,7 @@ Result:
         }
       ],
       "data_object": "f1.txt",
-      "collection": "/unit/home/user/data",
+      "collection": "/zone1/home/user/data",
       "size": 0
     }
     {
@@ -1054,7 +1134,7 @@ Result:
         }
       ],
       "data_object": "f2.txt",
-      "collection": "/unit/home/user/data",
+      "collection": "/zone1/home/user/data",
       "size": 0
     }
     {
@@ -1065,7 +1145,7 @@ Result:
         }
       ],
       "data_object": "f3.txt",
-      "collection": "/unit/home/user/data",
+      "collection": "/zone1/home/user/data",
       "size": 0
     }
 
@@ -1090,7 +1170,7 @@ Result:
     [
       {
         "data_object": "f1.txt",
-        "collection": "/unit/home/user/data",
+        "collection": "/zone1/home/user/data",
         "size": 0
       }
     ]
@@ -1118,7 +1198,7 @@ Result:
     [
       {
         "data_object": "f1.txt",
-        "collection": "/unit/home/user/data",
+        "collection": "/zone1/home/user/data",
         "size": 0
       }
     ]

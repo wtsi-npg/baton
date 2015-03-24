@@ -327,37 +327,31 @@ genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in) {
 }
 
 genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
+                                      const char *user,
                                       const char *access_level) {
-    query_cond_t tn = { .column   = COL_DATA_TOKEN_NAMESPACE,
+    query_cond_t un = { .column   = COL_USER_NAME,
                         .operator = SEARCH_OP_EQUALS,
-                        .value    = ACCESS_NAMESPACE };
-    query_cond_t ui = { .column   = COL_DATA_ACCESS_USER_ID,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = user_id };
+                        .value    = user };
     query_cond_t al = { .column   = COL_DATA_ACCESS_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = access_level };
-    size_t num_conds = 3;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds,
-                           (query_cond_t []) { tn, ui, al });
+                           (query_cond_t []) { un, al });
 }
 
 genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
+                                      const char *user,
                                       const char *access_level) {
-    query_cond_t tn = { .column   = COL_COLL_TOKEN_NAMESPACE,
+    query_cond_t un = { .column   = COL_USER_NAME,
                         .operator = SEARCH_OP_EQUALS,
-                        .value    = ACCESS_NAMESPACE };
-    query_cond_t ui = { .column   = COL_COLL_ACCESS_USER_ID,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = user_id };
+                        .value    = user };
     query_cond_t al = { .column   = COL_COLL_ACCESS_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = access_level };
-    size_t num_conds = 3;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds,
-                           (query_cond_t []) { tn, ui, al });
+                           (query_cond_t []) { un, al });
 }
 
 genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,

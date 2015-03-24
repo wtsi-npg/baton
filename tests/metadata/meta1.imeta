@@ -1,25 +1,25 @@
-add -d IRODS_TEST_ROOT/f1.txt attr1 value1 units1
-add -d IRODS_TEST_ROOT/f2.txt attr1 value1 units1
-add -d IRODS_TEST_ROOT/f3.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/f1.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/f2.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/f3.txt attr1 value1 units1
 
-add -d IRODS_TEST_ROOT/a/f4.txt attr1 value1 units1
-add -d IRODS_TEST_ROOT/a/f5.txt attr1 value1 units1
-add -d IRODS_TEST_ROOT/a/f6.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/f4.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/f5.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/f6.txt attr1 value1 units1
 
-add -d IRODS_TEST_ROOT/a/x/f7.txt attr1 value1 units1
-add -d IRODS_TEST_ROOT/a/x/f8.txt attr1 value1 units1
-add -d IRODS_TEST_ROOT/a/x/f9.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/x/f7.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/x/f8.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/x/f9.txt attr1 value1 units1
 
-add -d IRODS_TEST_ROOT/a/x/m/f10.txt attr1 value1 units1
-add -d IRODS_TEST_ROOT/a/x/m/f11.txt attr1 value1 units1
-add -d IRODS_TEST_ROOT/a/x/m/f12.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/x/m/f10.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/x/m/f11.txt attr1 value1 units1
+add -d __IRODS_TEST_ROOT__/a/x/m/f12.txt attr1 value1 units1
 
-add -C IRODS_TEST_ROOT/a attr2 value2 units2
-add -C IRODS_TEST_ROOT/a/x attr2 value2 units2
-add -C IRODS_TEST_ROOT/a/x/m attr2 value2 units2
+add -C __IRODS_TEST_ROOT__/a attr2 value2 units2
+add -C __IRODS_TEST_ROOT__/a/x attr2 value2 units2
+add -C __IRODS_TEST_ROOT__/a/x/m attr2 value2 units2
 
-add -d IRODS_TEST_ROOT/r1.txt a x
-add -d IRODS_TEST_ROOT/r1.txt a y
-add -d IRODS_TEST_ROOT/r1.txt b x
-add -d IRODS_TEST_ROOT/r1.txt b y
-add -d IRODS_TEST_ROOT/r1.txt b z
+add -d __IRODS_TEST_ROOT__/r1.txt a x
+add -d __IRODS_TEST_ROOT__/r1.txt a y
+add -d __IRODS_TEST_ROOT__/r1.txt b x
+add -d __IRODS_TEST_ROOT__/r1.txt b y
+add -d __IRODS_TEST_ROOT__/r1.txt b z

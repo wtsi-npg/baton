@@ -54,7 +54,7 @@ then
         echo "Metadata input file '$meta_path' not found. Aborting"
         exit $E_INPUT_MISSING
     else
-        sed -e "s/IRODS_TEST_ROOT/$out_path/" < $meta_path | imeta >/dev/null
+        sed -e "s#__IRODS_TEST_ROOT__#$out_path#" < $meta_path | imeta >/dev/null
         status=$?
 
         exit $status
