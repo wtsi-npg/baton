@@ -20,6 +20,13 @@ LT_INIT
 
 AC_CONFIG_MACRO_DIR([m4])
 
+LT_LIB_CURRENT=0
+LT_LIB_REVISION=0
+LT_LIB_AGE=0
+AC_SUBST(LT_LIB_CURRENT)
+AC_SUBST(LT_LIB_REVISION)
+AC_SUBST(LT_LIB_AGE)
+
 dnl Notes for OSX with homebrew:
 dnl Ensure that check.m4 and pkg.m4 are in a system aclocal path or
 dnl a path added by ACLOCAL_AMFLAGS in Makefile.am
@@ -72,6 +79,11 @@ AM_CONDITIONAL(HAVE_SPHINX, [test "x${SPHINXBUILD}" != "xno"])
 dnl End Sphinx
 
 dnl Begin Lcov code coverage analysis
+
+dnl Be aware on OS X that gcc may not really be gcc, but a symlink to
+dnl llvm-gcc. In this case, the coverage files will not be generated
+dnl unless CC is set to the real gcc when running configure.
+
 AC_ARG_ENABLE([coverage],
   [AS_HELP_STRING([--enable-coverage],
     [Enable code coverage analysis (default is no)])],
@@ -142,7 +154,7 @@ AC_RUN_IFELSE(
   exit(-1);
 #endif
 ])],
-  [
+  [ dnl AC_DEFINE([HAVE_IRODS3], [], [iRODS 3.3.x])
    AC_MSG_NOTICE([detected iRODS 3.3.x])
    [HAVE_IRODS3=yes]
    AC_CHECK_LIB([RodsAPIs], [getRodsEnvFileName], [],

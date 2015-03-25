@@ -46,16 +46,18 @@ static int debug_flag      = 0;
 static int help_flag       = 0;
 static int raw_flag        = 0;
 static int save_flag       = 0;
+static int silent_flag     = 0;
 static int size_flag       = 0;
 static int timestamp_flag  = 0;
 static int unbuffered_flag = 0;
+static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
 static size_t default_buffer_size = 1024 * 64 * 16 * 2;
 static size_t max_buffer_size     = 1024 * 1024 * 1024;
 
-int do_get_files(FILE *input, option_flags oflags, size_t buffer_size);
+int do_get_files(FILE *input, size_t buffer_size, option_flags oflags);
 int write_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
                     baton_error_t *error);
 
@@ -75,9 +77,11 @@ int main(int argc, char *argv[]) {
             {"help",        no_argument, &help_flag,       1},
             {"raw",         no_argument, &raw_flag,        1},
             {"save",        no_argument, &save_flag,       1},
+            {"silent",      no_argument, &silent_flag,     1},
             {"size",        no_argument, &size_flag,       1},
             {"timestamp",   no_argument, &timestamp_flag,  1},
             {"unbuffered",  no_argument, &unbuffered_flag, 1},
+            {"unsafe",      no_argument, &unsafe_flag,     1},
             {"verbose",     no_argument, &verbose_flag,    1},
             {"version",     no_argument, &version_flag,    1},
             // Indexed options
@@ -118,6 +122,7 @@ int main(int argc, char *argv[]) {
     if (raw_flag)       oflags = oflags | PRINT_RAW;
     if (size_flag)      oflags = oflags | PRINT_SIZE;
     if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
+    if (unsafe_flag)    oflags = oflags | UNSAFE_RESOLVE;
 
     if (help_flag) {
         puts("Name");
@@ -126,8 +131,9 @@ int main(int argc, char *argv[]) {
         puts("Synopsis");
         puts("");
         puts("    baton-get [--acl] [--avu] [--file <JSON file>]");
-        puts("              [--raw] [--save] [--size] [--timestamp]");
-        puts("              [--unbuffered] [--verbose] [--version]");
+        puts("              [--raw] [--save] [--silent] [--size]");
+        puts("              [--timestamp] [--unbuffered] [--unsafe]");
+        puts("              [--verbose] [--version]");
         puts("");
         puts("Description");
         puts("    Gets the contents of data objects described in a JSON");
@@ -142,9 +148,11 @@ int main(int argc, char *argv[]) {
         puts("                  wrapping.");
         puts("    --save        Save data object content to individual files,");
         puts("                  without any JSON wrapping i.e. implies --raw.");
+        puts("    --silent      Silence error messages.");
         puts("    --size        Print data object sizes in output.");
         puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
+        puts("    --unsafe      Permit unsafe relative iRODS paths.");
         puts("    --verbose     Print verbose messages to STDERR.");
         puts("    --version     Print the version number and exit.");
         puts("");
@@ -159,6 +167,7 @@ int main(int argc, char *argv[]) {
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
+    if (silent_flag)  set_log_threshold(FATAL);
     if (raw_flag || save_flag) {
         const char *msg = "Ignoring the %s flag because raw output requested";
 
@@ -193,7 +202,7 @@ int main(int argc, char *argv[]) {
 
     logmsg(DEBUG, "Using a transfer buffer size of %zu", buffer_size);
 
-    int status = do_get_files(input, oflags, buffer_size);
+    int status = do_get_files(input, buffer_size, oflags);
     if (input != stdin) fclose(input);
 
     if (status != 0) exit_status = 5;
@@ -201,8 +210,8 @@ int main(int argc, char *argv[]) {
     exit(exit_status);
 }
 
-int do_get_files(FILE *input, option_flags oflags, size_t buffer_size) {
-    int path_count  = 0;
+int do_get_files(FILE *input, size_t buffer_size, option_flags oflags) {
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -231,9 +240,17 @@ int do_get_files(FILE *input, option_flags oflags, size_t buffer_size) {
             continue;
         }
 
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
+            error_count++;
+            json_decref(target);
+            continue;
+        }
+
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
-        path_count++;
 
         if (add_error_report(target, &path_error)) {
             error_count++;
@@ -241,11 +258,9 @@ int do_get_files(FILE *input, option_flags oflags, size_t buffer_size) {
         }
         else {
             rodsPath_t rods_path;
-            int status = resolve_rods_path(conn, &env, &rods_path, path);
-            if (status < 0) {
-                set_baton_error(&path_error, status,
-                                "Failed to resolve path '%s'", path);
-                add_error_report(target, &path_error);
+            resolve_rods_path(conn, &env, &rods_path, path, oflags,
+                              &path_error);
+            if (add_error_report(target, &path_error)) {
                 error_count++;
                 print_json_stream(target, report_stream);
             }
@@ -289,27 +304,27 @@ int do_get_files(FILE *input, option_flags oflags, size_t buffer_size) {
                         json_decref(results);
                     }
                 }
-            }
 
-            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+            }
         }
 
         if (unbuffered_flag) fflush(stdout);
 
         json_decref(target);
-        free(path);
+        if (path) free(path);
     } // while
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }

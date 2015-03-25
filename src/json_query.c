@@ -103,6 +103,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
 
     if (represents_collection(query)) {
         root_path = json_to_path(query, error);
+        logmsg(DEBUG, "Query represents a collection: '%s'", root_path);
         if (error->code != 0) goto error;
     }
 
@@ -382,13 +383,13 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
             goto error;
         }
 
-        const char *owner_id = get_access_owner(access, error);
+        const char *owner_name = get_access_owner(access, error);
         if (error->code != 0) goto error;
 
         const char *access_level = get_access_level(access, error);
         if (error->code != 0) goto error;
 
-        query_in = prepare(query_in, owner_id, access_level);
+        query_in = prepare(query_in, owner_name, access_level);
     }
 
     return query_in;

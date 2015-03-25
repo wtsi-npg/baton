@@ -45,9 +45,11 @@ static int avu_flag        = 0;
 static int debug_flag      = 0;
 static int help_flag       = 0;
 static int contents_flag   = 0;
+static int silent_flag     = 0;
 static int size_flag       = 0;
 static int timestamp_flag  = 0;
 static int unbuffered_flag = 0;
+static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
@@ -67,9 +69,11 @@ int main(int argc, char *argv[]) {
             {"contents",   no_argument, &contents_flag,   1},
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
+            {"silent",     no_argument, &silent_flag,     1},
             {"size",       no_argument, &size_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"unsafe",     no_argument, &unsafe_flag,     1},
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
@@ -104,6 +108,7 @@ int main(int argc, char *argv[]) {
     if (contents_flag)  oflags = oflags | PRINT_CONTENTS;
     if (size_flag)      oflags = oflags | PRINT_SIZE;
     if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
+    if (unsafe_flag)    oflags = oflags | UNSAFE_RESOLVE;
 
     if (help_flag) {
         puts("Name");
@@ -112,8 +117,9 @@ int main(int argc, char *argv[]) {
         puts("Synopsis");
         puts("");
         puts("    baton-list [--acl] [--avu] [--contents]");
-        puts("               [--file <JSON file>] [--size] [--timestamp]");
-        puts("               [--unbuffered] [--verbose] [--version]");
+        puts("               [--file <JSON file>] [--silent] [--size]");
+        puts("               [--timestamp] [--unbuffered] [--unsafe]");
+        puts("               [--verbose] [--version]");
         puts("");
         puts("Description");
         puts("    Lists data objects and collections described in a JSON ");
@@ -124,9 +130,11 @@ int main(int argc, char *argv[]) {
         puts("    --contents    Print collection contents in output.");
         puts("    --file        The JSON file describing the data objects and");
         puts("                  collections. Optional, defaults to STDIN.");
+        puts("    --silent      Silence error messages.");
         puts("    --size        Print data object sizes in output.");
         puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
+        puts("    --unsafe      Permit unsafe relative iRODS paths.");
         puts("    --verbose     Print verbose messages to STDERR.");
         puts("    --version     Print the version number and exit.");
         puts("");
@@ -141,6 +149,7 @@ int main(int argc, char *argv[]) {
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
+    if (silent_flag)  set_log_threshold(FATAL);
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
@@ -152,7 +161,7 @@ int main(int argc, char *argv[]) {
 }
 
 int do_list_paths(FILE *input, option_flags oflags) {
-    int path_count  = 0;
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -172,59 +181,63 @@ int do_list_paths(FILE *input, option_flags oflags) {
             continue;
         }
 
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
+            error_count++;
+            json_decref(target);
+            continue;
+        }
+
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
-        path_count++;
 
-        if (path_error.code != 0) {
+        if (add_error_report(target, &path_error)) {
             error_count++;
-            add_error_value(target, &path_error);
             print_json(target);
         }
         else {
             rodsPath_t rods_path;
-            int status = resolve_rods_path(conn, &env, &rods_path, path);
-            if (status < 0) {
+            resolve_rods_path(conn, &env, &rods_path, path, oflags,
+                              &path_error);
+            if (add_error_report(target, &path_error)) {
                 error_count++;
-                set_baton_error(&path_error, status,
-                                "Failed to resolve path '%s'", path);
-                add_error_value(target, &path_error);
                 print_json(target);
             }
             else {
                 baton_error_t error;
                 json_t *results = list_path(conn, &rods_path, oflags, &error);
 
-                if (error.code != 0) {
+                if (add_error_report(target, &error)) {
                     error_count++;
-                    add_error_value(target, &error);
                     print_json(target);
                 }
                 else {
                     print_json(results);
                     json_decref(results);
                 }
-            }
 
-            if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+            }
         }
 
         if (unbuffered_flag) fflush(stdout);
 
         json_decref(target);
-        free(path);
+        if (path) free(path);
     } // while
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }

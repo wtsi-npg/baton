@@ -87,8 +87,9 @@ typedef enum {
     /** Search collection AVUs */
     SEARCH_COLLECTIONS = 1 << 7,
     /** Search data object AVUs */
-    SEARCH_OBJECTS     = 1 << 8
-
+    SEARCH_OBJECTS     = 1 << 8,
+    /** Unsafely resolve relative paths */
+    UNSAFE_RESOLVE     = 1 << 9
 } option_flags;
 
 /**
@@ -151,15 +152,18 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath);
  * Initialise and resolve an iRODS path by copying a string into its
  * inPath, parsing it and resolving it on the server.
  *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  env       A populated iRODS environment.
- * @param[out] rodspath  An iRODS path.
- * @param[in]  inpath    A string representing an unresolved iRODS path.
+ * @param[in]  conn         An open iRODS connection.
+ * @param[in]  env          A populated iRODS environment.
+ * @param[out] rodspath     An iRODS path.
+ * @param[in]  inpath       A string representing an unresolved iRODS path.
+ * @param[in]  option_flags Result print options.
+ * @param[out] error        An error report struct.
  *
  * @return 0 on success, iRODS error code on failure.
  */
 int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
-                      rodsPath_t *rods_path, char *inpath);
+                      rodsPath_t *rods_path, char *inpath, option_flags flags,
+                      baton_error_t *error);
 
 /**
  * Initialise and set an iRODS path by copying a string into both its
@@ -174,6 +178,9 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
  * @return 0 on success, iRODS error code on failure.
  */
 int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
+
+int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
+                       option_flags flags, baton_error_t *error);
 
 json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
 
@@ -323,8 +330,8 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
  * a JSON struct argument, with optional units.
  *
  * @param[in]  conn        An open iRODS connection.
- * @param[in]  rodspath    A resolved iRODS path.
- * @param[in]  op          An operation to apply e.g. ADD, REMOVE.
+ * @param[in]  rods_path   A resolved iRODS path.
+ * @param[in]  operation   An operation to apply e.g. ADD, REMOVE.
  * @param[in]  avu         The JSON AVU.
  * @param[out] error       An error report struct.
  *
@@ -334,5 +341,26 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rodspath, metadata_op op,
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
                          baton_error_t *error);
+
+/**
+ * Apply a metadata operation to a AVUs on a resolved iRODS path. The
+ * operation is applied to each candidate AVU that does not occur in
+ * reference AVUs.
+ *
+ * @param[in]  conn            An open iRODS connection.
+ * @param[in]  rods_path       A resolved iRODS path.
+ * @param[in]  operation       An operation to apply to candidate AVUs
+                               e.g. ADD, REMOVE.
+ * @param[in]  candidiate_avus An JSON array of JSON AVUs.
+ * @param[in]  reference_avus  An JSON array of JSON AVUs.
+ * @param[out] error           An error report struct.
+ *
+ * @return 0 on success, iRODS error code on failure.
+ * @ref modify_metadata
+ */
+int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                               metadata_op operation,
+                               json_t *candidate_avus, json_t *reference_avus,
+                               baton_error_t *error);
 
 #endif // _BATON_H

@@ -66,7 +66,7 @@ static const char *metadata_op_name(metadata_op operation);
 
 static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in);
 
-static json_t *map_access_args(rcComm_t *conn, json_t *access,
+static json_t *map_access_args(json_t *access,
                                baton_error_t *error);
 
 static json_t *revmap_access_result(json_t *access,
@@ -79,7 +79,6 @@ static const char *revmap_access_level(const char *icat_level);
 
 static int check_str_arg(const char *arg_name, const char *arg_value,
                          size_t arg_size, baton_error_t *error);
-
 
 int is_irods_available() {
     rcComm_t *conn = NULL;
@@ -137,7 +136,7 @@ rcComm_t *rods_login(rodsEnv *env) {
                      env->rodsZone, RECONN_TIMEOUT, &errmsg);
     if (!conn) {
         logmsg(ERROR, "Failed to connect to %s:%d zone '%s' as '%s'",
-            env->rodsHost, env->rodsPort, env->rodsZone, env->rodsUserName);
+               env->rodsHost, env->rodsPort, env->rodsZone, env->rodsUserName);
         goto error;
     }
 
@@ -177,19 +176,37 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath) {
     return 0;
 }
 
-int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
-                      rodsPath_t *rods_path, char *inpath) {
-    int status;
+int resolve_rods_path(rcComm_t *conn, rodsEnv *env, rodsPath_t *rods_path,
+                      char *inpath, option_flags flags, baton_error_t *error) {
+    init_baton_error(error);
 
+    if (!str_starts_with(inpath, "/", 1)) {
+        const char *message = "Found relative collection path '%s'. "
+            "Using relative collection paths in iRODS may be "
+            "dangerous because the CWD may change unexpectedly. "
+            "See https://github.com/irods/irods/issues/2406";
+
+        if (flags & UNSAFE_RESOLVE) {
+            logmsg(WARN, message, inpath);
+        }
+        else {
+            set_baton_error(error, -1, message, inpath);
+            goto error;
+        }
+    }
+
+    int status;
     status = init_rods_path(rods_path, inpath);
     if (status < 0) {
-        logmsg(ERROR, "Failed to create iRODS path '%s'", inpath);
+        set_baton_error(error, status,
+                        "Failed to create iRODS path '%s'", inpath);
         goto error;
     }
 
     status = parseRodsPath(rods_path, env);
     if (status < 0) {
-        logmsg(ERROR, "Failed to parse path '%s'", rods_path->inPath);
+        set_baton_error(error, status, "Failed to parse path '%s'",
+                        rods_path->inPath);
         goto error;
     }
 
@@ -201,7 +218,7 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
     return status;
 
 error:
-    return status;
+    return error->code;
 }
 
 int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
@@ -230,6 +247,50 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
 
 error:
     return status;
+}
+
+int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
+                       option_flags flags, baton_error_t *error) {
+    init_baton_error(error);
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to resolve the iRODS collection: "
+                        "target not a JSON object");
+        goto error;
+    }
+    if (!has_collection(object)) {
+        set_baton_error(error, -1, "Failed to resolve the iRODS collection: "
+                        "target has no collection property");
+        goto error;
+    }
+
+    rodsPath_t rods_path;
+    const char *unresolved = get_collection_value(object, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Attempting to resolve collection '%s'", unresolved);
+
+    char *coll = json_to_collection_path(object, error);
+    if (error->code != 0) goto error;
+
+    resolve_rods_path(conn, env, &rods_path, coll, flags, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Resolved collection '%s' to '%s'", unresolved,
+           rods_path.outPath);
+
+    json_object_del(object, JSON_COLLECTION_KEY);
+    json_object_del(object, JSON_COLLECTION_SHORT_KEY);
+
+    add_collection(object, rods_path.outPath, error);
+    if (error->code != 0) goto error;
+
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return error->code;
+
+error:
+    return error->code;
 }
 
 json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error) {
@@ -699,7 +760,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         if (error->code != 0) goto error;
     }
 
-    query = map_access_args(conn, query, error);
+    query = map_access_args(query, error);
     if (error->code != 0) goto error;
 
     results = json_array();
@@ -1014,6 +1075,37 @@ error:
     return error->code;
 }
 
+int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
+                               metadata_op operation,
+                               json_t *candidate_avus, json_t *reference_avus,
+                               baton_error_t *error) {
+    const char *op_name = metadata_op_name(operation);
+    init_baton_error(error);
+
+    for (size_t i = 0; i < json_array_size(candidate_avus); i++) {
+        json_t *candidate_avu = json_array_get(candidate_avus, i);
+        char *str = json_dumps(candidate_avu, JSON_DECODE_ANY);
+
+        if (contains_avu(reference_avus, candidate_avu)) {
+            logmsg(TRACE, "Skipping '%s' operation on AVU %s", op_name, str);
+        }
+        else {
+            logmsg(TRACE, "Performing '%s' operation on AVU %s", op_name, str);
+            modify_json_metadata(conn, rods_path, operation, candidate_avu,
+                                 error);
+        }
+
+        free(str);
+
+        if (error->code != 0) goto error;
+    }
+
+    return error->code;
+
+error:
+    return error->code;
+}
+
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
                          baton_error_t *error) {
@@ -1279,7 +1371,7 @@ static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in) {
     out->arg9 = "";
 }
 
-static json_t *map_access_args(rcComm_t *conn, json_t *query,
+static json_t *map_access_args(json_t *query,
                                baton_error_t *error) {
     json_t *user_info = NULL;
 
@@ -1296,22 +1388,6 @@ static json_t *map_access_args(rcComm_t *conn, json_t *query,
                                 "not a JSON object", i, num_elts);
                 goto error;
             }
-
-            // Map user name to user_id
-            const char *owner_name = get_access_owner(access, error);
-            if (error->code != 0) goto error;
-
-            logmsg(DEBUG, "Getting user information for '%s'", owner_name);
-            user_info = get_user(conn, owner_name, error);
-            if (error->code != 0) goto error;
-
-            json_t *user_id =
-                json_incref(json_object_get(user_info, JSON_USER_ID_KEY));
-            logmsg(DEBUG, "Mapping user name '%s' to user id '%s'",
-                owner_name, json_string_value(user_id));
-
-            json_object_set_new(access, JSON_OWNER_KEY, user_id);
-            json_decref(user_info);
 
             // Map CLI access level to iCAT access type token
             const char *access_level = get_access_level(access, error);

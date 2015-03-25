@@ -47,9 +47,11 @@ static int coll_flag       = 0;
 static int debug_flag      = 0;
 static int help_flag       = 0;
 static int obj_flag        = 0;
+static int silent_flag     = 0;
 static int size_flag       = 0;
 static int timestamp_flag  = 0;
 static int unbuffered_flag = 0;
+static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
@@ -71,9 +73,11 @@ int main(int argc, char *argv[]) {
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
             {"obj",        no_argument, &obj_flag,        1},
+            {"silent",     no_argument, &silent_flag,     1},
             {"size",       no_argument, &size_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"unsafe",     no_argument, &unsafe_flag,     1},
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
@@ -119,6 +123,8 @@ int main(int argc, char *argv[]) {
     if (avu_flag)       oflags = oflags | PRINT_AVU;
     if (size_flag)      oflags = oflags | PRINT_SIZE;
     if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
+    if (unsafe_flag)    oflags = oflags | UNSAFE_RESOLVE;
+
 
     if (help_flag) {
         puts("Name");
@@ -128,8 +134,9 @@ int main(int argc, char *argv[]) {
         puts("");
         puts("    baton-metaquery [--acl] [--avu] [--coll]");
         puts("                    [--file <JSON file>] [--obj ] [--size]");
-        puts("                    [--timestamp] [--unbuffered] [--verbose]");
-        puts("                    [--version] [--zone <name>]");
+        puts("                    [--silent] [--timestamp] [--unbuffered]");
+        puts("                    [--unsafe] [--verbose] [--version]");
+        puts("                    [--zone <name>]");
         puts("");
         puts("Description");
         puts("    Finds items in iRODS by AVU, given a query constructed");
@@ -141,8 +148,10 @@ int main(int argc, char *argv[]) {
         puts("    --file        The JSON file describing the query. Optional,");
         puts("                  defaults to STDIN.");
         puts("    --obj         Limit search to data object metadata only.");
+        puts("    --silent      Silence error messages.");
         puts("    --timestamp   Print timestamps in output.");
         puts("    --unbuffered  Flush print operations for each JSON object.");
+        puts("    --unsafe      Permit unsafe relative iRODS paths.");
         puts("    --verbose     Print verbose messages to STDERR.");
         puts("    --version     Print the version number and exit.");
         puts("    --zone        The zone to search. Optional.");
@@ -158,6 +167,7 @@ int main(int argc, char *argv[]) {
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
+    if (silent_flag)  set_log_threshold(FATAL);
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
@@ -168,6 +178,7 @@ int main(int argc, char *argv[]) {
 }
 
 int do_search_metadata(FILE *input, char *zone_name, option_flags oflags) {
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -187,29 +198,66 @@ int do_search_metadata(FILE *input, char *zone_name, option_flags oflags) {
             continue;
         }
 
-        baton_error_t error;
-        json_t *results = search_metadata(conn, target, zone_name, oflags,
-                                          &error);
-        if (error.code != 0) {
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
             error_count++;
-            add_error_value(target, &error);
-            print_json(target);
+            json_decref(target);
+            continue;
+        }
+
+        json_t *results = NULL;
+
+        if (has_collection(target)) {
+            baton_error_t resolve_error;
+            resolve_collection(target, conn, &env, oflags, &resolve_error);
+
+            if (add_error_report(target, &resolve_error)) {
+                error_count++;
+            }
+            else {
+                baton_error_t search_error;
+                results = search_metadata(conn, target, zone_name, oflags,
+                                          &search_error);
+                if (add_error_report(target, &search_error)) {
+                    error_count++;
+                    print_json(target);
+                }
+                else {
+                    print_json(results);
+                }
+            }
         }
         else {
-            print_json(results);
-            json_decref(results);
+            baton_error_t search_error;
+            results = search_metadata(conn, target, zone_name, oflags,
+                                      &search_error);
+            if (add_error_report(target, &search_error)) {
+                error_count++;
+                print_json(target);
+            }
+            else {
+                print_json(results);
+            }
         }
 
         if (unbuffered_flag) fflush(stdout);
+
+        if (results) json_decref(results);
         json_decref(target);
     } // while
 
     rcDisconnect(conn);
 
-    return 0;
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
+
+    return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
+
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }
