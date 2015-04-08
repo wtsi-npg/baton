@@ -45,6 +45,7 @@ static int avu_flag        = 0;
 static int debug_flag      = 0;
 static int help_flag       = 0;
 static int contents_flag   = 0;
+static int replicate_flag  = 0;
 static int silent_flag     = 0;
 static int size_flag       = 0;
 static int timestamp_flag  = 0;
@@ -69,6 +70,7 @@ int main(int argc, char *argv[]) {
             {"contents",   no_argument, &contents_flag,   1},
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
+            {"replicate",  no_argument, &replicate_flag,  1},
             {"silent",     no_argument, &silent_flag,     1},
             {"size",       no_argument, &size_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
@@ -106,39 +108,42 @@ int main(int argc, char *argv[]) {
     if (acl_flag)       oflags = oflags | PRINT_ACL;
     if (avu_flag)       oflags = oflags | PRINT_AVU;
     if (contents_flag)  oflags = oflags | PRINT_CONTENTS;
+    if (replicate_flag) oflags = oflags | PRINT_REPLICATE;
     if (size_flag)      oflags = oflags | PRINT_SIZE;
     if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
     if (unsafe_flag)    oflags = oflags | UNSAFE_RESOLVE;
 
-    if (help_flag) {
-        puts("Name");
-        puts("    baton-list");
-        puts("");
-        puts("Synopsis");
-        puts("");
-        puts("    baton-list [--acl] [--avu] [--contents]");
-        puts("               [--file <JSON file>] [--silent] [--size]");
-        puts("               [--timestamp] [--unbuffered] [--unsafe]");
-        puts("               [--verbose] [--version]");
-        puts("");
-        puts("Description");
-        puts("    Lists data objects and collections described in a JSON ");
-        puts("    input file.");
-        puts("");
-        puts("    --acl         Print access control lists in output.");
-        puts("    --avu         Print AVU lists in output.");
-        puts("    --contents    Print collection contents in output.");
-        puts("    --file        The JSON file describing the data objects and");
-        puts("                  collections. Optional, defaults to STDIN.");
-        puts("    --silent      Silence error messages.");
-        puts("    --size        Print data object sizes in output.");
-        puts("    --timestamp   Print timestamps in output.");
-        puts("    --unbuffered  Flush print operations for each JSON object.");
-        puts("    --unsafe      Permit unsafe relative iRODS paths.");
-        puts("    --verbose     Print verbose messages to STDERR.");
-        puts("    --version     Print the version number and exit.");
-        puts("");
+    const char *help =
+        "Name\n"
+        "    baton-list\n"
+        "\n"
+        "Synopsis\n"
+        "\n"
+        "    baton-list [--acl] [--avu] [--contents] [--file <JSON file>]\n"
+        "               [--replicate] [--silent] [--size]\n"
+        "               [--timestamp] [--unbuffered] [--unsafe]\n"
+        "               [--verbose] [--version]\n"
+        "\n"
+        "Description\n"
+        "    Lists data objects and collections described in a JSON\n"
+        "    input file.\n"
+        "\n"
+        "    --acl         Print access control lists in output.\n"
+        "    --avu         Print AVU lists in output.\n"
+        "    --contents    Print collection contents in output.\n"
+        "    --file        The JSON file describing the data objects and\n"
+        "                  collections. Optional, defaults to STDIN.\n"
+        "    --replicate   Report data object replicates.\n"
+        "    --silent      Silence warning messages.\n"
+        "    --size        Print data object sizes in output.\n"
+        "    --timestamp   Print timestamps in output.\n"
+        "    --unbuffered  Flush print operations for each JSON object.\n"
+        "    --unsafe      Permit unsafe relative iRODS paths.\n"
+        "    --verbose     Print verbose messages to STDERR.\n"
+        "    --version     Print the version number and exit.\n";
 
+    if (help_flag) {
+        printf("%s\n",help);
         exit(0);
     }
 

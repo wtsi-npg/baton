@@ -398,6 +398,19 @@ error:
     return error->code;
 }
 
+int add_replicates(json_t *object, json_t *replicates, baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add permissions data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_REPLICATE_KEY, replicates);
+
+error:
+    return error->code;
+}
+
 int add_collection(json_t *object, const char *coll_name,
                    baton_error_t *error) {
     if (!json_is_object(object)) {

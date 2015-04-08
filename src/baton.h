@@ -47,6 +47,9 @@
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rm"
 
+#define VALID_REPLICATE   "1"
+#define INVALID_REPLICATE "0"
+
 #define FILE_SIZE_UNITS "KB"
 
 /**
@@ -89,7 +92,9 @@ typedef enum {
     /** Search data object AVUs */
     SEARCH_OBJECTS     = 1 << 8,
     /** Unsafely resolve relative paths */
-    UNSAFE_RESOLVE     = 1 << 9
+    UNSAFE_RESOLVE     = 1 << 9,
+    /** Print replicate details for data objects */
+    PRINT_REPLICATE    = 1 << 10
 } option_flags;
 
 /**
@@ -202,7 +207,6 @@ json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                   baton_error_t *error);
 
-
 json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                     size_t buffer_size, baton_error_t *error);
 
@@ -212,6 +216,9 @@ int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
 
 int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
                          size_t buffer_size, baton_error_t *error);
+
+json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error);
 
 /**
  * Return a JSON representation of the created and modified timestamps

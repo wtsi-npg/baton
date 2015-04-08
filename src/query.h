@@ -178,6 +178,9 @@ genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
 genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path);
 
+genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
+                                     rodsPath_t *rods_path);
+
 //genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
 //                                    rodsPath_t *rods_path);
 

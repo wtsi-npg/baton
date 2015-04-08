@@ -274,6 +274,43 @@ genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, tn });
 }
 
+genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
+                                     rodsPath_t *rods_path) {
+    char *path = rods_path->outPath;
+    size_t len = strlen(path) + 1;
+
+    char *path1 = calloc(len, sizeof (char));
+    char *path2 = calloc(len, sizeof (char));
+    if (!path1) goto error;
+    if (!path2) goto error;
+
+    strncpy(path1, path, len);
+    strncpy(path2, path, len);
+
+    char *coll_name = dirname(path1);
+    char *data_name = basename(path2);
+
+    query_cond_t cn = { .column   = COL_COLL_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = coll_name };
+    query_cond_t dn = { .column   = COL_DATA_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = data_name };
+    size_t num_conds = 2;
+    add_query_conds(query_in, num_conds, (query_cond_t []) { cn, dn });
+
+    free(path1);
+    free(path2);
+
+    return query_in;
+
+error:
+    logmsg(ERROR, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
+
+    return NULL;
+}
+
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path) {
     char *path = rods_path->outPath;

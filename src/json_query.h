@@ -171,6 +171,12 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error);
 
+json_t *add_repl_json_array(rcComm_t *conn, json_t *array,
+                           baton_error_t *error);
+
+json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
+                             baton_error_t *error);
+
 json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
                            baton_error_t *error);
 

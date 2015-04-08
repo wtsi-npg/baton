@@ -77,6 +77,8 @@ static const char *map_access_level(const char *access_level,
 
 static const char *revmap_access_level(const char *icat_level);
 
+static json_t *map_replicate_results(json_t *results, baton_error_t *error);
+
 static int check_str_arg(const char *arg_name, const char *arg_value,
                          size_t arg_size, baton_error_t *error);
 
@@ -377,6 +379,10 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
             if (flags & PRINT_TIMESTAMP) {
                 result = add_tps_json_object(conn, result, error);
                 if (error->code != 0) goto error;
+            }
+            if (flags & PRINT_REPLICATE) {
+              result = add_repl_json_object(conn, result, error);
+              if (error->code != 0) goto error;
             }
 
             break;
@@ -815,6 +821,10 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         results = add_tps_json_array(conn, results, error);
         if (error->code != 0) goto error;
     }
+    if (flags & PRINT_REPLICATE) {
+        results = add_repl_json_array(conn, results, error);
+        if (error->code != 0) goto error;
+    }
 
     return results;
 
@@ -890,6 +900,74 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
 
 error:
     logmsg(ERROR, "Failed to list timestamps of '%s': error %d %s",
+           rods_path->outPath, error->code, error->message);
+
+    if (query_in)   free_query_input(query_in);
+    if (results)    json_decref(results);
+
+    return NULL;
+}
+
+json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error) {
+    genQueryInp_t *query_in = NULL;
+    json_t *results         = NULL;
+
+    query_format_in_t obj_format =
+        { .num_columns = 2,
+          .columns     = { COL_D_REPL_STATUS, COL_DATA_REPL_NUM },
+          .labels      = { JSON_REPLICATE_STATUS_KEY,
+                           JSON_REPLICATE_NUMBER_KEY } };
+
+    init_baton_error(error);
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a data object",
+                   rods_path->outPath);
+            query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
+                                        obj_format.columns);
+            query_in = prepare_obj_repl_list(query_in, rods_path);
+            break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a collection",
+                   rods_path->outPath);
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list replicates of '%s' as it is "
+                            "a collection", rods_path->outPath);
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list replicates of '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    addKeyVal(&query_in->condInput, ZONE_KW, rods_path->outPath);
+    logmsg(DEBUG, "Using zone hint '%s'", rods_path->outPath);
+    results = do_query(conn, query_in, obj_format.labels, error);
+    if (error->code != 0) goto error;
+
+    results = map_replicate_results(results, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Obtained replicates of '%s'", rods_path->outPath);
+    free_query_input(query_in);
+
+    return results;
+
+error:
+    logmsg(ERROR, "Failed to list replicates of '%s': error %d %s",
            rods_path->outPath, error->code, error->message);
 
     if (query_in)   free_query_input(query_in);
@@ -1498,6 +1576,55 @@ static const char *revmap_access_level(const char *icat_level) {
         // resilient to surprises than raising an error.
         return icat_level;
     }
+}
+
+static json_t *map_replicate_results(json_t *results, baton_error_t *error) {
+    json_t *replicates = json_array();
+    if (!replicates) {
+        set_baton_error(error, -1, "Failed to allocate a new JSON array");
+        goto error;
+    }
+
+    size_t num_elts = json_array_size(results);
+    for (size_t i = 0; i < num_elts; i++) {
+        json_t *result = json_array_get(results, i);
+        if (!json_is_object(result)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid replicate result at position %d of %d: ",
+                            "not a JSON object", i, num_elts);
+            goto error;
+        }
+
+        json_t *repl = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
+        size_t n = atol(json_string_value(repl));
+        json_object_del(result, JSON_REPLICATE_NUMBER_KEY);
+        json_object_set_new(result, JSON_REPLICATE_NUMBER_KEY, json_integer(n));
+
+        json_t *status = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
+        json_t *is_valid;
+        if (str_equals(json_string_value(status), INVALID_REPLICATE, 1)) {
+            is_valid = json_false();
+        }
+        else if (str_equals(json_string_value(status), VALID_REPLICATE, 1)) {
+            is_valid = json_true();
+        }
+        else {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid replicate status '%s' at "
+                            "position %d of %d", json_string_value(status),
+                            i, num_elts);
+            goto error;
+        }
+
+        json_object_del(result, JSON_REPLICATE_STATUS_KEY);
+        json_object_set_new(result, JSON_REPLICATE_STATUS_KEY, is_valid);
+    }
+
+    return results;
+
+error:
+    if (replicates) json_decref(replicates);
+    return NULL;
 }
 
 static int check_str_arg(const char *arg_name, const char *arg_value,
