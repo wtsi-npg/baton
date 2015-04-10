@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -393,6 +393,19 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
     }
 
     return json_object_set_new(object, JSON_TIMESTAMPS_KEY, timestamps);
+
+error:
+    return error->code;
+}
+
+int add_replicates(json_t *object, json_t *replicates, baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add permissions data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_REPLICATE_KEY, replicates);
 
 error:
     return error->code;

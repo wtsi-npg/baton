@@ -16,6 +16,8 @@ pkgconfig_DATA = baton.pc
 
 etcdir = $(sysconfdir)
 
+dist_bin_SCRIPTS = scripts/baton
+
 if COVERAGE_ENABLED
 .PHONY: coverage coverage-report clean-coverage-report check-coverage
 

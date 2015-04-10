@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -45,6 +45,11 @@ static size_t parse_attr_value(int column, const char *label,
                                size_t max_len);
 
 static int is_zone_hint(const char *path);
+
+static const char *map_access_level(const char *access_level,
+                                    baton_error_t *error);
+
+static const char *revmap_access_level(const char *icat_level);
 
 void log_json_error(log_level level, json_error_t *error) {
     logmsg(level, "JSON error: %s, line %d, column %d, position %d",
@@ -520,6 +525,69 @@ error:
     return query_in;
 }
 
+json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
+                             baton_error_t *error) {
+    char *path = NULL;
+    rodsPath_t rods_path;
+    json_t *replicates;
+    int status;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON object");
+        goto error;
+    }
+
+    path = json_to_path(object, error);
+    if (error->code != 0) goto error;
+
+    status = set_rods_path(conn, &rods_path, path);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
+        goto error;
+    }
+
+    replicates = list_replicates(conn, &rods_path, error);
+    if (error->code != 0) goto error;
+
+    add_replicates(object, replicates, error);
+    if (error->code != 0) goto error;
+
+    if (path)                  free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return object;
+
+error:
+    if (path)                  free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return NULL;
+}
+
+json_t *add_repl_json_array(rcComm_t *conn, json_t *array,
+                            baton_error_t *error) {
+    if (!json_is_array(array)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON array");
+        goto error;
+    }
+
+    size_t i;
+    json_t *item;
+    json_array_foreach(array, i, item) {
+        add_repl_json_object(conn, item, error);
+        if (error->code != 0) goto error;
+    }
+
+    return array;
+
+error:
+    logmsg(ERROR, error->message);
+    return NULL;
+}
+
+
 json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
                             baton_error_t *error) {
     rodsPath_t rods_path;
@@ -802,4 +870,181 @@ static size_t parse_attr_value(int column, const char *label,
     }
 
     return size;
+}
+
+json_t *map_access_args(json_t *query, baton_error_t *error) {
+    json_t *user_info = NULL;
+
+    if (has_acl(query)) {
+        json_t *acl = get_acl(query, error);
+        if (error->code != 0) goto error;
+
+        size_t num_elts = json_array_size(acl);
+        for (size_t i = 0; i < num_elts; i++) {
+            json_t *access = json_array_get(acl, i);
+            if (!json_is_object(access)) {
+                set_baton_error(error, CAT_INVALID_ARGUMENT,
+                                "Invalid access at position %d of %d: ",
+                                "not a JSON object", i, num_elts);
+                goto error;
+            }
+
+            // Map CLI access level to iCAT access type token
+            const char *access_level = get_access_level(access, error);
+            if (error->code != 0) goto error;
+
+            const char *icat_level = map_access_level(access_level, error);
+            if (error->code != 0) goto error;
+
+            logmsg(DEBUG, "Mapped access level '%s' to ICAT '%s'",
+                   access_level, icat_level);
+
+            json_object_del(access, JSON_LEVEL_KEY);
+            json_object_set_new(access, JSON_LEVEL_KEY,
+                                json_string(icat_level));
+        }
+    }
+
+    return query;
+
+error:
+    if (user_info) json_decref(user_info);
+
+    return NULL;
+}
+
+json_t *revmap_access_result(json_t *acl,  baton_error_t *error) {
+    size_t num_elts;
+
+    if (!json_is_array(acl)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid ACL: not a JSON array");
+        goto error;
+    }
+
+    num_elts = json_array_size(acl);
+    for (size_t i = 0; i < num_elts; i++) {
+        json_t *access = json_array_get(acl, i);
+        json_t *level = json_object_get(access, JSON_LEVEL_KEY);
+
+        const char *icat_level = json_string_value(level);
+        const char *access_level = revmap_access_level(icat_level);
+        if (error->code != 0) goto error;
+
+        logmsg(DEBUG, "Mapped ICAT '%s' to access level '%s'",
+               access_level, icat_level);
+
+        json_object_del(access, JSON_LEVEL_KEY);
+        json_object_set_new(access, JSON_LEVEL_KEY,
+                            json_string(access_level));
+    }
+
+    return acl;
+
+error:
+    return NULL;
+}
+
+json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
+    json_t *replicates = json_array();
+    if (!replicates) {
+        set_baton_error(error, -1, "Failed to allocate a new JSON array");
+        goto error;
+    }
+
+    size_t num_elts = json_array_size(results);
+    for (size_t i = 0; i < num_elts; i++) {
+        json_t *result = json_array_get(results, i);
+        if (!json_is_object(result)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid replicate result at position %d of %d: ",
+                            "not a JSON object", i, num_elts);
+            goto error;
+        }
+
+        json_t *repl = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
+        size_t n = atol(json_string_value(repl));
+        json_object_del(result, JSON_REPLICATE_NUMBER_KEY);
+        json_object_set_new(result, JSON_REPLICATE_NUMBER_KEY, json_integer(n));
+
+        json_t *status = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
+        json_t *is_valid;
+        if (str_equals(json_string_value(status), INVALID_REPLICATE, 1)) {
+            is_valid = json_false();
+        }
+        else if (str_equals(json_string_value(status), VALID_REPLICATE, 1)) {
+            is_valid = json_true();
+        }
+        else {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid replicate status '%s' at "
+                            "position %d of %d", json_string_value(status),
+                            i, num_elts);
+            goto error;
+        }
+
+        json_object_del(result, JSON_REPLICATE_STATUS_KEY);
+        json_object_set_new(result, JSON_REPLICATE_STATUS_KEY, is_valid);
+    }
+
+    return results;
+
+error:
+    if (replicates) json_decref(replicates);
+    return NULL;
+}
+
+// Map a user-visible access level to the iCAT token
+// nomenclature. iRODS does a similar thing itself.
+static const char *map_access_level(const char *access_level,
+                                    baton_error_t *error) {
+    if (str_equals_ignore_case(access_level,
+                               ACCESS_LEVEL_NULL, MAX_STR_LEN)) {
+        return ACCESS_NULL;
+    }
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_OWN, MAX_STR_LEN)) {
+        return ACCESS_OWN;
+    }
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_READ, MAX_STR_LEN)) {
+        return ACCESS_READ_OBJECT;
+    }
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_WRITE, MAX_STR_LEN)) {
+        return ACCESS_MODIFY_OBJECT;
+    }
+    else {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid permission level: expected one of "
+                        "[%s, %s, %s, %s]",
+                        ACCESS_LEVEL_NULL, ACCESS_LEVEL_OWN,
+                        ACCESS_LEVEL_READ, ACCESS_LEVEL_WRITE);
+        return NULL;
+    }
+}
+
+// Map an iCAT token back to a user-visible access level.
+static const char *revmap_access_level(const char *icat_level) {
+    if (str_equals_ignore_case(icat_level,
+                               ACCESS_NULL, MAX_STR_LEN)) {
+        return ACCESS_LEVEL_NULL;
+    }
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_OWN, MAX_STR_LEN)) {
+        return ACCESS_LEVEL_OWN;
+    }
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_READ_OBJECT, MAX_STR_LEN)) {
+        return ACCESS_LEVEL_READ;
+    }
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_MODIFY_OBJECT, MAX_STR_LEN)) {
+        return ACCESS_LEVEL_WRITE;
+    }
+    else {
+        // Fall back for anything else; not ideal, but it's more
+        // resilient to surprises than raising an error.
+        return icat_level;
+    }
 }

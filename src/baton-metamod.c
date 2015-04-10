@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -104,31 +104,32 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (help_flag) {
-        puts("Name");
-        puts("    baton-metamod");
-        puts("");
-        puts("Synopsis");
-        puts("");
-        puts("    baton-metamod [--file <JSON file>] --operation <operation>");
-        puts("                  [--silent] [--unbuffered] [--unsafe]");
-        puts("                  [--verbose] [--version]");
-        puts("");
-        puts("Description");
-        puts("    Modifies metadata AVUs on collections and data objects");
-        puts("described in a JSON input file.");
-        puts("");
-        puts("    --file        The JSON file describing the data objects and");
-        puts("                  collections. Optional, defaults to STDIN.");
-        puts("    --operation   Operation to perform. One of [add, rem].");
-        puts("                  Required.");
-        puts("    --silent      Silence error messages.");
-        puts("    --unbuffered  Flush print operations for each JSON object.");
-        puts("    --unsafe      Permit unsafe relative iRODS paths.");
-        puts("    --verbose     Print verbose messages to STDERR.");
-        puts("    --version     Print the version number and exit.");
-        puts("");
+    const char *help =
+        "Name\n"
+        "    baton-metamod\n"
+        "\n"
+        "Synopsis\n"
+        "\n"
+        "    baton-metamod [--file <JSON file>] --operation <operation>\n"
+        "                  [--silent] [--unbuffered] [--unsafe]\n"
+        "                  [--verbose] [--version]\n"
+        "\n"
+        "Description\n"
+        "    Modifies metadata AVUs on collections and data objects\n"
+        "described in a JSON input file.\n"
+        "\n"
+        "    --file        The JSON file describing the data objects and\n"
+        "                  collections. Optional, defaults to STDIN.\n"
+        "    --operation   Operation to perform. One of [add, rem].\n"
+        "                  Required.\n"
+        "    --silent      Silence error messages.\n"
+        "    --unbuffered  Flush print operations for each JSON object.\n"
+        "    --unsafe      Permit unsafe relative iRODS paths.\n"
+        "    --verbose     Print verbose messages to STDERR.\n"
+        "    --version     Print the version number and exit.\n";
 
+    if (help_flag) {
+        printf("%s\n", help);
         exit(0);
     }
 

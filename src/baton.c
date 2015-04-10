@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -65,17 +65,6 @@ static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
 static const char *metadata_op_name(metadata_op operation);
 
 static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in);
-
-static json_t *map_access_args(json_t *access,
-                               baton_error_t *error);
-
-static json_t *revmap_access_result(json_t *access,
-                                    baton_error_t *error);
-
-static const char *map_access_level(const char *access_level,
-                                    baton_error_t *error);
-
-static const char *revmap_access_level(const char *icat_level);
 
 static int check_str_arg(const char *arg_name, const char *arg_value,
                          size_t arg_size, baton_error_t *error);
@@ -377,6 +366,10 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
             if (flags & PRINT_TIMESTAMP) {
                 result = add_tps_json_object(conn, result, error);
                 if (error->code != 0) goto error;
+            }
+            if (flags & PRINT_REPLICATE) {
+              result = add_repl_json_object(conn, result, error);
+              if (error->code != 0) goto error;
             }
 
             break;
@@ -815,6 +808,10 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         results = add_tps_json_array(conn, results, error);
         if (error->code != 0) goto error;
     }
+    if (flags & PRINT_REPLICATE) {
+        results = add_repl_json_array(conn, results, error);
+        if (error->code != 0) goto error;
+    }
 
     return results;
 
@@ -890,6 +887,74 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
 
 error:
     logmsg(ERROR, "Failed to list timestamps of '%s': error %d %s",
+           rods_path->outPath, error->code, error->message);
+
+    if (query_in)   free_query_input(query_in);
+    if (results)    json_decref(results);
+
+    return NULL;
+}
+
+json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error) {
+    genQueryInp_t *query_in = NULL;
+    json_t *results         = NULL;
+
+    query_format_in_t obj_format =
+        { .num_columns = 2,
+          .columns     = { COL_D_REPL_STATUS, COL_DATA_REPL_NUM },
+          .labels      = { JSON_REPLICATE_STATUS_KEY,
+                           JSON_REPLICATE_NUMBER_KEY } };
+
+    init_baton_error(error);
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a data object",
+                   rods_path->outPath);
+            query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
+                                        obj_format.columns);
+            query_in = prepare_obj_repl_list(query_in, rods_path);
+            break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a collection",
+                   rods_path->outPath);
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list replicates of '%s' as it is "
+                            "a collection", rods_path->outPath);
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list replicates of '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    addKeyVal(&query_in->condInput, ZONE_KW, rods_path->outPath);
+    logmsg(DEBUG, "Using zone hint '%s'", rods_path->outPath);
+    results = do_query(conn, query_in, obj_format.labels, error);
+    if (error->code != 0) goto error;
+
+    results = revmap_replicate_results(results, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Obtained replicates of '%s'", rods_path->outPath);
+    free_query_input(query_in);
+
+    return results;
+
+error:
+    logmsg(ERROR, "Failed to list replicates of '%s': error %d %s",
            rods_path->outPath, error->code, error->message);
 
     if (query_in)   free_query_input(query_in);
@@ -1369,135 +1434,6 @@ static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in) {
     out->arg7 = "";
     out->arg8 = "";
     out->arg9 = "";
-}
-
-static json_t *map_access_args(json_t *query,
-                               baton_error_t *error) {
-    json_t *user_info = NULL;
-
-    if (has_acl(query)) {
-        json_t *acl = get_acl(query, error);
-        if (error->code != 0) goto error;
-
-        size_t num_elts = json_array_size(acl);
-        for (size_t i = 0; i < num_elts; i++) {
-            json_t *access = json_array_get(acl, i);
-            if (!json_is_object(access)) {
-                set_baton_error(error, CAT_INVALID_ARGUMENT,
-                                "Invalid access at position %d of %d: ",
-                                "not a JSON object", i, num_elts);
-                goto error;
-            }
-
-            // Map CLI access level to iCAT access type token
-            const char *access_level = get_access_level(access, error);
-            if (error->code != 0) goto error;
-
-            const char *icat_level = map_access_level(access_level, error);
-            if (error->code != 0) goto error;
-
-            logmsg(DEBUG, "Mapped access level '%s' to ICAT '%s'",
-                   access_level, icat_level);
-
-            json_object_del(access, JSON_LEVEL_KEY);
-            json_object_set_new(access, JSON_LEVEL_KEY,
-                                json_string(icat_level));
-        }
-    }
-
-    return query;
-
-error:
-    if (user_info) json_decref(user_info);
-
-    return NULL;
-}
-
-static json_t *revmap_access_result(json_t *acl,  baton_error_t *error) {
-    size_t num_elts;
-
-    if (!json_is_array(acl)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid ACL: not a JSON array");
-        goto error;
-    }
-
-    num_elts = json_array_size(acl);
-    for (size_t i = 0; i < num_elts; i++) {
-        json_t *access = json_array_get(acl, i);
-        json_t *level = json_object_get(access, JSON_LEVEL_KEY);
-
-        const char *icat_level = json_string_value(level);
-        const char *access_level = revmap_access_level(icat_level);
-        if (error->code != 0) goto error;
-
-        logmsg(DEBUG, "Mapped ICAT '%s' to access level '%s'",
-               access_level, icat_level);
-
-        json_object_del(access, JSON_LEVEL_KEY);
-        json_object_set_new(access, JSON_LEVEL_KEY,
-                            json_string(access_level));
-    }
-
-    return acl;
-
-error:
-    return NULL;
-}
-
-// Map a user-visible access level to the iCAT token
-// nomenclature. iRODS does a similar thing itself.
-static const char *map_access_level(const char *access_level,
-                                    baton_error_t *error) {
-    if (str_equals_ignore_case(access_level,
-                               ACCESS_LEVEL_NULL, MAX_STR_LEN)) {
-        return ACCESS_NULL;
-    }
-    else if (str_equals_ignore_case(access_level,
-                                    ACCESS_LEVEL_OWN, MAX_STR_LEN)) {
-        return ACCESS_OWN;
-    }
-    else if (str_equals_ignore_case(access_level,
-                                    ACCESS_LEVEL_READ, MAX_STR_LEN)) {
-        return ACCESS_READ_OBJECT;
-    }
-    else if (str_equals_ignore_case(access_level,
-                                    ACCESS_LEVEL_WRITE, MAX_STR_LEN)) {
-        return ACCESS_MODIFY_OBJECT;
-    }
-    else {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid permission level: expected one of "
-                        "[%s, %s, %s, %s]",
-                        ACCESS_LEVEL_NULL, ACCESS_LEVEL_OWN,
-                        ACCESS_LEVEL_READ, ACCESS_LEVEL_WRITE);
-        return NULL;
-    }
-}
-
-// Map an iCAT token back to a user-visible access level.
-static const char *revmap_access_level(const char *icat_level) {
-    if (str_equals_ignore_case(icat_level,
-                               ACCESS_NULL, MAX_STR_LEN)) {
-        return ACCESS_LEVEL_NULL;
-    }
-    else if (str_equals_ignore_case(icat_level,
-                                    ACCESS_OWN, MAX_STR_LEN)) {
-        return ACCESS_LEVEL_OWN;
-    }
-    else if (str_equals_ignore_case(icat_level,
-                                    ACCESS_READ_OBJECT, MAX_STR_LEN)) {
-        return ACCESS_LEVEL_READ;
-    }
-    else if (str_equals_ignore_case(icat_level,
-                                    ACCESS_MODIFY_OBJECT, MAX_STR_LEN)) {
-        return ACCESS_LEVEL_WRITE;
-    }
-    else {
-        // Fall back for anything else; not ideal, but it's more
-        // resilient to surprises than raising an error.
-        return icat_level;
-    }
 }
 
 static int check_str_arg(const char *arg_name, const char *arg_value,
