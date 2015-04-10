@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -187,6 +187,14 @@ genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path);
 
+genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
+                                      const char *user_id,
+                                      const char *perm_id);
+
+genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
+                                      const char *user_id,
+                                      const char *access_level);
+
 genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
@@ -201,14 +209,6 @@ genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
                                       const char *operator);
-
-genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
-                                      const char *perm_id);
-
-genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
-                                      const char *access_level);
 
 genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,

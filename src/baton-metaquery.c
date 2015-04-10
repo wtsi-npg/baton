@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -217,9 +217,6 @@ int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
 int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
                          size_t buffer_size, baton_error_t *error);
 
-json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
-                        baton_error_t *error);
-
 /**
  * Return a JSON representation of the created and modified timestamps
  * of a resolved iRODS path (data object or collection).
@@ -247,6 +244,20 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
  */
 json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
                          baton_error_t *error);
+
+/**
+ * Return a JSON representation of the replicates of a resolved iRODS
+ * path (data object).
+ *
+ * @param[in]  conn      An open iRODS connection.
+ * @param[in]  rodspath  An iRODS path.
+ * @param[out] error     An error report struct.
+ *
+ * @return A new struct representing the path access control list,
+ * which must be freed by the caller.
+ */
+json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
+                        baton_error_t *error);
 
 /**
  * List metadata of a specified data object or collection.
