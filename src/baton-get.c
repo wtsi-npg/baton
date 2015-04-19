@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014, 2015 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2014, 2015 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -124,39 +124,40 @@ int main(int argc, char *argv[]) {
     if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
     if (unsafe_flag)    oflags = oflags | UNSAFE_RESOLVE;
 
-    if (help_flag) {
-        puts("Name");
-        puts("    baton-get");
-        puts("");
-        puts("Synopsis");
-        puts("");
-        puts("    baton-get [--acl] [--avu] [--file <JSON file>]");
-        puts("              [--raw] [--save] [--silent] [--size]");
-        puts("              [--timestamp] [--unbuffered] [--unsafe]");
-        puts("              [--verbose] [--version]");
-        puts("");
-        puts("Description");
-        puts("    Gets the contents of data objects described in a JSON");
-        puts("    input file.");
-        puts("");
-        puts("    --acl         Print access control lists in output.");
-        puts("    --avu         Print AVU lists in output.");
-        puts("    --buffer-size Set the transfer buffer size.");
-        puts("    --file        The JSON file describing the data objects.");
-        puts("                  Optional, defaults to STDIN.");
-        puts("    --raw         Print data object content without any JSON");
-        puts("                  wrapping.");
-        puts("    --save        Save data object content to individual files,");
-        puts("                  without any JSON wrapping i.e. implies --raw.");
-        puts("    --silent      Silence error messages.");
-        puts("    --size        Print data object sizes in output.");
-        puts("    --timestamp   Print timestamps in output.");
-        puts("    --unbuffered  Flush print operations for each JSON object.");
-        puts("    --unsafe      Permit unsafe relative iRODS paths.");
-        puts("    --verbose     Print verbose messages to STDERR.");
-        puts("    --version     Print the version number and exit.");
-        puts("");
+    const char *help =
+        "Name\n"
+        "    baton-get\n"
+        "\n"
+        "Synopsis\n"
+        "\n"
+        "    baton-get [--acl] [--avu] [--file <JSON file>]\n"
+        "              [--raw] [--save] [--silent] [--size]\n"
+        "              [--timestamp] [--unbuffered] [--unsafe]\n"
+        "              [--verbose] [--version]\n"
+        "\n"
+        "Description\n"
+        "    Gets the contents of data objects described in a JSON\n"
+        "    input file.\n"
+        ""
+        "    --acl         Print access control lists in output.\n"
+        "    --avu         Print AVU lists in output.\n"
+        "    --buffer-size Set the transfer buffer size.\n"
+        "    --file        The JSON file describing the data objects.\n"
+        "                  Optional, defaults to STDIN.\n"
+        "    --raw         Print data object content without any JSON\n"
+        "                  wrapping.\n"
+        "    --save        Save data object content to individual files,\n"
+        "                  without any JSON wrapping i.e. implies --raw.\n"
+        "    --silent      Silence error messages.\n"
+        "    --size        Print data object sizes in output.\n"
+        "    --timestamp   Print timestamps in output.\n"
+        "    --unbuffered  Flush print operations for each JSON object.\n"
+        "    --unsafe      Permit unsafe relative iRODS paths.\n"
+        "    --verbose     Print verbose messages to STDERR.\n"
+        "    --version     Print the version number and exit.\n";
 
+    if (help_flag) {
+        printf("%s\n",help);
         exit(0);
     }
 

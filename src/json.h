@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -48,6 +48,8 @@
 #define JSON_TIMESTAMPS_SHORT_KEY  "time"
 #define JSON_REPLICATE_KEY         "replicate"
 #define JSON_REPLICATE_SHORT_KEY   "rep"
+#define JSON_REPLICATE_NUMBER_KEY  "number"
+#define JSON_REPLICATE_STATUS_KEY  "valid"
 
 #define JSON_SIZE_KEY              "size"
 #define JSON_AVUS_KEY              "avus"
@@ -188,6 +190,8 @@ int add_contents(json_t *object, json_t *contents, baton_error_t *error);
 
 int add_timestamps(json_t *object, const char *created, const char *modified,
                    int *repl_num, baton_error_t *error);
+
+int add_replicates(json_t *object, json_t *replicates, baton_error_t *error);
 
 int add_error_report(json_t *target, baton_error_t *error);
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -47,6 +47,7 @@ static int coll_flag       = 0;
 static int debug_flag      = 0;
 static int help_flag       = 0;
 static int obj_flag        = 0;
+static int replicate_flag  = 0;
 static int silent_flag     = 0;
 static int size_flag       = 0;
 static int timestamp_flag  = 0;
@@ -73,6 +74,7 @@ int main(int argc, char *argv[]) {
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
             {"obj",        no_argument, &obj_flag,        1},
+            {"replicate",  no_argument, &replicate_flag,  1},
             {"silent",     no_argument, &silent_flag,     1},
             {"size",       no_argument, &size_flag,       1},
             {"timestamp",  no_argument, &timestamp_flag,  1},
@@ -121,42 +123,43 @@ int main(int argc, char *argv[]) {
 
     if (acl_flag)       oflags = oflags | PRINT_ACL;
     if (avu_flag)       oflags = oflags | PRINT_AVU;
+    if (replicate_flag) oflags = oflags | PRINT_REPLICATE;
     if (size_flag)      oflags = oflags | PRINT_SIZE;
     if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
     if (unsafe_flag)    oflags = oflags | UNSAFE_RESOLVE;
 
+    const char *help =
+        "Name\n"
+        "    baton-metaquery\n"
+        "\n"
+        "Synopsis\n"
+        "\n"
+        "    baton-metaquery [--acl] [--avu] [--coll] [--file <JSON file>]\n"
+        "                    [--obj ] [--replicate] [--silent] [--size]\n"
+        "                    [--timestamp] [--unbuffered] [--unsafe]\n"
+        "                    [--verbose] [--version] [--zone <name>]\n"
+        "\n"
+        "Description\n"
+        "    Finds items in iRODS by AVU, given a query constructed\n"
+        "from a JSON input file.\n"
+        "\n"
+        "    --acl         Print access control lists in output.\n"
+        "    --avu         Print AVU lists in output.\n"
+        "    --coll        Limit search to collection metadata only.\n"
+        "    --file        The JSON file describing the query. Optional,\n"
+        "                  defaults to STDIN.\n"
+        "    --obj         Limit search to data object metadata only.\n"
+        "    --replicate   Report data object replicates.\n"
+        "    --silent      Silence error messages.\n"
+        "    --timestamp   Print timestamps in output.\n"
+        "    --unbuffered  Flush print operations for each JSON object.\n"
+        "    --unsafe      Permit unsafe relative iRODS paths.\n"
+        "    --verbose     Print verbose messages to STDERR.\n"
+        "    --version     Print the version number and exit.\n"
+        "    --zone        The zone to search. Optional.\n";
 
     if (help_flag) {
-        puts("Name");
-        puts("    baton-metaquery");
-        puts("");
-        puts("Synopsis");
-        puts("");
-        puts("    baton-metaquery [--acl] [--avu] [--coll]");
-        puts("                    [--file <JSON file>] [--obj ] [--size]");
-        puts("                    [--silent] [--timestamp] [--unbuffered]");
-        puts("                    [--unsafe] [--verbose] [--version]");
-        puts("                    [--zone <name>]");
-        puts("");
-        puts("Description");
-        puts("    Finds items in iRODS by AVU, given a query constructed");
-        puts("from a JSON input file.");
-        puts("");
-        puts("    --acl         Print access control lists in output.");
-        puts("    --avu         Print AVU lists in output.");
-        puts("    --coll        Limit search to collection metadata only.");
-        puts("    --file        The JSON file describing the query. Optional,");
-        puts("                  defaults to STDIN.");
-        puts("    --obj         Limit search to data object metadata only.");
-        puts("    --silent      Silence error messages.");
-        puts("    --timestamp   Print timestamps in output.");
-        puts("    --unbuffered  Flush print operations for each JSON object.");
-        puts("    --unsafe      Permit unsafe relative iRODS paths.");
-        puts("    --verbose     Print verbose messages to STDERR.");
-        puts("    --version     Print the version number and exit.");
-        puts("    --zone        The zone to search. Optional.");
-        puts("");
-
+        printf("%s\n",help);
         exit(0);
     }
 
