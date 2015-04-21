@@ -27,6 +27,17 @@ AC_SUBST(LT_LIB_CURRENT)
 AC_SUBST(LT_LIB_REVISION)
 AC_SUBST(LT_LIB_AGE)
 
+TEST_RESOURCE=testResc
+AC_SUBST([TEST_RESOURCE])
+
+AC_ARG_WITH([test-resource],
+  [AS_HELP_STRING([--with-test-resource],
+    [Specify an iRODS resource name for making replicates during testing (default: testResc)])],
+   [AC_MSG_NOTICE([using iRODS test resource $with_test_resource])
+    TEST_RESOURCE="$with_test_resource"],
+   [AC_MSG_NOTICE([using the default iRODS test resource])
+    TEST_RESOURCE="testResc"])
+
 dnl Notes for OSX with homebrew:
 dnl Ensure that check.m4 and pkg.m4 are in a system aclocal path or
 dnl a path added by ACLOCAL_AMFLAGS in Makefile.am

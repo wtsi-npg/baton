@@ -37,7 +37,7 @@ install:
   - cd /tmp/jansson-2.6 ; autoreconf -fi ; ./configure ; make ; sudo make install
   - cd $TRAVIS_BUILD_DIR
   - sudo ldconfig
-  - sudo pip install breathe
+  - sudo -H pip install breathe
 
 before_script:
   - sudo -E -u postgres createuser -D -R -S irods
@@ -48,18 +48,21 @@ before_script:
   - sudo mv server_config.tmp /etc/irods/server_config.json
   - ls -l /etc/irods
   - sudo /etc/init.d/irods restart
+  - sudo -E su irods -c "iadmin mkuser $USER rodsadmin ; iadmin moduser $USER password testuser"
+  - sudo -E su irods -c "mkdir -p /var/lib/irods/iRODS/Test"
+  - sudo -E su irods -c "iadmin mkresc testResc unixfilesystem `hostname --fqdn`:/var/lib/irods/iRODS/Test"
   - mkdir $HOME/.irods
   - sed -e "s#__USER__#$USER#" -e "s#__HOME__#$HOME#" < .travis.irodsenv.json > $HOME/.irods/irods_environment.json
   - cat $HOME/.irods/irods_environment.json
-  - sudo -E su irods -c "iadmin mkuser $USER rodsadmin ; iadmin moduser $USER password testuser"
   - echo testuser | script -q -c "iinit" > /dev/null
   - ls -l $HOME/.irods/
   - ienv
+  - ilsresc -l
   - ils
 
 script:
   - autoreconf -fi
-  - ./configure
+  - ./configure --with-test-resource=testResc
   - make distcheck
 
 after_success:
