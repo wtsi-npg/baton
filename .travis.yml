@@ -4,7 +4,7 @@ before_install:
   - sudo apt-get install -qq odbc-postgresql unixodbc-dev python-sphinx
 
 install:
-  - sudo pip install breathe
+  - sudo -H pip install breathe
 
 language: c
 
@@ -20,6 +20,7 @@ env:
     - CK_DEFAULT_TIMEOUT=10
     - IRODS_HOME=$TRAVIS_BUILD_DIR/iRODS
     - IRODS_VAULT=/usr/local/var/lib/irods/Vault
+    - IRODS_TEST_VAULT=/usr/local/var/lib/irods/Test
 
 before_script:
   - wget http://downloads.sourceforge.net/project/check/check/0.9.14/check-0.9.14.tar.gz -O /tmp/check-0.9.14.tar.gz
@@ -40,12 +41,16 @@ before_script:
   - sudo -E -u postgres $TRAVIS_BUILD_DIR/irodscontrol psetup
   - $TRAVIS_BUILD_DIR/irodscontrol istart ; sleep 10
   - echo irods | script -q -c "iinit" > /dev/null
+  - sudo mkdir -p $IRODS_TEST_VAULT
+  - sudo chown $USER:$USER $IRODS_TEST_VAULT
+  - iadmin mkresc testResc 'unix file system' cache `hostname --fqdn` $IRODS_TEST_VAULT
   - ienv
+  - ilsresc -l
   - ils
 
 script:
   - autoreconf -fi
-  - ./configure --with-irods=$IRODS_HOME
+  - ./configure --with-irods=$IRODS_HOME --with-test-resource=testResc
   - make distcheck DISTCHECK_CONFIGURE_FLAGS=--with-irods=$IRODS_HOME
 
 after_script:
