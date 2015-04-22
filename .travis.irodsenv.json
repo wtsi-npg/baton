@@ -1,0 +1,11 @@
+{
+    "irods_zone": "tempZone",
+    "irods_host": "localhost",
+    "irods_port": 1247,
+    "irods_user_name": "__USER__",
+    "irods_authentication_file_name": "__HOME__/.irods/auth_token",
+    "irods_home": "/tempZone/home/__USER__",
+    "irods_default_resource": "demoResc",
+    "irods_default_hash_scheme": "MD5",
+    "irods_match_hash_policy": "strict"
+}

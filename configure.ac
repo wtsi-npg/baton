@@ -1,4 +1,4 @@
-AC_INIT([baton], m4_esyscmd([git describe --always --dirty | tr -d '\012']), [kdj@sanger.ac.uk])
+AC_INIT([baton], m4_esyscmd([git describe --dirty | tr -d '\012']), [kdj@sanger.ac.uk])
 
 AC_PREREQ(2.68)
 AC_USE_SYSTEM_EXTENSIONS
@@ -26,6 +26,17 @@ LT_LIB_AGE=0
 AC_SUBST(LT_LIB_CURRENT)
 AC_SUBST(LT_LIB_REVISION)
 AC_SUBST(LT_LIB_AGE)
+
+TEST_RESOURCE=testResc
+AC_SUBST([TEST_RESOURCE])
+
+AC_ARG_WITH([test-resource],
+  [AS_HELP_STRING([--with-test-resource],
+    [Specify an iRODS resource name for making replicates during testing (default: testResc)])],
+   [AC_MSG_NOTICE([using iRODS test resource $with_test_resource])
+    TEST_RESOURCE="$with_test_resource"],
+   [AC_MSG_NOTICE([using the default iRODS test resource])
+    TEST_RESOURCE="testResc"])
 
 dnl Notes for OSX with homebrew:
 dnl Ensure that check.m4 and pkg.m4 are in a system aclocal path or
@@ -192,12 +203,12 @@ IRODS4_RIP_LIBS="-lRodsAPIs"
 
 IRODS4_RIP_BOOST_CPPFLAGS="-I${IRODS_HOME}/../external/${BOOST_VERSION}/boost"
 IRODS4_RIP_BOOST_LDFLAGS="-L${IRODS_HOME}/../external/${BOOST_VERSION}/stage/lib"
-IRODS4_RIP_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread"
+IRODS4_RIP_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread -lboost_chrono"
 
 IRODS4_PKG_CPPFLAGS="-I/usr/include/irods"
-IRODS4_PKG_LDFLAGS="-L/usr/lib/irods"
+IRODS4_PKG_LDFLAGS="-L/usr/lib/irods/externals"
 IRODS4_PKG_LIBS="-lrods_client_api -lrods_client"
-IRODS4_PKG_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread"
+IRODS4_PKG_BOOST_LIBS="-lboost_system -lboost_filesystem -lboost_regex -lboost_thread -lboost_chrono"
 
 HAVE_IRODS4=no
 

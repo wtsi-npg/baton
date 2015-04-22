@@ -106,7 +106,7 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
     }
 
     logmsg(DEBUG, "Read %d bytes from '%s'", num_read, obj_file->path);
-
+    
     return num_read;
 
 error:
@@ -225,7 +225,7 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
         }
 
         MD5Update(&context, (unsigned char*) buffer, n);
-        memset(buffer, 0, buffer_size);
+	memset(buffer, 0, buffer_size);
         num_written += n;
     }
 
