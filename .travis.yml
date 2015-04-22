@@ -1,11 +1,4 @@
 
-before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq odbc-postgresql unixodbc-dev python-sphinx
-
-install:
-  - sudo pip install breathe
-
 language: c
 
 compiler: gcc
@@ -16,44 +9,68 @@ addons:
 env:
   global:
     - secure: cDfB188ECmloGfScZQezqwiFef7l+gXgn2RiTOxINriy9wYS6RmZxuZBHGuR36u7QV3QEJtMdihyQ+XBN2eQPf5jULQXV15t7gArXEVPzzF8i+f8MTgVHugU3TqmPLQkY94wBBbpzvRD9xCAC/uNiQcLLwuD2SjPfTXkqgqqtd0=
-    - PGVERSION="9.3"
-    - CK_DEFAULT_TIMEOUT=10
-    - IRODS_HOME=$TRAVIS_BUILD_DIR/iRODS
-    - IRODS_VAULT=/usr/local/var/lib/irods/Vault
+    - CK_DEFAULT_TIMEOUT=30
+    - IRODS_VERSION=4.1.0
+    - WTSI_NPG_URL=https://github.com/wtsi-npg/irods
+    - WTSI_NPG_SHA1=65ba192
+    - WTSI_NPG_VERSION=${IRODS_VERSION}-${WTSI_NPG_SHA1}
+    - PG_PLUGIN_VERSION=1.5
 
-before_script:
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq odbc-postgresql unixodbc-dev super
+  - sudo apt-get install -qq python-sphinx
+  - sudo apt-get install libjson-perl jq
+  - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-icat-${IRODS_VERSION}-64bit.deb
+  - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-database-plugin-postgres-${PG_PLUGIN_VERSION}.deb
+  - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-runtime-${IRODS_VERSION}-64bit.deb
+  - wget $WTSI_NPG_URL/releases/download/$WTSI_NPG_VERSION/irods-dev-${IRODS_VERSION}-64bit.deb
+  - sudo dpkg -i irods-icat-${IRODS_VERSION}-64bit.deb irods-database-plugin-postgres-${PG_PLUGIN_VERSION}.deb
+  - sudo dpkg -i irods-runtime-${IRODS_VERSION}-64bit.deb irods-dev-${IRODS_VERSION}-64bit.deb
+
+install:
   - wget http://downloads.sourceforge.net/project/check/check/0.9.14/check-0.9.14.tar.gz -O /tmp/check-0.9.14.tar.gz
   - tar xfz /tmp/check-0.9.14.tar.gz -C /tmp
   - cd /tmp/check-0.9.14 ; autoreconf -fi ; ./configure ; make ; sudo make install
   - wget https://github.com/akheron/jansson/archive/v2.6.tar.gz -O /tmp/jansson-2.6.tar.gz
   - tar xfz /tmp/jansson-2.6.tar.gz -C /tmp
   - cd /tmp/jansson-2.6 ; autoreconf -fi ; ./configure ; make ; sudo make install
-  - sudo ldconfig
   - cd $TRAVIS_BUILD_DIR
-  - wget https://github.com/wtsi-npg/irods-legacy/releases/download/3.3.1-travis-bc85aa/irods.tar.gz -O /tmp/irods.tar.gz
-  - tar xfz /tmp/irods.tar.gz
-  - source $TRAVIS_BUILD_DIR/travis_linux_env.sh
-  - export PATH=$PATH:$IRODS_HOME/clients/icommands/bin
-  - sudo mkdir -p $IRODS_VAULT
-  - sudo chown $USER:$USER $IRODS_VAULT
-  - sudo -E -u postgres $TRAVIS_BUILD_DIR/setup_pgusers.sh
-  - sudo -E -u postgres $TRAVIS_BUILD_DIR/irodscontrol psetup
-  - $TRAVIS_BUILD_DIR/irodscontrol istart ; sleep 10
-  - echo irods | script -q -c "iinit" > /dev/null
+  - sudo ldconfig
+  - sudo -H pip install breathe
+
+before_script:
+  - sudo -E -u postgres createuser -D -R -S irods
+  - sudo -E -u postgres createdb -O irods ICAT
+  - sudo -E -u postgres sh -c "echo \"ALTER USER irods WITH PASSWORD 'irods'\" | psql"
+  - sudo /var/lib/irods/packaging/setup_irods.sh < .travis.setup_irods
+  - sudo jq -f .travis.server_config /etc/irods/server_config.json > server_config.tmp
+  - sudo mv server_config.tmp /etc/irods/server_config.json
+  - ls -l /etc/irods
+  - sudo /etc/init.d/irods restart
+  - sudo -E su irods -c "iadmin mkuser $USER rodsadmin ; iadmin moduser $USER password testuser"
+  - sudo -E su irods -c "mkdir -p /var/lib/irods/iRODS/Test"
+  - sudo -E su irods -c "iadmin mkresc testResc unixfilesystem `hostname --fqdn`:/var/lib/irods/iRODS/Test"
+  - mkdir $HOME/.irods
+  - sed -e "s#__USER__#$USER#" -e "s#__HOME__#$HOME#" < .travis.irodsenv.json > $HOME/.irods/irods_environment.json
+  - cat $HOME/.irods/irods_environment.json
+  - echo testuser | script -q -c "iinit" > /dev/null
+  - ls -l $HOME/.irods/
   - ienv
+  - ilsresc -l
   - ils
 
 script:
   - autoreconf -fi
-  - ./configure --with-irods=$IRODS_HOME
-  - make distcheck DISTCHECK_CONFIGURE_FLAGS=--with-irods=$IRODS_HOME
-
-after_script:
-  - $TRAVIS_BUILD_DIR/irodscontrol istop
+  - ./configure --with-test-resource=testResc
+  - make distcheck
 
 after_success:
   - make dist
   - export DIST_FILE=$(ls baton-*.tar.gz)
+
+after_failure:
+  - cat config.log
 
 deploy:
   provider: releases
