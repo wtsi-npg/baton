@@ -29,6 +29,7 @@
 #include "../src/json.h"
 #include "../src/log.h"
 #include "../src/read.h"
+#include "../src/compat_checksum.h"
 
 static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
@@ -1683,16 +1684,16 @@ START_TEST(test_write_path_to_stream) {
 
     unsigned char digest[16];
     MD5_CTX context;
-    MD5Init(&context);
+    compat_MD5Init(&context);
 
     char buffer[1024];
 
     size_t n;
     while ((n = fread(buffer, 1, 1024, tmp)) > 0) {
-        MD5Update(&context, (unsigned char *) buffer, n);
+        compat_MD5Update(&context, (unsigned char *) buffer, n);
     }
 
-    MD5Final(digest, &context);
+    compat_MD5Final(digest, &context);
 
     char *md5 = calloc(33, sizeof (char));
     for (int i = 0; i < 16; i++) {

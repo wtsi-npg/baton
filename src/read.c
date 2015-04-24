@@ -36,6 +36,8 @@
 #include "dataObjClose.hpp"
 #endif
 
+#include "compat_checksum.h"
+
 #include "error.h"
 #include "read.h"
 #include "utilities.h"
@@ -106,7 +108,7 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
     }
 
     logmsg(DEBUG, "Read %d bytes from '%s'", num_read, obj_file->path);
-    
+
     return num_read;
 
 error:
@@ -127,7 +129,7 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
 
     unsigned char digest[16];
     MD5_CTX context;
-    MD5Init(&context);
+    compat_MD5Init(&context);
 
     size_t capacity = buffer_size;
     size_t num_read = 0;
@@ -160,14 +162,14 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
         }
 
         memcpy(content + num_read, buffer, n);
-	memset(buffer, 0, buffer_size);
+        memset(buffer, 0, buffer_size);
         num_read += n;
     }
 
     logmsg(DEBUG, "Final capacity %zu, offset %zu", capacity, num_read);
 
-    MD5Update(&context, (unsigned char*) content, num_read);
-    MD5Final(digest, &context);
+    compat_MD5Update(&context, (unsigned char*) content, num_read);
+    compat_MD5Final(digest, &context);
     set_md5_last_read(obj_file, digest);
 
     if (!validate_md5_last_read(conn, obj_file)) {
@@ -209,7 +211,7 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
 
     unsigned char digest[16];
     MD5_CTX context;
-    MD5Init(&context);
+    compat_MD5Init(&context);
 
     size_t n;
     while ((n = read_data_obj(conn, obj_file, buffer, buffer_size,
@@ -224,12 +226,12 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
             goto error;
         }
 
-        MD5Update(&context, (unsigned char*) buffer, n);
-	memset(buffer, 0, buffer_size);
+        compat_MD5Update(&context, (unsigned char*) buffer, n);
+        memset(buffer, 0, buffer_size);
         num_written += n;
     }
 
-    MD5Final(digest, &context);
+    compat_MD5Final(digest, &context);
     set_md5_last_read(obj_file, digest);
 
     if (!validate_md5_last_read(conn, obj_file)) {
