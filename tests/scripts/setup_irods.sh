@@ -8,14 +8,16 @@
 E_ARGS_MISSING=3
 E_INPUT_MISSING=4
 E_OUTPUT_PRESENT=5
+E_RESC_MISSING=6
 
 in_path=$1
 out_path=$2
-meta_path=$3
+test_resc=$3
+meta_path=$4
 
-if [ $# -lt 2 ]
+if [ $# -lt 3 ]
 then
-    echo "Insufficient command line arguments; expected 2 or 3"
+    echo "Insufficient command line arguments; expected 3 or 4"
     exit $E_ARGS_MISSING
 fi
 
@@ -44,6 +46,27 @@ if [[ $status -ne 0 ]]
 then
     echo "Failed to iput test data to '$out_path'"
     exit $status
+fi
+
+# Make replicates of test data
+ilsresc $test_resc >&/dev/null
+status=$?
+
+if [[ $status -ne 0 ]]
+then
+    echo "Test resource '$test_resc' is missing. Aborting"
+    exit $E_RESC_MISSING
+fi
+
+irepl -r -R $test_resc $out_path
+status=$?
+
+if [[ $status -ne 0 ]]
+then
+    echo "Failed to irepl test data to '$test_resc'"
+    exit $status
+else
+    echo "Replicated test data to '$test_resc'"
 fi
 
 # Add metadata if required
