@@ -29,6 +29,7 @@
 #include "../src/json.h"
 #include "../src/log.h"
 #include "../src/read.h"
+#include "../src/compat_checksum.h"
 
 static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
@@ -53,7 +54,7 @@ static void set_current_rods_root(char *in, char *out) {
 }
 
 static void setup() {
-    set_log_threshold(ERROR);
+    set_log_threshold(WARN);
 }
 
 static void teardown() {
@@ -65,10 +66,11 @@ static void basic_setup() {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
-    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s %s %s/%s",
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s %s %s %s/%s",
              TEST_ROOT, SETUP_SCRIPT,
              TEST_ROOT, BASIC_DATA_PATH,
              rods_root,
+             TEST_RESOURCE,
              TEST_ROOT, BASIC_METADATA_PATH);
 
     printf("Setup: %s\n", command);
@@ -145,7 +147,6 @@ START_TEST(test_parse_base_name) {
     ck_assert_str_eq("a", parse_base_name("a"));
     ck_assert_str_eq("a", parse_base_name("/a"));
     ck_assert_str_eq("b", parse_base_name("/a/b"));
-
 }
 END_TEST
 
@@ -383,10 +384,17 @@ START_TEST(test_list_obj) {
 
     json_t *timestamps = json_object_get(results5, JSON_TIMESTAMPS_KEY);
     ck_assert(json_is_array(timestamps));
-    ck_assert_int_eq(json_array_size(timestamps), 2);
 
-    for (size_t i = 0; i < 2; i++) {
-        json_t *timestamp = json_array_get(timestamps, i);
+    int num_timestamps = 2 * 2; // For 2 replicates;
+    ck_assert_int_eq(json_array_size(timestamps), num_timestamps);
+
+    // These are processed timestamps where there is a separate JSON
+    // object for created and modified stamps and the times are
+    // ISO8601 format.
+    size_t index;
+    json_t *timestamp;
+    json_array_foreach(timestamps, index, timestamp) {
+        ck_assert_int_eq(json_object_size(timestamp), 2);
         ck_assert(json_object_get(timestamp, JSON_CREATED_KEY) ||
                   json_object_get(timestamp, JSON_MODIFIED_KEY));
     }
@@ -730,6 +738,48 @@ START_TEST(test_list_metadata_coll) {
 }
 END_TEST
 
+START_TEST(test_list_replicates_obj) {
+    if (!TEST_RESOURCE) {
+        logmsg(WARN, "!!! Skipping test_list_replicates_obj because "
+               "no test resource is defined; TEST_RESOURCE=%s !!!",
+               TEST_RESOURCE);
+        return;
+    }
+
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
+
+    json_t *expected = json_pack("[{s:i, s:b}, {s:i, s:b}]",
+                                 JSON_REPLICATE_NUMBER_KEY, 0,
+                                 JSON_REPLICATE_STATUS_KEY, 1,
+                                 JSON_REPLICATE_NUMBER_KEY, 1,
+                                 JSON_REPLICATE_STATUS_KEY, 1);
+
+    baton_error_t error;
+    json_t *results = list_replicates(conn, &rods_path, &error);
+
+    ck_assert_int_eq(error.code, 0);
+    ck_assert(json_is_array(results));
+    ck_assert_int_eq(json_equal(results, expected), 1);
+
+    json_decref(results);
+    json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 START_TEST(test_list_timestamps_obj) {
     option_flags flags = 0;
     rodsEnv env;
@@ -746,23 +796,27 @@ START_TEST(test_list_timestamps_obj) {
                                        flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_timestamps(conn, &rods_path, &error);
+    json_t *timestamps = list_timestamps(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
-    ck_assert(json_is_array(results));
-    ck_assert_int_eq(json_array_size(results), 1);
+    ck_assert(json_is_array(timestamps));
 
+    int num_timestamps = 1 * 2; // For 2 replicates
+    ck_assert_int_eq(json_array_size(timestamps), num_timestamps);
+
+    // These are raw timestamps where both created and modified times
+    // are present iRODS query results.
     size_t index;
-    json_t *elt;
-    json_array_foreach(results, index, elt) {
-        ck_assert(json_is_object(elt));
-        ck_assert_int_eq(json_object_size(elt), 3);
-        ck_assert(json_object_get(elt, JSON_CREATED_KEY));
-        ck_assert(json_object_get(elt, JSON_MODIFIED_KEY));
-        ck_assert(json_object_get(elt, JSON_REPLICATE_KEY));
+    json_t *timestamp;
+    json_array_foreach(timestamps, index, timestamp) {
+        ck_assert(json_is_object(timestamp));
+        ck_assert_int_eq(json_object_size(timestamp), 3);
+        ck_assert(json_object_get(timestamp, JSON_CREATED_KEY));
+        ck_assert(json_object_get(timestamp, JSON_MODIFIED_KEY));
+        ck_assert(json_object_get(timestamp, JSON_REPLICATE_KEY));
     }
 
-    json_decref(results);
+    json_decref(timestamps);
 
     if (conn) rcDisconnect(conn);
 }
@@ -782,22 +836,25 @@ START_TEST(test_list_timestamps_coll) {
                                        flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_timestamps(conn, &rods_path, &error);
+    json_t *timestamps = list_timestamps(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
-    ck_assert(json_is_array(results));
-    ck_assert_int_eq(json_array_size(results), 1);
+    ck_assert(json_is_array(timestamps));
+    ck_assert_int_eq(json_array_size(timestamps), 1);
 
+    // These are raw timestamps where both created and modified times
+    // are present iRODS query results. Unlike data object timestamps,
+    // there is no replicate number.
     size_t index;
-    json_t *elt;
-    json_array_foreach(results, index, elt) {
-        ck_assert(json_is_object(elt));
-        ck_assert_int_eq(json_object_size(elt), 2);
-        ck_assert(json_object_get(elt, JSON_CREATED_KEY));
-        ck_assert(json_object_get(elt, JSON_MODIFIED_KEY));
+    json_t *timestamp;
+    json_array_foreach(timestamps, index, timestamp) {
+        ck_assert(json_is_object(timestamp));
+        ck_assert_int_eq(json_object_size(timestamp), 2);
+        ck_assert(json_object_get(timestamp, JSON_CREATED_KEY));
+        ck_assert(json_object_get(timestamp, JSON_MODIFIED_KEY));
     }
 
-    json_decref(results);
+    json_decref(timestamps);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1683,16 +1740,16 @@ START_TEST(test_write_path_to_stream) {
 
     unsigned char digest[16];
     MD5_CTX context;
-    MD5Init(&context);
+    compat_MD5Init(&context);
 
     char buffer[1024];
 
     size_t n;
     while ((n = fread(buffer, 1, 1024, tmp)) > 0) {
-        MD5Update(&context, (unsigned char *) buffer, n);
+        compat_MD5Update(&context, (unsigned char *) buffer, n);
     }
 
-    MD5Final(digest, &context);
+    compat_MD5Final(digest, &context);
 
     char *md5 = calloc(33, sizeof (char));
     for (int i = 0; i < 16; i++) {
@@ -1859,6 +1916,8 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_list_metadata_obj);
     tcase_add_test(basic_tests, test_list_metadata_coll);
+
+    tcase_add_test(basic_tests, test_list_replicates_obj);
 
     tcase_add_test(basic_tests, test_list_timestamps_obj);
     tcase_add_test(basic_tests, test_list_timestamps_coll);

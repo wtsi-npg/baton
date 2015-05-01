@@ -5,8 +5,10 @@ tempZone
 20000
 20199
 /var/lib/irods/iRODS/Vault
-TEMP_LOCAL_ZONE_SID
-temp_32_byte_key_for_agent__conn
+TEMPORARY_zone_key
+TEMPORARY_32byte_negotiation_key
+1248
+TEMPORARY__32byte_ctrl_plane_key
 irods
 irods
 yes

@@ -1,5 +1,5 @@
 
-AM_CPPFLAGS = -DTEST_ROOT='"$(top_srcdir)/tests"'
+AM_CPPFLAGS = -DTEST_ROOT='"$(top_srcdir)/tests"' -DTEST_RESOURCE='"$(TEST_RESOURCE)"'
 AM_CFLAGS = -Wall -Werror -Wextra -pedantic
 
 TESTS = check_baton
