@@ -19,23 +19,14 @@
  */
 
 #include "config.h"
+#include "irods_api.h"
 
-/*
-  iRODS 3.x shares the same checksum API as iRODS 4.0.x, while 4.1.x
-  uses openssl directly. Backwards compatibility was broken for the
-  iRODS checksum API in 4.1.0. Since baton needs to continue support
-  for both 3.3.1 and 4.1.x this compatability shim was introduced and
-  baton's support for iRODS 4.0.x discontinued. It's a long-winded way
-  of doing things, but it's very clear what's going on.
- */
-
-#ifdef HAVE_IRODS3
-#include "md5Checksum.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "openssl/md5.h"
-#endif
+// iRODS 3.x shares the same checksum API as iRODS 4.0.x, while 4.1.x
+// uses openssl directly. Backwards compatibility was broken for the
+// iRODS checksum API in 4.1.0. Since baton needs to continue support
+// for both 3.3.1 and 4.1.x this compatability shim was introduced and
+// baton's support for iRODS 4.0.x discontinued. It's a long-winded way
+// of doing things, but it's very clear what's going on.
 
 // MD5_CTX is the symbol that clashes between iRODS 3.x/4.0.x MD5 and
 // OpenSSL MD5. We just use whichever is present, which the ifdefs

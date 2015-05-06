@@ -29,21 +29,6 @@
 #include <jansson.h>
 
 #include "config.h"
-
-#ifdef HAVE_IRODS3
-#include "rodsType.h"
-#include "rodsErrorTable.h"
-#include "rodsClient.h"
-#include "miscUtil.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "rodsType.hpp"
-#include "rodsErrorTable.hpp"
-#include "rodsClient.hpp"
-#include "miscUtil.hpp"
-#endif
-
 #include "baton.h"
 #include "error.h"
 #include "json.h"

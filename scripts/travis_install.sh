@@ -30,9 +30,10 @@ install_3_3_1() {
 }
 
 install_4_1_0() {
-    sudo apt-get install -qq python-psutil
+    sudo apt-get install -qq python-psutil python-requests
     sudo apt-get install -qq python-sphinx
     sudo apt-get install super libjson-perl jq
+    sudo -H pip install jsonschema
 
     sudo dpkg -i irods-icat-${IRODS_VERSION}-64bit.deb irods-database-plugin-postgres-${PG_PLUGIN_VERSION}.deb
     sudo dpkg -i irods-runtime-${IRODS_VERSION}-64bit.deb irods-dev-${IRODS_VERSION}-64bit.deb

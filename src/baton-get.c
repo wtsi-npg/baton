@@ -24,17 +24,6 @@
 #include <jansson.h>
 
 #include "config.h"
-
-#ifdef HAVE_IRODS3
-#include "rodsClient.h"
-#include "rodsPath.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "rodsClient.hpp"
-#include "rodsPath.hpp"
-#endif
-
 #include "baton.h"
 #include "json.h"
 #include "log.h"

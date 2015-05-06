@@ -22,20 +22,8 @@
 #define _READ_H
 
 #include "config.h"
-
-#ifdef HAVE_IRODS3
-#include "dataObjOpen.h"
-#include "dataObjRead.h"
-#include "dataObjClose.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "dataObjOpen.hpp"
-#include "dataObjRead.hpp"
-#include "dataObjClose.hpp"
-#endif
-
 #include "error.h"
+#include "irods_api.h"
 #include "log.h"
 
 /**
