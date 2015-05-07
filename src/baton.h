@@ -175,8 +175,6 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
                        option_flags flags, baton_error_t *error);
 
-json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error);
-
 /**
  * Return a JSON representation of the content of a resolved iRODS
  * path (data object or collection). In the case of a data object,

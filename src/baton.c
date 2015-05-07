@@ -271,52 +271,6 @@ error:
     return error->code;
 }
 
-json_t *get_user(rcComm_t *conn, const char *user_name, baton_error_t *error) {
-    genQueryInp_t *query_in = NULL;
-    json_t *results         = NULL;
-    json_t *user            = NULL;
-
-    query_format_in_t format =
-        { .num_columns = 4,
-          .columns     = { COL_USER_NAME, COL_USER_ID,
-                           COL_USER_TYPE, COL_USER_ZONE },
-          .labels      = { JSON_USER_NAME_KEY, JSON_USER_ID_KEY,
-                           JSON_USER_TYPE_KEY, JSON_USER_ZONE_KEY } };
-
-    check_str_arg("user_name", user_name, NAME_LEN, error);
-    if (error->code != 0) goto error;
-
-    query_in = make_query_input(SEARCH_MAX_ROWS, format.num_columns,
-                                format.columns);
-    query_in = prepare_user_search(query_in, user_name);
-
-    results = do_query(conn, query_in, format.labels, error);
-    if (error->code != 0) goto error;
-
-    if (json_array_size(results) != 1) {
-        set_baton_error(error, -1, "Expected 1 user result but found %d",
-                        json_array_size(results));
-        goto error;
-    }
-
-    user = json_incref(json_array_get(results, 0));
-    json_array_clear(results);
-    json_decref(results);
-
-    if (query_in) free_query_input(query_in);
-
-    return user;
-
-error:
-    logmsg(ERROR, error->message);
-
-    if (query_in) free_query_input(query_in);
-    if (user)     json_decref(user);
-    if (results)  json_decref(results);
-
-    return NULL;
-}
-
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                   baton_error_t *error) {
     json_t *result = NULL;
@@ -1163,38 +1117,57 @@ error:
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
                          baton_error_t *error) {
-    char attr_name[MAX_STR_LEN]  = { 0 };
-    char attr_value[MAX_STR_LEN] = { 0 };
-    char attr_units[MAX_STR_LEN] = { 0 };
-    const char *attr;
-    const char *value;
-    const char *units;
-
     init_baton_error(error);
+    char *attr_tmp  = NULL;
+    char *value_tmp = NULL;
+    char *units_tmp = NULL;
 
-    attr = get_avu_attribute(avu, error);
+    const char *attr = get_avu_attribute(avu, error);
     if (error->code != 0) goto error;
 
-    value = get_avu_value(avu, error);
+    const char *value = get_avu_value(avu, error);
     if (error->code != 0) goto error;
 
-    units = get_avu_units(avu, error);
+    const char *units = get_avu_units(avu, error);
     if (error->code != 0) goto error;
 
-    snprintf(attr_name, sizeof attr_name, "%s", attr);
-    snprintf(attr_value, sizeof attr_value, "%s", value);
+    attr_tmp = copy_str(attr, MAX_STR_LEN);
+    if (!attr_tmp) {
+        set_baton_error(error, errno,
+                        "Failed to allocate memory for attribute");
+        goto error;
+    }
+
+    value_tmp = copy_str(value, MAX_STR_LEN);
+    if (!value_tmp) {
+        set_baton_error(error, errno, "Failed to allocate memory value");
+        goto error;
+    }
 
     // Units are optional
     if (units) {
-        snprintf(attr_units, sizeof attr_units, "%s", units);
+        units_tmp = copy_str(units, MAX_STR_LEN);
+        if (!units_tmp) {
+            set_baton_error(error, errno,
+                            "Failed to allocate memory for units");
+            goto error;
+        }
     }
 
     modify_metadata(conn, rods_path, operation,
-                    attr_name, attr_value, attr_units, error);
+                    attr_tmp, value_tmp, units_tmp, error);
+
+    if (attr_tmp)  free(attr_tmp);
+    if (value_tmp) free(value_tmp);
+    if (units_tmp) free(units_tmp);
 
     return error->code;
 
 error:
+    if (attr_tmp)  free(attr_tmp);
+    if (value_tmp) free(value_tmp);
+    if (units_tmp) free(units_tmp);
+
     return error->code;
 }
 

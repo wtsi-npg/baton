@@ -23,7 +23,7 @@
 
 #include <stdio.h>
 
-#define MAX_STR_LEN (1024 * 10)
+#define MAX_STR_LEN (1024 * 1024 * 1024)
 
 #define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
 
