@@ -25,20 +25,8 @@
 #include <jansson.h>
 
 #include "config.h"
-
-#ifdef HAVE_IRODS3
-#include "rcConnect.h"
-#include "rodsClient.h"
-#include "rodsPath.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "rcConnect.hpp"
-#include "rodsClient.hpp"
-#include "rodsPath.hpp"
-#endif
-
 #include "error.h"
+#include "irods_api.h"
 #include "query.h"
 #include "utilities.h"
 

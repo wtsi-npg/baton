@@ -26,15 +26,6 @@
 #include <string.h>
 
 #include "config.h"
-
-#ifdef HAVE_IRODS3
-#include "rodsClient.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "rodsClient.hpp"
-#endif
-
 #include "log.h"
 #include "query.h"
 #include "utilities.h"

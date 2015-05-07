@@ -9,6 +9,7 @@ TEMPORARY_zone_key
 TEMPORARY_32byte_negotiation_key
 1248
 TEMPORARY__32byte_ctrl_plane_key
+off
 irods
 irods
 yes

@@ -16,7 +16,7 @@ LT_VERSION_INFO=$(LT_LIB_CURRENT):$(LT_LIB_REVISION):$(LT_LIB_AGE)
 lib_LTLIBRARIES = libbaton.la
 
 libbaton_includedir = $(includedir)/baton
-libbaton_include_HEADERS = baton.h error.h log.h json.h json_query.h query.h read.h compat_checksum.h utilities.h
+libbaton_include_HEADERS = baton.h error.h irods_api.h irods_3_x_x.h irods_4_1_x.h log.h json.h json_query.h query.h read.h compat_checksum.h utilities.h
 libbaton_la_SOURCES = baton.c error.c log.c json.c json_query.c query.c read.c compat_checksum.c utilities.c
 libbaton_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 

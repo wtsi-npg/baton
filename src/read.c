@@ -21,23 +21,7 @@
 #include <assert.h>
 
 #include "config.h"
-
-#ifdef HAVE_IRODS3
-#include "dataObjOpen.h"
-#include "dataObjRead.h"
-#include "dataObjChksum.h"
-#include "dataObjClose.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "dataObjOpen.hpp"
-#include "dataObjRead.hpp"
-#include "dataObjChksum.hpp"
-#include "dataObjClose.hpp"
-#endif
-
 #include "compat_checksum.h"
-
 #include "error.h"
 #include "read.h"
 #include "utilities.h"

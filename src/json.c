@@ -25,20 +25,9 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "config.h"
-
-#ifdef HAVE_IRODS3
-#include "rodsClient.h"
-#include "rodsErrorTable.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "rodsClient.hpp"
-#include "rodsErrorTable.hpp"
-#endif
-
 #include <jansson.h>
 
+#include "config.h"
 #include "json.h"
 #include "log.h"
 #include "utilities.h"

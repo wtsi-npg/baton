@@ -12,7 +12,7 @@ env:
     - PGVERSION="9.3"
     - CK_DEFAULT_TIMEOUT=20
     - WTSI_NPG_URL=https://github.com/wtsi-npg/irods
-    - WTSI_NPG_SHA1=4de42a6
+    - WTSI_NPG_SHA1=6765986
     - PG_PLUGIN_VERSION=1.5
   matrix:
     - IRODS_VERSION=3.3.1

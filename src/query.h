@@ -23,15 +23,7 @@
 #define _BATON_QUERY_H
 
 #include "config.h"
-
-#ifdef HAVE_IRODS3
-#include "rodsClient.h"
-#endif
-
-#ifdef HAVE_IRODS4
-#include "rodsClient.hpp"
-#endif
-
+#include "irods_api.h"
 #include "log.h"
 #include "utilities.h"
 

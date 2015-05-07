@@ -311,14 +311,14 @@ AS_IF(
     [AC_MSG_ERROR([failed to detect the packaged iRODS 4.x installation])],
   [test "x$IS_PACKAGED_INSTALL" = "xyes" && test "x$HAVE_IRODS4" = "xyes"],
     [AC_MSG_NOTICE([detected the packaged iRODS 4.x installation])
-     AC_DEFINE([HAVE_IRODS4], [], [iRODS 4.x])
+     AC_DEFINE([HAVE_IRODS4], [1], [iRODS 4.x])
      CPPFLAGS="${IRODS4_CPPFLAGS}"
      LDFLAGS="${IRODS4_LDFLAGS}"
      LDLIBS="${IRODS4_LIBS}"
      LIBS="${IRODS4_LIBS}"],
   [test "x$IS_PACKAGED_INSTALL" = "xno" && test "x$HAVE_IRODS3" = "xyes"],
     [AC_MSG_NOTICE([detected an iRODS 3.3.x installation in ${IRODS_HOME}])
-     AC_DEFINE([HAVE_IRODS3], [], [iRODS 3.3.x])
+     AC_DEFINE([HAVE_IRODS3], [1], [iRODS 3.3.x])
      CPPFLAGS="${IRODS3_CPPFLAGS}"
      LDFLAGS="${IRODS3_LDFLAGS}"
      LDLIBS="${IRODS3_LIBS}"
@@ -326,7 +326,7 @@ AS_IF(
   [test "x$IS_PACKAGED_INSTALL" = "xno" && test "x$HAVE_IRODS3" = "xno" &&
    test "x$HAVE_IRODS4" = "xyes"],
     [AC_MSG_NOTICE([detected an iRODS 4.x installation in ${IRODS_HOME}])
-     AC_DEFINE([HAVE_IRODS4], [], [iRODS 4.x])
+     AC_DEFINE([HAVE_IRODS4], [1], [iRODS 4.x])
      CPPFLAGS="${IRODS4_CPPFLAGS}"
      LDFLAGS="${IRODS4_LDFLAGS}"
      LDLIBS="${IRODS4_LIBS}"
