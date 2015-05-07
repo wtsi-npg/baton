@@ -227,6 +227,7 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
                        option_flags flags, baton_error_t *error) {
     init_baton_error(error);
 
+    char *collection = NULL;
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to resolve the iRODS collection: "
                         "target not a JSON object");
@@ -244,10 +245,10 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
 
     logmsg(DEBUG, "Attempting to resolve collection '%s'", unresolved);
 
-    char *coll = json_to_collection_path(object, error);
+    collection = json_to_collection_path(object, error);
     if (error->code != 0) goto error;
 
-    resolve_rods_path(conn, env, &rods_path, coll, flags, error);
+    resolve_rods_path(conn, env, &rods_path, collection, flags, error);
     if (error->code != 0) goto error;
 
     logmsg(DEBUG, "Resolved collection '%s' to '%s'", unresolved,
@@ -260,10 +261,13 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
     if (error->code != 0) goto error;
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+    if (collection) free(collection);
 
     return error->code;
 
 error:
+    if (collection) free(collection);
+
     return error->code;
 }
 
