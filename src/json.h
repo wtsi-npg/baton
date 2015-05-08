@@ -65,11 +65,6 @@
 #define JSON_OWNER_KEY             "owner"
 #define JSON_LEVEL_KEY             "level"
 
-#define JSON_USER_NAME_KEY         "user_name"
-#define JSON_USER_ID_KEY           "user_id"
-#define JSON_USER_TYPE_KEY         "user_type"
-#define JSON_USER_ZONE_KEY         "user_zone"
-
 #define JSON_DIRECTORY_KEY         "directory"
 #define JSON_DIRECTORY_SHORT_KEY   "dir"
 #define JSON_FILE_KEY              "file"

@@ -1684,33 +1684,6 @@ START_TEST(test_represents_file) {
 }
 END_TEST
 
-// Can we get user information?
-START_TEST(test_get_user) {
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-
-    baton_error_t expected_error;
-    init_baton_error(&expected_error);
-    json_t *bad_user = get_user(conn, "no_such_user", &expected_error);
-    ck_assert_int_ne(expected_error.code, 0);
-    ck_assert_ptr_eq(bad_user, NULL);
-
-    baton_error_t error;
-    init_baton_error(&error);
-    json_t *user = get_user(conn, "public", &error);
-
-    ck_assert_int_eq(error.code, 0);
-    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_NAME_KEY));
-    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ID_KEY));
-    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_TYPE_KEY));
-    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ZONE_KEY));
-
-    json_decref(user);
-
-    if (conn) rcDisconnect(conn);
-}
-END_TEST
-
 START_TEST(test_write_path_to_stream) {
     option_flags flags = 0;
     rodsEnv env;
@@ -1944,8 +1917,6 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_json_to_path);
     tcase_add_test(basic_tests, test_json_to_local_path);
     tcase_add_test(basic_tests, test_contains_avu);
-
-    tcase_add_test(basic_tests, test_get_user);
 
     tcase_add_test(basic_tests, test_write_path_to_stream);
     tcase_add_test(basic_tests, test_slurp_file);
