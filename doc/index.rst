@@ -170,14 +170,12 @@ Options
   Print AVU lists in output, in the format described in
   :ref:`representing_path_metadata`.
 
-
 .. program:: baton-list
 .. option:: --contents
 
   If the path is a collection print its contents, in the format described in
   :ref:`representing_path_metadata`. Only the paths contained directly
   within a collection are printed.
-
 
 .. program:: baton-list
 .. option:: --file <file name>
@@ -215,7 +213,7 @@ Options
 .. program:: baton-list
 .. option:: --unsafe
 
-   Permit unsafe relative iRODS paths.
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
 
 .. program:: baton-list
 .. option:: --verbose
@@ -326,7 +324,7 @@ Options
 .. program:: baton-get
 .. option:: --unsafe
 
-   Permit unsafe relative iRODS paths.
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
 
 .. program:: baton-get
 .. option:: --verbose
@@ -390,7 +388,7 @@ Options
 .. program:: baton-metamod
 .. option:: --unsafe
 
-   Permit unsafe relative iRODS paths.
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
 
 .. program:: baton-metamod
 .. option:: --verbose
@@ -490,7 +488,7 @@ Options
 .. program:: baton-metaquery
 .. option:: --unsafe
 
-   Permit unsafe relative iRODS paths.
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
 
 .. program:: baton-metaquery
 .. option:: --verbose
@@ -553,7 +551,7 @@ Options
 .. program:: baton-chmod
 .. option:: --unsafe
 
-   Permit unsafe relative iRODS paths.
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
 
 .. program:: baton-chmod
 .. option:: --verbose
@@ -580,6 +578,16 @@ be represented by either of:
 
    {"collection": "."}
    {"coll": "."}
+
+.. warning:: Relative paths in iRODS are dangerous!
+
+iRODS 3.x - 4.1.x have a bug which means that a client's current
+working collection may, in rare cases, change without notice.
+
+See https://github.com/irods/irods/issues/2406
+
+As a consequence, ``baton`` rejects all relative paths, unless the
+``--unsafe`` command line argument is given.
 
 The value associated with the ``collection`` property may be any iRODS
 path, absolute or relative, in UTF-8 encoding. A trailing slash on
