@@ -10,7 +10,7 @@ case $IRODS_VERSION in
         $TRAVIS_BUILD_DIR/irodscontrol istop
         ;;
 
-    4.1.0)
+    4.1.3)
         ;;
 
     *)

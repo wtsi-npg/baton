@@ -187,6 +187,12 @@ json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
 json_t *add_tps_json_object(rcComm_t *conn, json_t *target,
                             baton_error_t *error);
 
+json_t *add_checksum_json_array(rcComm_t *conn, json_t *array,
+                                baton_error_t *error);
+
+json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
+                                 baton_error_t *error);
+
 json_t *map_access_args(json_t *access, baton_error_t *error);
 
 json_t *revmap_access_result(json_t *access, baton_error_t *error);

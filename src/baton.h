@@ -82,7 +82,9 @@ typedef enum {
     /** Unsafely resolve relative paths */
     UNSAFE_RESOLVE     = 1 << 9,
     /** Print replicate details for data objects */
-    PRINT_REPLICATE    = 1 << 10
+    PRINT_REPLICATE    = 1 << 10,
+    /** Print checksums for data objects */
+    PRINT_CHECKSUM     = 1 << 11
 } option_flags;
 
 /**
@@ -202,6 +204,9 @@ int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
 
 int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
                          size_t buffer_size, baton_error_t *error);
+
+json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
+                      baton_error_t *error);
 
 /**
  * Return a JSON representation of the created and modified timestamps

@@ -12,12 +12,11 @@ before_install_3_3_1() {
     return
 }
 
-before_install_4_1_0() {
-    IRODS_BUILD=${IRODS_VERSION}-${WTSI_NPG_SHA1}
-    wget $WTSI_NPG_URL/releases/download/$IRODS_BUILD/irods-icat-${IRODS_VERSION}-64bit.deb
-    wget $WTSI_NPG_URL/releases/download/$IRODS_BUILD/irods-database-plugin-postgres-${PG_PLUGIN_VERSION}.deb
-    wget $WTSI_NPG_URL/releases/download/$IRODS_BUILD/irods-runtime-${IRODS_VERSION}-64bit.deb
-    wget $WTSI_NPG_URL/releases/download/$IRODS_BUILD/irods-dev-${IRODS_VERSION}-64bit.deb
+before_install_4_1_3() {
+    wget ${RENCI_URL}/pub/irods/releases/${IRODS_VERSION}/${PLATFORM}/irods-icat-${IRODS_VERSION}-${PLATFORM}-${ARCH}.deb
+    wget ${RENCI_URL}/pub/irods/releases/${IRODS_VERSION}/${PLATFORM}/irods-database-plugin-postgres-${PG_PLUGIN_VERSION}-${PLATFORM}-${ARCH}.deb
+    wget ${RENCI_URL}/pub/irods/releases/${IRODS_VERSION}/${PLATFORM}/irods-runtime-${IRODS_VERSION}-${PLATFORM}-${ARCH}.deb
+    wget ${RENCI_URL}/pub/irods/releases/${IRODS_VERSION}/${PLATFORM}/irods-dev-${IRODS_VERSION}-${PLATFORM}-${ARCH}.deb
 }
 
 case $IRODS_VERSION in
@@ -27,9 +26,9 @@ case $IRODS_VERSION in
         before_install_3_3_1
         ;;
 
-    4.1.0)
+    4.1.3)
         before_install_common
-        before_install_4_1_0
+        before_install_4_1_3
         ;;
 
     *)

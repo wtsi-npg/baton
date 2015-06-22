@@ -70,6 +70,7 @@
 #define JSON_FILE_KEY              "file"
 
 #define JSON_DATA_KEY              "data"
+#define JSON_CHECKSUM_KEY          "checksum"
 
 /**
  * Add a new property containing error information to a JSON object.
@@ -179,6 +180,8 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
                    int *repl_num, baton_error_t *error);
 
 int add_replicates(json_t *object, json_t *replicates, baton_error_t *error);
+
+int add_checksum(json_t *object, json_t *checksum, baton_error_t *error);
 
 int add_error_report(json_t *target, baton_error_t *error);
 

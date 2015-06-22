@@ -11,12 +11,14 @@ env:
     - secure: cDfB188ECmloGfScZQezqwiFef7l+gXgn2RiTOxINriy9wYS6RmZxuZBHGuR36u7QV3QEJtMdihyQ+XBN2eQPf5jULQXV15t7gArXEVPzzF8i+f8MTgVHugU3TqmPLQkY94wBBbpzvRD9xCAC/uNiQcLLwuD2SjPfTXkqgqqtd0=
     - PGVERSION="9.3"
     - CK_DEFAULT_TIMEOUT=20
+    - PLATFORM=ubuntu12
+    - ARCH=x86_64
+    - RENCI_URL=ftp://ftp.renci.org
     - WTSI_NPG_URL=https://github.com/wtsi-npg/irods
-    - WTSI_NPG_SHA1=6765986
     - PG_PLUGIN_VERSION=1.5
   matrix:
     - IRODS_VERSION=3.3.1
-    - IRODS_VERSION=4.1.0
+    - IRODS_VERSION=4.1.3
 
 before_install:
   - ./scripts/travis_before_install.sh
