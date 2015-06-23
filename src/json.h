@@ -63,6 +63,7 @@
 
 #define JSON_ACCESS_KEY            "access"
 #define JSON_OWNER_KEY             "owner"
+#define JSON_ZONE_KEY              "zone"
 #define JSON_LEVEL_KEY             "level"
 
 #define JSON_DIRECTORY_KEY         "directory"

@@ -924,13 +924,14 @@ and a ``level`` property.
 .. code-block:: json
 
    {"collection": "/unit/home/user",
-        "access": [{"owner": "user",   "level": "own"},
-                   {"owner": "public", "level": "read"}]}
+        "access": [{"owner": "user",   "zone": "unit", "level": "own"},
+                   {"owner": "public", "zone": "unit", "level": "read"}]}
 
 The value associated with the ``owner`` property must be an iRODS user
 or group name. The value associated with the ``level`` property must
 be an iRODS symbolic access level string (i.e. "null", "read", "write"
-or "own").
+or "own"). Permissions read from iRODS will also have a ``zone``
+property, indicating the zone to which the owner belongs.
 
 
 .. _representing_query_permissions:

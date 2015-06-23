@@ -535,13 +535,15 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *results         = NULL;
 
     query_format_in_t obj_format =
-        { .num_columns = 2,
-          .columns     = { COL_USER_NAME, COL_DATA_ACCESS_NAME },
-          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY } };
+        { .num_columns = 3,
+          .columns     = { COL_USER_NAME, COL_USER_ZONE,
+                           COL_DATA_ACCESS_NAME },
+          .labels      = { JSON_OWNER_KEY, JSON_ZONE_KEY, JSON_LEVEL_KEY } };
     query_format_in_t col_format =
-        { .num_columns = 2,
-          .columns     = { COL_COLL_USER_NAME, COL_COLL_ACCESS_NAME },
-          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY } };
+        { .num_columns = 3,
+          .columns     = { COL_COLL_USER_NAME, COL_COLL_USER_ZONE,
+                           COL_COLL_ACCESS_NAME },
+          .labels      = { JSON_OWNER_KEY, JSON_ZONE_KEY, JSON_LEVEL_KEY } };
 
     init_baton_error(error);
 
