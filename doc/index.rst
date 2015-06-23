@@ -22,8 +22,8 @@ iRODS:
   performing updates.
 
 * Listing of data objects and collections as JSON, including their
-  metadata (AVUs), file size, access control lists (ACLs) and creation
-  and modification timestamps.
+  metadata (AVUs), file size, replicates, checksums, access control
+  lists (ACLs) and creation and modification timestamps.
 
 * Queries on metadata, on access control lists (ACLs), creation and
   modification timestamps and timestamp ranges. The full range of
@@ -95,7 +95,6 @@ iRODS C API and requires a C compiler to build.
    make clean install
 
 
-
 The ``baton`` suite of programs
 ===============================
 
@@ -143,7 +142,7 @@ Synopsis:
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "test"}' | baton-list
+   $ jq -n '{collection: "/unit/home/user/"}' | baton-list
 
    $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | baton-list
 
@@ -169,6 +168,12 @@ Options
 
   Print AVU lists in output, in the format described in
   :ref:`representing_path_metadata`.
+
+.. program:: baton-list
+.. option:: --checksum
+
+  Print the current checksums of data objects. This does not recalulate
+  checksums.
 
 .. program:: baton-list
 .. option:: --contents
@@ -344,11 +349,11 @@ Synopsis:
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "test", data_object: "a.txt",     \
+   $ jq -n '{collection: "/home/test", data_object: "a.txt",     \
                   "avus": [{attribute: "x", value: "y"},   \
                            {attribute: "m", value: "n"}]}' | baton-metamod --operation add
 
-   $ jq -n '{collection: "test", data_object: "a.txt",    \
+   $ jq -n '{collection: "/home/test", data_object: "a.txt",    \
                    avus: [{attribute: "x", value: "y"},   \
                           {attribute: "m", value: "n"}]}' | baton-metamod --operation rem
 
@@ -410,7 +415,7 @@ Synopsis:
 
    $ jq -n '{avus: []}' | baton-metaquery
 
-   $ jq -n '{collection: "test", avus: []}' | baton-metaquery
+   $ jq -n '{collection: "/unit/home/user", avus: []}' | baton-metaquery
 
    $ jq -n '{avus: [{attribute: "x", value: "y"}]}' | baton-metaquery
 
@@ -441,6 +446,12 @@ Options
 
   Print AVU lists in the output, in the format described in
   :ref:`representing_path_metadata`.
+
+.. program:: baton-metaquery
+.. option:: --checksum
+
+  Print the current checksums of data objects. This does not recalulate
+  checksums.
 
 .. program:: baton-metaquery
 .. option:: --coll
@@ -511,11 +522,11 @@ baton-chmod
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "test",                            \
+   $ jq -n '{collection: "/unit/home/user",                            \
                 access: [{owner: "public", level: "null"},  \
                          {owner: "admin",  level: "own"}]}' | baton-chmod --recurse
 
-   $ jq -n '{collection: "test", data_object: "a.txt"          \
+   $ jq -n '{collection: "/unit/home/user", data_object: "a.txt"          \
                  access: [{owner: "oscar",  level: "read"},    \
                           {owner: "victor", level: "write"}]}' | baton-chmod
 
@@ -577,7 +588,7 @@ be represented by either of:
 .. code-block:: json
 
    {"collection": "."}
-   {"coll": "."}
+   {"coll": ""}
 
 .. warning:: Relative paths in iRODS are dangerous!
 
@@ -613,8 +624,8 @@ collection may be represented by either of:
 
 .. code-block:: json
 
-  {"collection:" ".", "data_object": "README.txt"}
-  {"coll:" ".", "obj": "README.txt"}
+  {"collection:" "/unit/home/user", "data_object": "README.txt"}
+  {"coll:" "/unit/home/user", "obj": "README.txt"}
 
 The value associated with the ``data_object`` property may be any
 iRODS data object name, in UTF-8 encoding. The full path of the data
@@ -622,11 +633,21 @@ object may be recreated by concatenating the ``collection`` and
 ``data_object`` values. Data objects reported by listing or searches
 will may information on the file size under the ``size`` property. The
 value is a JSON integer indicating the file size in bytes as given in
-the ICAT database.
+the ICAT database. If checksum reporting has been requested, data
+object checksums are given under the ``checksum`` property.
 
 .. code-block:: json
 
-  {"collection:" ".", "data_object": "README.txt", "size": 123456}
+  {"collection:" "/unit/home/user", "data_object": "README.txt", "size": 123456}
+
+In cases where data objects have replicates, the full details of
+replication may be displayed, including replicate identity numbers,
+status (valid or invalid) and checksum.
+
+  {"collection": "/unit/home/user", "data_object": "README.txt",
+   "replicate": [{"checksum": "2ebec02316ddc3ee64a67c89b5e3140c",
+                 "number": 0,
+                 "valid": true}]}
 
 The above JSON representations of collections and data objects are
 sufficient to be passed to baton's ``baton-list`` program, which
@@ -676,7 +697,7 @@ identical.
 
 .. code-block:: json
 
-  {"collection": ".", "data_object": "README.txt",
+  {"collection": "/unit/home/user", "data_object": "README.txt",
    "directory:" ".",  "file": "README.txt"}
 
 
