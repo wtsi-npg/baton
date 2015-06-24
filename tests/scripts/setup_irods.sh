@@ -69,6 +69,17 @@ else
     echo "Replicated test data to '$test_resc'"
 fi
 
+# Ensure checksums are up to date
+ichksum -r -a -K $out_path >&/dev/null
+status=$?
+
+if [[ $status -ne 0 ]]
+then
+    echo "Failed to create checksums on test data. Aborting"
+    exit $status
+fi
+
+
 # Add metadata if required
 if [[ ! -z "$meta_path" ]]
 then

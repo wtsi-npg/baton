@@ -32,6 +32,7 @@
 
 static int acl_flag        = 0;
 static int avu_flag        = 0;
+static int checksum_flag   = 0;
 static int coll_flag       = 0;
 static int debug_flag      = 0;
 static int help_flag       = 0;
@@ -59,6 +60,7 @@ int main(int argc, char *argv[]) {
             // Flag options
             {"acl",        no_argument, &acl_flag,        1},
             {"avu",        no_argument, &avu_flag,        1},
+            {"checksum",   no_argument, &checksum_flag,   1},
             {"coll",       no_argument, &coll_flag,       1},
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
@@ -112,6 +114,7 @@ int main(int argc, char *argv[]) {
 
     if (acl_flag)       oflags = oflags | PRINT_ACL;
     if (avu_flag)       oflags = oflags | PRINT_AVU;
+    if (checksum_flag)  oflags = oflags | PRINT_CHECKSUM;
     if (replicate_flag) oflags = oflags | PRINT_REPLICATE;
     if (size_flag)      oflags = oflags | PRINT_SIZE;
     if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
@@ -123,7 +126,8 @@ int main(int argc, char *argv[]) {
         "\n"
         "Synopsis\n"
         "\n"
-        "    baton-metaquery [--acl] [--avu] [--coll] [--file <JSON file>]\n"
+        "    baton-metaquery [--acl] [--avu] [--checksum] [--coll]\n"
+        "                    [--file <JSON file>]\n"
         "                    [--obj ] [--replicate] [--silent] [--size]\n"
         "                    [--timestamp] [--unbuffered] [--unsafe]\n"
         "                    [--verbose] [--version] [--zone <name>]\n"
@@ -134,6 +138,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "    --acl         Print access control lists in output.\n"
         "    --avu         Print AVU lists in output.\n"
+        "    --checksum    Print data object checksums in output.\n"
         "    --coll        Limit search to collection metadata only.\n"
         "    --file        The JSON file describing the query. Optional,\n"
         "                  defaults to STDIN.\n"

@@ -306,6 +306,10 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                 result = add_avus_json_object(conn, result, error);
                 if (error->code != 0) goto error;
             }
+            if (flags & PRINT_CHECKSUM) {
+                result = add_checksum_json_object(conn, result, error);
+                if (error->code != 0) goto error;
+            }
             if (flags & PRINT_TIMESTAMP) {
                 result = add_tps_json_object(conn, result, error);
                 if (error->code != 0) goto error;
@@ -350,8 +354,16 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
                     contents = add_avus_json_array(conn, contents, error);
                     if (error->code != 0) goto error;
                 }
+                if (flags & PRINT_CHECKSUM) {
+                    contents = add_checksum_json_array(conn, contents, error);
+                    if (error->code != 0) goto error;
+                }
                 if (flags & PRINT_TIMESTAMP) {
                     contents = add_tps_json_array(conn, contents, error);
+                    if (error->code != 0) goto error;
+                }
+                if (flags & PRINT_REPLICATE) {
+                    contents = add_repl_json_array(conn, contents, error);
                     if (error->code != 0) goto error;
                 }
 
@@ -384,7 +396,7 @@ json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
     char *content = NULL;
 
     if (buffer_size == 0) {
-        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+        set_baton_error(error, -1, "Invalid buffer_size argument %zu",
                         buffer_size);
         goto error;
     }
@@ -408,6 +420,13 @@ json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
 
         if (maybe_utf8(content, len)) {
             json_t *packed = json_pack("s", content);
+            if (!packed) {
+                set_baton_error(error, -1,
+                                "Failed to pack the %zu byte contents "
+                                "of '%s' as JSON", len, rods_path->outPath);
+                goto error;
+            }
+
             json_object_set_new(results, JSON_DATA_KEY, packed);
         }
         else {
@@ -516,13 +535,15 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *results         = NULL;
 
     query_format_in_t obj_format =
-        { .num_columns = 2,
-          .columns     = { COL_USER_NAME, COL_DATA_ACCESS_NAME },
-          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY } };
+        { .num_columns = 3,
+          .columns     = { COL_USER_NAME, COL_USER_ZONE,
+                           COL_DATA_ACCESS_NAME },
+          .labels      = { JSON_OWNER_KEY, JSON_ZONE_KEY, JSON_LEVEL_KEY } };
     query_format_in_t col_format =
-        { .num_columns = 2,
-          .columns     = { COL_COLL_USER_NAME, COL_COLL_ACCESS_NAME },
-          .labels      = { JSON_OWNER_KEY, JSON_LEVEL_KEY } };
+        { .num_columns = 3,
+          .columns     = { COL_COLL_USER_NAME, COL_COLL_USER_ZONE,
+                           COL_COLL_ACCESS_NAME },
+          .labels      = { JSON_OWNER_KEY, JSON_ZONE_KEY, JSON_LEVEL_KEY } };
 
     init_baton_error(error);
 
@@ -747,6 +768,10 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         results = add_avus_json_array(conn, results, error);
         if (error->code != 0) goto error;
     }
+    if (flags & PRINT_CHECKSUM) {
+        results = add_checksum_json_array(conn, results, error);
+        if (error->code != 0) goto error;
+    }
     if (flags & PRINT_TIMESTAMP) {
         results = add_tps_json_array(conn, results, error);
         if (error->code != 0) goto error;
@@ -838,16 +863,83 @@ error:
     return NULL;
 }
 
+json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
+                      baton_error_t *error) {
+    char *checksum_str = NULL;
+    json_t *checksum = NULL;
+
+    dataObjInp_t obj_chk_in;
+    memset(&obj_chk_in, 0, sizeof obj_chk_in);
+    obj_chk_in.openFlags = O_RDONLY;
+
+    init_baton_error(error);
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a data object",
+                   rods_path->outPath);
+            snprintf(obj_chk_in.objPath, MAX_NAME_LEN, "%s",
+                     rods_path->outPath);
+            break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a collection",
+                   rods_path->outPath);
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list checksum of '%s' as it is "
+                            "a collection", rods_path->outPath);
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list checksum of '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    logmsg(DEBUG, "Checksumming data object '%s'", rods_path->outPath);
+
+    int status = rcDataObjChksum(conn, &obj_chk_in, &checksum_str);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to list checksum of '%s'",
+                        rods_path->outPath);
+        goto error;
+    }
+
+    checksum = json_pack("s", checksum_str);
+    if (!checksum) {
+        set_baton_error(error, -1, "Failed to pack checksum '%s' as JSON",
+                        checksum_str);
+        goto error;
+    }
+
+    return checksum;
+
+error:
+    if (checksum) json_decref(checksum);
+
+    return NULL;
+}
+
 json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
                         baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     json_t *results         = NULL;
 
     query_format_in_t obj_format =
-        { .num_columns = 2,
-          .columns     = { COL_D_REPL_STATUS, COL_DATA_REPL_NUM },
-          .labels      = { JSON_REPLICATE_STATUS_KEY,
-                           JSON_REPLICATE_NUMBER_KEY } };
+        { .num_columns = 3,
+          .columns     = { COL_D_REPL_STATUS, COL_DATA_REPL_NUM,
+                           COL_D_DATA_CHECKSUM },
+          .labels      = { JSON_REPLICATE_STATUS_KEY, JSON_REPLICATE_NUMBER_KEY,
+                           JSON_CHECKSUM_KEY } };
 
     init_baton_error(error);
 

@@ -57,7 +57,6 @@ json_t *error_to_json(baton_error_t *error) {
     json_t *err = json_pack("{s:s, s:i}",
                             JSON_ERROR_MSG_KEY , error->message,
                             JSON_ERROR_CODE_KEY, error->code);
-
     if (!err) {
         logmsg(ERROR, "Failed to pack error '%s' as JSON", error->message);
     }
@@ -389,12 +388,25 @@ error:
 
 int add_replicates(json_t *object, json_t *replicates, baton_error_t *error) {
     if (!json_is_object(object)) {
-        set_baton_error(error, -1, "Failed to add permissions data: "
+        set_baton_error(error, -1, "Failed to add replicates data: "
                         "target not a JSON object");
         goto error;
     }
 
     return json_object_set_new(object, JSON_REPLICATE_KEY, replicates);
+
+error:
+    return error->code;
+}
+
+int add_checksum(json_t *object, json_t *checksum, baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add checksum data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_CHECKSUM_KEY, checksum);
 
 error:
     return error->code;
@@ -466,7 +478,6 @@ json_t *data_object_parts_to_json(const char *coll_name,
     json_t *result = json_pack("{s:s, s:s}",
                                JSON_COLLECTION_KEY,  coll_name,
                                JSON_DATA_OBJECT_KEY, data_name);
-
     if (!result) {
         set_baton_error(error, -1, "Failed to pack data object '%s/%s' as JSON",
                         coll_name, data_name);

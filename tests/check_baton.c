@@ -315,8 +315,9 @@ START_TEST(test_list_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
                                        flags, &resolve_obj_error), EXIST_ST);
 
-    json_t *perm = json_pack("{s:s, s:s}",
+    json_t *perm = json_pack("{s:s, s:s, s:s}",
                              JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_ZONE_KEY,  env.rodsZone,
                              JSON_LEVEL_KEY, ACCESS_LEVEL_OWN);
     json_t *avu = json_pack("{s:s, s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
@@ -399,6 +400,17 @@ START_TEST(test_list_obj) {
                   json_object_get(timestamp, JSON_MODIFIED_KEY));
     }
 
+    // With checksum
+    baton_error_t error6;
+    json_t *results6 = list_path(conn, &rods_obj_path,
+                                 flags | PRINT_SIZE | PRINT_ACL | PRINT_AVU |
+                                 PRINT_TIMESTAMP | PRINT_CHECKSUM , &error6);
+    ck_assert_int_eq(error6.code, 0);
+    json_t *checksum = json_object_get(results6, JSON_CHECKSUM_KEY);
+    ck_assert(json_is_string(checksum));
+    ck_assert_str_eq(json_string_value(checksum),
+                     "d41d8cd98f00b204e9800998ecf8427e");
+
     json_decref(results1);
     json_decref(expected1);
 
@@ -412,6 +424,7 @@ START_TEST(test_list_obj) {
     json_decref(expected4);
 
     json_decref(results5);
+    json_decref(results6);
 
     json_decref(perm);
     json_decref(avu);
@@ -437,12 +450,13 @@ START_TEST(test_list_coll) {
     baton_error_t error;
     json_t *results = list_path(conn, &rods_path, PRINT_ACL, &error);
 
-    json_t *perms = json_pack("{s:s, s:s}",
-                              JSON_OWNER_KEY, env.rodsUserName,
-                              JSON_LEVEL_KEY, ACCESS_OWN);
+    json_t *perm = json_pack("{s:s, s:s, s:s}",
+                             JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_ZONE_KEY,  env.rodsZone,
+                             JSON_LEVEL_KEY, ACCESS_OWN);
     json_t *expected = json_pack("{s:s, s:[o]}",
                                  JSON_COLLECTION_KEY, rods_path.outPath,
-                                 JSON_ACCESS_KEY,     perms);
+                                 JSON_ACCESS_KEY,     perm);
 
     ck_assert_ptr_ne(NULL, results);
     ck_assert_int_eq(json_equal(results, expected), 1);
@@ -471,8 +485,8 @@ START_TEST(test_list_coll_contents) {
 
     baton_error_t error;
     json_t *results = list_path(conn, &rods_path,
-                                PRINT_SIZE | PRINT_ACL | PRINT_CONTENTS,
-                                &error);
+                                PRINT_SIZE | PRINT_ACL | PRINT_CONTENTS |
+                                PRINT_CHECKSUM, &error);
 
     char a[MAX_PATH_LEN];
     char b[MAX_PATH_LEN];
@@ -481,69 +495,77 @@ START_TEST(test_list_coll_contents) {
     snprintf(b, MAX_PATH_LEN, "%s/b", rods_path.outPath);
     snprintf(c, MAX_PATH_LEN, "%s/c", rods_path.outPath);
 
-    json_t *perms = json_pack("{s:s, s:s}",
-                              JSON_OWNER_KEY, env.rodsUserName,
-                              JSON_LEVEL_KEY, ACCESS_OWN);
+    json_t *perm = json_pack("{s:s, s:s, s:s}",
+                             JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_ZONE_KEY,  env.rodsZone,
+                             JSON_LEVEL_KEY, ACCESS_OWN);
 
     json_t *expected =
         json_pack("{s:s, s:[o],"
-                  " s:[{s:s, s:s, s:i, s:[o]},"  // f1.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // f2.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // f3.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_10k.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_1b.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_1k.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // r1.txt
+                  " s:[{s:s, s:s, s:i, s:s, s:[o]},"  // f1.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // f2.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // f3.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // lorem_10k.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // lorem_1b.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // lorem_1k.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // r1.txt
                   "    {s:s, s:[o]},"            // a
                   "    {s:s, s:[o]},"            // b
                   "    {s:s, s:[o]}]}",          // c
                   JSON_COLLECTION_KEY, rods_path.outPath,
-                  JSON_ACCESS_KEY,     perms,
+                  JSON_ACCESS_KEY,     perm,
 
                   JSON_CONTENTS_KEY,
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f1.txt",
                   JSON_SIZE_KEY,        0,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d41d8cd98f00b204e9800998ecf8427e",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f2.txt",
                   JSON_SIZE_KEY,        0,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d41d8cd98f00b204e9800998ecf8427e",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f3.txt",
                   JSON_SIZE_KEY,        0,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d41d8cd98f00b204e9800998ecf8427e",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "lorem_10k.txt",
                   JSON_SIZE_KEY,        10240,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "4efe0c1befd6f6ac4621cbdb13241246",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "lorem_1b.txt",
                   JSON_SIZE_KEY,        1,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d20caec3b48a1eef164cb4ca81ba2587",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "lorem_1k.txt",
                   JSON_SIZE_KEY,        1024,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "1f40c34d28e56efcf9da6732cdc93b8b",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "r1.txt",
                   JSON_SIZE_KEY,        0,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d41d8cd98f00b204e9800998ecf8427e",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  a,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  b,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  c,
-                  JSON_ACCESS_KEY,      perms);
+                  JSON_ACCESS_KEY,      perm);
 
     ck_assert_ptr_ne(NULL, results);
     ck_assert_int_eq(json_equal(results, expected), 1);
@@ -618,9 +640,13 @@ START_TEST(test_list_permissions_obj) {
 
     baton_error_t error;
     json_t *results = list_permissions(conn, &rods_path, &error);
-    json_t *expected = json_pack("[{s:s, s:s}]",
+    json_t *expected = json_pack("[{s:s, s:s, s:s}]",
                                  JSON_OWNER_KEY, env.rodsUserName,
+                                 JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_OWN);
+
+    print_json_stream(expected, stderr);
+    print_json_stream(results, stderr);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
@@ -647,9 +673,13 @@ START_TEST(test_list_permissions_coll) {
 
     baton_error_t error;
     json_t *results = list_permissions(conn, &rods_path, &error);
-    json_t *expected = json_pack("[{s:s, s:s}]",
+    json_t *expected = json_pack("[{s:s, s:s, s:s}]",
                                  JSON_OWNER_KEY, env.rodsUserName,
+                                 JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_OWN);
+
+    print_json_stream(expected, stderr);
+    print_json_stream(results, stderr);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
@@ -760,9 +790,12 @@ START_TEST(test_list_replicates_obj) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
                                        flags, &resolve_error), EXIST_ST);
 
-    json_t *expected = json_pack("[{s:i, s:b}, {s:i, s:b}]",
+    char *checksum = "d41d8cd98f00b204e9800998ecf8427e";
+    json_t *expected = json_pack("[{s:s, s:i, s:b}, {s:s, s:i, s:b}]",
+                                 JSON_CHECKSUM_KEY,         checksum,
                                  JSON_REPLICATE_NUMBER_KEY, 0,
                                  JSON_REPLICATE_STATUS_KEY, 1,
+                                 JSON_CHECKSUM_KEY,         checksum,
                                  JSON_REPLICATE_NUMBER_KEY, 1,
                                  JSON_REPLICATE_STATUS_KEY, 1);
 
@@ -1414,8 +1447,9 @@ START_TEST(test_modify_permissions_obj) {
     ck_assert_int_eq(rv, 0);
     ck_assert_int_eq(mod_error.code, 0);
 
-    json_t *expected = json_pack("{s:s, s:s}",
+    json_t *expected = json_pack("{s:s, s:s, s:s}",
                                  JSON_OWNER_KEY, "public",
+                                 JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
 
     baton_error_t list_error;
@@ -1483,8 +1517,9 @@ START_TEST(test_modify_json_permissions_obj) {
     ck_assert_int_eq(rv, 0);
     ck_assert_int_eq(error.code, 0);
 
-    json_t *expected = json_pack("{s:s, s:s}",
+    json_t *expected = json_pack("{s:s, s:s, s:s}",
                                  JSON_OWNER_KEY, "public",
+                                 JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
 
     baton_error_t list_error;

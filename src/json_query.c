@@ -516,6 +516,70 @@ error:
     return query_in;
 }
 
+json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
+                                 baton_error_t *error) {
+    char *path = NULL;
+    rodsPath_t rods_path;
+    json_t *checksum;
+    int status;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON object");
+        goto error;
+    }
+
+    path = json_to_path(object, error);
+    if (error->code != 0) goto error;
+
+    status = set_rods_path(conn, &rods_path, path);
+    if (status < 0) {
+        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
+        goto error;
+    }
+
+    checksum = list_checksum(conn, &rods_path, error);
+    if (error->code != 0) goto error;
+
+    add_checksum(object, checksum, error);
+    if (error->code != 0) goto error;
+
+    if (path)                  free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return object;
+
+error:
+    if (path)                  free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return NULL;
+}
+
+json_t *add_checksum_json_array(rcComm_t *conn, json_t *array,
+                                baton_error_t *error) {
+    if (!json_is_array(array)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid target: not a JSON array");
+        goto error;
+    }
+
+    size_t i;
+    json_t *item;
+    json_array_foreach(array, i, item) {
+        if (represents_data_object(item)) {
+            add_checksum_json_object(conn, item, error);
+            if (error->code != 0) goto error;
+        }
+    }
+
+    return array;
+
+error:
+    logmsg(ERROR, error->message);
+    return NULL;
+}
+
 json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
                              baton_error_t *error) {
     char *path = NULL;
@@ -567,8 +631,10 @@ json_t *add_repl_json_array(rcComm_t *conn, json_t *array,
     size_t i;
     json_t *item;
     json_array_foreach(array, i, item) {
-        add_repl_json_object(conn, item, error);
-        if (error->code != 0) goto error;
+        if (represents_data_object(item)) {
+            add_repl_json_object(conn, item, error);
+            if (error->code != 0) goto error;
+        }
     }
 
     return array;
@@ -577,7 +643,6 @@ error:
     logmsg(ERROR, error->message);
     return NULL;
 }
-
 
 json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
                             baton_error_t *error) {
@@ -683,8 +748,10 @@ json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
     size_t i;
     json_t *item;
     json_array_foreach(array, i, item) {
-        add_tps_json_object(conn, item, error);
-        if (error->code != 0) goto error;
+        if (represents_data_object(item)) {
+            add_tps_json_object(conn, item, error);
+            if (error->code != 0) goto error;
+        }
     }
 
     return array;
