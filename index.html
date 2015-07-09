@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Welcome to baton‘s documentation &mdash; baton 0.13.0
+    <title>Welcome to baton‘s documentation &mdash; baton 0.15.0
  documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '0.13.0
+        VERSION:     '0.15.0
 ',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
@@ -26,7 +26,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="baton 0.13.0
+    <link rel="top" title="baton 0.15.0
  documentation" href="#" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
-        <li><a href="#">baton 0.13.0
+        <li><a href="#">baton 0.15.0
  documentation</a> &raquo;</li> 
       </ul>
     </div>  
@@ -62,8 +62,8 @@ iRODS:</p>
 <li>A single JSON format for listing results, composing queries and
 performing updates.</li>
 <li>Listing of data objects and collections as JSON, including their
-metadata (AVUs), file size, access control lists (ACLs) and creation
-and modification timestamps.</li>
+metadata (AVUs), file size, replicates, checksums, access control
+lists (ACLs) and creation and modification timestamps.</li>
 <li>Queries on metadata, on access control lists (ACLs), creation and
 modification timestamps and timestamp ranges. The full range of
 iRODS query operators is supported.</li>
@@ -162,7 +162,7 @@ bidirectional communication via Unix pipes.</p>
 <div class="section" id="baton-list">
 <h2>baton-list<a class="headerlink" href="#baton-list" title="Permalink to this headline">¶</a></h2>
 <p>Synopsis:</p>
-<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;}&#39;</span> | baton-list
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user/&quot;}&#39;</span> | baton-list
 
 <span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user/&quot;, data_object: &quot;a.txt&quot;}&#39;</span> | baton-list
 </pre></div>
@@ -191,6 +191,13 @@ or data object directly within the target.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-list--checksum">
+<tt class="descname">--checksum</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--checksum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the current checksums of data objects. This does not recalulate
+checksums.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-list--contents">
 <tt class="descname">--contents</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--contents" title="Permalink to this definition">¶</a></dt>
 <dd><p>If the path is a collection print its contents, in the format described in
@@ -212,6 +219,12 @@ defaults to STDIN.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-list--silent">
+<tt class="descname">--silent</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--silent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Silence error messages.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-list--size">
 <tt class="descname">--size</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--size" title="Permalink to this definition">¶</a></dt>
 <dd><p>Print data object sizes in the output. These appear as JSON integers under
@@ -229,6 +242,12 @@ the property &#8216;size&#8217;.</p>
 <dt id="cmdoption-baton-list--unbuffered">
 <tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--unbuffered" title="Permalink to this definition">¶</a></dt>
 <dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-list--unsafe">
+<tt class="descname">--unsafe</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-list--unsafe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x</p>
 </dd></dl>
 
 <dl class="option">
@@ -318,6 +337,12 @@ each file downloaded.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-get--silent">
+<tt class="descname">--silent</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--silent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Silence error messages.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-get--size">
 <tt class="descname">--size</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--size" title="Permalink to this definition">¶</a></dt>
 <dd><p>Print data object sizes in the output. These appear as JSON integers under
@@ -338,6 +363,12 @@ the property &#8216;size&#8217;.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-get--unsafe">
+<tt class="descname">--unsafe</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--unsafe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-get--verbose">
 <tt class="descname">--verbose</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-get--verbose" title="Permalink to this definition">¶</a></dt>
 <dd><p>Print verbose messages to STDERR.</p>
@@ -354,11 +385,11 @@ the property &#8216;size&#8217;.</p>
 <div class="section" id="baton-metamod">
 <h2>baton-metamod<a class="headerlink" href="#baton-metamod" title="Permalink to this headline">¶</a></h2>
 <p>Synopsis:</p>
-<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;,     \</span>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/home/test&quot;, data_object: &quot;a.txt&quot;,     \</span>
 <span class="s1">               &quot;avus&quot;: [{attribute: &quot;x&quot;, value: &quot;y&quot;},   \</span>
 <span class="s1">                        {attribute: &quot;m&quot;, value: &quot;n&quot;}]}&#39;</span> | baton-metamod --operation add
 
-<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;,    \</span>
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/home/test&quot;, data_object: &quot;a.txt&quot;,    \</span>
 <span class="s1">                avus: [{attribute: &quot;x&quot;, value: &quot;y&quot;},   \</span>
 <span class="s1">                       {attribute: &quot;m&quot;, value: &quot;n&quot;}]}&#39;</span> | baton-metamod --operation rem
 </pre></div>
@@ -388,9 +419,21 @@ defaults to STDIN.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-metamod--silent">
+<tt class="descname">--silent</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metamod--silent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Silence error messages.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-metamod--unbuffered">
 <tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metamod--unbuffered" title="Permalink to this definition">¶</a></dt>
 <dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metamod--unsafe">
+<tt class="descname">--unsafe</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metamod--unsafe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x</p>
 </dd></dl>
 
 <dl class="option">
@@ -412,7 +455,7 @@ defaults to STDIN.</p>
 <p>Synopsis:</p>
 <div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: []}&#39;</span> | baton-metaquery
 
-<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, avus: []}&#39;</span> | baton-metaquery
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user&quot;, avus: []}&#39;</span> | baton-metaquery
 
 <span class="nv">$ </span>jq -n <span class="s1">&#39;{avus: [{attribute: &quot;x&quot;, value: &quot;y&quot;}]}&#39;</span> | baton-metaquery
 
@@ -446,6 +489,13 @@ somewhere under that collection.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-metaquery--checksum">
+<tt class="descname">--checksum</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--checksum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the current checksums of data objects. This does not recalulate
+checksums.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-metaquery--coll">
 <tt class="descname">--coll</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--coll" title="Permalink to this definition">¶</a></dt>
 <dd><p>Limit the search to collection metadata only.</p>
@@ -471,6 +521,12 @@ defaults to STDIN.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-metaquery--silent">
+<tt class="descname">--silent</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--silent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Silence error messages.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-metaquery--size">
 <tt class="descname">--size</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--size" title="Permalink to this definition">¶</a></dt>
 <dd><p>Print data object sizes in the output. These appear as JSON integers under
@@ -488,6 +544,12 @@ the property &#8216;size&#8217;.</p>
 <dt id="cmdoption-baton-metaquery--unbuffered">
 <tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--unbuffered" title="Permalink to this definition">¶</a></dt>
 <dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-metaquery--unsafe">
+<tt class="descname">--unsafe</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-metaquery--unsafe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x</p>
 </dd></dl>
 
 <dl class="option">
@@ -512,11 +574,11 @@ the property &#8216;size&#8217;.</p>
 </div>
 <div class="section" id="baton-chmod">
 <h2>baton-chmod<a class="headerlink" href="#baton-chmod" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;,                            \</span>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user&quot;,                            \</span>
 <span class="s1">             access: [{owner: &quot;public&quot;, level: &quot;null&quot;},  \</span>
 <span class="s1">                      {owner: &quot;admin&quot;,  level: &quot;own&quot;}]}&#39;</span> | baton-chmod --recurse
 
-<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;test&quot;, data_object: &quot;a.txt&quot;          \</span>
+<span class="nv">$ </span>jq -n <span class="s1">&#39;{collection: &quot;/unit/home/user&quot;, data_object: &quot;a.txt&quot;          \</span>
 <span class="s1">              access: [{owner: &quot;oscar&quot;,  level: &quot;read&quot;},    \</span>
 <span class="s1">                       {owner: &quot;victor&quot;, level: &quot;write&quot;}]}&#39;</span> | baton-chmod
 </pre></div>
@@ -543,9 +605,21 @@ defaults to STDIN.</p>
 </dd></dl>
 
 <dl class="option">
+<dt id="cmdoption-baton-chmod--silent">
+<tt class="descname">--silent</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-chmod--silent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Silence error messages.</p>
+</dd></dl>
+
+<dl class="option">
 <dt id="cmdoption-baton-chmod--unbuffered">
 <tt class="descname">--unbuffered</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-chmod--unbuffered" title="Permalink to this definition">¶</a></dt>
 <dd><p>Flush output after each JSON object is processed.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption-baton-chmod--unsafe">
+<tt class="descname">--unsafe</tt><tt class="descclassname"></tt><a class="headerlink" href="#cmdoption-baton-chmod--unsafe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x</p>
 </dd></dl>
 
 <dl class="option">
@@ -570,9 +644,18 @@ collection is identified by the <tt class="docutils literal"><span class="pre">c
 synonym <tt class="docutils literal"><span class="pre">c</span></tt>. For example, the current iRODS working collection may
 be represented by either of:</p>
 <div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;.&quot;</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;coll&quot;</span><span class="p">:</span> <span class="s2">&quot;.&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;coll&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
 </pre></div>
 </div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Relative paths in iRODS are dangerous!</p>
+</div>
+<p>iRODS 3.x - 4.1.x have a bug which means that a client&#8217;s current
+working collection may, in rare cases, change without notice.</p>
+<p>See <a class="reference external" href="https://github.com/irods/irods/issues/2406">https://github.com/irods/irods/issues/2406</a></p>
+<p>As a consequence, <tt class="docutils literal"><span class="pre">baton</span></tt> rejects all relative paths, unless the
+<tt class="docutils literal"><span class="pre">--unsafe</span></tt> command line argument is given.</p>
 <p>The value associated with the <tt class="docutils literal"><span class="pre">collection</span></tt> property may be any iRODS
 path, absolute or relative, in UTF-8 encoding. A trailing slash on
 collections is permitted. This behaviour is different from iRODS
@@ -591,8 +674,8 @@ object JSON object has no meaning and will be ignored.</p>
 <tt class="docutils literal"><span class="pre">coll</span></tt>) property and a <tt class="docutils literal"><span class="pre">data_object</span></tt> property or its shorter
 synonym <tt class="docutils literal"><span class="pre">obj</span></tt>. For example, a file in the current iRODS working
 collection may be represented by either of:</p>
-<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;coll:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;obj&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection:&quot;</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;coll:&quot;</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span> <span class="nt">&quot;obj&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
 </pre></div>
 </div>
 <p>The value associated with the <tt class="docutils literal"><span class="pre">data_object</span></tt> property may be any
@@ -601,10 +684,25 @@ object may be recreated by concatenating the <tt class="docutils literal"><span 
 <tt class="docutils literal"><span class="pre">data_object</span></tt> values. Data objects reported by listing or searches
 will may information on the file size under the <tt class="docutils literal"><span class="pre">size</span></tt> property. The
 value is a JSON integer indicating the file size in bytes as given in
-the ICAT database.</p>
-<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">,</span> <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">}</span>
+the ICAT database. If checksum reporting has been requested, data
+object checksums are given under the <tt class="docutils literal"><span class="pre">checksum</span></tt> property.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection:&quot;</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">,</span> <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">}</span>
 </pre></div>
 </div>
+<p>In cases where data objects have replicates, the full details of
+replication may be displayed, including replicate identity numbers,
+status (valid or invalid) and checksum.</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>{&#8220;collection&#8221;: &#8220;/unit/home/user&#8221;, &#8220;data_object&#8221;: &#8220;README.txt&#8221;,</dt>
+<dd><dl class="first last docutils">
+<dt>&#8220;replicate&#8221;: [{&#8220;checksum&#8221;: &#8220;2ebec02316ddc3ee64a67c89b5e3140c&#8221;,</dt>
+<dd>&#8220;number&#8221;: 0,
+&#8220;valid&#8221;: true}]}</dd>
+</dl>
+</dd>
+</dl>
+</div></blockquote>
 <p>The above JSON representations of collections and data objects are
 sufficient to be passed to baton&#8217;s <tt class="docutils literal"><span class="pre">baton-list</span></tt> program, which
 fulfils a similar role to the iRODS <tt class="docutils literal"><span class="pre">ils</span></tt> program, listing data
@@ -639,7 +737,7 @@ recreated by concatenating the <tt class="docutils literal"><span class="pre">di
 thereby indicating a mapping between a data object and a local
 file. The <tt class="docutils literal"><span class="pre">data_object</span></tt> and <tt class="docutils literal"><span class="pre">file</span></tt> values are not required to be
 identical.</p>
-<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">,</span>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span> <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">,</span>
  <span class="nt">&quot;directory:&quot;</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span>  <span class="nt">&quot;file&quot;</span><span class="p">:</span> <span class="s2">&quot;README.txt&quot;</span><span class="p">}</span>
 </pre></div>
 </div>
@@ -814,14 +912,15 @@ a JSON array of objects under the <tt class="docutils literal"><span class="pre"
 <a class="reference internal" href="#term-acl"><em class="xref std std-term">ACL</em></a> object within the array must have at least an <tt class="docutils literal"><span class="pre">owner</span></tt>
 and a <tt class="docutils literal"><span class="pre">level</span></tt> property.</p>
 <div class="highlight-json"><div class="highlight"><pre><span class="p">{</span><span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user&quot;</span><span class="p">,</span>
-     <span class="nt">&quot;access&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>   <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;own&quot;</span><span class="p">},</span>
-                <span class="p">{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;public&quot;</span><span class="p">,</span> <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;read&quot;</span><span class="p">}]}</span>
+     <span class="nt">&quot;access&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>   <span class="nt">&quot;zone&quot;</span><span class="p">:</span> <span class="s2">&quot;unit&quot;</span><span class="p">,</span> <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;own&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="nt">&quot;owner&quot;</span><span class="p">:</span> <span class="s2">&quot;public&quot;</span><span class="p">,</span> <span class="nt">&quot;zone&quot;</span><span class="p">:</span> <span class="s2">&quot;unit&quot;</span><span class="p">,</span> <span class="nt">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;read&quot;</span><span class="p">}]}</span>
 </pre></div>
 </div>
 <p>The value associated with the <tt class="docutils literal"><span class="pre">owner</span></tt> property must be an iRODS user
 or group name. The value associated with the <tt class="docutils literal"><span class="pre">level</span></tt> property must
 be an iRODS symbolic access level string (i.e. &#8220;null&#8221;, &#8220;read&#8221;, &#8220;write&#8221;
-or &#8220;own&#8221;).</p>
+or &#8220;own&#8221;). Permissions read from iRODS will also have a <tt class="docutils literal"><span class="pre">zone</span></tt>
+property, indicating the zone to which the owner belongs.</p>
 </div>
 <div class="section" id="acl-queries">
 <span id="representing-query-permissions"></span><h2>ACL queries<a class="headerlink" href="#acl-queries" title="Permalink to this headline">¶</a></h2>
@@ -877,21 +976,48 @@ them.</p>
 <tt class="docutils literal"><span class="pre">jq</span></tt> is used to ease the <em>de novo</em> creation of JSON in the shell and
 to process the results returned by <tt class="docutils literal"><span class="pre">baton</span></tt>.</p>
 <div class="topic">
+<p class="topic-title first">Perform operations on a large number of iRODS items</p>
+<p>Perform operations on a large number of iRODS items, over a single
+connection.</p>
+</div>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n -c <span class="s1">&#39;{coll: &quot;/zone1/home/user/data&quot;, obj: &quot;f1.txt&quot;}&#39;</span>  &gt; in.json
+jq -n -c <span class="s1">&#39;{coll: &quot;/zone1/home/user/data&quot;, obj: &quot;f2.txt&quot;}&#39;</span> &gt;&gt; in.json
+jq -n -c <span class="s1">&#39;{coll: &quot;/zone1/home/user/data&quot;, obj: &quot;f3.txt&quot;}&#39;</span> &gt;&gt; in.json
+
+baton-list &lt; in.json
+</pre></div>
+</div>
+<p>Result:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span>
+   <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
+   <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span>
+<span class="p">}</span>
+<span class="p">{</span>
+   <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f2.txt&quot;</span><span class="p">,</span>
+   <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span>
+<span class="p">}</span>
+<span class="p">{</span>
+   <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f3.txt&quot;</span><span class="p">,</span>
+   <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="topic">
 <p class="topic-title first">List the contents of the current working collection</p>
 <p>List the contents of the current working collection as flat paths
 suitable for passing to standard Unix filters.</p>
 </div>
-<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;.&quot;}&#39;</span> | baton-list | jq -r <span class="s1">&#39;.[] | .collection + &quot;/&quot; + .data_object&#39;</span>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;/zone1/home/user/data&quot;}&#39;</span> | baton-list | jq -r <span class="s1">&#39;.[] | .collection + &quot;/&quot; + .data_object&#39;</span>
 </pre></div>
 </div>
 <p>Result:</p>
-<div class="highlight-sh"><div class="highlight"><pre>/unit/home/user/data/
-/unit/home/user/data/f1.txt
-/unit/home/user/data/f2.txt
-/unit/home/user/data/f3.txt
-/unit/home/user/data/a/
-/unit/home/user/data/b/
-/unit/home/user/data/c/
+<div class="highlight-sh"><div class="highlight"><pre>/zone1/home/user/data/
+/zone1/home/user/data/f1.txt
+/zone1/home/user/data/f2.txt
+/zone1/home/user/data/f3.txt
+/zone1/home/user/data/a/
+/zone1/home/user/data/b/
+/zone1/home/user/data/c/
 </pre></div>
 </div>
 <div class="topic">
@@ -900,7 +1026,7 @@ suitable for passing to standard Unix filters.</p>
 the collection <tt class="docutils literal"><span class="pre">data</span></tt>, that have the attribute <tt class="docutils literal"><span class="pre">attr_a</span></tt>
 somewhere in their AVUs:</p>
 </div>
-<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;data&quot;}&#39;</span> | baton-list --avu | jq <span class="s1">&#39;map(select(.avus[] | select(.attribute == &quot;attr_a&quot;)))&#39;</span>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;/zone1/home/user/data&quot;}&#39;</span> | baton-list --avu | jq <span class="s1">&#39;map(select(.avus[] | select(.attribute == &quot;attr_a&quot;)))&#39;</span>
 </pre></div>
 </div>
 <p>Result:</p>
@@ -933,7 +1059,7 @@ somewhere in their AVUs:</p>
 query with scope limited to the collection <tt class="docutils literal"><span class="pre">data</span></tt> or its
 subcollections, recursively.</p>
 </div>
-<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;data&quot;, avus: [{a: &quot;attr_a&quot;, v: &quot;%&quot;, o: &quot;like&quot;}]}&#39;</span> | baton-metaquery --avu | jq <span class="s1">&#39;.&#39;</span>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;/zone1/home/user&quot;, avus: [{a: &quot;attr_a&quot;, v: &quot;%&quot;, o: &quot;like&quot;}]}&#39;</span> | baton-metaquery --avu | jq <span class="s1">&#39;.&#39;</span>
 </pre></div>
 </div>
 <div class="highlight-json"><div class="highlight"><pre><span class="p">[</span>
@@ -953,7 +1079,7 @@ subcollections, recursively.</p>
       <span class="p">}</span>
     <span class="p">],</span>
     <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span><span class="p">,</span>
     <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
   <span class="p">}</span>
 <span class="p">]</span>
@@ -963,7 +1089,7 @@ subcollections, recursively.</p>
 <p class="topic-title first">List the metadata on data objects</p>
 <p>List the metadata on all data objects in the collection <tt class="docutils literal"><span class="pre">data</span></tt>:</p>
 </div>
-<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;data&quot;}&#39;</span> | baton-list --avu | jq <span class="s1">&#39;map(select(.data_object))[]&#39;</span>
+<div class="highlight-sh"><div class="highlight"><pre>jq -n <span class="s1">&#39;{coll: &quot;/zone1/home/user/data&quot;}&#39;</span> | baton-list --avu | jq <span class="s1">&#39;map(select(.data_object))[]&#39;</span>
 </pre></div>
 </div>
 <div class="highlight-json"><div class="highlight"><pre><span class="p">{</span>
@@ -982,7 +1108,7 @@ subcollections, recursively.</p>
     <span class="p">}</span>
   <span class="p">],</span>
   <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
-  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span><span class="p">,</span>
   <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
 <span class="p">}</span>
 <span class="p">{</span>
@@ -993,7 +1119,7 @@ subcollections, recursively.</p>
     <span class="p">}</span>
   <span class="p">],</span>
   <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f2.txt&quot;</span><span class="p">,</span>
-  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span><span class="p">,</span>
   <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
 <span class="p">}</span>
 <span class="p">{</span>
@@ -1004,7 +1130,7 @@ subcollections, recursively.</p>
     <span class="p">}</span>
   <span class="p">],</span>
   <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f3.txt&quot;</span><span class="p">,</span>
-  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span><span class="p">,</span>
   <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
 <span class="p">}</span>
 </pre></div>
@@ -1025,7 +1151,7 @@ to <tt class="docutils literal"><span class="pre">baton-metaquery</span></tt> wa
 <div class="highlight-json"><div class="highlight"><pre><span class="p">[</span>
   <span class="p">{</span>
     <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span><span class="p">,</span>
     <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
   <span class="p">}</span>
 <span class="p">]</span>
@@ -1049,7 +1175,7 @@ created before 2014-03-01T00:00:00 and modified between
 <div class="highlight-json"><div class="highlight"><pre><span class="p">[</span>
   <span class="p">{</span>
     <span class="nt">&quot;data_object&quot;</span><span class="p">:</span> <span class="s2">&quot;f1.txt&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/unit/home/user/data&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;collection&quot;</span><span class="p">:</span> <span class="s2">&quot;/zone1/home/user/data&quot;</span><span class="p">,</span>
     <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="mi">0</span>
   <span class="p">}</span>
 <span class="p">]</span>
@@ -1152,12 +1278,12 @@ created before 2014-03-01T00:00:00 and modified between
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
-        <li><a href="#">baton 0.13.0
+        <li><a href="#">baton 0.15.0
  documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
-        &copy; Copyright 2013, 2014, 2015 Genome Research Ltd..
+        &copy; Copyright 2013-2014, Genome Research Ltd..
       Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
