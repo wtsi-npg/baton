@@ -33,7 +33,7 @@ before_script_3_3_1() {
     iadmin mkresc testResc 'unix file system' cache `hostname --fqdn` $IRODS_TEST_VAULT
 }
 
-before_script_4_1_3() {
+before_script_4_1_x() {
     sudo -E -u postgres createuser -D -R -S irods
     sudo -E -u postgres createdb -O irods ICAT
     sudo -E -u postgres sh -c "echo \"ALTER USER irods WITH PASSWORD 'irods'\" | psql"
@@ -63,7 +63,12 @@ case $IRODS_VERSION in
 
     4.1.3)
         before_script_common
-        before_script_4_1_3
+        before_script_4_1_x
+        ;;
+
+    4.1.4)
+        before_script_common
+        before_script_4_1_x
         ;;
 
     *)

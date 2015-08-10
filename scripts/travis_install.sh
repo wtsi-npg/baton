@@ -29,7 +29,7 @@ install_3_3_1() {
     return
 }
 
-install_4_1_3() {
+install_4_1_x() {
     sudo apt-get install -qq python-psutil python-requests
     sudo apt-get install -qq python-sphinx
     sudo apt-get install super libjson-perl jq
@@ -48,9 +48,13 @@ case $IRODS_VERSION in
 
     4.1.3)
         install_common
-        install_4_1_3
+        install_4_1_x
         ;;
 
+    4.1.4)
+        install_common
+        install_4_1_x
+        ;;
     *)
         echo Unknown iRODS version $IRODS_VERSION
         exit 1
