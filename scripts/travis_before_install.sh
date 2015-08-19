@@ -12,7 +12,7 @@ before_install_3_3_1() {
     return
 }
 
-before_install_4_1_3() {
+before_install_4_1_x() {
     wget ${RENCI_URL}/pub/irods/releases/${IRODS_VERSION}/${PLATFORM}/irods-icat-${IRODS_VERSION}-${PLATFORM}-${ARCH}.deb
     wget ${RENCI_URL}/pub/irods/releases/${IRODS_VERSION}/${PLATFORM}/irods-database-plugin-postgres-${PG_PLUGIN_VERSION}-${PLATFORM}-${ARCH}.deb
     wget ${RENCI_URL}/pub/irods/releases/${IRODS_VERSION}/${PLATFORM}/irods-runtime-${IRODS_VERSION}-${PLATFORM}-${ARCH}.deb
@@ -28,7 +28,12 @@ case $IRODS_VERSION in
 
     4.1.3)
         before_install_common
-        before_install_4_1_3
+        before_install_4_1_x
+        ;;
+
+    4.1.4)
+        before_install_common
+        before_install_4_1_x
         ;;
 
     *)
