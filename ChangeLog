@@ -1,3 +1,10 @@
+	[0.15.0]
+
+	Added a --checksum option to the CLI of baton-list and
+	baton-metaquery which allows data object checksums to be reported.
+
+	Added reporting of a user's or group's zone to results obtained
+	when querying permissions.
 
 	[0.14.0]
 
