@@ -261,6 +261,7 @@ const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
 
 int has_collection(json_t *object) {
     baton_error_t error;
+
     init_baton_error(&error); // Ignore error
 
     return get_opt_string_value(object, "path spec", JSON_COLLECTION_KEY,
@@ -273,6 +274,7 @@ int has_acl(json_t *object) {
 
 int has_timestamps(json_t *object) {
   baton_error_t error;
+
   init_baton_error(&error); // Ignore error
 
   return get_timestamps(object, &error) != NULL;
@@ -548,6 +550,7 @@ error:
 
 char *json_to_path(json_t *object, baton_error_t *error) {
     char *path = NULL;
+
     init_baton_error(error);
 
     const char *collection = get_collection_value(object, error);
@@ -573,6 +576,7 @@ error:
 
 char *json_to_collection_path(json_t *object, baton_error_t *error) {
     char *path = NULL;
+
     init_baton_error(error);
 
     const char *collection = get_collection_value(object, error);
@@ -591,6 +595,7 @@ error:
 
 char *json_to_local_path(json_t *object, baton_error_t *error) {
     char *path = NULL;
+
     init_baton_error(error);
 
     const char *directory = get_directory_value(object, error);

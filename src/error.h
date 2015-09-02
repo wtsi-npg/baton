@@ -28,7 +28,7 @@ typedef struct baton_error {
     int code;
     /** Error message */
     char message[MAX_ERROR_MESSAGE_LEN];
-    /** Error message length */
+    /** Error message length, including terminating null byte */
     size_t size;
 } baton_error_t;
 

@@ -169,8 +169,7 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env, rodsPath_t *rods_path,
         }
     }
 
-    int status;
-    status = init_rods_path(rods_path, inpath);
+    int status = init_rods_path(rods_path, inpath);
     if (status < 0) {
         set_baton_error(error, status,
                         "Failed to create iRODS path '%s'", inpath);
@@ -197,9 +196,8 @@ error:
 
 int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
     char *dest;
-    int status;
 
-    status = init_rods_path(rods_path, path);
+    int status = init_rods_path(rods_path, path);
     if (status < 0) {
         logmsg(ERROR, "Failed to create iRODS path '%s'", path);
         goto error;
@@ -395,6 +393,8 @@ json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
                     baton_error_t *error) {
     char *content = NULL;
 
+    init_baton_error(error);
+
     if (buffer_size == 0) {
         set_baton_error(error, -1, "Invalid buffer_size argument %zu",
                         buffer_size);
@@ -403,7 +403,6 @@ json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
 
     // Currently only data objects are supported
     if (rods_path->objType != DATA_OBJ_T) {
-        init_baton_error(error);
         set_baton_error(error, USER_INPUT_PATH_ERR,
                         "Cannot read the contents of '%s' because "
                         "it is not a data object", rods_path->outPath);
@@ -478,7 +477,7 @@ int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
     }
 
     write_path_to_stream(conn, rods_path, stream, buffer_size, error);
-    fclose(stream);
+    fclose(stream); // FIXME -- check for error
 
     return error->code;
 
@@ -909,8 +908,11 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
 
     int status = rcDataObjChksum(conn, &obj_chk_in, &checksum_str);
     if (status < 0) {
-        set_baton_error(error, status, "Failed to list checksum of '%s'",
-                        rods_path->outPath);
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to list checksum of '%s': %d %s",
+                        rods_path->outPath, status, err_name);
         goto error;
     }
 
@@ -1099,10 +1101,9 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                     metadata_op operation,
                     char *attr_name, char *attr_value, char *attr_units,
                     baton_error_t *error) {
-    char *err_name;
-    char *err_subname;
     char *type_arg;
-    int status;
+
+    init_baton_error(error);
 
     check_str_arg("attr_name", attr_name, MAX_STR_LEN, error);
     if (error->code != 0) goto error;
@@ -1150,14 +1151,16 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
 
     modAVUMetadataInp_t anon_args;
     map_mod_args(&anon_args, &named_args);
-    status = rcModAVUMetadata(conn, &anon_args);
+
+    int status = rcModAVUMetadata(conn, &anon_args);
     if (status < 0) {
-        err_name = rodsErrorName(status, &err_subname);
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to %s metadata '%s' -> '%s' on '%s': "
-                        "error %d %s %s", metadata_op_name(operation),
+                        "error %d %s", metadata_op_name(operation),
                         attr_name, attr_value, rods_path->outPath,
-                        status, err_name, err_subname);
+                        status, err_name);
         goto error;
     }
 
@@ -1180,6 +1183,7 @@ int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                                json_t *candidate_avus, json_t *reference_avus,
                                baton_error_t *error) {
     const char *op_name = metadata_op_name(operation);
+
     init_baton_error(error);
 
     for (size_t i = 0; i < json_array_size(candidate_avus); i++) {
@@ -1209,10 +1213,11 @@ error:
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                          metadata_op operation, json_t *avu,
                          baton_error_t *error) {
-    init_baton_error(error);
     char *attr_tmp  = NULL;
     char *value_tmp = NULL;
     char *units_tmp = NULL;
+
+    init_baton_error(error);
 
     const char *attr = get_avu_attribute(avu, error);
     if (error->code != 0) goto error;
@@ -1333,20 +1338,14 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
 
     json_t *results = NULL;
 
-    char *err_name;
-    char *err_subname;
-    int status;
-
-    status = rclOpenCollection(conn, rods_path->outPath, query_flags,
-                               &coll_handle);
+    int status = rclOpenCollection(conn, rods_path->outPath, query_flags,
+                                   &coll_handle);
     if (status < 0) {
-        if (conn->rError) {
-            err_name = rodsErrorName(status, &err_subname);
-            set_baton_error(error, status,
-                            "Failed to open collection: '%s' error %d %s %s",
-                            rods_path->outPath, status, err_name, err_subname);
-        }
-
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to open collection: '%s' error %d %s",
+                        rods_path->outPath, status, err_name);
         goto error;
     }
 
