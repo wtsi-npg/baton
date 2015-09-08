@@ -35,14 +35,14 @@ data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
     logmsg(DEBUG, "Opening data object '%s'", rods_path->outPath);
 
     snprintf(obj_open_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
-    int descriptor = rcDataObjOpen(conn, &obj_open_in);
 
+    int descriptor = rcDataObjOpen(conn, &obj_open_in);
     if (descriptor < 0) {
         char *err_subname;
         char *err_name = rodsErrorName(descriptor, &err_subname);
         set_baton_error(error, descriptor,
-                        "Failed to open '%s': %s %s", rods_path->outPath,
-                        err_name, err_subname);
+                        "Failed to open '%s': error %d %s",
+                        rods_path->outPath, descriptor, err_name);
         goto error;
     }
 
@@ -86,8 +86,8 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
         char *err_subname;
         char *err_name = rodsErrorName(num_read, &err_subname);
         set_baton_error(error, num_read,
-                        "Failed to read up to %zu bytes from '%s': %s %s",
-                        len, obj_file->path, err_name, err_subname);
+                        "Failed to read up to %zu bytes from '%s': %s",
+                        len, obj_file->path, err_name);
         goto error;
     }
 

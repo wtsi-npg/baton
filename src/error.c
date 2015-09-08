@@ -24,12 +24,13 @@
 #include <string.h>
 
 #include "error.h"
+#include "log.h"
 
 void init_baton_error(baton_error_t *error) {
     assert(error);
     error->message[0] = '\0';
     error->code = 0;
-    error->size = 1;
+    error->size = 1; // Size includes terminating null byte.
 }
 
 void set_baton_error(baton_error_t *error, int code, const char *format, ...) {

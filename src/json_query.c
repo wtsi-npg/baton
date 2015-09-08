@@ -192,10 +192,6 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
     size_t chunk_num  = 0;
     int continue_flag = 0;
 
-    char *err_name;
-    char *err_subname;
-    int status;
-
     json_t *results = json_array();
     if (!results) {
         set_baton_error(error, -1, "Failed to allocate a new JSON array");
@@ -207,7 +203,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
     while (chunk_num == 0 || continue_flag > 0) {
         logmsg(DEBUG, "Attempting to get chunk %d of query", chunk_num);
 
-        status = rcGenQuery(conn, query_in, &query_out);
+        int status = rcGenQuery(conn, query_in, &query_out);
 
         if (status == 0) {
             logmsg(DEBUG, "Successfully fetched chunk %d of query", chunk_num);
@@ -262,11 +258,11 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
             break;
         }
         else {
-            err_name = rodsErrorName(status, &err_subname);
+            char *err_subname;
+            char *err_name = rodsErrorName(status, &err_subname);
             set_baton_error(error, status,
                             "Failed to fetch query result: in chunk %d "
-                            "error %d %s %s",
-                            chunk_num, status, err_name, err_subname);
+                            "error %d %s", chunk_num, status, err_name);
             goto error;
         }
     }
@@ -576,7 +572,6 @@ json_t *add_checksum_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, error->message);
     return NULL;
 }
 
@@ -640,7 +635,6 @@ json_t *add_repl_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, error->message);
     return NULL;
 }
 
@@ -757,7 +751,6 @@ json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, error->message);
     return NULL;
 }
 
@@ -819,7 +812,6 @@ json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, error->message);
     return NULL;
 }
 
@@ -881,7 +873,6 @@ json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
     return array;
 
 error:
-    logmsg(ERROR, error->message);
     return NULL;
 }
 
