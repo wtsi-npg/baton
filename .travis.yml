@@ -15,11 +15,10 @@ env:
     - ARCH=x86_64
     - RENCI_URL=ftp://ftp.renci.org
     - WTSI_NPG_URL=https://github.com/wtsi-npg/irods
-    - PG_PLUGIN_VERSION=1.5
+    - PG_PLUGIN_VERSION=1.6
   matrix:
     - IRODS_VERSION=3.3.1
-    - IRODS_VERSION=4.1.3
-    - IRODS_VERSION=4.1.4
+    - IRODS_VERSION=4.1.5
 
 before_install:
   - ./scripts/travis_before_install.sh
