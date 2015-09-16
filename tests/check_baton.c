@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +19,7 @@
  */
 
 #include <assert.h>
+#include <limits.h>
 #include <unistd.h>
 
 #include <jansson.h>
@@ -27,6 +29,7 @@
 #include "../src/json.h"
 #include "../src/log.h"
 #include "../src/read.h"
+#include "../src/compat_checksum.h"
 
 static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
@@ -39,11 +42,19 @@ static char *SETUP_SCRIPT    = "scripts/setup_irods.sh";
 static char *TEARDOWN_SCRIPT = "scripts/teardown_irods.sh";
 
 static void set_current_rods_root(char *in, char *out) {
-    snprintf(out, MAX_PATH_LEN, "%s.%d", in, getpid());
+    rodsEnv rodsEnv;
+
+    int status = getRodsEnv(&rodsEnv);
+    if (status != 0) raise(SIGTERM);
+
+    // Create an absolute iRODS path.  Using rodsCwd is generally
+    // unsafe. However, we assume that the test environment is
+    // single-threaded and free of stale .irodsEnv files.
+    snprintf(out, MAX_PATH_LEN, "%s/%s.%d", rodsEnv.rodsCwd, in, getpid());
 }
 
 static void setup() {
-    set_log_threshold(ERROR);
+    set_log_threshold(WARN);
 }
 
 static void teardown() {
@@ -55,17 +66,18 @@ static void basic_setup() {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(BASIC_COLL, rods_root);
 
-    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s %s %s/%s",
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s %s %s %s/%s",
              TEST_ROOT, SETUP_SCRIPT,
              TEST_ROOT, BASIC_DATA_PATH,
              rods_root,
+             TEST_RESOURCE,
              TEST_ROOT, BASIC_METADATA_PATH);
 
     printf("Setup: %s\n", command);
 
     int ret = system(command);
 
-    if (ret != 0) raise(SIGINT);
+    if (ret != 0) raise(SIGTERM);
 }
 
 static void basic_teardown() {
@@ -135,7 +147,6 @@ START_TEST(test_parse_base_name) {
     ck_assert_str_eq("a", parse_base_name("a"));
     ck_assert_str_eq("a", parse_base_name("/a"));
     ck_assert_str_eq("b", parse_base_name("/a/b"));
-
 }
 END_TEST
 
@@ -167,6 +178,16 @@ START_TEST(test_parse_timestamp) {
     ck_assert_str_eq(parsed, "1375107252");
 
     free(parsed);
+}
+END_TEST
+
+// Can we parse file size strings?
+START_TEST(test_parse_size) {
+    ck_assert_int_eq(0, parse_size("0"));
+
+    char max[1024];
+    snprintf(max, sizeof max, "%lu", ULONG_MAX);
+    ck_assert_int_eq(ULONG_MAX, parse_size(max));
 }
 END_TEST
 
@@ -217,6 +238,7 @@ END_TEST
 
 // Can we resolve a real path?
 START_TEST(test_resolve_rods_path) {
+    option_flags flags = 0;
     rodsEnv env;
     rodsPath_t rods_path;
 
@@ -225,19 +247,27 @@ START_TEST(test_resolve_rods_path) {
 
     ck_assert_msg(is_irods_available(), "iRODS is not available");
     ck_assert(conn->loggedIn);
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, path), EXIST_ST);
+
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, path,
+                                       flags, &resolve_error), EXIST_ST);
+    ck_assert_int_eq(resolve_error.code, 0);
     ck_assert_str_eq(rods_path.inPath, path);
     ck_assert_str_eq(rods_path.outPath, path);
     ck_assert_int_eq(rods_path.objType, COLL_OBJ_T);
 
     char *invalid_path = '\0';
     rodsPath_t inv_rods_path;
-    ck_assert(resolve_rods_path(conn, &env, &inv_rods_path, invalid_path) < 0);
+    baton_error_t invalid_path_error;
+    ck_assert(resolve_rods_path(conn, &env, &inv_rods_path, invalid_path,
+                                flags, &invalid_path_error) < 0);
+
 
     char *no_path = "no such path";
     rodsPath_t no_rods_path;
-    ck_assert_int_ne(resolve_rods_path(conn, &env, &no_rods_path, no_path),
-                     EXIST_ST);
+    baton_error_t no_path_error;
+    ck_assert_int_ne(resolve_rods_path(conn, &env, &no_rods_path, no_path,
+                                       flags, &no_path_error), EXIST_ST);
 
     if (conn) rcDisconnect(conn);
 }
@@ -245,14 +275,17 @@ END_TEST
 
 // Do we fail to list a non-existent path?
 START_TEST(test_list_missing_path) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
     char *path = "no such path";
     rodsPath_t rods_path;
-    baton_error_t error;
-    resolve_rods_path(conn, &env, &rods_path, path);
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_path, path, flags, &resolve_error);
+    ck_assert_int_ne(resolve_error.code, 0);
 
+    baton_error_t error;
     ck_assert_ptr_eq(list_path(conn, &rods_path, PRINT_ACL, &error), NULL);
     ck_assert_int_ne(error.code, 0);
 
@@ -262,6 +295,7 @@ END_TEST
 
 // Can we list a data object?
 START_TEST(test_list_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -272,22 +306,25 @@ START_TEST(test_list_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     rodsPath_t rods_obj_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_obj_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                                       flags, &resolve_obj_error), EXIST_ST);
 
-    json_t *perm = json_pack("{s:s, s:s}",
+    json_t *perm = json_pack("{s:s, s:s, s:s}",
                              JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_ZONE_KEY,  env.rodsZone,
                              JSON_LEVEL_KEY, ACCESS_LEVEL_OWN);
     json_t *avu = json_pack("{s:s, s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
                             JSON_VALUE_KEY,     "value1",
                             JSON_UNITS_KEY,     "units1");
 
-    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+    flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     // Default representation
     baton_error_t error1;
@@ -348,13 +385,31 @@ START_TEST(test_list_obj) {
 
     json_t *timestamps = json_object_get(results5, JSON_TIMESTAMPS_KEY);
     ck_assert(json_is_array(timestamps));
-    ck_assert_int_eq(json_array_size(timestamps), 2);
 
-    for (size_t i = 0; i < 2; i++) {
-        json_t *timestamp = json_array_get(timestamps, i);
+    int num_timestamps = 2 * 2; // For 2 replicates;
+    ck_assert_int_eq(json_array_size(timestamps), num_timestamps);
+
+    // These are processed timestamps where there is a separate JSON
+    // object for created and modified stamps and the times are
+    // ISO8601 format.
+    size_t index;
+    json_t *timestamp;
+    json_array_foreach(timestamps, index, timestamp) {
+        ck_assert_int_eq(json_object_size(timestamp), 2);
         ck_assert(json_object_get(timestamp, JSON_CREATED_KEY) ||
                   json_object_get(timestamp, JSON_MODIFIED_KEY));
     }
+
+    // With checksum
+    baton_error_t error6;
+    json_t *results6 = list_path(conn, &rods_obj_path,
+                                 flags | PRINT_SIZE | PRINT_ACL | PRINT_AVU |
+                                 PRINT_TIMESTAMP | PRINT_CHECKSUM , &error6);
+    ck_assert_int_eq(error6.code, 0);
+    json_t *checksum = json_object_get(results6, JSON_CHECKSUM_KEY);
+    ck_assert(json_is_string(checksum));
+    ck_assert_str_eq(json_string_value(checksum),
+                     "d41d8cd98f00b204e9800998ecf8427e");
 
     json_decref(results1);
     json_decref(expected1);
@@ -369,6 +424,7 @@ START_TEST(test_list_obj) {
     json_decref(expected4);
 
     json_decref(results5);
+    json_decref(results6);
 
     json_decref(perm);
     json_decref(avu);
@@ -379,6 +435,7 @@ END_TEST
 
 // Can we list a collection?
 START_TEST(test_list_coll) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -386,18 +443,20 @@ START_TEST(test_list_coll) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
     json_t *results = list_path(conn, &rods_path, PRINT_ACL, &error);
 
-    json_t *perms = json_pack("{s:s, s:s}",
-                              JSON_OWNER_KEY, env.rodsUserName,
-                              JSON_LEVEL_KEY, ACCESS_OWN);
+    json_t *perm = json_pack("{s:s, s:s, s:s}",
+                             JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_ZONE_KEY,  env.rodsZone,
+                             JSON_LEVEL_KEY, ACCESS_OWN);
     json_t *expected = json_pack("{s:s, s:[o]}",
                                  JSON_COLLECTION_KEY, rods_path.outPath,
-                                 JSON_ACCESS_KEY,     perms);
+                                 JSON_ACCESS_KEY,     perm);
 
     ck_assert_ptr_ne(NULL, results);
     ck_assert_int_eq(json_equal(results, expected), 1);
@@ -412,6 +471,7 @@ END_TEST
 
 // Can we list a collection's contents?
 START_TEST(test_list_coll_contents) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -419,13 +479,14 @@ START_TEST(test_list_coll_contents) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
     json_t *results = list_path(conn, &rods_path,
-                                PRINT_SIZE | PRINT_ACL | PRINT_CONTENTS,
-                                &error);
+                                PRINT_SIZE | PRINT_ACL | PRINT_CONTENTS |
+                                PRINT_CHECKSUM, &error);
 
     char a[MAX_PATH_LEN];
     char b[MAX_PATH_LEN];
@@ -434,69 +495,77 @@ START_TEST(test_list_coll_contents) {
     snprintf(b, MAX_PATH_LEN, "%s/b", rods_path.outPath);
     snprintf(c, MAX_PATH_LEN, "%s/c", rods_path.outPath);
 
-    json_t *perms = json_pack("{s:s, s:s}",
-                              JSON_OWNER_KEY, env.rodsUserName,
-                              JSON_LEVEL_KEY, ACCESS_OWN);
+    json_t *perm = json_pack("{s:s, s:s, s:s}",
+                             JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_ZONE_KEY,  env.rodsZone,
+                             JSON_LEVEL_KEY, ACCESS_OWN);
 
     json_t *expected =
         json_pack("{s:s, s:[o],"
-                  " s:[{s:s, s:s, s:i, s:[o]},"  // f1.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // f2.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // f3.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_10k.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_1b.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // lorem_1k.txt
-                  "    {s:s, s:s, s:i, s:[o]},"  // r1.txt
+                  " s:[{s:s, s:s, s:i, s:s, s:[o]},"  // f1.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // f2.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // f3.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // lorem_10k.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // lorem_1b.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // lorem_1k.txt
+                  "    {s:s, s:s, s:i, s:s, s:[o]},"  // r1.txt
                   "    {s:s, s:[o]},"            // a
                   "    {s:s, s:[o]},"            // b
                   "    {s:s, s:[o]}]}",          // c
                   JSON_COLLECTION_KEY, rods_path.outPath,
-                  JSON_ACCESS_KEY,     perms,
+                  JSON_ACCESS_KEY,     perm,
 
                   JSON_CONTENTS_KEY,
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f1.txt",
                   JSON_SIZE_KEY,        0,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d41d8cd98f00b204e9800998ecf8427e",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f2.txt",
                   JSON_SIZE_KEY,        0,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d41d8cd98f00b204e9800998ecf8427e",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "f3.txt",
                   JSON_SIZE_KEY,        0,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d41d8cd98f00b204e9800998ecf8427e",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "lorem_10k.txt",
                   JSON_SIZE_KEY,        10240,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "4efe0c1befd6f6ac4621cbdb13241246",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "lorem_1b.txt",
                   JSON_SIZE_KEY,        1,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d20caec3b48a1eef164cb4ca81ba2587",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "lorem_1k.txt",
                   JSON_SIZE_KEY,        1024,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "1f40c34d28e56efcf9da6732cdc93b8b",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  rods_path.outPath,
                   JSON_DATA_OBJECT_KEY, "r1.txt",
                   JSON_SIZE_KEY,        0,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_CHECKSUM_KEY,    "d41d8cd98f00b204e9800998ecf8427e",
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  a,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  b,
-                  JSON_ACCESS_KEY,      perms,
+                  JSON_ACCESS_KEY,      perm,
 
                   JSON_COLLECTION_KEY,  c,
-                  JSON_ACCESS_KEY,      perms);
+                  JSON_ACCESS_KEY,      perm);
 
     ck_assert_ptr_ne(NULL, results);
     ck_assert_int_eq(json_equal(results, expected), 1);
@@ -536,13 +605,16 @@ END_TEST
 
 // Do we fail to list the ACL of a non-existent path?
 START_TEST(test_list_permissions_missing_path) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
     char *path = "no such path";
     rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_path, path, flags, &resolve_error);
+
     baton_error_t error;
-    resolve_rods_path(conn, &env, &rods_path, path);
     ck_assert_ptr_eq(list_permissions(conn, &rods_path, &error), NULL);
     ck_assert_int_ne(error.code, 0);
 
@@ -552,6 +624,7 @@ END_TEST
 
 // Can we list the ACL of an object?
 START_TEST(test_list_permissions_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -561,14 +634,19 @@ START_TEST(test_list_permissions_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
     json_t *results = list_permissions(conn, &rods_path, &error);
-    json_t *expected = json_pack("[{s:s, s:s}]",
+    json_t *expected = json_pack("[{s:s, s:s, s:s}]",
                                  JSON_OWNER_KEY, env.rodsUserName,
+                                 JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_OWN);
+
+    print_json_stream(expected, stderr);
+    print_json_stream(results, stderr);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
@@ -581,6 +659,7 @@ END_TEST
 
 // Can we list the ACL of a collection?
 START_TEST(test_list_permissions_coll) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -588,14 +667,19 @@ START_TEST(test_list_permissions_coll) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
     json_t *results = list_permissions(conn, &rods_path, &error);
-    json_t *expected = json_pack("[{s:s, s:s}]",
+    json_t *expected = json_pack("[{s:s, s:s, s:s}]",
                                  JSON_OWNER_KEY, env.rodsUserName,
+                                 JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_OWN);
+
+    print_json_stream(expected, stderr);
+    print_json_stream(results, stderr);
 
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
@@ -609,13 +693,17 @@ END_TEST
 
 // Can we list metadata on a data object?
 START_TEST(test_list_metadata_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
     char *no_path = "no such path";
     rodsPath_t no_rods_path;
+    baton_error_t resolve_no_path_error;
+    resolve_rods_path(conn, &env, &no_rods_path, no_path,
+                      flags, &resolve_no_path_error);
+
     baton_error_t no_path_error;
-    resolve_rods_path(conn, &env, &no_rods_path, no_path);
     ck_assert_ptr_eq(list_metadata(conn, &no_rods_path, NULL, &no_path_error),
                      NULL);
     ck_assert_int_ne(no_path_error.code, 0);
@@ -626,8 +714,9 @@ START_TEST(test_list_metadata_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
     json_t *results = list_metadata(conn, &rods_path, NULL, &error);
@@ -648,6 +737,7 @@ END_TEST
 
 // Can we list metadata on a collection?
 START_TEST(test_list_metadata_coll) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -657,8 +747,9 @@ START_TEST(test_list_metadata_coll) {
     snprintf(coll_path, MAX_PATH_LEN, "%s/a", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, coll_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, coll_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
     json_t *results = list_metadata(conn, &rods_path, NULL, &error);
@@ -677,7 +768,15 @@ START_TEST(test_list_metadata_coll) {
 }
 END_TEST
 
-START_TEST(test_list_timestamps_obj) {
+START_TEST(test_list_replicates_obj) {
+    if (!TEST_RESOURCE) {
+        logmsg(WARN, "!!! Skipping test_list_replicates_obj because "
+               "no test resource is defined; TEST_RESOURCE=%s !!!",
+               TEST_RESOURCE);
+        return;
+    }
+
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -687,33 +786,77 @@ START_TEST(test_list_timestamps_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
+
+    char *checksum = "d41d8cd98f00b204e9800998ecf8427e";
+    json_t *expected = json_pack("[{s:s, s:i, s:b}, {s:s, s:i, s:b}]",
+                                 JSON_CHECKSUM_KEY,         checksum,
+                                 JSON_REPLICATE_NUMBER_KEY, 0,
+                                 JSON_REPLICATE_STATUS_KEY, 1,
+                                 JSON_CHECKSUM_KEY,         checksum,
+                                 JSON_REPLICATE_NUMBER_KEY, 1,
+                                 JSON_REPLICATE_STATUS_KEY, 1);
 
     baton_error_t error;
-    json_t *results = list_timestamps(conn, &rods_path, &error);
+    json_t *results = list_replicates(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
     ck_assert(json_is_array(results));
-    ck_assert_int_eq(json_array_size(results), 1);
-
-    size_t index;
-    json_t *elt;
-    json_array_foreach(results, index, elt) {
-         ck_assert(json_is_object(elt));
-        ck_assert_int_eq(json_object_size(elt), 3);
-        ck_assert(json_object_get(elt, JSON_CREATED_KEY));
-        ck_assert(json_object_get(elt, JSON_MODIFIED_KEY));
-        ck_assert(json_object_get(elt, JSON_REPLICATE_KEY));
-    }
+    ck_assert_int_eq(json_equal(results, expected), 1);
 
     json_decref(results);
+    json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_list_timestamps_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
+
+    baton_error_t error;
+    json_t *timestamps = list_timestamps(conn, &rods_path, &error);
+
+    ck_assert_int_eq(error.code, 0);
+    ck_assert(json_is_array(timestamps));
+
+    int num_timestamps = 1 * 2; // For 2 replicates
+    ck_assert_int_eq(json_array_size(timestamps), num_timestamps);
+
+    // These are raw timestamps where both created and modified times
+    // are present iRODS query results.
+    size_t index;
+    json_t *timestamp;
+    json_array_foreach(timestamps, index, timestamp) {
+        ck_assert(json_is_object(timestamp));
+        ck_assert_int_eq(json_object_size(timestamp), 3);
+        ck_assert(json_object_get(timestamp, JSON_CREATED_KEY));
+        ck_assert(json_object_get(timestamp, JSON_MODIFIED_KEY));
+        ck_assert(json_object_get(timestamp, JSON_REPLICATE_KEY));
+    }
+
+    json_decref(timestamps);
 
     if (conn) rcDisconnect(conn);
 }
 END_TEST
 
 START_TEST(test_list_timestamps_coll) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -721,26 +864,30 @@ START_TEST(test_list_timestamps_coll) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
-    json_t *results = list_timestamps(conn, &rods_path, &error);
+    json_t *timestamps = list_timestamps(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
-    ck_assert(json_is_array(results));
-    ck_assert_int_eq(json_array_size(results), 1);
+    ck_assert(json_is_array(timestamps));
+    ck_assert_int_eq(json_array_size(timestamps), 1);
 
+    // These are raw timestamps where both created and modified times
+    // are present iRODS query results. Unlike data object timestamps,
+    // there is no replicate number.
     size_t index;
-    json_t *elt;
-    json_array_foreach(results, index, elt) {
-        ck_assert(json_is_object(elt));
-        ck_assert_int_eq(json_object_size(elt), 2);
-        ck_assert(json_object_get(elt, JSON_CREATED_KEY));
-        ck_assert(json_object_get(elt, JSON_MODIFIED_KEY));
+    json_t *timestamp;
+    json_array_foreach(timestamps, index, timestamp) {
+        ck_assert(json_is_object(timestamp));
+        ck_assert_int_eq(json_object_size(timestamp), 2);
+        ck_assert(json_object_get(timestamp, JSON_CREATED_KEY));
+        ck_assert(json_object_get(timestamp, JSON_MODIFIED_KEY));
     }
 
-    json_decref(results);
+    json_decref(timestamps);
 
     if (conn) rcDisconnect(conn);
 }
@@ -748,6 +895,7 @@ END_TEST
 
 // Can we search for data objects by their metadata?
 START_TEST(test_search_metadata_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -755,8 +903,9 @@ START_TEST(test_search_metadata_obj) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
@@ -764,7 +913,7 @@ START_TEST(test_search_metadata_obj) {
     json_t *query = json_pack("{s:s, s:[o]}",
                               JSON_COLLECTION_KEY, rods_path.outPath,
                               JSON_AVUS_KEY,       avu);
-    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+    flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t expected_error1;
     search_metadata(conn, NULL, NULL, flags | PRINT_AVU, &expected_error1);
@@ -797,6 +946,7 @@ END_TEST
 // Can we search for data objects by their metadata, limiting scope by
 // path?
 START_TEST(test_search_metadata_path_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -804,8 +954,9 @@ START_TEST(test_search_metadata_path_obj) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     char search_root[MAX_PATH_LEN];
     snprintf(search_root, MAX_PATH_LEN, "%s/a/x/m", rods_path.outPath);
@@ -813,12 +964,11 @@ START_TEST(test_search_metadata_path_obj) {
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
                             JSON_VALUE_KEY,     "value1");
-
-    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
-
     json_t *query1 = json_pack("{s:s, s:[O]}",
                                JSON_COLLECTION_KEY, search_root,
                                JSON_AVUS_KEY,       avu);
+    flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+
     baton_error_t error1;
     json_t *results1 = search_metadata(conn, query1, NULL, flags | PRINT_AVU,
                                        &error1);
@@ -864,6 +1014,7 @@ END_TEST
 // Can we search for data objects by their metadata, limited by
 // permission?
 START_TEST(test_search_metadata_perm_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -874,8 +1025,9 @@ START_TEST(test_search_metadata_perm_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t mod_error;
     init_baton_error(&mod_error);
@@ -894,8 +1046,7 @@ START_TEST(test_search_metadata_perm_obj) {
     json_t *query = json_pack("{s:[o], s:[o]}",
                               JSON_AVUS_KEY,   avu,
                               JSON_ACCESS_KEY, perm);
-
-    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+    flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error;
     json_t *results = search_metadata(conn, query, NULL, flags| PRINT_AVU,
@@ -916,6 +1067,7 @@ END_TEST
 
 // Can we search for data objects, limited by creation timestamp?
 START_TEST(test_search_metadata_tps_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -923,8 +1075,9 @@ START_TEST(test_search_metadata_tps_obj) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t ts_error;
     json_t *current_tps = list_timestamps(conn, &rods_path, &ts_error);
@@ -945,7 +1098,7 @@ START_TEST(test_search_metadata_tps_obj) {
                                  JSON_AVUS_KEY,
                                  JSON_COLLECTION_KEY, rods_path.outPath,
                                  JSON_TIMESTAMPS_KEY, created_lt);
-    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+    flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error_lt;
     json_t *results_lt = search_metadata(conn, query_lt, NULL, flags,
@@ -995,6 +1148,7 @@ END_TEST
 
 // Can we search for collections by their metadata?
 START_TEST(test_search_metadata_coll) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1002,8 +1156,9 @@ START_TEST(test_search_metadata_coll) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     json_t *avu = json_pack("{s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr2",
@@ -1011,7 +1166,7 @@ START_TEST(test_search_metadata_coll) {
     json_t *query = json_pack("{s:s, s:[o]}",
                               JSON_COLLECTION_KEY, rods_path.outPath,
                               JSON_AVUS_KEY,       avu);
-    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+    flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
 
     baton_error_t error;
     json_t *results = search_metadata(conn, query, NULL, flags | PRINT_AVU,
@@ -1033,6 +1188,7 @@ END_TEST
 
 // Can we add an AVU to a data object?
 START_TEST(test_add_metadata_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1042,8 +1198,9 @@ START_TEST(test_add_metadata_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     // Bad call with no attr
     baton_error_t expected_error1;
@@ -1105,13 +1262,16 @@ END_TEST
 
 // Do we fail to add metadata to a non-existent path?
 START_TEST(test_add_metadata_missing_path) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
     char *path = "no such path";
     rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_path, path, flags, &resolve_error);
+
     baton_error_t expected_error;
-    resolve_rods_path(conn, &env, &rods_path, path);
     int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
                              "test_value", "test_units", &expected_error);
     ck_assert_int_ne(rv, 0);
@@ -1123,6 +1283,7 @@ END_TEST
 
 // Can we remove an AVU from a data object?
 START_TEST(test_remove_metadata_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1132,8 +1293,9 @@ START_TEST(test_remove_metadata_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
     init_baton_error(&error);
@@ -1158,6 +1320,7 @@ END_TEST
 
 // Can we add a JSON AVU to a data object?
 START_TEST(test_add_json_metadata_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1167,8 +1330,9 @@ START_TEST(test_add_json_metadata_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     // Bad AVU; not a JSON object
     json_t *bad_avu1 = json_pack("[]");
@@ -1223,6 +1387,7 @@ END_TEST
 
 // Can we remove a JSON AVU from a data object?
 START_TEST(test_remove_json_metadata_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1232,8 +1397,9 @@ START_TEST(test_remove_json_metadata_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     json_t *avu = json_pack("{s:s, s:s, s:s}",
                             JSON_ATTRIBUTE_KEY, "attr1",
@@ -1260,6 +1426,7 @@ END_TEST
 
 // Can we change permissions on a data object?
 START_TEST(test_modify_permissions_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1269,8 +1436,9 @@ START_TEST(test_modify_permissions_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     baton_error_t mod_error;
     init_baton_error(&mod_error);
@@ -1279,8 +1447,9 @@ START_TEST(test_modify_permissions_obj) {
     ck_assert_int_eq(rv, 0);
     ck_assert_int_eq(mod_error.code, 0);
 
-    json_t *expected = json_pack("{s:s, s:s}",
+    json_t *expected = json_pack("{s:s, s:s, s:s}",
                                  JSON_OWNER_KEY, "public",
+                                 JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
 
     baton_error_t list_error;
@@ -1310,6 +1479,7 @@ END_TEST
 
 // Can we change JSON permissions on a data object?
 START_TEST(test_modify_json_permissions_obj) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1319,8 +1489,9 @@ START_TEST(test_modify_json_permissions_obj) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     json_t *bad_perm1 = json_pack("{s:s}", JSON_OWNER_KEY, "public");
     baton_error_t expected_error1;
@@ -1346,8 +1517,9 @@ START_TEST(test_modify_json_permissions_obj) {
     ck_assert_int_eq(rv, 0);
     ck_assert_int_eq(error.code, 0);
 
-    json_t *expected = json_pack("{s:s, s:s}",
+    json_t *expected = json_pack("{s:s, s:s, s:s}",
                                  JSON_OWNER_KEY, "public",
+                                 JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
 
     baton_error_t list_error;
@@ -1419,6 +1591,49 @@ START_TEST(test_json_to_path) {
     ck_assert_ptr_eq(json_to_path(malformed_obj, &error_obj3), NULL);
     ck_assert_int_ne(error_obj3.code, 0);
     json_decref(malformed_obj);
+}
+END_TEST
+
+// Can we convert JSON representation to a useful local path string?
+START_TEST(test_json_to_local_path) {
+    const char *file_name = "file1.txt";
+    const char *file_path = "/file1/path";
+
+    const char *obj_name = "obj1.txt";
+    const char *coll_path = "/obj/path";
+
+    json_t *path1 = json_pack("{s:s s:s s:s s:s}",
+                              JSON_DIRECTORY_KEY,   file_path,
+                              JSON_FILE_KEY,        file_name,
+                              JSON_COLLECTION_KEY,  coll_path,
+                              JSON_DATA_OBJECT_KEY, obj_name);
+
+    baton_error_t error_path1;
+    ck_assert_str_eq(json_to_local_path(path1, &error_path1),
+                     "/file1/path/file1.txt");
+    ck_assert_int_eq(error_path1.code, 0);
+    json_decref(path1);
+
+    json_t *path2 = json_pack("{s:s s:s s:s}",
+                              JSON_FILE_KEY,        file_name,
+                              JSON_COLLECTION_KEY,  coll_path,
+                              JSON_DATA_OBJECT_KEY, obj_name);
+
+    baton_error_t error_path2;
+    ck_assert_str_eq(json_to_local_path(path1, &error_path2),
+                     "./file1.txt");
+    ck_assert_int_eq(error_path2.code, 0);
+    json_decref(path2);
+
+    json_t *path3 = json_pack("{s:s s:s}",
+                              JSON_COLLECTION_KEY,  coll_path,
+                              JSON_DATA_OBJECT_KEY, obj_name);
+
+    baton_error_t error_path3;
+    ck_assert_str_eq(json_to_local_path(path1, &error_path3),
+                     "./obj1.txt");
+    ck_assert_int_eq(error_path3.code, 0);
+    json_decref(path3);
 }
 END_TEST
 
@@ -1504,34 +1719,8 @@ START_TEST(test_represents_file) {
 }
 END_TEST
 
-// Can we get user information?
-START_TEST(test_get_user) {
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-
-    baton_error_t expected_error;
-    init_baton_error(&expected_error);
-    json_t *bad_user = get_user(conn, "no_such_user", &expected_error);
-    ck_assert_int_ne(expected_error.code, 0);
-    ck_assert_ptr_eq(bad_user, NULL);
-
-    baton_error_t error;
-    init_baton_error(&error);
-    json_t *user = get_user(conn, "public", &error);
-
-    ck_assert_int_eq(error.code, 0);
-    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_NAME_KEY));
-    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ID_KEY));
-    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_TYPE_KEY));
-    ck_assert_ptr_ne(NULL, json_object_get(user, JSON_USER_ZONE_KEY));
-
-    json_decref(user);
-
-    if (conn) rcDisconnect(conn);
-}
-END_TEST
-
 START_TEST(test_write_path_to_stream) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1542,8 +1731,9 @@ START_TEST(test_write_path_to_stream) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
 
     rodsPath_t rods_obj_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     FILE *tmp = tmpfile();
     ck_assert_ptr_ne(NULL, tmp);
@@ -1558,16 +1748,16 @@ START_TEST(test_write_path_to_stream) {
 
     unsigned char digest[16];
     MD5_CTX context;
-    MD5Init(&context);
+    compat_MD5Init(&context);
 
     char buffer[1024];
 
     size_t n;
     while ((n = fread(buffer, 1, 1024, tmp)) > 0) {
-        MD5Update(&context, buffer, n);
+        compat_MD5Update(&context, (unsigned char *) buffer, n);
     }
 
-    MD5Final(digest, &context);
+    compat_MD5Final(digest, &context);
 
     char *md5 = calloc(33, sizeof (char));
     for (int i = 0; i < 16; i++) {
@@ -1584,6 +1774,7 @@ START_TEST(test_write_path_to_stream) {
 END_TEST
 
 START_TEST(test_slurp_file) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1594,8 +1785,9 @@ START_TEST(test_slurp_file) {
     snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
 
     rodsPath_t rods_obj_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
 
     // Test a range of buffer sizes, both smaller and larger than the
     // data
@@ -1627,6 +1819,7 @@ START_TEST(test_slurp_file) {
 END_TEST
 
 START_TEST(test_regression_github_issue83) {
+    option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
@@ -1634,8 +1827,9 @@ START_TEST(test_regression_github_issue83) {
     set_current_rods_root(BASIC_COLL, rods_root);
 
     rodsPath_t rods_path;
-    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root),
-                     EXIST_ST);
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, rods_root,
+                                       flags, &resolve_error), EXIST_ST);
 
     json_t *avu1 = json_pack("{s:s, s:s}",
                              JSON_ATTRIBUTE_KEY, "a",
@@ -1654,7 +1848,7 @@ START_TEST(test_regression_github_issue83) {
                              JSON_ATTRIBUTE_KEY, "b",
                              JSON_VALUE_KEY,     "z");
 
-    option_flags flags = SEARCH_OBJECTS;
+    flags = SEARCH_OBJECTS;
     json_t *expected = json_pack("[{s:s, s:s}]",
                                  JSON_COLLECTION_KEY, rods_path.outPath,
                                  JSON_DATA_OBJECT_KEY, "r1.txt");
@@ -1706,6 +1900,7 @@ Suite *baton_suite(void) {
     tcase_add_test(utilities_tests, test_maybe_stdin);
     tcase_add_test(utilities_tests, test_format_timestamp);
     tcase_add_test(utilities_tests, test_parse_timestamp);
+    tcase_add_test(utilities_tests, test_parse_size);
     tcase_add_test(utilities_tests, test_to_utf8);
 
     TCase *basic_tests = tcase_create("basic");
@@ -1730,6 +1925,8 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_list_metadata_obj);
     tcase_add_test(basic_tests, test_list_metadata_coll);
 
+    tcase_add_test(basic_tests, test_list_replicates_obj);
+
     tcase_add_test(basic_tests, test_list_timestamps_obj);
     tcase_add_test(basic_tests, test_list_timestamps_coll);
 
@@ -1753,9 +1950,8 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_represents_file);
 
     tcase_add_test(basic_tests, test_json_to_path);
+    tcase_add_test(basic_tests, test_json_to_local_path);
     tcase_add_test(basic_tests, test_contains_avu);
-
-    tcase_add_test(basic_tests, test_get_user);
 
     tcase_add_test(basic_tests, test_write_path_to_stream);
     tcase_add_test(basic_tests, test_slurp_file);

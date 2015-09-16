@@ -1,0 +1,48 @@
+	[0.15.0]
+
+	Added a --checksum option to the CLI of baton-list and
+	baton-metaquery which allows data object checksums to be reported.
+
+	Added reporting of a user's or group's zone to results obtained
+	when querying permissions.
+
+	[0.14.0]
+
+	Fixed a bug that caused queries on ACLs across zones to return no
+	results.
+
+	Added support for iRODS 4.1.x. Support for 4.0.x is temporarily
+	suspended until after the release of iRODS 4.1.0.
+
+	Added a safe mode requiring the use of absolute iRODS paths. This
+	is the default and may be disabled by using the --unsafe command
+	line argument.
+
+	Added a convenience Perl script 'baton' to generate baton-format
+	JSON for input to the C programs (as an alternative to using
+	'jq').
+
+	Added libtool version information to the shared library.
+
+	[0.13.0]
+
+	Queries for timestamps and no longer limited to replicate '0'' and
+	timestamps for all replicates are reported, rather than just the
+	most recent.
+
+	[0.12.0]
+
+	Added support for the 'NOT LIKE' and 'IN' query
+	operators. Contribution from Joshua Randall.
+
+	Added --with-irods=/path/to/irods option to the configure script.
+
+	[0.11.1]
+
+	Added a --buffer-size option to baton-get. This enables the data
+	transfer buffer size to be set by the user.
+
+	[0.11.0]
+
+	Added baton-get program to allow data to be downloaded as files
+	or inline JSON.

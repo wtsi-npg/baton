@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ typedef struct baton_error {
     int code;
     /** Error message */
     char message[MAX_ERROR_MESSAGE_LEN];
-    /** Error message length */
+    /** Error message length, including terminating null byte */
     size_t size;
 } baton_error_t;
 

@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,10 +22,11 @@
 #ifndef _BATON_JSON_QUERY_H
 #define _BATON_JSON_QUERY_H
 
-#include "rodsClient.h"
 #include <jansson.h>
 
+#include "config.h"
 #include "error.h"
+#include "irods_api.h"
 #include "query.h"
 #include "utilities.h"
 
@@ -161,12 +163,6 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error);
 
-json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
-                           baton_error_t *error);
-
-json_t *add_tps_json_object(rcComm_t *conn, json_t *target,
-                            baton_error_t *error);
-
 json_t *add_acl_json_array(rcComm_t *conn, json_t *target,
                            baton_error_t *error);
 
@@ -178,5 +174,29 @@ json_t *add_avus_json_array(rcComm_t *conn, json_t *target,
 
 json_t *add_avus_json_object(rcComm_t *conn, json_t *target,
                              baton_error_t *error);
+
+json_t *add_repl_json_array(rcComm_t *conn, json_t *array,
+                           baton_error_t *error);
+
+json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
+                             baton_error_t *error);
+
+json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
+                           baton_error_t *error);
+
+json_t *add_tps_json_object(rcComm_t *conn, json_t *target,
+                            baton_error_t *error);
+
+json_t *add_checksum_json_array(rcComm_t *conn, json_t *array,
+                                baton_error_t *error);
+
+json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
+                                 baton_error_t *error);
+
+json_t *map_access_args(json_t *access, baton_error_t *error);
+
+json_t *revmap_access_result(json_t *access, baton_error_t *error);
+
+json_t *revmap_replicate_results(json_t *results, baton_error_t *error);
 
 #endif  // _BATON_JSON_QUERY_H

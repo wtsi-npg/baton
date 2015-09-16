@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
  */
 
 // For strptime
-#include <config.h>
+#include "config.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -33,7 +33,7 @@
 #include "utilities.h"
 
 char *copy_str(const char *str, size_t max_len) {
-    size_t term_len = strnlen(str, max_len) + 1;
+    size_t term_len = strnlen(str, max_len) + 1; // +1 for NUL
     char *copy = NULL;
 
     if (term_len > MAX_STR_LEN) {

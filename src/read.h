@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2014, 2015 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,11 +21,9 @@
 #ifndef _READ_H
 #define _READ_H
 
-#include "dataObjOpen.h"
-#include "dataObjRead.h"
-#include "dataObjClose.h"
-
+#include "config.h"
 #include "error.h"
+#include "irods_api.h"
 #include "log.h"
 
 /**

@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +27,7 @@
 
 #include <jansson.h>
 
+#include "config.h"
 #include "json.h"
 #include "log.h"
 #include "utilities.h"
@@ -55,7 +57,6 @@ json_t *error_to_json(baton_error_t *error) {
     json_t *err = json_pack("{s:s, s:i}",
                             JSON_ERROR_MSG_KEY , error->message,
                             JSON_ERROR_CODE_KEY, error->code);
-
     if (!err) {
         logmsg(ERROR, "Failed to pack error '%s' as JSON", error->message);
     }
@@ -71,6 +72,7 @@ int add_error_value(json_t *object, baton_error_t *error) {
 json_t *get_acl(json_t *object, baton_error_t *error) {
     json_t *acl = get_json_value(object, "path spec", JSON_ACCESS_KEY, NULL,
                                  error);
+    if (error->code != 0) goto error;
     if (!json_is_array(acl)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON array",
@@ -87,6 +89,7 @@ error:
 json_t *get_avus(json_t *object, baton_error_t *error) {
     json_t *avus = get_json_value(object, "path spec", JSON_AVUS_KEY, NULL,
                                   error);
+    if (error->code != 0) goto error;
     if (!json_is_array(avus)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON array",
@@ -104,6 +107,7 @@ json_t *get_timestamps(json_t *object, baton_error_t *error) {
     json_t *timestamps = get_json_value(object, "path spec",
                                         JSON_TIMESTAMPS_KEY,
                                         JSON_TIMESTAMPS_SHORT_KEY, error);
+    if (error->code != 0) goto error;
     if (!json_is_array(timestamps)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON array",
@@ -167,6 +171,71 @@ const char *get_avu_value(json_t *avu, baton_error_t *error) {
                             JSON_VALUE_SHORT_KEY, error);
 }
 
+char *make_in_op_value(json_t *avu, baton_error_t *error) {
+    json_t *op_value = NULL;
+    json_t *valarray = get_json_value(avu, "value", JSON_VALUE_KEY,
+                                      JSON_VALUE_SHORT_KEY, error);
+    if (error->code != 0) goto error;
+    if (!json_is_array(valarray)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid 'value' attribute: not a JSON array "
+                        "(required for `in` condition)");
+        goto error;
+    }
+
+    json_t *prev_value;
+    // Open paren
+    op_value = json_string("(");
+
+    size_t index;
+    json_t *value;
+    json_array_foreach(valarray, index, value) {
+        if (!json_is_string(value)) {
+            set_baton_error(error, CAT_INVALID_ARGUMENT,
+                            "Invalid AVU value: not a JSON string "
+                            "in item %d of `in` array", index);
+            goto error;
+        }
+
+        prev_value = op_value;
+        json_t *tmp;
+        if (index == 0) {
+            tmp = json_pack("s+++", json_string_value(prev_value),
+                            "'", json_string_value(value),  "'");
+
+        }
+        else {
+            tmp = json_pack("s+++", json_string_value(prev_value),
+                            ", '", json_string_value(value), "'");
+        }
+
+        if (tmp) {
+            op_value = tmp;
+            json_decref(prev_value);
+        }
+    }
+
+    // Close paren
+    prev_value = op_value;
+    json_t *tmp = json_pack("s+", json_string_value(op_value), ")");
+    if (tmp) {
+        op_value = tmp;
+        json_decref(prev_value);
+    }
+
+    logmsg(DEBUG, "Using IN value of %s", json_string_value(op_value));
+
+    char *copy = copy_str(json_string_value(op_value), MAX_STR_LEN);
+    json_decref(op_value);
+
+    return copy;
+
+error:
+    if (op_value) json_decref(op_value);
+
+    return NULL;
+}
+
 const char *get_avu_units(json_t *avu, baton_error_t *error) {
     return get_opt_string_value(avu, "AVU", JSON_UNITS_KEY,
                                 JSON_UNITS_SHORT_KEY, error);
@@ -190,12 +259,22 @@ const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
                                 JSON_OPERATOR_SHORT_KEY, error);
 }
 
+int has_collection(json_t *object) {
+    baton_error_t error;
+
+    init_baton_error(&error); // Ignore error
+
+    return get_opt_string_value(object, "path spec", JSON_COLLECTION_KEY,
+                                JSON_COLLECTION_SHORT_KEY, &error) != NULL;
+}
+
 int has_acl(json_t *object) {
     return json_object_get(object, JSON_ACCESS_KEY) != NULL;
 }
 
 int has_timestamps(json_t *object) {
   baton_error_t error;
+
   init_baton_error(&error); // Ignore error
 
   return get_timestamps(object, &error) != NULL;
@@ -309,6 +388,53 @@ error:
     return error->code;
 }
 
+int add_replicates(json_t *object, json_t *replicates, baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add replicates data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_REPLICATE_KEY, replicates);
+
+error:
+    return error->code;
+}
+
+int add_checksum(json_t *object, json_t *checksum, baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add checksum data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_CHECKSUM_KEY, checksum);
+
+error:
+    return error->code;
+}
+
+int add_collection(json_t *object, const char *coll_name,
+                   baton_error_t *error) {
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add collection data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    json_t *coll = json_pack("s", coll_name);
+    if (!coll) {
+        set_baton_error(error, -1, "Failed to pack data object '%s' as JSON",
+                        coll_name);
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_COLLECTION_KEY, coll);
+
+error:
+    return error->code;
+}
+
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error) {
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add AVU data: "
@@ -354,7 +480,6 @@ json_t *data_object_parts_to_json(const char *coll_name,
     json_t *result = json_pack("{s:s, s:s}",
                                JSON_COLLECTION_KEY,  coll_name,
                                JSON_DATA_OBJECT_KEY, data_name);
-
     if (!result) {
         set_baton_error(error, -1, "Failed to pack data object '%s/%s' as JSON",
                         coll_name, data_name);
@@ -410,7 +535,6 @@ error:
 }
 
 json_t *collection_path_to_json(const char *path, baton_error_t *error) {
-
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
         set_baton_error(error, -1, "Failed to pack collection '%s' as JSON",
@@ -425,12 +549,13 @@ error:
 }
 
 char *json_to_path(json_t *object, baton_error_t *error) {
+    char *path = NULL;
+
     init_baton_error(error);
 
     const char *collection = get_collection_value(object, error);
     if (error->code != 0) goto error;
 
-    char *path = NULL;
     if (represents_collection(object)) {
         path = make_dir_path(collection, error);
     }
@@ -444,56 +569,68 @@ char *json_to_path(json_t *object, baton_error_t *error) {
     return path;
 
 error:
+    if (path) free(path);
+
+    return NULL;
+}
+
+char *json_to_collection_path(json_t *object, baton_error_t *error) {
+    char *path = NULL;
+
+    init_baton_error(error);
+
+    const char *collection = get_collection_value(object, error);
+    if (error->code != 0) goto error;
+
+    path = make_dir_path(collection, error);
+    if (error->code != 0) goto error;
+
+    return path;
+
+error:
+    if (path) free(path);
+
     return NULL;
 }
 
 char *json_to_local_path(json_t *object, baton_error_t *error) {
-    init_baton_error(error);
-
     char *path = NULL;
+
+    init_baton_error(error);
 
     const char *directory = get_directory_value(object, error);
     if (error->code != 0) goto error;
     const char *filename = get_file_value(object, error);
     if (error->code != 0) goto error;
+    const char *data_object = get_data_object_value(object, error);
+    if (error->code != 0) goto error;
 
-    if (represents_directory(object) && !represents_data_object(object)) {
-        // A collection to local directory mapping
+    if (directory && filename) {
+        path = make_file_path(directory, filename, error);
+    }
+    else if (directory && data_object) {
+        path = make_file_path(directory, data_object, error);
+    }
+    else if (filename) {
+        path = make_file_path(".", filename, error);
+    }
+     else if (data_object) {
+        path = make_file_path(".", data_object, error);
+    }
+    else if (directory) {
         path = make_dir_path(directory, error);
-        if (error->code != 0) goto error;
     }
     else {
-        // All these are data object to local file mappings
-        if (represents_directory(object) && represents_data_object(object)) {
-            // No local filename; use the data object name as
-            // surrogate filename
-            const char *surrogate = get_data_object_value(object, error);
-            if (error->code != 0) goto error;
-            path = make_file_path(directory, surrogate, error);
-            if (error->code != 0) goto error;
-        }
-        else if (represents_file(object)) {
-            // Both local directory and filename specified
-            path = make_file_path(directory, filename, error);
-            if (error->code != 0) goto error;
-        }
-        else if (!directory && filename) {
-            // No local directory, use CWD as surrogate
-            path = make_file_path(".", filename, error);
-            if (error->code != 0) goto error;
-        }
-        else if (!filename) {
-            // No local filename, use data object name as surrogate
-            const char *surrogate = get_data_object_value(object, error);
-            if (error->code != 0) goto error;
-            path = make_file_path(".", surrogate, error);
-            if (error->code != 0) goto error;
-        }
+        path = make_dir_path(".", error);
     }
+
+    if (error->code != 0) goto error;
 
     return path;
 
 error:
+    if (path) free(path);
+
     return NULL;
 }
 

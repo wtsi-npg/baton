@@ -22,8 +22,8 @@ iRODS:
   performing updates.
 
 * Listing of data objects and collections as JSON, including their
-  metadata (AVUs), file size, access control lists (ACLs) and creation
-  and modification timestamps.
+  metadata (AVUs), file size, replicates, checksums, access control
+  lists (ACLs) and creation and modification timestamps.
 
 * Queries on metadata, on access control lists (ACLs), creation and
   modification timestamps and timestamp ranges. The full range of
@@ -53,50 +53,46 @@ iRODS C API and requires a C compiler to build.
    <http://www.digip.org/jansson/>`_ ) as described in their
    documentation.
 
-2. Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation
-   (assuming bash)
-
-.. code-block:: sh
-
-   IRODS_HOME=<path to iRODS> source set_irods_home.sh
-
-3. Generate the configure script
+2. Generate the configure script. If you download a release tar.gz
+   archive, you may skip this step because the configure script is
+   included.
 
 .. code-block:: sh
 
    autoreconf -i
 
-4. Generate the makefiles (see INSTALL for arguments to configure)
+3. Generate the makefiles (see INSTALL for arguments to configure).
+   The path to iRODS must be the root directory of the iRODS installation,
+   which defaults to ``/usr/local/lib/irods``.
 
 .. code-block:: sh
 
-   ./configure
+   ./configure --with-irods=/path/to/irods
 
-5. Compile
+4. Compile
 
 .. code-block:: sh
 
    make
 
-6.  Optionally, run the test suite
+5.  Optionally, run the test suite
 
 .. code-block:: sh
 
    make check
 
-7. If you have run configure with the optional --enable-coverage flag
+6. If you have run configure with the optional --enable-coverage flag
    you can generate test coverage statistics with lcov.
 
 .. code-block:: sh
 
    make check-coverage
 
-8. Install, including HTML manual and manpage.
+7. Install, including HTML manual and manpage.
 
 .. code-block:: sh
 
    make clean install
-
 
 
 The ``baton`` suite of programs
@@ -105,6 +101,14 @@ The ``baton`` suite of programs
 ``baton`` comprises several command-line programs, all of which accept
 a stream of JSON objects on standard input (or from a file) and emit a
 stream of JSON objects on standard output. The ``baton`` programs are:
+
+* `baton-chmod`_
+
+  Modify the access control lists of collections and data objects.
+
+* `baton-get`_
+
+  Download data objects as raw files or with metadata, embedded in JSON.
 
 * `baton-list`_
 
@@ -116,19 +120,15 @@ stream of JSON objects on standard output. The ``baton`` programs are:
   Add or remove specfic :term:`AVU` s in the metadata on collections
   and data objects.
 
-* `baton-metasuper`
-
-  Replace all :term:`AVU` s in the metadata on collections and data
-  objects.
-
 * `baton-metaquery`_
 
   Print the paths, metadata and access control lists of collections
   and data objects matching queries on metadata.
 
-* `baton-chmod`_
+* `baton-metasuper`
 
-  Modify the access control lists of collections and data objects.
+  Replace all :term:`AVU` s in the metadata on collections and data
+  objects.
 
 All of the programs are designed to accept a stream of JSON objects,
 one for each operation on a collection or data object. After each
@@ -139,83 +139,59 @@ bidirectional communication via Unix pipes.
 For details of how errors are handled, see :ref:`representing_errors`.
 
 
-baton-list
-----------
-
-Synopsis:
+baton-chmod
+-----------
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "test"}' | baton-list
+   $ jq -n '{collection: "/unit/home/user",                            \
+                access: [{owner: "public", level: "null"},  \
+                         {owner: "admin",  level: "own"}]}' | baton-chmod --recurse
 
-   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | baton-list
-
-This program accepts JSON objects as described in
-:ref:`representing_paths` and prints results in the same format. If
-the target path is a data object, the printed result is also a data
-object. However, if the target path is a collection, the printed
-result is a JSON array of JSON objects containing one object
-representing the target collection followed by one for each collection
-or data object directly within the target.
+   $ jq -n '{collection: "/unit/home/user", data_object: "a.txt"          \
+                 access: [{owner: "oscar",  level: "read"},    \
+                          {owner: "victor", level: "write"}]}' | baton-chmod
 
 Options
 ^^^^^^^
 
-.. program:: baton-list
-.. option:: --acl
-
-  Print access control lists in the output, in the format described in
-  :ref:`representing_path_permissions`.
-
-.. program:: baton-list
-.. option:: --avu
-
-  Print AVU lists in output, in the format described in
-  :ref:`representing_path_metadata`.
-
-
-.. program:: baton-list
-.. option:: --contents
-
-  If the path is a collection print its contents, in the format described in
-  :ref:`representing_path_metadata`. Only the paths contained directly
-  within a collection are printed.
-
-
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --help
 
   Prints command line help.
 
-.. program:: baton-list
-.. option:: --size
+.. program:: baton-chmod
+.. option:: --recurse
 
-  Print data object sizes in the output. These appear as JSON integers under
-  the property 'size'.
+  Recurse into collections. Defaults to false.
 
-.. program:: baton-list
-.. option:: --timestamp
+.. program:: baton-chmod
+.. option:: --silent
 
-  Print data object timestamps in the output, in the format described in
-  :ref:`representing_timestamps`.
+   Silence error messages.
 
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
 
-.. program:: baton-list
+.. program:: baton-chmod
+.. option:: --unsafe
+
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+
+.. program:: baton-chmod
 .. option:: --verbose
 
   Print verbose messages to STDERR.
 
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --version
 
   Print the version number and exit.
@@ -295,10 +271,16 @@ Options
   each file downloaded.
 
 .. program:: baton-get
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-get
 .. option:: --size
 
   Print data object sizes in the output. These appear as JSON integers under
-  the property 'size'.
+  the property 'size'. Where there are replicates, the size of the latest
+  (highest numbered) replicate is reported.
 
 .. program:: baton-get
 .. option:: --timestamp
@@ -312,11 +294,112 @@ Options
   Flush output after each JSON object is processed.
 
 .. program:: baton-get
+.. option:: --unsafe
+
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+
+.. program:: baton-get
 .. option:: --verbose
 
   Print verbose messages to STDERR.
 
 .. program:: baton-get
+.. option:: --version
+
+  Print the version number and exit.
+
+
+baton-list
+----------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{collection: "/unit/home/user/"}' | baton-list
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | baton-list
+
+This program accepts JSON objects as described in
+:ref:`representing_paths` and prints results in the same format. If
+the target path is a data object, the printed result is also a data
+object. However, if the target path is a collection, the printed
+result is a JSON array of JSON objects containing one object
+representing the target collection followed by one for each collection
+or data object directly within the target.
+
+Options
+^^^^^^^
+
+.. program:: baton-list
+.. option:: --acl
+
+  Print access control lists in the output, in the format described in
+  :ref:`representing_path_permissions`.
+
+.. program:: baton-list
+.. option:: --avu
+
+  Print AVU lists in output, in the format described in
+  :ref:`representing_path_metadata`.
+
+.. program:: baton-list
+.. option:: --checksum
+
+  Print the current checksums of data objects. This does not recalulate
+  checksums.
+
+.. program:: baton-list
+.. option:: --contents
+
+  If the path is a collection print its contents, in the format described in
+  :ref:`representing_path_metadata`. Only the paths contained directly
+  within a collection are printed.
+
+.. program:: baton-list
+.. option:: --file <file name>
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+.. program:: baton-list
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-list
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-list
+.. option:: --size
+
+  Print data object sizes in the output. These appear as JSON integers under
+  the property 'size'.
+
+.. program:: baton-list
+.. option:: --timestamp
+
+  Print data object timestamps in the output, in the format described in
+  :ref:`representing_timestamps`.
+
+.. program:: baton-list
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-list
+.. option:: --unsafe
+
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+
+.. program:: baton-list
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-list
 .. option:: --version
 
   Print the version number and exit.
@@ -329,11 +412,11 @@ Synopsis:
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "test", data_object: "a.txt",     \
+   $ jq -n '{collection: "/home/test", data_object: "a.txt",     \
                   "avus": [{attribute: "x", value: "y"},   \
                            {attribute: "m", value: "n"}]}' | baton-metamod --operation add
 
-   $ jq -n '{collection: "test", data_object: "a.txt",    \
+   $ jq -n '{collection: "/home/test", data_object: "a.txt",    \
                    avus: [{attribute: "x", value: "y"},   \
                           {attribute: "m", value: "n"}]}' | baton-metamod --operation rem
 
@@ -361,9 +444,19 @@ Options
   The operation to perform; one of ``add`` or ``remove``.
 
 .. program:: baton-metamod
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-metamod
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
+
+.. program:: baton-metamod
+.. option:: --unsafe
+
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
 
 .. program:: baton-metamod
 .. option:: --verbose
@@ -385,7 +478,7 @@ Synopsis:
 
    $ jq -n '{avus: []}' | baton-metaquery
 
-   $ jq -n '{collection: "test", avus: []}' | baton-metaquery
+   $ jq -n '{collection: "/unit/home/user", avus: []}' | baton-metaquery
 
    $ jq -n '{avus: [{attribute: "x", value: "y"}]}' | baton-metaquery
 
@@ -402,7 +495,6 @@ optional ``collection`` property which limits the scope of the
 associated metadata query to returning only those results that lie
 somewhere under that collection.
 
-
 Options
 ^^^^^^^
 
@@ -417,6 +509,12 @@ Options
 
   Print AVU lists in the output, in the format described in
   :ref:`representing_path_metadata`.
+
+.. program:: baton-metaquery
+.. option:: --checksum
+
+  Print the current checksums of data objects. This does not recalulate
+  checksums.
 
 .. program:: baton-metaquery
 .. option:: --coll
@@ -440,6 +538,11 @@ Options
    Limit the search to data object metadata only.
 
 .. program:: baton-metaquery
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-metaquery
 .. option:: --size
 
   Print data object sizes in the output. These appear as JSON integers under
@@ -457,6 +560,11 @@ Options
   Flush output after each JSON object is processed.
 
 .. program:: baton-metaquery
+.. option:: --unsafe
+
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+
+.. program:: baton-metaquery
 .. option:: --verbose
 
   Print verbose messages to STDERR.
@@ -471,55 +579,6 @@ Options
 
    Query in a specific zone.
 
-
-baton-chmod
------------
-
-.. code-block:: sh
-
-   $ jq -n '{collection: "test",                            \
-                access: [{owner: "public", level: "null"},  \
-                         {owner: "admin",  level: "own"}]}' | baton-chmod --recurse
-
-   $ jq -n '{collection: "test", data_object: "a.txt"          \
-                 access: [{owner: "oscar",  level: "read"},    \
-                          {owner: "victor", level: "write"}]}' | baton-chmod
-
-Options
-^^^^^^^
-
-.. program:: baton-chmod
-.. option:: --file <file name>
-
-  The JSON file describing the data objects and collections. Optional,
-  defaults to STDIN.
-
-.. program:: baton-chmod
-.. option:: --help
-
-  Prints command line help.
-
-.. program:: baton-chmod
-.. option:: --recurse
-
-  Recurse into collections. Defaults to false.
-
-.. program:: baton-chmod
-.. option:: --unbuffered
-
-  Flush output after each JSON object is processed.
-
-.. program:: baton-chmod
-.. option:: --verbose
-
-  Print verbose messages to STDERR.
-
-.. program:: baton-chmod
-.. option:: --version
-
-  Print the version number and exit.
-
-
 .. _representing_paths:
 
 Representing data objects and collections
@@ -533,7 +592,17 @@ be represented by either of:
 .. code-block:: json
 
    {"collection": "."}
-   {"coll": "."}
+   {"coll": ""}
+
+.. warning:: Relative paths in iRODS are dangerous!
+
+iRODS 3.x - 4.1.x have a bug which means that a client's current
+working collection may, in rare cases, change without notice.
+
+See https://github.com/irods/irods/issues/2406
+
+As a consequence, ``baton`` rejects all relative paths, unless the
+``--unsafe`` command line argument is given.
 
 The value associated with the ``collection`` property may be any iRODS
 path, absolute or relative, in UTF-8 encoding. A trailing slash on
@@ -559,8 +628,8 @@ collection may be represented by either of:
 
 .. code-block:: json
 
-  {"collection:" ".", "data_object": "README.txt"}
-  {"coll:" ".", "obj": "README.txt"}
+  {"collection:" "/unit/home/user", "data_object": "README.txt"}
+  {"coll:" "/unit/home/user", "obj": "README.txt"}
 
 The value associated with the ``data_object`` property may be any
 iRODS data object name, in UTF-8 encoding. The full path of the data
@@ -568,11 +637,23 @@ object may be recreated by concatenating the ``collection`` and
 ``data_object`` values. Data objects reported by listing or searches
 will may information on the file size under the ``size`` property. The
 value is a JSON integer indicating the file size in bytes as given in
-the ICAT database.
+the ICAT database. If checksum reporting has been requested, data
+object checksums are given under the ``checksum`` property.
 
 .. code-block:: json
 
-  {"collection:" ".", "data_object": "README.txt", "size": 123456}
+  {"collection:" "/unit/home/user", "data_object": "README.txt", "size": 123456}
+
+In cases where data objects have replicates, the full details of
+replication may be displayed, including replicate identity numbers,
+status (valid or invalid) and checksum.
+
+.. code-block:: json
+
+  {"collection": "/unit/home/user", "data_object": "README.txt",
+   "replicate": [{"checksum": "2ebec02316ddc3ee64a67c89b5e3140c",
+                 "number": 0,
+                 "valid": true}]}
 
 The above JSON representations of collections and data objects are
 sufficient to be passed to baton's ``baton-list`` program, which
@@ -622,7 +703,7 @@ identical.
 
 .. code-block:: json
 
-  {"collection": ".", "data_object": "README.txt",
+  {"collection": "/unit/home/user", "data_object": "README.txt",
    "directory:" ".",  "file": "README.txt"}
 
 
@@ -630,6 +711,7 @@ identical.
 
 Representing metadata
 =====================
+
 
 .. _representing_path_metadata:
 
@@ -659,6 +741,7 @@ properties have shorter synonyms ``a``, ``v`` and ``u``, respectively.
 
 Any path that has no metadata may have an ``avus`` property with an
 empty JSON array as its value.
+
 
 .. _representing_query_metadata:
 
@@ -690,6 +773,8 @@ available operators are:
 
 * ``=``
 * ``like``
+* ``not like``
+* ``in``
 * ``>``
 * ``n>`` (numeric coercion)
 * ``<``
@@ -698,6 +783,15 @@ available operators are:
 * ``n>=`` (numeric coercion)
 * ``<=``
 * ``n<=`` (numeric coercion)
+
+The ``in`` operator requires that the attribute's value in the query
+be a JSON list of possible strings to test. A successful match will be
+any metadata having one of those strings as a value for that
+attribute. e.g.
+
+.. code-block:: json
+
+   {"avus": [{"attribute": "a", "value": ["a", "b", "c"], "operator": "in"}]}
 
 To modify the above query to return results only where the attribute
 ``x`` has values numerically less than 100, the JSON :term:`AVU` would
@@ -772,9 +866,9 @@ shorter synonyms ``c``, ``m``, respectively.
                    {"modified": "2014-01-01T00:00:00"}]}
 
 Data objects may have replicates in iRODS. Where data object
-timestamps are reported by ``baton``, only the values for the
-lowest-numbered replicate are reported. The replicate number is given
-in the timestamp object as a JSON integer.
+timestamps are reported by ``baton``, the values for all replicates are
+reported. The replicate number is given in the timestamp object as a JSON
+integer.
 
 .. code-block:: json
 
@@ -820,10 +914,12 @@ modified in 2014-03, the syntax would be:
                    {"modified": "2014-03-01T00:00:00", "operator": "n>="},
                    {"modified": "2014-03-31T00:00:00", "operator": "n<"}]}
 
+
 .. _representing_permissions:
 
 Representing Access Control Lists
 =================================
+
 
 .. _representing_path_permissions:
 
@@ -838,13 +934,14 @@ and a ``level`` property.
 .. code-block:: json
 
    {"collection": "/unit/home/user",
-        "access": [{"owner": "user",   "level": "own"},
-                   {"owner": "public", "level": "read"}]}
+        "access": [{"owner": "user",   "zone": "unit", "level": "own"},
+                   {"owner": "public", "zone": "unit", "level": "read"}]}
 
 The value associated with the ``owner`` property must be an iRODS user
 or group name. The value associated with the ``level`` property must
 be an iRODS symbolic access level string (i.e. "null", "read", "write"
-or "own").
+or "own"). Permissions read from iRODS will also have a ``zone``
+property, indicating the zone to which the owner belongs.
 
 
 .. _representing_query_permissions:
@@ -915,6 +1012,37 @@ The ``baton`` Cookbook
 ``jq`` is used to ease the *de novo* creation of JSON in the shell and
 to process the results returned by ``baton``.
 
+.. topic:: Perform operations on a large number of iRODS items
+
+   Perform operations on a large number of iRODS items, over a single
+   connection.
+
+.. code-block:: sh
+
+   jq -n -c '{coll: "/zone1/home/user/data", obj: "f1.txt"}'  > in.json
+   jq -n -c '{coll: "/zone1/home/user/data", obj: "f2.txt"}' >> in.json
+   jq -n -c '{coll: "/zone1/home/user/data", obj: "f3.txt"}' >> in.json
+
+   baton-list < in.json
+
+Result:
+
+.. code-block:: json
+
+   {
+      "data_object": "f1.txt",
+      "collection": "/zone1/home/user/data"
+   }
+   {
+      "data_object": "f2.txt",
+      "collection": "/zone1/home/user/data"
+   }
+   {
+      "data_object": "f3.txt",
+      "collection": "/zone1/home/user/data"
+   }
+
+
 .. topic:: List the contents of the current working collection
 
    List the contents of the current working collection as flat paths
@@ -922,19 +1050,19 @@ to process the results returned by ``baton``.
 
 .. code-block:: sh
 
-   jq -n '{coll: "."}' | baton-list | jq -r '.[] | .collection + "/" + .data_object'
+   jq -n '{coll: "/zone1/home/user/data"}' | baton-list | jq -r '.[] | .collection + "/" + .data_object'
 
 Result:
 
 .. code-block:: sh
 
-    /unit/home/user/data/
-    /unit/home/user/data/f1.txt
-    /unit/home/user/data/f2.txt
-    /unit/home/user/data/f3.txt
-    /unit/home/user/data/a/
-    /unit/home/user/data/b/
-    /unit/home/user/data/c/
+    /zone1/home/user/data/
+    /zone1/home/user/data/f1.txt
+    /zone1/home/user/data/f2.txt
+    /zone1/home/user/data/f3.txt
+    /zone1/home/user/data/a/
+    /zone1/home/user/data/b/
+    /zone1/home/user/data/c/
 
 
 .. topic:: List the contents of a collection by metadata (I)
@@ -945,7 +1073,7 @@ Result:
 
 .. code-block:: sh
 
-   jq -n '{coll: "data"}' | baton-list --avu | jq 'map(select(.avus[] | select(.attribute == "attr_a")))'
+   jq -n '{coll: "/zone1/home/user/data"}' | baton-list --avu | jq 'map(select(.avus[] | select(.attribute == "attr_a")))'
 
 Result:
 
@@ -981,7 +1109,7 @@ Result:
 
 .. code-block:: sh
 
-   jq -n '{coll: "data", avus: [{a: "attr_a", v: "%", o: "like"}]}' | baton-metaquery --avu | jq '.'
+   jq -n '{coll: "/zone1/home/user", avus: [{a: "attr_a", v: "%", o: "like"}]}' | baton-metaquery --avu | jq '.'
 
 
 .. code-block:: json
@@ -1003,7 +1131,7 @@ Result:
           }
         ],
         "data_object": "f1.txt",
-        "collection": "/unit/home/user/data",
+        "collection": "/zone1/home/user/data",
         "size": 0
       }
     ]
@@ -1015,7 +1143,7 @@ Result:
 
 .. code-block:: sh
 
-    jq -n '{coll: "data"}' | baton-list --avu | jq 'map(select(.data_object))[]'
+    jq -n '{coll: "/zone1/home/user/data"}' | baton-list --avu | jq 'map(select(.data_object))[]'
 
 .. code-block:: json
 
@@ -1035,7 +1163,7 @@ Result:
         }
       ],
       "data_object": "f1.txt",
-      "collection": "/unit/home/user/data",
+      "collection": "/zone1/home/user/data",
       "size": 0
     }
     {
@@ -1046,7 +1174,7 @@ Result:
         }
       ],
       "data_object": "f2.txt",
-      "collection": "/unit/home/user/data",
+      "collection": "/zone1/home/user/data",
       "size": 0
     }
     {
@@ -1057,7 +1185,7 @@ Result:
         }
       ],
       "data_object": "f3.txt",
-      "collection": "/unit/home/user/data",
+      "collection": "/zone1/home/user/data",
       "size": 0
     }
 
@@ -1082,7 +1210,7 @@ Result:
     [
       {
         "data_object": "f1.txt",
-        "collection": "/unit/home/user/data",
+        "collection": "/zone1/home/user/data",
         "size": 0
       }
     ]
@@ -1110,7 +1238,7 @@ Result:
     [
       {
         "data_object": "f1.txt",
-        "collection": "/unit/home/user/data",
+        "collection": "/zone1/home/user/data",
         "size": 0
       }
     ]

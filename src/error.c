@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,12 +24,13 @@
 #include <string.h>
 
 #include "error.h"
+#include "log.h"
 
 void init_baton_error(baton_error_t *error) {
     assert(error);
     error->message[0] = '\0';
     error->code = 0;
-    error->size = 1;
+    error->size = 1; // Size includes terminating null byte.
 }
 
 void set_baton_error(baton_error_t *error, int code, const char *format, ...) {

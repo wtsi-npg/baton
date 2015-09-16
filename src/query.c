@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,18 +24,16 @@
 #include <libgen.h>
 #include <math.h>
 #include <string.h>
-#include "rodsClient.h"
 
+#include "config.h"
 #include "log.h"
 #include "query.h"
 #include "utilities.h"
 
 void log_rods_errstack(log_level level, rError_t *error) {
-    rErrMsg_t *errmsg;
-
     int len = error->len;
     for (int i = 0; i < len; i++) {
-	    errmsg = error->errMsg[i];
+	    rErrMsg_t *errmsg = error->errMsg[i];
         logmsg(level, "Level %d: %s", i, errmsg->msg);
     }
 }
@@ -131,21 +130,26 @@ void free_query_output(genQueryOut_t *query_out) {
 genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
                                const query_cond_t conds[]) {
     for (size_t i = 0; i < num_conds; i++) {
+        char *column = getAttrNameFromAttrId(conds[i].column);
         const char *operator = conds[i].operator;
-        const char *name     = conds[i].value;
+        const char *value    = conds[i].value;
 
-        logmsg(DEBUG, "Adding condition %d of %d: %s %s",
-               1, num_conds, name, operator);
+        logmsg(DEBUG, "Adding condition %d of %d: %s %s %s",
+               1, num_conds, column, operator, value);
 
-        int expr_size = strlen(name) + strlen(operator) + 3 + 1;
+        int expr_size = strlen(value) + strlen(operator) + 3 + 1;
         char *expr = calloc(expr_size, sizeof (char));
         if (!expr) goto error;
 
-        snprintf(expr, expr_size, "%s '%s'", operator, name);
+        if (str_equals_ignore_case(operator, SEARCH_OP_IN, MAX_STR_LEN)) {
+            snprintf(expr, expr_size, "%s %s", operator, value);
+        } else {
+            snprintf(expr, expr_size, "%s '%s'", operator, value);
+	}
 
-        logmsg(DEBUG, "Added condition %d of %d: %s, len %d, op: %s, "
+        logmsg(DEBUG, "Made string %d of %d: op: %s value: %s, len %d, "
                "total len %d [%s]",
-               i, num_conds, name, strlen(name), operator, expr_size, expr);
+               i, num_conds, operator, value, strlen(value), expr_size, expr);
 
         int current_index = query_in->sqlCondInp.len;
         query_in->sqlCondInp.inx[current_index] = conds[i].column;
@@ -261,14 +265,41 @@ genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, tn });
 }
 
-genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path) {
-    char *data_id = rods_path->dataId;
-    query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
+genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
+                                     rodsPath_t *rods_path) {
+    char *path = rods_path->outPath;
+    size_t len = strlen(path) + 1;
+
+    char *path1 = calloc(len, sizeof (char));
+    char *path2 = calloc(len, sizeof (char));
+    if (!path1) goto error;
+    if (!path2) goto error;
+
+    strncpy(path1, path, len);
+    strncpy(path2, path, len);
+
+    char *coll_name = dirname(path1);
+    char *data_name = basename(path2);
+
+    query_cond_t cn = { .column   = COL_COLL_NAME,
                         .operator = SEARCH_OP_EQUALS,
-                        .value    = data_id };
-    size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { di });
+                        .value    = coll_name };
+    query_cond_t dn = { .column   = COL_DATA_NAME,
+                        .operator = SEARCH_OP_EQUALS,
+                        .value    = data_name };
+    size_t num_conds = 2;
+    add_query_conds(query_in, num_conds, (query_cond_t []) { cn, dn });
+
+    free(path1);
+    free(path2);
+
+    return query_in;
+
+error:
+    logmsg(ERROR, "Failed to allocate memory: error %d %s",
+           errno, strerror(errno));
+
+    return NULL;
 }
 
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
@@ -324,37 +355,31 @@ genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in) {
 }
 
 genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
+                                      const char *user,
                                       const char *access_level) {
-    query_cond_t tn = { .column   = COL_DATA_TOKEN_NAMESPACE,
+    query_cond_t un = { .column   = COL_USER_NAME,
                         .operator = SEARCH_OP_EQUALS,
-                        .value    = ACCESS_NAMESPACE };
-    query_cond_t ui = { .column   = COL_DATA_ACCESS_USER_ID,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = user_id };
+                        .value    = user };
     query_cond_t al = { .column   = COL_DATA_ACCESS_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = access_level };
-    size_t num_conds = 3;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds,
-                           (query_cond_t []) { tn, ui, al });
+                           (query_cond_t []) { un, al });
 }
 
 genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
+                                      const char *user,
                                       const char *access_level) {
-    query_cond_t tn = { .column   = COL_COLL_TOKEN_NAMESPACE,
+    query_cond_t un = { .column   = COL_USER_NAME,
                         .operator = SEARCH_OP_EQUALS,
-                        .value    = ACCESS_NAMESPACE };
-    query_cond_t ui = { .column   = COL_COLL_ACCESS_USER_ID,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = user_id };
+                        .value    = user };
     query_cond_t al = { .column   = COL_COLL_ACCESS_NAME,
                         .operator = SEARCH_OP_EQUALS,
                         .value    = access_level };
-    size_t num_conds = 3;
+    size_t num_conds = 2;
     return add_query_conds(query_in, num_conds,
-                           (query_cond_t []) { tn, ui, al });
+                           (query_cond_t []) { un, al });
 }
 
 genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
@@ -363,11 +388,8 @@ genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
     query_cond_t ts = { .column   = COL_D_CREATE_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
-    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = DEFAULT_REPL_NUM };
-    size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
+    size_t num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
 genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
@@ -376,11 +398,8 @@ genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
     query_cond_t ts = { .column   = COL_D_MODIFY_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
-    query_cond_t rn = { .column   = COL_DATA_REPL_NUM,
-                        .operator = SEARCH_OP_EQUALS,
-                        .value    = DEFAULT_REPL_NUM };
-    size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts, rn });
+    size_t num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
 genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,

@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,8 +22,8 @@
 #ifndef _BATON_QUERY_H
 #define _BATON_QUERY_H
 
-#include "rodsClient.h"
-
+#include "config.h"
+#include "irods_api.h"
 #include "log.h"
 #include "utilities.h"
 
@@ -31,16 +32,18 @@
 
 #define SEARCH_MAX_ROWS      10
 
-#define SEARCH_OP_EQUALS "="
-#define SEARCH_OP_LIKE   "like"
-#define SEARCH_OP_STR_GT ">"
-#define SEARCH_OP_STR_LT "<"
-#define SEARCH_OP_NUM_GT "n>"
-#define SEARCH_OP_NUM_LT "n<"
-#define SEARCH_OP_STR_GE ">="
-#define SEARCH_OP_STR_LE "<="
-#define SEARCH_OP_NUM_GE "n>="
-#define SEARCH_OP_NUM_LE "n<="
+#define SEARCH_OP_EQUALS   "="
+#define SEARCH_OP_LIKE     "like"
+#define SEARCH_OP_NOT_LIKE "not like"
+#define SEARCH_OP_IN       "in"
+#define SEARCH_OP_STR_GT   ">"
+#define SEARCH_OP_STR_LT   "<"
+#define SEARCH_OP_NUM_GT   "n>"
+#define SEARCH_OP_NUM_LT   "n<"
+#define SEARCH_OP_STR_GE   ">="
+#define SEARCH_OP_STR_LE   "<="
+#define SEARCH_OP_NUM_GE   "n>="
+#define SEARCH_OP_NUM_LE   "n<="
 
 #define DEFAULT_REPL_NUM "0"
 
@@ -167,11 +170,22 @@ genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
 genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path);
 
-genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path);
+genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
+                                     rodsPath_t *rods_path);
+
+//genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
+//                                    rodsPath_t *rods_path);
 
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path);
+
+genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
+                                      const char *user_id,
+                                      const char *perm_id);
+
+genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
+                                      const char *user_id,
+                                      const char *access_level);
 
 genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
@@ -187,14 +201,6 @@ genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
                                       const char *operator);
-
-genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
-                                      const char *perm_id);
-
-genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
-                                      const char *access_level);
 
 genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,

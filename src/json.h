@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013-2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,9 +23,10 @@
 #define _BATON_JSON_H
 
 #include <jansson.h>
-#include "rodsClient.h"
 
+#include "config.h"
 #include "error.h"
+#include "irods_api.h"
 
 #define JSON_ERROR_KEY             "error"
 #define JSON_ERROR_CODE_KEY        "code"
@@ -38,6 +40,8 @@
 #define JSON_TIMESTAMPS_SHORT_KEY  "time"
 #define JSON_REPLICATE_KEY         "replicate"
 #define JSON_REPLICATE_SHORT_KEY   "rep"
+#define JSON_REPLICATE_NUMBER_KEY  "number"
+#define JSON_REPLICATE_STATUS_KEY  "valid"
 
 #define JSON_SIZE_KEY              "size"
 #define JSON_AVUS_KEY              "avus"
@@ -59,18 +63,15 @@
 
 #define JSON_ACCESS_KEY            "access"
 #define JSON_OWNER_KEY             "owner"
+#define JSON_ZONE_KEY              "zone"
 #define JSON_LEVEL_KEY             "level"
-
-#define JSON_USER_NAME_KEY         "user_name"
-#define JSON_USER_ID_KEY           "user_id"
-#define JSON_USER_TYPE_KEY         "user_type"
-#define JSON_USER_ZONE_KEY         "user_zone"
 
 #define JSON_DIRECTORY_KEY         "directory"
 #define JSON_DIRECTORY_SHORT_KEY   "dir"
 #define JSON_FILE_KEY              "file"
 
 #define JSON_DATA_KEY              "data"
+#define JSON_CHECKSUM_KEY          "checksum"
 
 /**
  * Add a new property containing error information to a JSON object.
@@ -126,6 +127,8 @@ json_t *get_timestamps(json_t *object, baton_error_t *error);
 
 const char* get_query_collection(json_t *object, baton_error_t *error);
 
+const char *get_collection_value(json_t *object, baton_error_t *error);
+
 const char *get_created_timestamp(json_t *object, baton_error_t *error);
 
 const char *get_modified_timestamp(json_t *object, baton_error_t *error);
@@ -146,6 +149,8 @@ const char *get_access_level(json_t *access, baton_error_t *error);
 
 const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error);
 
+int has_collection(json_t *object);
+
 int has_acl(json_t *object);
 
 int has_timestamps(json_t *object);
@@ -164,6 +169,8 @@ int represents_directory(json_t *object);
 
 int represents_file(json_t *object);
 
+int add_collection(json_t *object, const char *coll_name, baton_error_t *error);
+
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error);
 
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
@@ -172,6 +179,10 @@ int add_contents(json_t *object, json_t *contents, baton_error_t *error);
 
 int add_timestamps(json_t *object, const char *created, const char *modified,
                    int *repl_num, baton_error_t *error);
+
+int add_replicates(json_t *object, json_t *replicates, baton_error_t *error);
+
+int add_checksum(json_t *object, json_t *checksum, baton_error_t *error);
 
 int add_error_report(json_t *target, baton_error_t *error);
 
@@ -187,7 +198,11 @@ json_t *collection_path_to_json(const char *path, baton_error_t *error);
 
 char *json_to_path(json_t *object, baton_error_t *error);
 
+char *json_to_collection_path(json_t *object, baton_error_t *error);
+
 char *json_to_local_path(json_t *object, baton_error_t *error);
+
+char *make_in_op_value(json_t *avu, baton_error_t *error);
 
 void print_json_stream(json_t *json, FILE *stream);
 

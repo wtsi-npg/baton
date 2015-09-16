@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2014, 2015 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,10 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-#include "rodsClient.h"
-#include "rodsPath.h"
 #include <jansson.h>
 
-#include "baton.h"
 #include "config.h"
+#include "baton.h"
 #include "json.h"
 #include "log.h"
 #include "utilities.h"
@@ -34,13 +32,17 @@
 static int debug_flag      = 0;
 static int help_flag       = 0;
 static int recurse_flag    = 0;
+static int silent_flag     = 0;
 static int unbuffered_flag = 0;
+static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
-int do_modify_permissions(FILE *input, recursive_op recurse);
+int do_modify_permissions(FILE *input, recursive_op recurse,
+                          option_flags flags);
 
 int main(int argc, char *argv[]) {
+    option_flags oflags = 0;
     int exit_status = 0;
     char *json_file = NULL;
     FILE *input     = NULL;
@@ -51,7 +53,9 @@ int main(int argc, char *argv[]) {
             {"debug",      no_argument, &debug_flag,      1},
             {"help",       no_argument, &help_flag,       1},
             {"recurse",    no_argument, &recurse_flag,    1},
+            {"silent",     no_argument, &silent_flag,     1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"unsafe",     no_argument, &unsafe_flag,     1},
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
@@ -81,28 +85,32 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (help_flag) {
-        puts("Name");
-        puts("    baton-chmod");
-        puts("");
-        puts("Synopsis");
-        puts("");
-        puts("    baton-chmod [--file <json file>] [--recurse] [--unbuffered]");
-        puts("                [--verbose] [--version]");
-        puts("");
-        puts("Description");
-        puts("    Set permissions on collections and data objects");
-        puts("described in a JSON input file.");
-        puts("");
-        puts("    --file        The JSON file describing the data objects.");
-        puts("                  Optional, defaults to STDIN.");
-        puts("    --recurse     Modify collection permissions recursively.");
-        puts("                  Optional, defaults to false.");
-        puts("    --unbuffered  Flush print operations for each JSON object.");
-        puts("    --verbose     Print verbose messages to STDERR.");
-        puts("    --version     Print the version number and exit.");
-        puts("");
+    const char *help =
+        "Name\n"
+        "    baton-chmod\n"
+        "\n"
+        "Synopsis\n"
+        "\n"
+        "    baton-chmod [--file <json file>] [--recurse] [--silent]\n"
+        "                [--unbuffered] [--unsafe] [--verbose]\n"
+        "                [--version]\n"
+        "\n"
+        "Description\n"
+        "    Set permissions on collections and data objects\n"
+        "described in a JSON input file.\n"
+        "\n"
+        "    --file        The JSON file describing the data objects.\n"
+        "                  Optional, defaults to STDIN.\n"
+        "    --recurse     Modify collection permissions recursively.\n"
+        "                  Optional, defaults to false.\n"
+        "    --silent      Silence error messages.\n"
+        "    --unbuffered  Flush print operations for each JSON object.\n"
+        "    --unsafe      Permit unsafe relative iRODS paths.\n"
+        "    --verbose     Print verbose messages to STDERR.\n"
+        "    --version     Print the version number and exit.\n";
 
+    if (help_flag) {
+        printf("%s\n",help);
         exit(0);
     }
 
@@ -111,18 +119,21 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
+    if (unsafe_flag) oflags = oflags | UNSAFE_RESOLVE;
+
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
+    if (silent_flag)  set_log_threshold(FATAL);
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
     int status;
 
     if (recurse_flag) {
-        status = do_modify_permissions(input, RECURSE);
+        status = do_modify_permissions(input, RECURSE, oflags);
     }
     else {
-        status = do_modify_permissions(input, NO_RECURSE);
+        status = do_modify_permissions(input, NO_RECURSE, oflags);
     }
 
     if (status != 0) exit_status = 5;
@@ -130,8 +141,9 @@ int main(int argc, char *argv[]) {
     exit(exit_status);
 }
 
-int do_modify_permissions(FILE *input, recursive_op recurse) {
-    int path_count = 0;
+int do_modify_permissions(FILE *input, recursive_op recurse,
+                          option_flags oflags) {
+    int item_count  = 0;
     int error_count = 0;
 
     rodsEnv env;
@@ -151,28 +163,36 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
             continue;
         }
 
+        item_count++;
+        if (!json_is_object(target)) {
+            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
+                   item_count);
+            error_count++;
+            json_decref(target);
+            continue;
+        }
+
         baton_error_t path_error;
         char *path = json_to_path(target, &path_error);
-        path_count++;
 
-        if (path_error.code != 0) {
+        if (add_error_report(target, &path_error)) {
             error_count++;
-            add_error_value(target, &path_error);
         }
         else {
             json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
-            if (perms) {
-                if (!json_is_array(perms)) {
-                    logmsg(ERROR, "Permissions data for %s is not in "
-                           "a JSON array", path);
-                    goto error;
-                }
-
+            if (!json_is_array(perms)) {
+                error_count++;
+                set_baton_error(&path_error, -1,
+                                "Permissions data for %s is not in "
+                                "a JSON array", path);
+                add_error_report(target, &path_error);
+            }
+            else {
                 rodsPath_t rods_path;
-                int status = resolve_rods_path(conn, &env, &rods_path, path);
-                if (status < 0) {
+                resolve_rods_path(conn, &env, &rods_path, path,
+                                  oflags, &path_error);
+                if (add_error_report(target, &path_error)) {
                     error_count++;
-                    logmsg(ERROR, "Failed to resolve path '%s'", path);
                 }
                 else {
                     for (size_t i = 0; i < json_array_size(perms); i++) {
@@ -181,14 +201,13 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
                         modify_json_permissions(conn, &rods_path, recurse, perm,
                                                 &mod_error);
 
-                        if (mod_error.code != 0) {
+                        if (add_error_report(target, &mod_error)) {
                             error_count++;
-                            add_error_value(target, &mod_error);
                         }
                     }
-                }
 
-                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+                    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+                }
             }
         }
 
@@ -196,19 +215,19 @@ int do_modify_permissions(FILE *input, recursive_op recurse) {
         if (unbuffered_flag) fflush(stdout);
 
         json_decref(target);
-        free(path);
+        if (path) free(path);
     } // while
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
 
     return error_count;
 
 error:
     if (conn) rcDisconnect(conn);
 
-    logmsg(ERROR, "Processed %d paths with %d errors", path_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
 
     return 1;
 }

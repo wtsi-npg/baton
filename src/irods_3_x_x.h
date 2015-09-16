@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2015 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,39 +14,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @file log.h
+ * @file irods_3_x_x.h
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#ifndef _BATON_LOG_H
-#define _BATON_LOG_H
+#ifndef _IRODS_3_X_X_H
+#define _IRODS_3_X_X_H
 
-#include <stdarg.h>
+#include "rodsClient.h"
 
-/**
- *  @enum log_level
- *  @brief Log message levels.
- */
-typedef enum {
-    FATAL  = 0,
-    ERROR  = 1,
-    WARN   = 2,
-    NOTICE = 3,
-    INFO   = 4,
-    DEBUG  = 5,
-    TRACE  = 6
-} log_level;
+#include "md5Checksum.h"
 
-#define logmsg(level, ...) \
-    log_impl(__LINE__, __FILE__, __FUNCTION__, level, __VA_ARGS__);
-
-void log_impl(int line, const char *file, char const *function,
-              log_level level, ...);
-
-log_level get_log_threshold();
-
-log_level set_log_threshold(log_level level);
-
-const char *get_log_level_name(log_level level);
-
-#endif  // _BATON_LOG_H
+#endif // _IRODS_3_X_X_H

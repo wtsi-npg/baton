@@ -9,6 +9,7 @@ Data System).
 baton is intended as a supplement to the command line client programs
 (ils, imeta etc.) provided with a standard iRODS installation. Its
 focus is metadata operations for iRODS collections and data objects.
+baton is spelled with a lower case letter 'b'.
 
 The features it provides are:
 
@@ -29,45 +30,63 @@ The features it provides are:
 - Simplified API over the iRODS general query API to ease construction
   of new custom queries.
 
+- Downloading data objects as files or embedded in JSON (if data
+  object content is UTF-8).
+
 For further details see the man pages or manual, which is available
 online at http://wtsi-npg.github.io/baton/
 
 iRODS compatibility:
 
-- Compatible with iRODS 3.2, 3.3 and 3.3.1
+- Compatible with iRODS 3.2, 3.3, 3.3.1 and 4.1.x
 
-- Not compatible with iRODS 4.0.1 and 4.0.2
+- Not compatible with iRODS 4.0.1 and 4.0.2 (which lack required API
+  functions with C linkage).
 
 
 Installation:
 
-Install iRODS and baton dependencies (Jansson) as described in their
-documentation. iRODS does not install its headers and libraries in the
-standard locations, therefore you should set the environment variable
-IRODS_HOME to the root of your iRODS installation before executing the
-following commands.
+1. Install iRODS 3.3.x or 4.x and the baton dependencies (Jansson) as
+   described in their documentation.
 
-# Use IRODS_HOME to set CPPFLAGS and LDFLAGS for compilation (assuming bash)
-IRODS_HOME=<path to iRODS> source ./scripts/set_irods_home.sh
+2. If you have cloned the baton git repository, run autoconf to
+   generate the configure script:
 
-# Generate the configure script
-autoreconf -i
+   autoreconf -i
 
-# Generate the makefiles (see INSTALL for arguments to configure)
-./configure
+   If you have downloaded a release tarball, the configure script is
+   included, so proceed to step 3.
 
-# Compile
-make
+3. For a run-in-place installation of iRODS 3.3.x or iRODS 4.x, run the
+   configure script using a --with-irods argument to indicate the root
+   directory of the iRODS source tree.
 
-# Optionally, run the test suite
-make check
+   ./configure --with-irods=/path/to/irods
 
-# If you have run configure with the optional --enable-coverage flag
-# you can generate test coverage statistics with lcov.
-make check-coverage
+   You may set the location of your preferred Boost installation by
+   using a --with-boost argument.
 
-# Install, including HTML manual and manpage.
-make clean install
+   For a packaged (.deb) installation of iRODS 4.x, run the configure
+   script without any --with-irods argument.
+
+   ./configure
+
+4. Compile
+
+   make
+
+5. Optionally, run the test suite
+
+   make check
+
+6. If you have run configure with the optional --enable-coverage flag
+   you can generate test coverage statistics with lcov.
+
+   make check-coverage
+
+7. Install, including HTML manual and manpage.
+
+   make clean install
 
 
 Synopsis:
@@ -80,7 +99,11 @@ Dependencies:
 
 iRODS   https://github.com/irods/irods-legacy
 
-        Versions 3.2, 3.3 or 3.3.1
+        Versions 3.2, 3.3, 3.3.1
+
+        https://github.com/irods/irods
+
+        Versions 4.1.x
 
 Jansson https://github.com/akheron/jansson.git
 
@@ -96,3 +119,7 @@ check  http://check.sourceforge.net/        (for unit tests).
 lcov   http://ltp.sourceforge.net/coverage/ (for test coverage analysis)
 
 jq     http://stedolan.github.io/jq/        (for processing input and output)
+
+
+baton uses the boost.m4 M4 macros by Benoit Sigoure to detect the
+Boost libraries used by iRODS 4.x (https://github.com/tsuna/boost.m4)
