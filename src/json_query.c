@@ -995,12 +995,6 @@ error:
 }
 
 json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
-    json_t *replicates = json_array();
-    if (!replicates) {
-        set_baton_error(error, -1, "Failed to allocate a new JSON array");
-        goto error;
-    }
-
     size_t num_elts = json_array_size(results);
     for (size_t i = 0; i < num_elts; i++) {
         json_t *result = json_array_get(results, i);
@@ -1039,7 +1033,6 @@ json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
     return results;
 
 error:
-    if (replicates) json_decref(replicates);
     return NULL;
 }
 
