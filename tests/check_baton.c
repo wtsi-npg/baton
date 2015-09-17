@@ -791,19 +791,39 @@ START_TEST(test_list_replicates_obj) {
                                        flags, &resolve_error), EXIST_ST);
 
     char *checksum = "d41d8cd98f00b204e9800998ecf8427e";
-    json_t *expected = json_pack("[{s:s, s:i, s:b}, {s:s, s:i, s:b}]",
-                                 JSON_CHECKSUM_KEY,         checksum,
-                                 JSON_REPLICATE_NUMBER_KEY, 0,
-                                 JSON_REPLICATE_STATUS_KEY, 1,
-                                 JSON_CHECKSUM_KEY,         checksum,
-                                 JSON_REPLICATE_NUMBER_KEY, 1,
-                                 JSON_REPLICATE_STATUS_KEY, 1);
+    json_t *expected =
+      json_pack("[{s:s, s:i, s:b, s:s}, {s:s, s:i, s:b, s:s}]",
+                // Assume original copy is replicate 0 on default resource
+                JSON_CHECKSUM_KEY,         checksum,
+                JSON_REPLICATE_NUMBER_KEY, 0,
+                JSON_REPLICATE_STATUS_KEY, 1,
+                JSON_RESOURCE_KEY,         env.rodsDefResource,
+                // Assume replicated copy is replicate 1 on test resource
+                JSON_CHECKSUM_KEY,         checksum,
+                JSON_REPLICATE_NUMBER_KEY, 1,
+                JSON_REPLICATE_STATUS_KEY, 1,
+                JSON_RESOURCE_KEY,         TEST_RESOURCE);
 
     baton_error_t error;
     json_t *results = list_replicates(conn, &rods_path, &error);
 
     ck_assert_int_eq(error.code, 0);
     ck_assert(json_is_array(results));
+
+    size_t index;
+    json_t *result;
+    json_array_foreach(results, index, result) {
+        ck_assert(json_is_object(result));
+        // We don't know what the location value will be for a test
+        // run because it's an iRODS resource server hostname.
+        ck_assert(json_object_get(result, JSON_LOCATION_KEY));
+        // Remove it once tested so that we can easily check the other
+        // values together.
+        if (json_object_get(result, JSON_LOCATION_KEY)) {
+            json_object_del(result, JSON_LOCATION_KEY);
+        }
+    }
+
     ck_assert_int_eq(json_equal(results, expected), 1);
 
     json_decref(results);

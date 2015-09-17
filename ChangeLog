@@ -1,3 +1,9 @@
+
+	Report data object resource and location for replicates when the
+	--replicate option is used.
+
+	Improved error messages.
+
 	[0.15.0]
 
 	Added a --checksum option to the CLI of baton-list and

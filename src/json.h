@@ -73,6 +73,9 @@
 #define JSON_DATA_KEY              "data"
 #define JSON_CHECKSUM_KEY          "checksum"
 
+#define JSON_RESOURCE_KEY          "resource"
+#define JSON_LOCATION_KEY          "location"
+
 /**
  * Add a new property containing error information to a JSON object.
  *
