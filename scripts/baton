@@ -27,25 +27,33 @@ my @levels;
 # Timestamps
 my $created;
 my $cre_operator;
+my $m_created;
+my $m_cre_operator;
 my @modified;
 my @mod_operators;
+my @m_modified;
+my @m_mod_operators;
 
-GetOptions("c|collection=s"      => \$collection,
-           "d|data-object=s"     => \$data_object,
-           "directory=s"         => \$directory,
-           "f|file=s"            => \$file,
-           "a|attribute=s"       => \@attributes,
-           "v|value=s"           => \@values,
-           "u|units=s"           => \@units,
-           "o|operator=s"        => \@avu_operators,
-           "w|owners=s"          => \@owners,
-           "l|levels=s"          => \@levels,
-           "r|created=s"         => \$created,
-           "created-operator=s"  => \$cre_operator,
-           "m|modified=s"        => \@modified,
-           "modified-operator=s" => \@mod_operators,
-           "h|help"              => sub { pod2usage(-verbose => 2,
-                                                    -exitval => 0) });
+GetOptions("c|collection=s"           => \$collection,
+           "d|data-object=s"          => \$data_object,
+           "directory=s"              => \$directory,
+           "f|file=s"                 => \$file,
+           "a|attribute=s"            => \@attributes,
+           "v|value=s"                => \@values,
+           "u|units=s"                => \@units,
+           "o|operator=s"             => \@avu_operators,
+           "w|owners=s"               => \@owners,
+           "l|levels=s"               => \@levels,
+           "r|created=s"              => \$created,
+           "created-operator=s"       => \$cre_operator,
+           "meta-created=s"           => \$m_created,
+           "meta-created-operator=s"  => \$m_cre_operator,
+           "m|modified=s"             => \@modified,
+           "modified-operator=s"      => \@mod_operators,
+           "meta-modified=s"          => \@m_modified,
+           "meta-modified-operator=s" => \@m_mod_operators,
+           "h|help"                   => sub { pod2usage(-verbose => 2,
+                                                         -exitval => 0) });
 
 my $json = {};
 
@@ -90,9 +98,18 @@ if ($created) {
   push @timestamps, {created => $created, operator => $cre_operator};
 }
 
+if ($m_created) {
+  push @timestamps, {meta_created => $m_created, operator => $m_cre_operator};
+}
+
 my $modi = each_array(@modified, @mod_operators);
 while (my ($time, $op) = $modi->()) {
   push @timestamps, {modified => $time, operator => $op};
+}
+
+my $mmodi = each_array(@m_modified, @m_mod_operators);
+while (my ($time, $op) = $mmodi->()) {
+  push @timestamps, {meta_modified => $time, operator => $op};
 }
 
 if (@timestamps) {
@@ -134,35 +151,52 @@ baton - generate JSON suitable for input to baton command line programs
       "timestamps":[{"modified":"2014-01-01T00:00:00","operator":"n>="},
                     {"modified":"2014-12-01T00:00:00","operator":"n<"}]}
 
+ baton -a my_key -v my_value \
+       --meta-modified 2014-01-01T00:00:00 --meta-modified-op 'n>=' \
+       --meta-modified 2014-12-01T00:00:00 --meta-modified-op 'n<'
+  => {"avus":[{"attribute":"my_key","value":"my_value"}],
+      "timestamps":[{"meta_modified":"2014-01-01T00:00:00","operator":"n>="},
+                    {"meta_modified":"2014-12-01T00:00:00","operator":"n<"}]}
+
 Options:
 
-  -c | --collection         An iRODS collection path. Optional.
-  -d | --data-object        An iRODS data object name. Optional.
-       --directory          A local directory. Optional.
-  -f | --file               A local file name. Optional.
+  -c | --collection             An iRODS collection path. Optional.
+  -d | --data-object            An iRODS data object name. Optional.
+       --directory              A local directory. Optional.
+  -f | --file                   A local file name. Optional.
 
-  -a | --attribute          An AVU attribute. Optional, may be used multiple
-                            times.
-  -v | --value              An AVU value. Optional, may be used multiple
-                            times.
-  -u | --units              An AVU unit. Optional, may be used multiple
-                            times.
-  -o | --operator           An AVU value comparison operator. Optional, may
-                            be used multiple times.
+  -a | --attribute              An AVU attribute. 
+                                Optional, may be used multiple times.
+  -v | --value                  An AVU value. Optional, may be used multiple
+                                times.
+  -u | --units                  An AVU unit. Optional, may be used multiple
+                                times.
+  -o | --operator               An AVU value comparison operator. Optional, may
+                                be used multiple times.
 
-  -w | --owner              An iRODS data owner (user or group).
-                            Optional, may be used multiple times.
-  -l | --level              An iRODS data access level (null, read ,
-                            own etc ). Optional, may be used multiple
-                            times.
-  -r | --created            An ISO8601 formatted creation timestamp.
-                            Optional, may be used multiple times.
-       --created-operator   A creation timestamp comparison operator.
-                            Optional, may be used multiple times.
-  -m | --modified           An ISO8601 formatted modification timestamp.
-                            Optional, may be used multiple times.
-       --modified-operator  A modification timestamp comparison operator.
-                            Optional, may be used multiple times.
+  -w | --owner                  An iRODS data owner (user or group).
+                                Optional, may be used multiple times.
+  -l | --level                  An iRODS data access level (null, read ,
+                                own etc ). Optional, may be used multiple
+                                times.
+  -r | --created                An ISO8601 formatted creation timestamp.
+                                Optional, may be used multiple times.
+       --created-operator       A creation timestamp comparison operator.
+                                Optional, may be used multiple times.
+       --meta-created           An ISO8601 formatted creation timestamp.
+                                Optional, may be used multiple times.
+       --meta-created-operator  A metadata creation timestamp comparison 
+                                operator. Optional, may be used multiple times.
+  -m | --modified               An ISO8601 formatted modification timestamp.
+                                Optional, may be used multiple times.
+       --modified-operator      A modification timestamp comparison operator.
+                                Optional, may be used multiple times.
+       --meta-modified          An ISO8601 formatted timestamp, to check
+                                to check modification time for data, 
+                                collections, or metadata.
+                                Optional, may be used multiple times.
+       --meta-modified-operator A metadata modification timestamp comparison 
+                                operator. Optional, may be used multiple times.
 
 =head1 DESCRIPTION
 
