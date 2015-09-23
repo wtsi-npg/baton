@@ -206,17 +206,33 @@ genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
 
+genQueryInp_t *prepare_obj_m_cre_search(genQueryInp_t *query_in,
+                                        const char *raw_timestamp,
+                                        const char *operator);
+
 genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
+
+genQueryInp_t *prepare_obj_m_mod_search(genQueryInp_t *query_in,
+                                        const char *raw_timestamp,
+                                        const char *operator);
 
 genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
 
+genQueryInp_t *prepare_col_m_cre_search(genQueryInp_t *query_in,
+                                        const char *raw_timestamp,
+                                        const char *operator);
+
 genQueryInp_t *prepare_col_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
+
+genQueryInp_t *prepare_col_m_mod_search(genQueryInp_t *query_in,
+                                        const char *raw_timestamp,
+                                        const char *operator);
 
 genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
                                    const char *root_path);

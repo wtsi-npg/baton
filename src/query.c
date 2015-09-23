@@ -33,7 +33,7 @@
 void log_rods_errstack(log_level level, rError_t *error) {
     int len = error->len;
     for (int i = 0; i < len; i++) {
-	    rErrMsg_t *errmsg = error->errMsg[i];
+        rErrMsg_t *errmsg = error->errMsg[i];
         logmsg(level, "Level %d: %s", i, errmsg->msg);
     }
 }
@@ -104,7 +104,7 @@ void free_query_input(genQueryInp_t *query_in) {
         free(query_in->condInput.keyWord);
     }
 
-	if (query_in->condInput.value != NULL) {
+    if (query_in->condInput.value != NULL) {
         free(query_in->condInput.value);
     }
 
@@ -145,7 +145,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
             snprintf(expr, expr_size, "%s %s", operator, value);
         } else {
             snprintf(expr, expr_size, "%s '%s'", operator, value);
-	}
+        }
 
         logmsg(DEBUG, "Made string %d of %d: op: %s value: %s, len %d, "
                "total len %d [%s]",
@@ -392,10 +392,30 @@ genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
+genQueryInp_t *prepare_obj_m_cre_search(genQueryInp_t *query_in,
+                                        const char *raw_timestamp,
+                                        const char *operator) {
+    query_cond_t ts = { .column   = COL_META_DATA_CREATE_TIME,
+                        .operator = operator,
+                        .value    = raw_timestamp };
+    size_t num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+}
+
 genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator) {
     query_cond_t ts = { .column   = COL_D_MODIFY_TIME,
+                        .operator = operator,
+                        .value    = raw_timestamp };
+    size_t num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+}
+
+genQueryInp_t *prepare_obj_m_mod_search(genQueryInp_t *query_in,
+                                        const char *raw_timestamp,
+                                        const char *operator) {
+    query_cond_t ts = { .column   = COL_META_DATA_MODIFY_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
     size_t num_conds = 1;
@@ -412,10 +432,30 @@ genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
 }
 
+genQueryInp_t *prepare_col_m_cre_search(genQueryInp_t *query_in,
+                                        const char *raw_timestamp,
+                                        const char *operator) {
+    query_cond_t ts = { .column   = COL_META_COLL_CREATE_TIME,
+                        .operator = operator,
+                        .value    = raw_timestamp };
+    size_t num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+}
+
 genQueryInp_t *prepare_col_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator) {
     query_cond_t ts = { .column   = COL_COLL_MODIFY_TIME,
+                        .operator = operator,
+                        .value    = raw_timestamp };
+    size_t num_conds = 1;
+    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+}
+
+genQueryInp_t *prepare_col_m_mod_search(genQueryInp_t *query_in,
+                                        const char *raw_timestamp,
+                                        const char *operator) {
+    query_cond_t ts = { .column   = COL_META_COLL_MODIFY_TIME,
                         .operator = operator,
                         .value    = raw_timestamp };
     size_t num_conds = 1;

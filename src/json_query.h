@@ -65,8 +65,12 @@ const char *ensure_valid_operator(const char *operator, baton_error_t *error);
  *                           query.
  * @param[in]  prepare_cre   Callback to add any creation timestamp clauses
  *                           to the query.
+ * @param[in]  prepare_m_cre Callback to add any metadata creation timestamp 
+ *                           clauses to the query.
  * @param[in]  prepare_mod   Callback to add any modification timestamp clauses
  *                           to the query.
+ * @param[in]  prepare_m_mod Callback to add any metadata modification timestamp
+ *                           clauses to the query.
  * @param[in,out] error      An error report struct.
  *
  * @return A newly constructed JSON array of objects, one per result row. The
@@ -77,7 +81,9 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   prepare_avu_search_cb prepare_avu,
                   prepare_acl_search_cb prepare_acl,
                   prepare_tps_search_cb prepare_cre,
+                  prepare_tps_search_cb prepare_m_cre,
                   prepare_tps_search_cb prepare_mod,
+                  prepare_tps_search_cb prepare_m_mod,
                   baton_error_t *error);
 
 /**
@@ -151,8 +157,12 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
                              be a JSON array of timestamp objects.
  * @param[in]  prepare_cre   Callback to add any creation timestamp clauses
  *                           to the query.
+ * @param[in]  prepare_m_cre Callback to add any metadata creation timestamp
+ *                           clauses to the query.
  * @param[in]  prepare_mod   Callback to add any modification timestamp clauses
  *                           to the query.
+ * @param[in]  prepare_m_mod Callback to add any metadata modification timestamp
+ *                           clauses to the query.
  * @param[in,out] error      An error report struct.
  *
  * @return A modified query input with timestamp-searching clauses added.
@@ -160,7 +170,9 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
 genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        json_t *timestamp,
                                        prepare_tps_search_cb prepare_cre,
+                                       prepare_tps_search_cb prepare_m_cre,
                                        prepare_tps_search_cb prepare_mod,
+                                       prepare_tps_search_cb prepare_m_mod,
                                        baton_error_t *error);
 
 json_t *add_acl_json_array(rcComm_t *conn, json_t *target,

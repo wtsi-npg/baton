@@ -89,7 +89,9 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
                   prepare_avu_search_cb prepare_avu,
                   prepare_acl_search_cb prepare_acl,
                   prepare_tps_search_cb prepare_cre,
+                  prepare_tps_search_cb prepare_m_cre,
                   prepare_tps_search_cb prepare_mod,
+                  prepare_tps_search_cb prepare_m_mod,
                   baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     char *zone_hint         = zone_name;
@@ -159,8 +161,10 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
         json_t *tps = get_timestamps(query, error);
         if (error->code != 0) goto error;
 
-        query_in = prepare_json_tps_search(query_in, tps, prepare_cre,
-                                           prepare_mod, error);
+        query_in = prepare_json_tps_search(query_in, tps,
+					   prepare_cre, prepare_m_cre,
+					   prepare_mod, prepare_m_mod,
+					   error);
         if (error->code != 0) goto error;
     }
 
@@ -451,7 +455,9 @@ error:
 genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        json_t *timestamps,
                                        prepare_tps_search_cb prepare_cre,
+                                       prepare_tps_search_cb prepare_m_cre,
                                        prepare_tps_search_cb prepare_mod,
+                                       prepare_tps_search_cb prepare_m_mod,
                                        baton_error_t *error) {
     size_t num_clauses = json_array_size(timestamps);
 
@@ -480,9 +486,19 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
             iso_timestamp = get_created_timestamp(tp, error);
             if (error->code != 0) goto error;
         }
+        else if (has_meta_created_timestamp(tp)) {
+            prepare = prepare_m_cre;
+            iso_timestamp = get_meta_created_timestamp(tp, error);
+            if (error->code != 0) goto error;
+        }
         else if (has_modified_timestamp(tp)) {
             prepare = prepare_mod;
             iso_timestamp = get_modified_timestamp(tp, error);
+            if (error->code != 0) goto error;
+        }
+        else if (has_meta_modified_timestamp(tp)) {
+            prepare = prepare_m_mod;
+            iso_timestamp = get_meta_modified_timestamp(tp, error);
             if (error->code != 0) goto error;
         }
         else {
