@@ -986,13 +986,14 @@ json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
     results = do_query(conn, query_in, obj_format.labels, error);
     if (error->code != 0) goto error;
 
-    results = revmap_replicate_results(results, error);
+    json_t *mapped = revmap_replicate_results(results, error);
     if (error->code != 0) goto error;
 
     logmsg(DEBUG, "Obtained replicates of '%s'", rods_path->outPath);
     free_query_input(query_in);
+    json_decref(results);
 
-    return results;
+    return mapped;
 
 error:
     logmsg(ERROR, "Failed to list replicates of '%s': error %d %s",

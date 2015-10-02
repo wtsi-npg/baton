@@ -984,6 +984,8 @@ error:
 }
 
 json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
+    json_t *mapped = json_array();
+
     size_t num_elts = json_array_size(results);
     for (size_t i = 0; i < num_elts; i++) {
         json_t *result = json_array_get(results, i);
@@ -994,34 +996,33 @@ json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
             goto error;
         }
 
-        json_t *repl = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
-        size_t n = atol(json_string_value(repl));
-        json_object_del(result, JSON_REPLICATE_NUMBER_KEY);
-        json_object_set_new(result, JSON_REPLICATE_NUMBER_KEY, json_integer(n));
+        if (error->code != 0) goto error;
 
-        json_t *status = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
-        json_t *is_valid;
-        if (str_equals(json_string_value(status), INVALID_REPLICATE, 1)) {
-            is_valid = json_false();
-        }
-        else if (str_equals(json_string_value(status), VALID_REPLICATE, 1)) {
-            is_valid = json_true();
-        }
-        else {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid replicate status '%s' at "
-                            "position %d of %d", json_string_value(status),
-                            i, num_elts);
-            goto error;
-        }
+        json_t *resc = json_object_get(result, JSON_RESOURCE_KEY);
+        json_t *loc  = json_object_get(result, JSON_LOCATION_KEY);
+        json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
+        json_t *num  = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
+        json_t *stat = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
 
-        json_object_del(result, JSON_REPLICATE_STATUS_KEY);
-        json_object_set_new(result, JSON_REPLICATE_STATUS_KEY, is_valid);
+        const char *resource = json_string_value(resc);
+        const char *location = json_string_value(loc);
+        const char *checksum = json_string_value(chk);
+        const char *number   = json_string_value(num);
+        const char *status   = json_string_value(stat);
+
+        json_t *replicate =
+            make_replicate(resource, location, checksum, number, status, error);
+
+        if (error->code != 0) goto error;
+
+        json_array_append_new(mapped, replicate);
     }
 
-    return results;
+    return mapped;
 
 error:
+    if (mapped) json_decref(mapped);
+
     return NULL;
 }
 

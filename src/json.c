@@ -367,8 +367,8 @@ error:
 }
 
 json_t *make_replicate(const char *resource, const char *location,
-                       const char *replicate, const char *status,
-                       baton_error_t *error) {
+                       const char *checksum, const char *replicate,
+                       const char *status, baton_error_t *error) {
     json_t *result   = NULL;
     json_t *is_valid = NULL;
 
@@ -394,9 +394,10 @@ json_t *make_replicate(const char *resource, const char *location,
         goto error;
     }
 
-    result = json_pack("{s:s, s:s, s:i, s:o}",
+    result = json_pack("{s:s, s:s, s:s, s:i, s:o}",
                        JSON_RESOURCE_KEY,         resource,
                        JSON_LOCATION_KEY,         location,
+                       JSON_CHECKSUM_KEY,         checksum,
                        JSON_REPLICATE_NUMBER_KEY, repl,
                        JSON_REPLICATE_STATUS_KEY, is_valid);
     if (!result) {

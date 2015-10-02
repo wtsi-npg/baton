@@ -193,8 +193,8 @@ json_t *make_timestamp(const char* key, const char *value, const char *format,
                        const char *replicate, baton_error_t *error);
 
 json_t *make_replicate(const char *resource, const char *location,
-                       const char *replicate, const char *status,
-                       baton_error_t *error);
+                       const char *checksum, const char *replicate,
+                       const char *status, baton_error_t *error);
 
 json_t *data_object_parts_to_json(const char *coll_name, const char *data_name,
                                   baton_error_t *error);
