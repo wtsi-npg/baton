@@ -28,6 +28,7 @@
 #include <jansson.h>
 
 #include "config.h"
+#include "baton.h"
 #include "json.h"
 #include "log.h"
 #include "utilities.h"
@@ -330,7 +331,7 @@ int represents_file(json_t *object) {
 }
 
 json_t *make_timestamp(const char* key, const char *value, const char *format,
-                       const char *repl_num, baton_error_t *error) {
+                       const char *replicate, baton_error_t *error) {
     char *formatted = format_timestamp(value, format);
 
     json_t *result = json_pack("{s:s}", key, formatted);
@@ -341,14 +342,14 @@ json_t *make_timestamp(const char* key, const char *value, const char *format,
         goto error;
     }
 
-    if (repl_num) {
+    if (replicate) {
         int base = 10;
         char *endptr;
-        int repl = strtoul(repl_num, &endptr, base);
+        int repl = strtoul(replicate, &endptr, base);
         if (*endptr) {
             set_baton_error(error, -1,
                             "Failed to parse replicate number from "
-                            "string '%s'", repl_num);
+                            "string '%s'", replicate);
             goto error;
         }
 
@@ -365,8 +366,55 @@ error:
     return NULL;
 }
 
+json_t *make_replicate(const char *resource, const char *location,
+                       const char *replicate, const char *status,
+                       baton_error_t *error) {
+    json_t *result   = NULL;
+    json_t *is_valid = NULL;
+
+    int base = 10;
+    char *endptr;
+    int repl = strtoul(replicate, &endptr, base);
+    if (*endptr) {
+        set_baton_error(error, -1,
+                        "Failed to parse replicate number from string '%s'",
+                        replicate);
+        goto error;
+    }
+
+    if (str_equals(status, INVALID_REPLICATE, 1)) {
+        is_valid = json_false();
+    }
+    else if (str_equals(status, VALID_REPLICATE, 1)) {
+        is_valid = json_true();
+    }
+    else {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid replicate status '%s'", status);
+        goto error;
+    }
+
+    result = json_pack("{s:s, s:s, s:i, s:o}",
+                       JSON_RESOURCE_KEY,         resource,
+                       JSON_LOCATION_KEY,         location,
+                       JSON_REPLICATE_NUMBER_KEY, repl,
+                       JSON_REPLICATE_STATUS_KEY, is_valid);
+    if (!result) {
+        set_baton_error(error, -1, "Failed to pack replicate object");
+        goto error;
+    }
+
+    return result;
+
+error:
+    if (result)   json_decref(result);
+    if (is_valid) json_decref(is_valid);
+
+    return NULL;
+}
+
 int add_timestamps(json_t *object, const char *created, const char *modified,
-                   const char *repl_num, baton_error_t *error) {
+                   const char *replicate, baton_error_t *error) {
     json_t *iso_created  = NULL;
     json_t *iso_modified = NULL;
     json_t *timestamps;
@@ -378,11 +426,11 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
     }
 
     iso_created = make_timestamp(JSON_CREATED_KEY, created,
-                                 ISO8601_FORMAT, repl_num, error);
+                                 ISO8601_FORMAT, replicate, error);
     if (error->code != 0) goto error;
 
     iso_modified = make_timestamp(JSON_MODIFIED_KEY, modified,
-                                  ISO8601_FORMAT, repl_num, error);
+                                  ISO8601_FORMAT, replicate, error);
     if (error->code != 0) goto error;
 
     timestamps = json_pack("[o, o]", iso_created, iso_modified);
