@@ -645,9 +645,6 @@ START_TEST(test_list_permissions_obj) {
                                  JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_OWN);
 
-    print_json_stream(expected, stderr);
-    print_json_stream(results, stderr);
-
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
@@ -1050,7 +1047,6 @@ START_TEST(test_search_metadata_perm_obj) {
                                        flags, &resolve_error), EXIST_ST);
 
     baton_error_t mod_error;
-    init_baton_error(&mod_error);
     int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
                                 ACCESS_LEVEL_READ, &mod_error);
     ck_assert_int_eq(rv, 0);
@@ -1255,7 +1251,6 @@ START_TEST(test_add_metadata_obj) {
     ck_assert_int_ne(expected_error4.code, 0);
 
     baton_error_t error;
-    init_baton_error(&error);
     int rv = modify_metadata(conn, &rods_path, META_ADD, "test_attr",
                              "test_value", "test_units",
                              &error);
@@ -1318,7 +1313,6 @@ START_TEST(test_remove_metadata_obj) {
                                        flags, &resolve_error), EXIST_ST);
 
     baton_error_t error;
-    init_baton_error(&error);
     int rv = modify_metadata(conn, &rods_path, META_REM, "attr1", "value1",
                              "units1", &error);
     ck_assert_int_eq(rv, 0);
@@ -1461,7 +1455,6 @@ START_TEST(test_modify_permissions_obj) {
                                        flags, &resolve_error), EXIST_ST);
 
     baton_error_t mod_error;
-    init_baton_error(&mod_error);
     int rv = modify_permissions(conn, &rods_path, NO_RECURSE, "public",
                                 ACCESS_LEVEL_READ, &mod_error);
     ck_assert_int_eq(rv, 0);
@@ -1815,15 +1808,11 @@ START_TEST(test_slurp_file) {
                                 2048, 4096, 8192, 16384, 37268 };
     for (int i = 0; i < 10; i++) {
         baton_error_t open_error;
-        init_baton_error(&open_error);
-
-        data_obj_file_t *obj_file =
-            open_data_obj(conn, &rods_obj_path, &open_error);
+        data_obj_file_t *obj_file = open_data_obj(conn, &rods_obj_path,
+                                                  &open_error);
         ck_assert_int_eq(open_error.code, 0);
 
         baton_error_t slurp_error;
-        init_baton_error(&slurp_error);
-
         char *data = slurp_data_object(conn, obj_file, buffer_sizes[i],
                                        &slurp_error);
         ck_assert_int_eq(slurp_error.code, 0);

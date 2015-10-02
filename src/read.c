@@ -29,6 +29,9 @@
 data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
                                baton_error_t *error) {
     dataObjInp_t obj_open_in;
+
+    init_baton_error(error);
+
     memset(&obj_open_in, 0, sizeof obj_open_in);
     obj_open_in.openFlags = O_RDONLY;
 
@@ -70,6 +73,9 @@ error:
 size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
                      size_t len, baton_error_t *error) {
     openedDataObjInp_t obj_read_in;
+
+    init_baton_error(error);
+
     memset(&obj_read_in, 0, sizeof obj_read_in);
     obj_read_in.l1descInx = obj_file->descriptor;
     obj_read_in.len       = len;
@@ -103,6 +109,8 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
                         size_t buffer_size, baton_error_t *error) {
     char *buffer  = NULL;
     char *content = NULL;
+
+    init_baton_error(error);
 
     buffer = calloc(buffer_size +1, sizeof (char));
     if (!buffer) {
@@ -179,6 +187,8 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
                           size_t buffer_size, baton_error_t *error) {
     size_t num_written = 0;
     char *buffer = NULL;
+
+    init_baton_error(error);
 
     if (buffer_size == 0) {
         set_baton_error(error, -1, "Invalid buffer_size argument %u",
