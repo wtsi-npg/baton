@@ -71,6 +71,11 @@ case $IRODS_VERSION in
         before_script_4_1_x
         ;;
 
+    4.1.6)
+        before_script_common
+        before_script_4_1_x
+        ;;
+
     *)
         echo Unknown iRODS version $IRODS_VERSION
         exit 1

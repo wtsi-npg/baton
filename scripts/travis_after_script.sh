@@ -16,6 +16,9 @@ case $IRODS_VERSION in
     4.1.5)
         ;;
 
+    4.1.6)
+        ;;
+
     *)
         echo Unknown iRODS version $IRODS_VERSION
         exit 1
