@@ -330,7 +330,7 @@ int represents_file(json_t *object) {
 }
 
 json_t *make_timestamp(const char* key, const char *value, const char *format,
-                       int *repl_num, baton_error_t *error) {
+                       const char *repl_num, baton_error_t *error) {
     char *formatted = format_timestamp(value, format);
 
     json_t *result = json_pack("{s:s}", key, formatted);
@@ -342,8 +342,17 @@ json_t *make_timestamp(const char* key, const char *value, const char *format,
     }
 
     if (repl_num) {
-        json_object_set_new(result, JSON_REPLICATE_KEY,
-                            json_integer(*repl_num));
+        int base = 10;
+        char *endptr;
+        int repl = strtoul(repl_num, &endptr, base);
+        if (*endptr) {
+            set_baton_error(error, -1,
+                            "Failed to parse replicate number from "
+                            "string '%s'", repl_num);
+            goto error;
+        }
+
+        json_object_set_new(result, JSON_REPLICATE_KEY, json_integer(repl));
     }
 
     free(formatted);
@@ -357,7 +366,7 @@ error:
 }
 
 int add_timestamps(json_t *object, const char *created, const char *modified,
-                   int *repl_num, baton_error_t *error) {
+                   const char *repl_num, baton_error_t *error) {
     json_t *iso_created  = NULL;
     json_t *iso_modified = NULL;
     json_t *timestamps;

@@ -673,22 +673,11 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     // collections too, but we don't report them to be consistent with
     // the 'ils' command.
     if (represents_data_object(object)) {
-        int base = 10;
         size_t i;
         json_t *item;
         json_array_foreach(raw_timestamps, i, item) {
-            const char *repl_str = get_replicate_num(item, error);
+            const char *repl_num = get_replicate_num(item, error);
             if (error->code != 0) goto error;
-
-            char *endptr;
-            int repl_num = strtoul(repl_str, &endptr, base);
-            if (*endptr) {
-                set_baton_error(error, -1,
-                                "Failed to parse replicate number from "
-                                "string '%s'", repl_str);
-                goto error;
-            }
-
             const char *created = get_created_timestamp(item, error);
             if (error->code != 0) goto error;
             const char *modified = get_modified_timestamp(item, error);
@@ -696,18 +685,18 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
 
             json_t *iso_created =
                 make_timestamp(JSON_CREATED_KEY, created, ISO8601_FORMAT,
-                               &repl_num, error);
+                               repl_num, error);
             if (error->code != 0) goto error;
 
             json_t *iso_modified =
                 make_timestamp(JSON_MODIFIED_KEY, modified, ISO8601_FORMAT,
-                               &repl_num, error);
+                               repl_num, error);
             if (error->code != 0) goto error;
 
             json_array_append_new(timestamps, iso_created);
             json_array_append_new(timestamps, iso_modified);
 
-            logmsg(DEBUG, "Adding timestamps from replicate %d of '%s'",
+            logmsg(DEBUG, "Adding timestamps from replicate %s of '%s'",
                    repl_num, path);
         }
     }
