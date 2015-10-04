@@ -151,9 +151,19 @@ const char *get_created_timestamp(json_t *object, baton_error_t *error) {
                             JSON_CREATED_SHORT_KEY, error);
 }
 
+const char *get_meta_created_timestamp(json_t *object, baton_error_t *error) {
+    return get_string_value(object, "timestamps", JSON_META_CREATED_KEY,
+                            JSON_META_CREATED_SHORT_KEY, error);
+}
+
 const char *get_modified_timestamp(json_t *object, baton_error_t *error) {
     return get_string_value(object, "timestamps", JSON_MODIFIED_KEY,
                             JSON_MODIFIED_SHORT_KEY, error);
+}
+
+const char *get_meta_modified_timestamp(json_t *object, baton_error_t *error) {
+    return get_string_value(object, "timestamps", JSON_META_MODIFIED_KEY,
+                            JSON_META_MODIFIED_SHORT_KEY, error);
 }
 
 const char *get_replicate_num(json_t *object, baton_error_t *error) {
@@ -284,8 +294,16 @@ int has_created_timestamp(json_t *object) {
   return has_json_str_value(object, JSON_CREATED_KEY, JSON_CREATED_SHORT_KEY);
 }
 
+int has_meta_created_timestamp(json_t *object) {
+  return has_json_str_value(object, JSON_META_CREATED_KEY, JSON_META_CREATED_SHORT_KEY);
+}
+
 int has_modified_timestamp(json_t *object) {
   return has_json_str_value(object, JSON_MODIFIED_KEY, JSON_MODIFIED_SHORT_KEY);
+}
+
+int has_meta_modified_timestamp(json_t *object) {
+  return has_json_str_value(object, JSON_META_MODIFIED_KEY, JSON_META_MODIFIED_SHORT_KEY);
 }
 
 int contains_avu(json_t *avus, json_t *avu) {
@@ -356,10 +374,13 @@ error:
     return NULL;
 }
 
-int add_timestamps(json_t *object, const char *created, const char *modified,
+int add_timestamps(json_t *object, const char *created, const char *m_created, 
+                   const char *modified, const char *m_modified,
                    int *repl_num, baton_error_t *error) {
     json_t *iso_created  = NULL;
+    json_t *iso_m_created  = NULL;
     json_t *iso_modified = NULL;
+    json_t *iso_m_modified = NULL;
     json_t *timestamps;
 
     if (!json_is_object(object)) {
@@ -372,11 +393,19 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
                                  ISO8601_FORMAT, repl_num, error);
     if (error->code != 0) goto error;
 
+    iso_m_created = make_timestamp(JSON_META_CREATED_KEY, m_created,
+                                   ISO8601_FORMAT, repl_num, error);
+    if (error->code != 0) goto error;
+
     iso_modified = make_timestamp(JSON_MODIFIED_KEY, modified,
                                   ISO8601_FORMAT, repl_num, error);
     if (error->code != 0) goto error;
 
-    timestamps = json_pack("[o, o]", iso_created, iso_modified);
+    iso_m_modified = make_timestamp(JSON_META_MODIFIED_KEY, m_modified,
+                                    ISO8601_FORMAT, repl_num, error);
+    if (error->code != 0) goto error;
+
+    timestamps = json_pack("[o, o, o, o]", iso_created, iso_m_created, iso_modified, iso_m_modified);
     if (!timestamps) {
         set_baton_error(error, -1, "Failed to pack timestamp array");
         goto error;

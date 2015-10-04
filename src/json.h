@@ -28,50 +28,54 @@
 #include "error.h"
 #include "irods_api.h"
 
-#define JSON_ERROR_KEY             "error"
-#define JSON_ERROR_CODE_KEY        "code"
-#define JSON_ERROR_MSG_KEY         "message"
+#define JSON_ERROR_KEY               "error"
+#define JSON_ERROR_CODE_KEY          "code"
+#define JSON_ERROR_MSG_KEY           "message"
 
-#define JSON_DATA_OBJECT_KEY       "data_object"
-#define JSON_DATA_OBJECT_SHORT_KEY "obj"
-#define JSON_COLLECTION_KEY        "collection"
-#define JSON_COLLECTION_SHORT_KEY  "coll"
-#define JSON_TIMESTAMPS_KEY        "timestamps"
-#define JSON_TIMESTAMPS_SHORT_KEY  "time"
-#define JSON_REPLICATE_KEY         "replicate"
-#define JSON_REPLICATE_SHORT_KEY   "rep"
-#define JSON_REPLICATE_NUMBER_KEY  "number"
-#define JSON_REPLICATE_STATUS_KEY  "valid"
+#define JSON_DATA_OBJECT_KEY         "data_object"
+#define JSON_DATA_OBJECT_SHORT_KEY   "obj"
+#define JSON_COLLECTION_KEY          "collection"
+#define JSON_COLLECTION_SHORT_KEY    "coll"
+#define JSON_TIMESTAMPS_KEY          "timestamps"
+#define JSON_TIMESTAMPS_SHORT_KEY    "time"
+#define JSON_REPLICATE_KEY           "replicate"
+#define JSON_REPLICATE_SHORT_KEY     "rep"
+#define JSON_REPLICATE_NUMBER_KEY    "number"
+#define JSON_REPLICATE_STATUS_KEY    "valid"
 
-#define JSON_SIZE_KEY              "size"
-#define JSON_AVUS_KEY              "avus"
-#define JSON_CONTENTS_KEY          "contents"
+#define JSON_SIZE_KEY                "size"
+#define JSON_AVUS_KEY                "avus"
+#define JSON_CONTENTS_KEY            "contents"
 
-#define JSON_ATTRIBUTE_KEY         "attribute"
-#define JSON_ATTRIBUTE_SHORT_KEY   "a"
-#define JSON_VALUE_KEY             "value"
-#define JSON_VALUE_SHORT_KEY       "v"
-#define JSON_UNITS_KEY             "units"
-#define JSON_UNITS_SHORT_KEY       "u"
-#define JSON_OPERATOR_KEY          "operator"
-#define JSON_OPERATOR_SHORT_KEY    "o"
+#define JSON_ATTRIBUTE_KEY           "attribute"
+#define JSON_ATTRIBUTE_SHORT_KEY     "a"
+#define JSON_VALUE_KEY               "value"
+#define JSON_VALUE_SHORT_KEY         "v"
+#define JSON_UNITS_KEY               "units"
+#define JSON_UNITS_SHORT_KEY         "u"
+#define JSON_OPERATOR_KEY            "operator"
+#define JSON_OPERATOR_SHORT_KEY      "o"
 
-#define JSON_CREATED_KEY           "created"
-#define JSON_CREATED_SHORT_KEY     "c"
-#define JSON_MODIFIED_KEY          "modified"
-#define JSON_MODIFIED_SHORT_KEY    "m"
+#define JSON_CREATED_KEY             "created"
+#define JSON_CREATED_SHORT_KEY       "c"
+#define JSON_META_CREATED_KEY        "meta_created"
+#define JSON_META_CREATED_SHORT_KEY  "mc"
+#define JSON_MODIFIED_KEY            "modified"
+#define JSON_MODIFIED_SHORT_KEY      "m"
+#define JSON_META_MODIFIED_KEY       "meta_modified"
+#define JSON_META_MODIFIED_SHORT_KEY "mm"
 
-#define JSON_ACCESS_KEY            "access"
-#define JSON_OWNER_KEY             "owner"
-#define JSON_ZONE_KEY              "zone"
-#define JSON_LEVEL_KEY             "level"
+#define JSON_ACCESS_KEY              "access"
+#define JSON_OWNER_KEY               "owner"
+#define JSON_ZONE_KEY                "zone"
+#define JSON_LEVEL_KEY               "level"
 
-#define JSON_DIRECTORY_KEY         "directory"
-#define JSON_DIRECTORY_SHORT_KEY   "dir"
-#define JSON_FILE_KEY              "file"
+#define JSON_DIRECTORY_KEY           "directory"
+#define JSON_DIRECTORY_SHORT_KEY     "dir"
+#define JSON_FILE_KEY                "file"
 
-#define JSON_DATA_KEY              "data"
-#define JSON_CHECKSUM_KEY          "checksum"
+#define JSON_DATA_KEY                "data"
+#define JSON_CHECKSUM_KEY            "checksum"
 
 #define JSON_RESOURCE_KEY          "resource"
 #define JSON_LOCATION_KEY          "location"
@@ -134,7 +138,11 @@ const char *get_collection_value(json_t *object, baton_error_t *error);
 
 const char *get_created_timestamp(json_t *object, baton_error_t *error);
 
+const char *get_meta_created_timestamp(json_t *object, baton_error_t *error);
+
 const char *get_modified_timestamp(json_t *object, baton_error_t *error);
+
+const char *get_meta_modified_timestamp(json_t *object, baton_error_t *error);
 
 const char* get_replicate_num(json_t *object, baton_error_t *error);
 
@@ -160,7 +168,11 @@ int has_timestamps(json_t *object);
 
 int has_created_timestamp(json_t *object);
 
+int has_meta_created_timestamp(json_t *object);
+
 int has_modified_timestamp(json_t *object);
+
+int has_meta_modified_timestamp(json_t *object);
 
 int contains_avu(json_t *avus, json_t *avu);
 
@@ -180,7 +192,8 @@ int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
 
 int add_contents(json_t *object, json_t *contents, baton_error_t *error);
 
-int add_timestamps(json_t *object, const char *created, const char *modified,
+int add_timestamps(json_t *object, const char *created, const char *m_created, 
+                   const char *modified, const char *m_modified,
                    int *repl_num, baton_error_t *error);
 
 int add_replicates(json_t *object, json_t *replicates, baton_error_t *error);

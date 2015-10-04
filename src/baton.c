@@ -729,7 +729,8 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         logmsg(TRACE, "Searching for collections ...");
         collections = do_search(conn, zone_name, query, col_format,
                                 prepare_col_avu_search, prepare_col_acl_search,
-                                prepare_col_cre_search, prepare_col_mod_search,
+                                prepare_col_cre_search, prepare_col_m_cre_search,
+                                prepare_col_mod_search, prepare_col_m_mod_search,
                                 error);
         if (error->code != 0) goto error;
 
@@ -746,7 +747,8 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
         logmsg(TRACE, "Searching for data objects ...");
         data_objects = do_search(conn, zone_name, query, obj_format,
                                  prepare_obj_avu_search, prepare_obj_acl_search,
-                                 prepare_obj_cre_search, prepare_obj_mod_search,
+                                 prepare_obj_cre_search, prepare_obj_m_cre_search,
+                                 prepare_obj_mod_search, prepare_obj_m_mod_search,
                                  error);
         if (error->code != 0) goto error;
 
