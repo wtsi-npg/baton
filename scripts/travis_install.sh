@@ -55,6 +55,12 @@ case $IRODS_VERSION in
         install_common
         install_4_1_x
         ;;
+
+    4.1.6)
+        install_common
+        install_4_1_x
+        ;;
+
     *)
         echo Unknown iRODS version $IRODS_VERSION
         exit 1
