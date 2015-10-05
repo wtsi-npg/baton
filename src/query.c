@@ -17,13 +17,21 @@
  *
  * @file query.c
  * @author Keith James <kdj@sanger.ac.uk>
+ * @author Joshua C. Randall <jcrandall@alum.mit.edu>
  */
+
+#define _GNU_SOURCE
+#include <stdio.h>
 
 #include <assert.h>
 #include <errno.h>
 #include <libgen.h>
 #include <math.h>
 #include <string.h>
+#include <sys/types.h>
+#include <regex.h>
+
+#include <jansson.h>
 
 #include "config.h"
 #include "log.h"
@@ -470,4 +478,295 @@ genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
 
     size_t num_conds = 1;
     return add_query_conds(query_in, num_conds,  (query_cond_t []) { un });
+}
+
+specificQueryInp_t *prepare_specific_query(specificQueryInp_t *squery_in,
+                                           const char *sql, json_t *args) {
+
+    size_t index;
+    json_t *value;
+
+    squery_in->maxRows = SEARCH_MAX_ROWS;
+    squery_in->continueInx = 0;
+    squery_in->sql = (char *)sql;
+
+    json_array_foreach(args, index, value) {
+      if (json_is_string(value)) {
+          squery_in->args[index] = strdup(json_string_value(value));
+      } else {
+          goto error;
+      }
+    }
+
+    return squery_in;
+
+error:
+    logmsg(ERROR, "Failed to parse JSON specific query args: %s",
+           args);
+    return squery_in;
+}
+
+void free_squery_input(specificQueryInp_t *squery_in) {
+    unsigned int i;
+    assert(squery_in);
+
+    for (i=0; i<10; i++) {
+        if(squery_in->args[i] != NULL) {
+            free(squery_in->args[i]);
+        }
+    }
+    // do not free squery_in->sql as it belongs to target json
+    free(squery_in);
+}
+
+query_format_in_t *make_query_format_from_sql(const char *sql) {
+    query_format_in_t *format = NULL;
+    int reti;
+    const char *select_list_capture_re_str = "^.*?select[[:space:]]+(distinct|all[[:space:]]+)?(.*?[^[:space:]])[[:space:]]+from[[:space:]].*$";
+    const unsigned int select_list_capture_index = 2;
+    regex_t select_list_capture_re;
+    regmatch_t select_list_pmatch[select_list_capture_index+1];
+
+    const char *trim_whitespace_capture_re_str = "^[[:space:]]*(.*?[^[:space:]])[[:space:]]*$";
+    const unsigned int trim_whitespace_capture_index = 1;
+    regex_t trim_whitespace_capture_re;
+    regmatch_t trim_whitespace_pmatch[trim_whitespace_capture_index+1];
+
+    const char *as_column_name_capture_re_str = "^.*[[:space:]]+as[[:space:]]+(.*?[^[:space:]])[[:space:]]*$";
+    const unsigned int as_column_name_capture_index = 1;
+    regex_t as_column_name_capture_re;
+    regmatch_t as_column_name_pmatch[as_column_name_capture_index+1];
+
+    char *select_list, *select_list_tokenize;
+    char *column, *column_trim, *column_name;
+    unsigned int i;
+
+    reti = regcomp(&select_list_capture_re, select_list_capture_re_str, REG_EXTENDED | REG_ICASE);
+    if (reti != 0) {
+        logmsg(ERROR, "Could not compile regex: '%s'", select_list_capture_re_str);
+        goto error;
+    }
+
+    reti = regcomp(&trim_whitespace_capture_re, trim_whitespace_capture_re_str, REG_EXTENDED | REG_ICASE);
+    if (reti != 0) {
+        logmsg(ERROR, "Could not compile regex: '%s'", trim_whitespace_capture_re_str);
+        goto error;
+    }
+
+    reti = regcomp(&as_column_name_capture_re, as_column_name_capture_re_str, REG_EXTENDED | REG_ICASE);
+    if (reti != 0) {
+        logmsg(ERROR, "Could not compile regex: '%s'", as_column_name_capture_re_str);
+        goto error;
+    }
+
+    format = calloc(1, sizeof(query_format_in_t));
+    if (!format) goto error;
+
+    // extract select list from SQL query
+    logmsg(DEBUG, "Extracting select column labels from SQL query: '%s'", sql);
+    reti = regexec(&select_list_capture_re, sql, select_list_capture_index+1, select_list_pmatch, 0);
+    if (reti == 0) {
+        logmsg(DEBUG, "Extracting select_list from positions %u to %u", select_list_pmatch[select_list_capture_index].rm_so, select_list_pmatch[select_list_capture_index].rm_eo);
+        select_list = strndup(sql + select_list_pmatch[select_list_capture_index].rm_so, select_list_pmatch[select_list_capture_index].rm_eo - select_list_pmatch[select_list_capture_index].rm_so + 1);
+        logmsg(DEBUG, "Extracted select_list: '%s'", select_list);
+    } else if (reti == REG_NOMATCH) {
+        logmsg(ERROR, "Regex '%s' did not match SQL: '%s'", select_list_capture_re_str, sql);
+        goto error;
+    } else {
+        logmsg(ERROR, "Regex match '%s' failed parsing SQL: '%s'", select_list_capture_re_str, sql);
+        goto error;
+    }
+    assert(select_list);
+
+    // don't clobber select_list pointer as we need to free it later
+    select_list_tokenize = select_list;
+
+    // parse select_list_tokenize column by column
+    for (i=0; select_list_tokenize != NULL; i++) {
+        // get next column specification from select_list_tokenize
+        column = strsep(&select_list_tokenize, ",");
+        logmsg(DEBUG, "Parsing column %d: strsep found column '%s' with remaining select_list_tokenize '%s'", i, column, select_list_tokenize);
+
+        // trim whitespace from column
+        reti = regexec(&trim_whitespace_capture_re, column, trim_whitespace_capture_index+1, trim_whitespace_pmatch, 0);
+        if (reti == 0) {
+            // point column_trim at first non-whitespace character
+            column_trim = column + trim_whitespace_pmatch[trim_whitespace_capture_index].rm_so;
+            // truncate at character after last non-whitespace character
+            column_trim[trim_whitespace_pmatch[trim_whitespace_capture_index].rm_eo - trim_whitespace_pmatch[trim_whitespace_capture_index].rm_so] = '\0';
+            logmsg(DEBUG, "Trimmed whitespace from column: '%s'", column_trim);
+        } else if (reti == REG_NOMATCH) {
+            logmsg(ERROR, "Attempting to trim whitespace regex '%s' did not match column: '%s'", trim_whitespace_capture_re_str, column);
+            goto error_recoverable;
+        } else {
+            logmsg(ERROR, "Regex match '%s' failed parsing column: '%s'", trim_whitespace_capture_re_str, column);
+            goto error_recoverable;
+        }
+        assert(column_trim);
+
+        // check for 'AS column_name' in column_trim
+        reti = regexec(&as_column_name_capture_re, column_trim, as_column_name_capture_index+1, as_column_name_pmatch, 0);
+        if (reti == 0) {
+            // have 'AS column_name' - use it as the column_name
+            column_name = strndup(column_trim + as_column_name_pmatch[as_column_name_capture_index].rm_so, as_column_name_pmatch[as_column_name_capture_index].rm_eo - as_column_name_pmatch[as_column_name_capture_index].rm_so + 1);
+            if (!column_name) {
+                format->num_columns = i;
+                logmsg(ERROR, "Could not allocate memory for column_name from column: '%s'", column_trim);
+                goto error_recoverable;
+            }              
+            logmsg(DEBUG, "Found 'AS <column_name>': '%s'", column_name);
+        } else if (reti == REG_NOMATCH) {
+            column_name = strdup(column_trim);
+            if (!column_name) {
+                format->num_columns = i;
+                logmsg(ERROR, "Could not allocate memory for column: '%s'", column_trim);
+                goto error_recoverable;
+            }              
+            logmsg(DEBUG, "Did not find 'AS <column_name>', using whole column specifier as column_name: '%s'", column_name);
+        } else {
+            logmsg(ERROR, "Regex match '%s' failed parsing column: '%s'", as_column_name_capture_re_str, column);
+            goto error_recoverable;
+        }
+        assert(column_name);
+
+        logmsg(DEBUG, "Found column %d: '%s'", i, column_name);
+        format->labels[i] = column_name;
+    }
+    format->num_columns = i;
+
+    free(select_list);
+    regfree(&select_list_capture_re);
+    regfree(&trim_whitespace_capture_re);
+    regfree(&as_column_name_capture_re);
+    return format;
+
+error_recoverable:
+    logmsg(ERROR, "Could not parse select columns from SQL into query format: '%s'", sql);
+    // create generic columns labels as a backup plan
+    format->num_columns = MAX_NUM_COLUMNS;
+    for (i=0; i<(format->num_columns-1); i++) {
+        if (format->labels[i] == NULL) {
+            reti = asprintf((char**)&format->labels[i], "col%d", i);
+        }
+    }
+    return format;
+
+error:
+    logmsg(ERROR, "Could not process SQL: '%s'", sql);
+    return NULL;
+}
+
+const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
+                                             const char *alias) {
+    const char *sql;
+
+    specificQueryInp_t *sql_alias_squery_in;
+    genQueryOut_t *query_out = NULL;
+
+    char *err_name;
+    char *err_subname;
+    int status;
+
+    sql_alias_squery_in = calloc(1, sizeof (specificQueryInp_t));
+    if (!sql_alias_squery_in) goto error;
+
+    sql_alias_squery_in->maxRows = SEARCH_MAX_ROWS;
+    sql_alias_squery_in->continueInx = 0;
+    sql_alias_squery_in->sql = "findQueryByAlias";
+    sql_alias_squery_in->args[0] = (char *)alias;
+
+    status = rcSpecificQuery(conn, sql_alias_squery_in, &query_out);
+    if (status == 0) {
+      logmsg(DEBUG, "Successfully fetched SQL for alias: '%s'", alias);
+    }
+    else if (status == CAT_NO_ROWS_FOUND) {
+      logmsg(ERROR, "Query for specific alias '%s' returned no results", alias);
+      goto error;
+    }
+    else {
+      err_name = rodsErrorName(status, &err_subname);
+      logmsg(ERROR, "Failed to fetch SQL for specific query alias: '%s' "
+             "error %d %s %s",
+             alias, status, err_name, err_subname);
+      goto error;
+    }
+
+    size_t num_rows = (size_t) query_out->rowCnt;
+    if (num_rows != 1) {
+        logmsg(ERROR, "Unexpectedly found %d rows of results querying specific alias: '%s'", num_rows, alias);
+        goto error;
+    }
+
+    size_t num_attr = query_out->attriCnt;
+    if (num_attr != 2) {
+        logmsg(ERROR, "Unexpectedly found %d attributes querying specific alias: '%s'", num_attr, alias);
+        goto error;
+    }
+
+    char *found_alias = query_out->sqlResult[0].value;
+    if (strcmp(found_alias, alias) != 0) {
+        logmsg(ERROR, "Query for specific alias returned non-matching result. query alias: '%s', result alias: '%s'", alias, found_alias);
+        goto error;
+    }
+
+    sql = query_out->sqlResult[1].value;
+    logmsg(TRACE, "Found SQL for specific alias '%s': '%s'", alias, sql);
+
+    return sql;
+error:
+    logmsg(ERROR, "Could not find SQL for specific alias: '%s'", alias);
+    return NULL;
+}
+
+query_format_in_t *prepare_specific_labels(rcComm_t *conn,
+                                           const char *sql_or_alias) {
+    regex_t select_s_re;
+    int reti;
+    const char *sql;
+    const char *select_s_re_str ="^select[[:space:]]";
+    query_format_in_t *format;
+
+    // does sql_or_alias begin with a SQL SELECT statement?
+    reti = regcomp(&select_s_re, select_s_re_str, REG_EXTENDED | REG_ICASE);
+    if (reti != 0) {
+        logmsg(ERROR, "Could not compile regex: '%s'", select_s_re_str);
+        goto error;
+    }
+    reti = regexec(&select_s_re, sql_or_alias, 0, NULL, 0);
+    if (reti == 0) {
+        // yes, sql_or_alias does contain SELECT - we already have SQL
+        sql = sql_or_alias;
+        logmsg(DEBUG, "Already have SQL specific query: '%s'", sql);
+    } else if (reti == REG_NOMATCH) {
+        // no SELECT found in sql_or_alias
+        // we must have an alias (or a bad query, but try to look up the alias anyway)
+        sql = irods_get_sql_for_specific_alias(conn, sql_or_alias);
+        if (sql == NULL) {
+            goto error;
+        }
+        logmsg(DEBUG, "Got SQL for specific alias '%s': '%s'", sql_or_alias, sql);
+    } else {
+        logmsg(ERROR, "Regex match failed parsing SQL: '%s'", sql_or_alias);
+        goto error;
+    }
+    regfree(&select_s_re);
+    assert(sql);
+
+    format = make_query_format_from_sql(sql);
+
+    return format;
+
+error:
+    logmsg(ERROR, "Failed to prepare labels for specific query: '%s'", sql_or_alias);
+    return NULL;
+}
+
+void free_specific_labels(query_format_in_t *format) {
+    unsigned int i;
+    assert(format);
+
+    for (i=0; i<(format->num_columns-1); i++) {
+      free((void *)(format->labels[i]));
+    }
+    free(format);
 }

@@ -17,6 +17,7 @@
  *
  * @file json.h
  * @author Keith James <kdj@sanger.ac.uk>
+ * @author Joshua C. Randall <jcrandall@alum.mit.edu>
  */
 
 #ifndef _BATON_JSON_H
@@ -45,6 +46,7 @@
 
 #define JSON_SIZE_KEY              "size"
 #define JSON_AVUS_KEY              "avus"
+#define JSON_SPECIFIC_KEY          "specific"
 #define JSON_CONTENTS_KEY          "contents"
 
 #define JSON_ATTRIBUTE_KEY         "attribute"
@@ -55,6 +57,10 @@
 #define JSON_UNITS_SHORT_KEY       "u"
 #define JSON_OPERATOR_KEY          "operator"
 #define JSON_OPERATOR_SHORT_KEY    "o"
+#define JSON_SQL_KEY               "sql"
+#define JSON_SQL_SHORT_KEY         "s"
+#define JSON_ARGS_KEY              "args"
+#define JSON_ARGS_SHORT_KEY        "?"
 
 #define JSON_CREATED_KEY           "created"
 #define JSON_CREATED_SHORT_KEY     "c"
@@ -118,6 +124,17 @@ json_t *get_acl(json_t *object, baton_error_t *error);
 json_t *get_avus(json_t *object, baton_error_t *error);
 
 /**
+ * Return a JSON object representing a specific query from a
+ * JSON object.
+ *
+ * @param[in]                A JSON object.
+ * @param[out] error         An error report struct.
+ *
+ * @return A JSON object on success, NULL on error.
+ */
+json_t *get_specific(json_t *object, baton_error_t *error);
+
+/**
  * Return a JSON array representing timestamps from a JSON object
  * representing an iRODS path.
  *
@@ -145,6 +162,22 @@ const char *get_avu_value(json_t *avu, baton_error_t *error);
 const char *get_avu_units(json_t *avu, baton_error_t *error);
 
 const char *get_avu_operator(json_t *avu, baton_error_t *error);
+
+const char *get_specific_sql(json_t *sql, baton_error_t *error);
+
+/**
+ * Return a JSON array representing arguments from a JSON object
+ * representing an iRODS specific query. If there are no 
+ * arguments, an empty JSON array will be returned.
+ *
+ * @param[in]                A JSON object.
+ * @param[out] error         An error report struct.
+ *
+ * @return A JSON array on success, NULL on error. If a JSON 
+ *         array is returned, the caller must call json_decref 
+ *         on it when done using it in order to free its memory. 
+ */
+json_t *get_specific_args(json_t *sql, baton_error_t *error);
 
 const char *get_access_owner(json_t *access, baton_error_t *error);
 

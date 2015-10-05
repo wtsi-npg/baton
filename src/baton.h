@@ -17,6 +17,7 @@
  *
  * @file baton.h
  * @author Keith James <kdj@sanger.ac.uk>
+ * @author Joshua C. Randall <jcrandall@alum.mit.edu>
  */
 
 #ifndef _BATON_H
@@ -282,6 +283,21 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  */
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
                         option_flags flags, baton_error_t *error);
+
+/**
+ * Perform a specific query (SQL must have been installed on iRODS server by an
+ * administrator using `iadmin asq`).
+ *
+ * @param[in]  conn         An open iRODS connection.
+ * @param[in]  query        A JSON query specification which includes the
+ *                          SQL query and optionally input arguments and output
+ *                          labels.
+ * @param[out] error        An error report struct.
+ *
+ * @return A newly constructed JSON array of JSON result objects.
+ */
+json_t *search_specific(rcComm_t *conn, json_t *query,
+                        baton_error_t *error);
 
 /**
  * Modify the access control list of a resolved iRODS path.

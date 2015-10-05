@@ -20,7 +20,8 @@ libbaton_include_HEADERS = baton.h error.h irods_api.h irods_3_x_x.h irods_4_1_x
 libbaton_la_SOURCES = baton.c error.c log.c json.c json_query.c query.c read.c compat_checksum.c utilities.c
 libbaton_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 
-bin_PROGRAMS = baton-chmod baton-get baton-list baton-metamod baton-metaquery baton-metasuper
+bin_PROGRAMS = baton-chmod baton-get baton-list baton-metamod baton-metaquery \
+               baton-metasuper baton-specificquery
 
 baton_chmod_SOURCES = baton-chmod.c
 baton_chmod_LDADD = libbaton.la
@@ -39,3 +40,6 @@ baton_metaquery_LDADD = libbaton.la
 
 baton_metasuper_SOURCES = baton-metasuper.c
 baton_metasuper_LDADD = libbaton.la
+
+baton_specificquery_SOURCES = baton-specificquery.c
+baton_specificquery_LDADD = libbaton.la

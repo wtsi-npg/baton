@@ -17,6 +17,7 @@
  *
  * @file json_query.c
  * @author Keith James <kdj@sanger.ac.uk>
+ * @author Joshua C. Randall <jcrandall@alum.mit.edu>
  */
 
 #include <stdlib.h>
@@ -190,6 +191,45 @@ error:
     return NULL;
 }
 
+json_t *do_specific(rcComm_t *conn, json_t *query,
+                    prepare_specific_query_cb prepare_squery,
+                    prepare_specific_labels_cb prepare_labels,
+                    baton_error_t *error) {
+    json_t *items             = NULL;
+    json_t *specific;
+    query_format_in_t *format = NULL;
+
+    specificQueryInp_t *squery_in = calloc(1, sizeof (specificQueryInp_t));
+    if (!squery_in) goto error;
+
+    // specific is mandatory for specific query
+    specific = get_specific(query, error);
+    if (error->code != 0) goto error;
+
+    squery_in = prepare_json_specific_query(squery_in, specific,
+                                            prepare_squery, error);
+    if (error->code != 0) goto error;
+
+    format = prepare_json_specific_labels(conn, specific, prepare_labels, error);
+    if (error->code != 0) goto error;
+
+    items = do_squery(conn, squery_in, format, error);
+    if (error->code != 0) goto error;
+
+    free_squery_input(squery_in);
+    free_specific_labels(format);
+    logmsg(TRACE, "Found %d matching items", json_array_size(items));
+
+    return items;
+
+error:
+    if (squery_in)  free_squery_input(squery_in);
+    if (format)     free_specific_labels(format);
+    if (items)      json_decref(items);
+
+    return NULL;
+}
+
 json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
                  const char *labels[], baton_error_t *error) {
     genQueryOut_t *query_out = NULL;
@@ -269,6 +309,105 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
             set_baton_error(error, status,
                             "Failed to fetch query result: in chunk %d "
                             "error %d %s", chunk_num, status, err_name);
+            goto error;
+        }
+    }
+
+    logmsg(DEBUG, "Obtained a total of %d JSON results in %d chunks",
+           chunk_num, json_array_size(results));
+
+    return results;
+
+error:
+    if (conn->rError) {
+        logmsg(ERROR, error->message);
+        log_rods_errstack(ERROR, conn->rError);
+    }
+    else {
+        logmsg(ERROR, error->message);
+    }
+
+    if (query_out) free_query_output(query_out);
+    if (results)   json_decref(results);
+
+    return NULL;
+}
+
+json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
+                  query_format_in_t *format,
+                  baton_error_t *error) {
+    genQueryOut_t *query_out = NULL;
+    size_t chunk_num  = 0;
+    int continue_flag = 0;
+
+    char *err_name;
+    char *err_subname;
+    int status;
+
+    json_t *results = json_array();
+    if (!results) {
+        set_baton_error(error, -1, "Failed to allocate a new JSON array");
+        goto error;
+    }
+
+    logmsg(DEBUG, "Running specific query ...");
+
+    while (chunk_num == 0 || continue_flag > 0) {
+        logmsg(DEBUG, "Attempting to get chunk %d of query", chunk_num);
+
+        status = rcSpecificQuery(conn, squery_in, &query_out);
+
+        if (status == 0) {
+            logmsg(DEBUG, "Successfully fetched chunk %d of query", chunk_num);
+
+            // Allows query_out to be freed
+            continue_flag = query_out->continueInx;
+
+            // Cargo-cult from iRODS clients; not sure this is useful
+            squery_in->continueInx = query_out->continueInx;
+
+            json_t *chunk = make_json_objects(query_out, format->labels);
+            if (!chunk) {
+                set_baton_error(error, -1,
+                                "Failed to convert query result to JSON: "
+                                "in chunk %d error %d", chunk_num, -1);
+                goto error;
+            }
+
+            logmsg(TRACE, "Converted query result to JSON: in chunk %d of %d",
+                   chunk_num, json_array_size(chunk));
+            chunk_num++;
+
+            status = json_array_extend(results, chunk);
+            json_decref(chunk);
+
+            if (status != 0) {
+                set_baton_error(error, status,
+                                "Failed to add JSON query result to total: "
+                                "in chunk %d error %d", chunk_num, status);
+                goto error;
+            }
+
+            if (query_out) free_query_output(query_out);
+        }
+        else if (status == CAT_NO_ROWS_FOUND && chunk_num > 0) {
+            // Oddly CAT_NO_ROWS_FOUND is also returned at the end of a
+            // batch of chunks; test chunk_num to distinguish catch this
+            logmsg(TRACE, "Got CAT_NO_ROWS_FOUND at end of results!");
+            break;
+        }
+        else if (status == CAT_NO_ROWS_FOUND) {
+            // If this genuinely means no rows have been found, should we
+            // free this, or not? Current iRODS leaves this NULL.
+            logmsg(TRACE, "Query returned no results");
+            break;
+        }
+        else {
+            err_name = rodsErrorName(status, &err_subname);
+            set_baton_error(error, status,
+                            "Failed to fetch query result: in chunk %d "
+                            "error %d %s %s",
+                            chunk_num, status, err_name, err_subname);
             goto error;
         }
     }
@@ -450,13 +589,61 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
             json_decref(in_opvalue);
             in_opvalue = NULL; // Reset for any subsequent IN clause
         }
-     }
+    }
 
     return query_in;
 
 error:
     if (in_opvalue) json_decref(in_opvalue);
     return query_in;
+}
+
+specificQueryInp_t *prepare_json_specific_query(specificQueryInp_t *squery_in,
+                                                json_t *specific,
+                                                prepare_specific_query_cb prepare,
+                                                baton_error_t *error) {
+    const char *sql = NULL;
+    json_t *args = NULL;
+
+    sql = get_specific_sql(specific, error);
+    if (error->code != 0) goto error;
+
+    args = get_specific_args(specific, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Preparing specific search s: '%s'", sql);
+
+    prepare(squery_in, sql, args);
+
+    if (args) {
+        json_decref(args);
+        args  = NULL;
+    }
+
+    return squery_in;
+
+error:
+    if (args) json_decref(args);
+    return squery_in;
+}
+
+query_format_in_t *prepare_json_specific_labels(rcComm_t *conn,
+                                                json_t *specific,
+                                                prepare_specific_labels_cb prepare,
+                                                baton_error_t *error) {
+    query_format_in_t *format = NULL;
+
+    const char *sql = get_specific_sql(specific, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Preparing labels for specific search: '%s'", sql);
+
+    format = prepare(conn, sql);
+
+    return format;
+
+error:
+    return format;
 }
 
 genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,

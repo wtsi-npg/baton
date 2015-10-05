@@ -17,10 +17,13 @@
  *
  * @file query.h
  * @author Keith James <kdj@sanger.ac.uk>
- */
+ * @author Joshua C. Randall <jcrandall@alum.mit.edu> 
+*/
 
 #ifndef _BATON_QUERY_H
 #define _BATON_QUERY_H
+
+#include <jansson.h>
 
 #include "config.h"
 #include "irods_api.h"
@@ -85,6 +88,13 @@ typedef genQueryInp_t *(*prepare_acl_search_cb) (genQueryInp_t *query_in,
 typedef genQueryInp_t *(*prepare_tps_search_cb) (genQueryInp_t *query_in,
                                                  const char *raw_timestamp,
                                                  const char *operator);
+
+typedef specificQueryInp_t *(*prepare_specific_query_cb) (specificQueryInp_t *squery_in,
+                                                          const char *sql,
+                                                          json_t *args);
+
+typedef query_format_in_t *(*prepare_specific_labels_cb) (rcComm_t *conn,
+                                                          const char *sql);
 
 /**
  * Log the current iRODS error stack through the underlying logging
@@ -223,6 +233,20 @@ genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
 
 genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
                                    const char *user_name);
+
+specificQueryInp_t *prepare_specific_query(specificQueryInp_t *squery_in,
+                                           const char *sql, json_t *args);
+
+query_format_in_t *make_query_format_from_sql(const char *sql);
+
+const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
+                                             const char *alias);
+
+query_format_in_t *prepare_specific_labels(rcComm_t *conn, const char *sql);
+
+void free_squery_input(specificQueryInp_t *squery_in);
+
+void free_specific_labels(query_format_in_t *format);
 
 genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in);
 
