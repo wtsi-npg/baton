@@ -38,7 +38,7 @@
 #define JSON_COLLECTION_SHORT_KEY  "coll"
 #define JSON_TIMESTAMPS_KEY        "timestamps"
 #define JSON_TIMESTAMPS_SHORT_KEY  "time"
-#define JSON_REPLICATE_KEY         "replicate"
+#define JSON_REPLICATE_KEY         "replicates"
 #define JSON_REPLICATE_SHORT_KEY   "rep"
 #define JSON_REPLICATE_NUMBER_KEY  "number"
 #define JSON_REPLICATE_STATUS_KEY  "valid"
