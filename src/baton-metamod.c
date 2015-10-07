@@ -53,6 +53,7 @@ int main(int argc, char *argv[]) {
             {"help",       no_argument, &help_flag,       1},
             {"silent",     no_argument, &silent_flag,     1},
             {"unbuffered", no_argument, &unbuffered_flag, 1},
+            {"unsafe",     no_argument, &unsafe_flag,     1},
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
