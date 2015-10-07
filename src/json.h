@@ -38,7 +38,7 @@
 #define JSON_COLLECTION_SHORT_KEY  "coll"
 #define JSON_TIMESTAMPS_KEY        "timestamps"
 #define JSON_TIMESTAMPS_SHORT_KEY  "time"
-#define JSON_REPLICATE_KEY         "replicate"
+#define JSON_REPLICATE_KEY         "replicates"
 #define JSON_REPLICATE_SHORT_KEY   "rep"
 #define JSON_REPLICATE_NUMBER_KEY  "number"
 #define JSON_REPLICATE_STATUS_KEY  "valid"
@@ -181,7 +181,7 @@ int add_permissions(json_t *object, json_t *perms, baton_error_t *error);
 int add_contents(json_t *object, json_t *contents, baton_error_t *error);
 
 int add_timestamps(json_t *object, const char *created, const char *modified,
-                   int *repl_num, baton_error_t *error);
+                   const char *replicate, baton_error_t *error);
 
 int add_replicates(json_t *object, json_t *replicates, baton_error_t *error);
 
@@ -190,7 +190,11 @@ int add_checksum(json_t *object, json_t *checksum, baton_error_t *error);
 int add_error_report(json_t *target, baton_error_t *error);
 
 json_t *make_timestamp(const char* key, const char *value, const char *format,
-                       int *repl_num, baton_error_t *error);
+                       const char *replicate, baton_error_t *error);
+
+json_t *make_replicate(const char *resource, const char *location,
+                       const char *checksum, const char *replicate,
+                       const char *status, baton_error_t *error);
 
 json_t *data_object_parts_to_json(const char *coll_name, const char *data_name,
                                   baton_error_t *error);

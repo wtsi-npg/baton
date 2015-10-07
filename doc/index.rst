@@ -368,6 +368,12 @@ Options
   Prints command line help.
 
 .. program:: baton-list
+.. option:: --replicate
+
+  Print data object replicate information, in the format described in
+  :ref:`representing_replicates`.
+
+.. program:: baton-list
 .. option:: --silent
 
    Silence error messages.
@@ -644,17 +650,6 @@ object checksums are given under the ``checksum`` property.
 
   {"collection:" "/unit/home/user", "data_object": "README.txt", "size": 123456}
 
-In cases where data objects have replicates, the full details of
-replication may be displayed, including replicate identity numbers,
-status (valid or invalid) and checksum.
-
-.. code-block:: json
-
-  {"collection": "/unit/home/user", "data_object": "README.txt",
-   "replicate": [{"checksum": "2ebec02316ddc3ee64a67c89b5e3140c",
-                 "number": 0,
-                 "valid": true}]}
-
 The above JSON representations of collections and data objects are
 sufficient to be passed to baton's ``baton-list`` program, which
 fulfils a similar role to the iRODS ``ils`` program, listing data
@@ -662,6 +657,24 @@ objects and collection contents.
 
 ``baton`` ignores JSON properties that it does not recognise, therefore it
 is harmless to include extra properties in program input.
+
+.. _representing_replicates:
+
+Representing replicates
+=======================
+
+In cases where data objects have replicates, the full details of
+replication may be displayed, including replicate identity numbers,
+status (valid or invalid), resource name, location and checksum.
+
+.. code-block:: json
+
+  {"collection": "/unit/home/user", "data_object": "README.txt",
+   "replicates": [{"checksum": "2ebec02316ddc3ee64a67c89b5e3140c",
+                   "location": "unit-a-1",
+                   "resource": "test_resource",
+                   "number": 0,
+                   "valid": true}]}
 
 .. _representing_local_paths:
 
@@ -913,7 +926,6 @@ modified in 2014-03, the syntax would be:
    {"timestamps": [{"created":  "2014-01-01T00:00:00", "operator": "n<"},
                    {"modified": "2014-03-01T00:00:00", "operator": "n>="},
                    {"modified": "2014-03-31T00:00:00", "operator": "n<"}]}
-
 
 .. _representing_permissions:
 

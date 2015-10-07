@@ -28,6 +28,7 @@
 #include <jansson.h>
 
 #include "config.h"
+#include "baton.h"
 #include "json.h"
 #include "log.h"
 #include "utilities.h"
@@ -70,6 +71,8 @@ int add_error_value(json_t *object, baton_error_t *error) {
 }
 
 json_t *get_acl(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     json_t *acl = get_json_value(object, "path spec", JSON_ACCESS_KEY, NULL,
                                  error);
     if (error->code != 0) goto error;
@@ -87,6 +90,8 @@ error:
 }
 
 json_t *get_avus(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     json_t *avus = get_json_value(object, "path spec", JSON_AVUS_KEY, NULL,
                                   error);
     if (error->code != 0) goto error;
@@ -104,6 +109,8 @@ error:
 }
 
 json_t *get_timestamps(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     json_t *timestamps = get_json_value(object, "path spec",
                                         JSON_TIMESTAMPS_KEY,
                                         JSON_TIMESTAMPS_SHORT_KEY, error);
@@ -122,57 +129,80 @@ error:
 }
 
 const char *get_collection_value(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_string_value(object, "path spec", JSON_COLLECTION_KEY,
                             JSON_COLLECTION_SHORT_KEY, error);
 }
 
 const char *get_data_object_value(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_opt_string_value(object, "path spec", JSON_DATA_OBJECT_KEY,
                                 JSON_DATA_OBJECT_SHORT_KEY, error);
 }
 
 const char *get_directory_value(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_opt_string_value(object, "path spec", JSON_DIRECTORY_KEY,
                                 JSON_DIRECTORY_SHORT_KEY, error);
 }
 
 const char *get_file_value(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_opt_string_value(object, "path spec", JSON_FILE_KEY,
                                 NULL, error);
 }
 
 const char *get_query_collection(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_opt_string_value(object, "path spec", JSON_COLLECTION_KEY,
                                 JSON_COLLECTION_SHORT_KEY, error);
 }
 
 const char *get_created_timestamp(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_string_value(object, "timestamps", JSON_CREATED_KEY,
                             JSON_CREATED_SHORT_KEY, error);
 }
 
 const char *get_modified_timestamp(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_string_value(object, "timestamps", JSON_MODIFIED_KEY,
                             JSON_MODIFIED_SHORT_KEY, error);
 }
 
 const char *get_replicate_num(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_opt_string_value(object, "timestamps", JSON_REPLICATE_KEY,
                                 JSON_REPLICATE_SHORT_KEY, error);
 }
 
 const char *get_avu_attribute(json_t *avu, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_string_value(avu, "AVU", JSON_ATTRIBUTE_KEY,
                             JSON_ATTRIBUTE_SHORT_KEY, error);
 }
 
 const char *get_avu_value(json_t *avu, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_string_value(avu, "AVU", JSON_VALUE_KEY,
                             JSON_VALUE_SHORT_KEY, error);
 }
 
 char *make_in_op_value(json_t *avu, baton_error_t *error) {
     json_t *op_value = NULL;
+
+    init_baton_error(error);
+
     json_t *valarray = get_json_value(avu, "value", JSON_VALUE_KEY,
                                       JSON_VALUE_SHORT_KEY, error);
     if (error->code != 0) goto error;
@@ -237,24 +267,34 @@ error:
 }
 
 const char *get_avu_units(json_t *avu, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_opt_string_value(avu, "AVU", JSON_UNITS_KEY,
                                 JSON_UNITS_SHORT_KEY, error);
 }
 
 const char *get_avu_operator(json_t *avu, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_opt_string_value(avu, "AVU", JSON_OPERATOR_KEY,
                                 JSON_OPERATOR_SHORT_KEY, error);
 }
 
 const char *get_access_owner(json_t *access, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_string_value(access, "access spec", JSON_OWNER_KEY, NULL, error);
 }
 
 const char *get_access_level(json_t *access, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_string_value(access, "access spec", JSON_LEVEL_KEY, NULL, error);
 }
 
 const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
+    init_baton_error(error);
+
     return get_opt_string_value(timestamp, "timestamp", JSON_OPERATOR_KEY,
                                 JSON_OPERATOR_SHORT_KEY, error);
 }
@@ -330,9 +370,10 @@ int represents_file(json_t *object) {
 }
 
 json_t *make_timestamp(const char* key, const char *value, const char *format,
-                       int *repl_num, baton_error_t *error) {
-    char *formatted = format_timestamp(value, format);
+                       const char *replicate, baton_error_t *error) {
+    init_baton_error(error);
 
+    char *formatted = format_timestamp(value, format);
     json_t *result = json_pack("{s:s}", key, formatted);
     if (!result) {
         set_baton_error(error, -1,
@@ -341,9 +382,18 @@ json_t *make_timestamp(const char* key, const char *value, const char *format,
         goto error;
     }
 
-    if (repl_num) {
-        json_object_set_new(result, JSON_REPLICATE_KEY,
-                            json_integer(*repl_num));
+    if (replicate) {
+        int base = 10;
+        char *endptr;
+        int repl = strtoul(replicate, &endptr, base);
+        if (*endptr) {
+            set_baton_error(error, -1,
+                            "Failed to parse replicate number from "
+                            "string '%s'", replicate);
+            goto error;
+        }
+
+        json_object_set_new(result, JSON_REPLICATE_KEY, json_integer(repl));
     }
 
     free(formatted);
@@ -356,11 +406,63 @@ error:
     return NULL;
 }
 
+json_t *make_replicate(const char *resource, const char *location,
+                       const char *checksum, const char *replicate,
+                       const char *status, baton_error_t *error) {
+    json_t *result   = NULL;
+    json_t *is_valid = NULL;
+
+    init_baton_error(error);
+
+    int base = 10;
+    char *endptr;
+    int repl = strtoul(replicate, &endptr, base);
+    if (*endptr) {
+        set_baton_error(error, -1,
+                        "Failed to parse replicate number from string '%s'",
+                        replicate);
+        goto error;
+    }
+
+    if (str_equals(status, INVALID_REPLICATE, 1)) {
+        is_valid = json_false();
+    }
+    else if (str_equals(status, VALID_REPLICATE, 1)) {
+        is_valid = json_true();
+    }
+    else {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid replicate status '%s'", status);
+        goto error;
+    }
+
+    result = json_pack("{s:s, s:s, s:s, s:i, s:o}",
+                       JSON_RESOURCE_KEY,         resource,
+                       JSON_LOCATION_KEY,         location,
+                       JSON_CHECKSUM_KEY,         checksum,
+                       JSON_REPLICATE_NUMBER_KEY, repl,
+                       JSON_REPLICATE_STATUS_KEY, is_valid);
+    if (!result) {
+        set_baton_error(error, -1, "Failed to pack replicate object");
+        goto error;
+    }
+
+    return result;
+
+error:
+    if (result)   json_decref(result);
+    if (is_valid) json_decref(is_valid);
+
+    return NULL;
+}
+
 int add_timestamps(json_t *object, const char *created, const char *modified,
-                   int *repl_num, baton_error_t *error) {
+                   const char *replicate, baton_error_t *error) {
     json_t *iso_created  = NULL;
     json_t *iso_modified = NULL;
     json_t *timestamps;
+
+    init_baton_error(error);
 
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add timestamp data: "
@@ -369,11 +471,11 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
     }
 
     iso_created = make_timestamp(JSON_CREATED_KEY, created,
-                                 ISO8601_FORMAT, repl_num, error);
+                                 ISO8601_FORMAT, replicate, error);
     if (error->code != 0) goto error;
 
     iso_modified = make_timestamp(JSON_MODIFIED_KEY, modified,
-                                  ISO8601_FORMAT, repl_num, error);
+                                  ISO8601_FORMAT, replicate, error);
     if (error->code != 0) goto error;
 
     timestamps = json_pack("[o, o]", iso_created, iso_modified);
@@ -389,6 +491,8 @@ error:
 }
 
 int add_replicates(json_t *object, json_t *replicates, baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add replicates data: "
                         "target not a JSON object");
@@ -402,6 +506,8 @@ error:
 }
 
 int add_checksum(json_t *object, json_t *checksum, baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add checksum data: "
                         "target not a JSON object");
@@ -416,6 +522,8 @@ error:
 
 int add_collection(json_t *object, const char *coll_name,
                    baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add collection data: "
                         "target not a JSON object");
@@ -436,6 +544,8 @@ error:
 }
 
 int add_metadata(json_t *object, json_t *avus, baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add AVU data: "
                         "target not a JSON object");
@@ -449,6 +559,8 @@ error:
 }
 
 int add_permissions(json_t *object, json_t *perms, baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to add permissions data: "
                         "target not a JSON object");
@@ -462,13 +574,15 @@ error:
 }
 
 int add_contents(json_t *object, json_t *contents, baton_error_t *error) {
-  if (!json_is_object(object)) {
-      set_baton_error(error, -1, "Failed to add contents data: "
-                      "target not a JSON object");
-      goto error;
-  }
+    init_baton_error(error);
 
-  return json_object_set_new(object, JSON_CONTENTS_KEY, contents);
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add contents data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_CONTENTS_KEY, contents);
 
 error:
     return error->code;
@@ -477,6 +591,8 @@ error:
 json_t *data_object_parts_to_json(const char *coll_name,
                                   const char *data_name,
                                   baton_error_t *error) {
+    init_baton_error(error);
+
     json_t *result = json_pack("{s:s, s:s}",
                                JSON_COLLECTION_KEY,  coll_name,
                                JSON_DATA_OBJECT_KEY, data_name);
@@ -497,6 +613,8 @@ json_t *data_object_path_to_json(const char *path, baton_error_t *error) {
     char path2[MAX_STR_LEN];
     char *coll_name;
     char *data_name;
+
+    init_baton_error(error);
 
     size_t term_len = strnlen(path, MAX_STR_LEN) + 1;
     if (term_len > MAX_STR_LEN) {
@@ -535,6 +653,8 @@ error:
 }
 
 json_t *collection_path_to_json(const char *path, baton_error_t *error) {
+    init_baton_error(error);
+
     json_t *result = json_pack("{s:s}", JSON_COLLECTION_KEY, path);
     if (!result) {
         set_baton_error(error, -1, "Failed to pack collection '%s' as JSON",
@@ -723,6 +843,7 @@ static const char *get_opt_string_value(json_t *object, const char *name,
                                         const char *key, const char *short_key,
                                         baton_error_t *error) {
     const char *str = NULL;
+
     json_t *value;
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,

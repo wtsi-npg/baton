@@ -55,6 +55,8 @@ const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
                                  SEARCH_OP_NUM_GT,   SEARCH_OP_NUM_LT,
                                  SEARCH_OP_STR_GE,   SEARCH_OP_STR_LE,
                                  SEARCH_OP_NUM_GE,   SEARCH_OP_NUM_LE };
+    init_baton_error(error);
+
     size_t valid_index;
     int valid = 0;
     for (size_t i = 0; i < num_operators; i++) {
@@ -96,6 +98,8 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     char *root_path         = NULL;
     json_t *items           = NULL;
     json_t *avus;
+
+    init_baton_error(error);
 
     if (represents_collection(query)) {
         root_path = json_to_path(query, error);
@@ -191,6 +195,8 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
     genQueryOut_t *query_out = NULL;
     size_t chunk_num  = 0;
     int continue_flag = 0;
+
+    init_baton_error(error);
 
     json_t *results = json_array();
     if (!results) {
@@ -355,6 +361,9 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
                                        prepare_acl_search_cb prepare,
                                        baton_error_t *error) {
     size_t num_clauses = json_array_size(mapped_acl);
+
+    init_baton_error(error);
+
     if (num_clauses > 1) {
         set_baton_error(error, -1,
                         "Invalid permissions specification "
@@ -395,8 +404,10 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
                                        prepare_avu_search_cb prepare,
                                        baton_error_t *error) {
     json_t *in_opvalue = NULL;
-    size_t num_clauses = json_array_size(avus);
 
+    init_baton_error(error);
+
+    size_t num_clauses = json_array_size(avus);
     size_t i;
     json_t *avu;
     json_array_foreach(avus, i, avu) {
@@ -453,6 +464,8 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
                                        prepare_tps_search_cb prepare_cre,
                                        prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error) {
+    init_baton_error(error);
+
     size_t num_clauses = json_array_size(timestamps);
 
     size_t i;
@@ -519,6 +532,8 @@ json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
     json_t *checksum;
     int status;
 
+    init_baton_error(error);
+
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid target: not a JSON object");
@@ -582,6 +597,8 @@ json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
     json_t *replicates;
     int status;
 
+    init_baton_error(error);
+
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid target: not a JSON object");
@@ -617,6 +634,8 @@ error:
 
 json_t *add_repl_json_array(rcComm_t *conn, json_t *array,
                             baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_array(array)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid target: not a JSON array");
@@ -644,6 +663,8 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     char *path             = NULL;
     json_t *raw_timestamps = NULL;
     json_t *timestamps     = NULL;
+
+    init_baton_error(error);
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -673,22 +694,11 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     // collections too, but we don't report them to be consistent with
     // the 'ils' command.
     if (represents_data_object(object)) {
-        int base = 10;
         size_t i;
         json_t *item;
         json_array_foreach(raw_timestamps, i, item) {
-            const char *repl_str = get_replicate_num(item, error);
+            const char *repl_num = get_replicate_num(item, error);
             if (error->code != 0) goto error;
-
-            char *endptr;
-            int repl_num = strtoul(repl_str, &endptr, base);
-            if (*endptr) {
-                set_baton_error(error, -1,
-                                "Failed to parse replicate number from "
-                                "string '%s'", repl_str);
-                goto error;
-            }
-
             const char *created = get_created_timestamp(item, error);
             if (error->code != 0) goto error;
             const char *modified = get_modified_timestamp(item, error);
@@ -696,18 +706,18 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
 
             json_t *iso_created =
                 make_timestamp(JSON_CREATED_KEY, created, ISO8601_FORMAT,
-                               &repl_num, error);
+                               repl_num, error);
             if (error->code != 0) goto error;
 
             json_t *iso_modified =
                 make_timestamp(JSON_MODIFIED_KEY, modified, ISO8601_FORMAT,
-                               &repl_num, error);
+                               repl_num, error);
             if (error->code != 0) goto error;
 
             json_array_append_new(timestamps, iso_created);
             json_array_append_new(timestamps, iso_modified);
 
-            logmsg(DEBUG, "Adding timestamps from replicate %d of '%s'",
+            logmsg(DEBUG, "Adding timestamps from replicate %s of '%s'",
                    repl_num, path);
         }
     }
@@ -733,6 +743,8 @@ error:
 
 json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
                            baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_array(array)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid target: not a JSON array");
@@ -760,6 +772,8 @@ json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
     rodsPath_t rods_path;
     json_t *avus;
     int status;
+
+    init_baton_error(error);
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -796,6 +810,8 @@ error:
 
 json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
                             baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_array(array)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid target: not a JSON array");
@@ -821,6 +837,8 @@ json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
     rodsPath_t rods_path;
     json_t *perms;
     int status;
+
+    init_baton_error(error);
 
     if (!json_is_object(object)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -857,6 +875,8 @@ error:
 
 json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
                            baton_error_t *error) {
+    init_baton_error(error);
+
     if (!json_is_array(array)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid target: not a JSON array");
@@ -924,6 +944,8 @@ static size_t parse_attr_value(int column, const char *label,
 json_t *map_access_args(json_t *query, baton_error_t *error) {
     json_t *user_info = NULL;
 
+    init_baton_error(error);
+
     if (has_acl(query)) {
         json_t *acl = get_acl(query, error);
         if (error->code != 0) goto error;
@@ -965,6 +987,8 @@ error:
 json_t *revmap_access_result(json_t *acl,  baton_error_t *error) {
     size_t num_elts;
 
+    init_baton_error(error);
+
     if (!json_is_array(acl)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid ACL: not a JSON array");
@@ -995,6 +1019,10 @@ error:
 }
 
 json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
+    init_baton_error(error);
+
+    json_t *mapped = json_array();
+
     size_t num_elts = json_array_size(results);
     for (size_t i = 0; i < num_elts; i++) {
         json_t *result = json_array_get(results, i);
@@ -1005,34 +1033,33 @@ json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
             goto error;
         }
 
-        json_t *repl = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
-        size_t n = atol(json_string_value(repl));
-        json_object_del(result, JSON_REPLICATE_NUMBER_KEY);
-        json_object_set_new(result, JSON_REPLICATE_NUMBER_KEY, json_integer(n));
+        if (error->code != 0) goto error;
 
-        json_t *status = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
-        json_t *is_valid;
-        if (str_equals(json_string_value(status), INVALID_REPLICATE, 1)) {
-            is_valid = json_false();
-        }
-        else if (str_equals(json_string_value(status), VALID_REPLICATE, 1)) {
-            is_valid = json_true();
-        }
-        else {
-            set_baton_error(error, CAT_INVALID_ARGUMENT,
-                            "Invalid replicate status '%s' at "
-                            "position %d of %d", json_string_value(status),
-                            i, num_elts);
-            goto error;
-        }
+        json_t *resc = json_object_get(result, JSON_RESOURCE_KEY);
+        json_t *loc  = json_object_get(result, JSON_LOCATION_KEY);
+        json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
+        json_t *num  = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
+        json_t *stat = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
 
-        json_object_del(result, JSON_REPLICATE_STATUS_KEY);
-        json_object_set_new(result, JSON_REPLICATE_STATUS_KEY, is_valid);
+        const char *resource = json_string_value(resc);
+        const char *location = json_string_value(loc);
+        const char *checksum = json_string_value(chk);
+        const char *number   = json_string_value(num);
+        const char *status   = json_string_value(stat);
+
+        json_t *replicate =
+            make_replicate(resource, location, checksum, number, status, error);
+
+        if (error->code != 0) goto error;
+
+        json_array_append_new(mapped, replicate);
     }
 
-    return results;
+    return mapped;
 
 error:
+    if (mapped) json_decref(mapped);
+
     return NULL;
 }
 
