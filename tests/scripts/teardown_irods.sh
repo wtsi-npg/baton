@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# This script is run on fixture teardown. It deletes the test data
-# from iRODS on a successful result.
+# This script is run on checked fixture teardown. It deletes the test
+# data from iRODS on a successful result.
 #
 
 E_ARGS_MISSING=3
@@ -15,4 +15,5 @@ then
 fi
 
 irm -rf $in_path
+
 exit

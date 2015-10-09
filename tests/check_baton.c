@@ -37,9 +37,13 @@ static int MAX_PATH_LEN    = 4096;
 static char *BASIC_COLL          = "baton-basic-test";
 static char *BASIC_DATA_PATH     = "data";
 static char *BASIC_METADATA_PATH = "metadata/meta1.imeta";
+static char *SQL_PATH            = "sql/specific_queries.sql";
 
-static char *SETUP_SCRIPT    = "scripts/setup_irods.sh";
-static char *TEARDOWN_SCRIPT = "scripts/teardown_irods.sh";
+static char *SETUP_SCRIPT        = "scripts/setup_irods.sh";
+static char *SQL_SETUP_SCRIPT    = "scripts/setup_sql.sh";
+
+static char *TEARDOWN_SCRIPT     = "scripts/teardown_irods.sh";
+static char *SQL_TEARDOWN_SCRIPT = "scripts/teardown_sql.sh";
 
 static void set_current_rods_root(char *in, char *out) {
     rodsEnv rodsEnv;
@@ -55,10 +59,34 @@ static void set_current_rods_root(char *in, char *out) {
 
 static void setup() {
     set_log_threshold(WARN);
+
+    char command[MAX_COMMAND_LEN];
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s",
+             TEST_ROOT, SQL_SETUP_SCRIPT,
+             TEST_ROOT, SQL_PATH);
+
+    printf("Setup: %s\n", command);
+    int ret = system(command);
+
+    if (ret != 0) raise(SIGTERM);
 }
 
 static void teardown() {
+    char command[MAX_COMMAND_LEN];
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
 
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s",
+             TEST_ROOT, SQL_TEARDOWN_SCRIPT,
+             TEST_ROOT, SQL_PATH);
+
+    printf("Teardown: %s\n", command);
+    int ret = system(command);
+
+    if (ret != 0) raise(SIGINT);
 }
 
 static void basic_setup() {
@@ -73,8 +101,7 @@ static void basic_setup() {
              TEST_RESOURCE,
              TEST_ROOT, BASIC_METADATA_PATH);
 
-    printf("Setup: %s\n", command);
-
+    printf("Data setup: %s\n", command);
     int ret = system(command);
 
     if (ret != 0) raise(SIGTERM);
@@ -89,10 +116,16 @@ static void basic_teardown() {
              TEST_ROOT, TEARDOWN_SCRIPT,
              rods_root);
 
-    printf("Teardown: %s\n", command);
+    printf("Data teardown: %s\n", command);
     int ret = system(command);
 
     if (ret != 0) raise(SIGINT);
+}
+
+static int have_rodsadmin() {
+    char *command = "iuserinfo |grep 'type: rodsadmin'";
+
+    return system(command);
 }
 
 START_TEST(test_str_starts_with) {
