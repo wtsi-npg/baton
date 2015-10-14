@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# This script is run on fixture setup. It copies test data to iRODS
-# and if provided with a file of imeta commands, executes imeta to add
-# metadata.
+# This script is run on checked fixture setup. It copies test data to
+# iRODS and if provided with a file of imeta commands, executes imeta
+# to add metadata.
 #
 
 E_ARGS_MISSING=3
@@ -78,7 +78,6 @@ then
     echo "Failed to create checksums on test data. Aborting"
     exit $status
 fi
-
 
 # Add metadata if required
 if [[ ! -z "$meta_path" ]]
