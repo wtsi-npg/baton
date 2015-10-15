@@ -910,6 +910,35 @@ START_TEST(test_list_timestamps_coll) {
 }
 END_TEST
 
+// Do all the search operators work?
+START_TEST(test_search_operators) {
+    option_flags flags = SEARCH_OBJECTS;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    // Not testing 'in' here
+    char *operators[] = { "=", "like", "not like", ">", "<",
+                          "n>", "n<", ">=", "<=", "n>=", "n<=" };
+
+    for (size_t i = 0; i < 11; i++) {
+        json_t *avu = json_pack("{s:s, s:s, s:s}",
+                                JSON_ATTRIBUTE_KEY, "attr1000",
+                                JSON_VALUE_KEY,     "value1000",
+                                JSON_OPERATOR_KEY,  operators[i]);
+        json_t *query = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
+
+        baton_error_t error;
+        json_t *results = search_metadata(conn, query, NULL, flags, &error);
+        ck_assert_int_eq(error.code, 0);
+
+        json_decref(query);
+        json_decref(results);
+    }
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 // Can we search for data objects by their metadata?
 START_TEST(test_search_metadata_obj) {
     option_flags flags = 0;
@@ -1939,6 +1968,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_list_timestamps_obj);
     tcase_add_test(basic_tests, test_list_timestamps_coll);
 
+    tcase_add_test(basic_tests, test_search_operators);
     tcase_add_test(basic_tests, test_search_metadata_obj);
     tcase_add_test(basic_tests, test_search_metadata_coll);
     tcase_add_test(basic_tests, test_search_metadata_path_obj);
