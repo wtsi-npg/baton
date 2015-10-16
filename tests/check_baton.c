@@ -1915,14 +1915,14 @@ START_TEST(test_regression_github_issue137) {
 
     for (size_t i = 0; i < 11; i++) {
         json_t *avu = json_pack("{s:s, s:s, s:s}",
-                                JSON_ATTRIBUTE_KEY, "attr1000",
-                                JSON_VALUE_KEY,     "value1000",
+                                JSON_ATTRIBUTE_KEY, "numattr1",
+                                JSON_VALUE_KEY,     "10",
                                 JSON_OPERATOR_KEY,  operators[i]);
         json_t *query = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
 
         baton_error_t error;
         json_t *results = search_metadata(conn, query, NULL, flags, &error);
-        ck_assert_int_eq(error.code, 0);
+        ck_assert_msg(error.code == 0, operators[i]);
 
         json_decref(query);
         json_decref(results);
@@ -1930,14 +1930,14 @@ START_TEST(test_regression_github_issue137) {
 
     // Test 'in' here
     json_t *avu = json_pack("{s:s, s:[s], s:s}",
-                            JSON_ATTRIBUTE_KEY, "attr1000",
-                            JSON_VALUE_KEY,     "value1000",
+                            JSON_ATTRIBUTE_KEY, "numattr1",
+                            JSON_VALUE_KEY,     "10",
                             JSON_OPERATOR_KEY,  "in");
     json_t *query = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
 
     baton_error_t error;
     json_t *results = search_metadata(conn, query, NULL, flags, &error);
-    ck_assert_int_eq(error.code, 0);
+    ck_assert_msg(error.code == 0, "in");
     json_decref(query);
     json_decref(results);
 
