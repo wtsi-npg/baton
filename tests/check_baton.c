@@ -910,35 +910,6 @@ START_TEST(test_list_timestamps_coll) {
 }
 END_TEST
 
-// Do all the search operators work?
-START_TEST(test_search_operators) {
-    option_flags flags = SEARCH_OBJECTS;
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-
-    // Not testing 'in' here
-    char *operators[] = { "=", "like", "not like", ">", "<",
-                          "n>", "n<", ">=", "<=", "n>=", "n<=" };
-
-    for (size_t i = 0; i < 11; i++) {
-        json_t *avu = json_pack("{s:s, s:s, s:s}",
-                                JSON_ATTRIBUTE_KEY, "attr1000",
-                                JSON_VALUE_KEY,     "value1000",
-                                JSON_OPERATOR_KEY,  operators[i]);
-        json_t *query = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
-
-        baton_error_t error;
-        json_t *results = search_metadata(conn, query, NULL, flags, &error);
-        ck_assert_int_eq(error.code, 0);
-
-        json_decref(query);
-        json_decref(results);
-    }
-
-    if (conn) rcDisconnect(conn);
-}
-END_TEST
-
 // Can we search for data objects by their metadata?
 START_TEST(test_search_metadata_obj) {
     option_flags flags = 0;
@@ -1856,6 +1827,12 @@ START_TEST(test_slurp_file) {
 }
 END_TEST
 
+// Having metadata on an item of (a = x, a = y), a search for "a = x"
+// gives correct results, as does a search for "a = y". However,
+// searching for "a = x and a = y" does not (nothing is returned).
+//
+// This is caused by overzealous cropping of search terms introduced
+// in commit d6d036
 START_TEST(test_regression_github_issue83) {
     option_flags flags = 0;
     rodsEnv env;
@@ -1925,6 +1902,48 @@ START_TEST(test_regression_github_issue83) {
 }
 END_TEST
 
+// Are all the search operators accepted? "n>=", "n<=" were not being
+// accepted by user input validation.
+START_TEST(test_regression_github_issue137) {
+    option_flags flags = SEARCH_OBJECTS;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    // Not testing 'in' here
+    char *operators[] = { "=", "like", "not like", ">", "<",
+                          "n>", "n<", ">=", "<=", "n>=", "n<=" };
+
+    for (size_t i = 0; i < 11; i++) {
+        json_t *avu = json_pack("{s:s, s:s, s:s}",
+                                JSON_ATTRIBUTE_KEY, "attr1000",
+                                JSON_VALUE_KEY,     "value1000",
+                                JSON_OPERATOR_KEY,  operators[i]);
+        json_t *query = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
+
+        baton_error_t error;
+        json_t *results = search_metadata(conn, query, NULL, flags, &error);
+        ck_assert_int_eq(error.code, 0);
+
+        json_decref(query);
+        json_decref(results);
+    }
+
+    // Test 'in' here
+    json_t *avu = json_pack("{s:s, s:[s], s:s}",
+                            JSON_ATTRIBUTE_KEY, "attr1000",
+                            JSON_VALUE_KEY,     "value1000",
+                            JSON_OPERATOR_KEY,  "in");
+    json_t *query = json_pack("{s:[o]}", JSON_AVUS_KEY, avu);
+
+    baton_error_t error;
+    json_t *results = search_metadata(conn, query, NULL, flags, &error);
+    ck_assert_int_eq(error.code, 0);
+    json_decref(query);
+    json_decref(results);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
 
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
@@ -1968,7 +1987,6 @@ Suite *baton_suite(void) {
     tcase_add_test(basic_tests, test_list_timestamps_obj);
     tcase_add_test(basic_tests, test_list_timestamps_coll);
 
-    tcase_add_test(basic_tests, test_search_operators);
     tcase_add_test(basic_tests, test_search_metadata_obj);
     tcase_add_test(basic_tests, test_search_metadata_coll);
     tcase_add_test(basic_tests, test_search_metadata_path_obj);
@@ -2000,6 +2018,7 @@ Suite *baton_suite(void) {
     tcase_add_checked_fixture (regression_tests, basic_setup, basic_teardown);
 
     tcase_add_test(regression_tests, test_regression_github_issue83);
+    tcase_add_test(regression_tests, test_regression_github_issue137);
 
     suite_add_tcase(suite, utilities_tests);
     suite_add_tcase(suite, basic_tests);
