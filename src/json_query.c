@@ -48,7 +48,7 @@ void log_json_error(log_level level, json_error_t *error) {
 }
 
 const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
-    static size_t num_operators = 10;
+    static size_t num_operators = 12;
     static char *operators[] = { SEARCH_OP_EQUALS,   SEARCH_OP_LIKE,
                                  SEARCH_OP_NOT_LIKE, SEARCH_OP_IN,
                                  SEARCH_OP_STR_GT,   SEARCH_OP_STR_LT,
@@ -70,7 +70,7 @@ const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
     if (!valid) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid operator: expected one of "
-                        "[%s, %s, %s, %s, %s, %s, %s, %s, %s, %s]",
+                        "[%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s]",
                         SEARCH_OP_EQUALS,   SEARCH_OP_LIKE,
                         SEARCH_OP_NOT_LIKE, SEARCH_OP_IN,
                         SEARCH_OP_STR_GT,   SEARCH_OP_STR_LT,

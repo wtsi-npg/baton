@@ -23,3 +23,7 @@ add -d __IRODS_TEST_ROOT__/r1.txt a y
 add -d __IRODS_TEST_ROOT__/r1.txt b x
 add -d __IRODS_TEST_ROOT__/r1.txt b y
 add -d __IRODS_TEST_ROOT__/r1.txt b z
+
+add -d __IRODS_TEST_ROOT__/r1.txt numattr1 1
+add -d __IRODS_TEST_ROOT__/r1.txt numattr1 10
+add -d __IRODS_TEST_ROOT__/r1.txt numattr1 100
