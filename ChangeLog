@@ -1,10 +1,15 @@
 
+	[0.16.1]
+
+	Bugfix: search operators "n>=", "n<=" were not being accepted by
+	user input validation.
+
 	[0.16.0]
 
 	Bugfix: baton-metamod was missing its --unsafe CLI option.
 
-	Report data object resource and location for replicates when the
-	--replicate option is used.
+	Now reports data object resource and location for replicates when
+	the --replicate option is used.
 
 	Improved error messages.
 
