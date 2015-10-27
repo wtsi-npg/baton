@@ -102,6 +102,14 @@ The ``baton`` suite of programs
 a stream of JSON objects on standard input (or from a file) and emit a
 stream of JSON objects on standard output. The ``baton`` programs are:
 
+* `baton-chmod`_
+
+  Modify the access control lists of collections and data objects.
+
+* `baton-get`_
+
+  Download data objects as raw files or with metadata, embedded in JSON.
+
 * `baton-list`_
 
   Prints the paths, metadata and access control lists and timestamps
@@ -112,19 +120,15 @@ stream of JSON objects on standard output. The ``baton`` programs are:
   Add or remove specfic :term:`AVU` s in the metadata on collections
   and data objects.
 
-* `baton-metasuper`
-
-  Replace all :term:`AVU` s in the metadata on collections and data
-  objects.
-
 * `baton-metaquery`_
 
   Print the paths, metadata and access control lists of collections
   and data objects matching queries on metadata.
 
-* `baton-chmod`_
+* `baton-metasuper`
 
-  Modify the access control lists of collections and data objects.
+  Replace all :term:`AVU` s in the metadata on collections and data
+  objects.
 
 All of the programs are designed to accept a stream of JSON objects,
 one for each operation on a collection or data object. After each
@@ -135,97 +139,59 @@ bidirectional communication via Unix pipes.
 For details of how errors are handled, see :ref:`representing_errors`.
 
 
-baton-list
-----------
-
-Synopsis:
+baton-chmod
+-----------
 
 .. code-block:: sh
 
-   $ jq -n '{collection: "/unit/home/user/"}' | baton-list
+   $ jq -n '{collection: "/unit/home/user",                            \
+                access: [{owner: "public", level: "null"},  \
+                         {owner: "admin",  level: "own"}]}' | baton-chmod --recurse
 
-   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | baton-list
-
-This program accepts JSON objects as described in
-:ref:`representing_paths` and prints results in the same format. If
-the target path is a data object, the printed result is also a data
-object. However, if the target path is a collection, the printed
-result is a JSON array of JSON objects containing one object
-representing the target collection followed by one for each collection
-or data object directly within the target.
+   $ jq -n '{collection: "/unit/home/user", data_object: "a.txt"          \
+                 access: [{owner: "oscar",  level: "read"},    \
+                          {owner: "victor", level: "write"}]}' | baton-chmod
 
 Options
 ^^^^^^^
 
-.. program:: baton-list
-.. option:: --acl
-
-  Print access control lists in the output, in the format described in
-  :ref:`representing_path_permissions`.
-
-.. program:: baton-list
-.. option:: --avu
-
-  Print AVU lists in output, in the format described in
-  :ref:`representing_path_metadata`.
-
-.. program:: baton-list
-.. option:: --checksum
-
-  Print the current checksums of data objects. This does not recalulate
-  checksums.
-
-.. program:: baton-list
-.. option:: --contents
-
-  If the path is a collection print its contents, in the format described in
-  :ref:`representing_path_metadata`. Only the paths contained directly
-  within a collection are printed.
-
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --file <file name>
 
   The JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --help
 
   Prints command line help.
 
-.. program:: baton-list
+.. program:: baton-chmod
+.. option:: --recurse
+
+  Recurse into collections. Defaults to false.
+
+.. program:: baton-chmod
 .. option:: --silent
 
    Silence error messages.
 
-.. program:: baton-list
-.. option:: --size
-
-  Print data object sizes in the output. These appear as JSON integers under
-  the property 'size'.
-
-.. program:: baton-list
-.. option:: --timestamp
-
-  Print data object timestamps in the output, in the format described in
-  :ref:`representing_timestamps`.
-
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
 
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --unsafe
 
   Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
 
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --verbose
 
   Print verbose messages to STDERR.
 
-.. program:: baton-list
+.. program:: baton-chmod
 .. option:: --version
 
   Print the version number and exit.
@@ -313,7 +279,8 @@ Options
 .. option:: --size
 
   Print data object sizes in the output. These appear as JSON integers under
-  the property 'size'.
+  the property 'size'. Where there are replicates, the size of the latest
+  (highest numbered) replicate is reported.
 
 .. program:: baton-get
 .. option:: --timestamp
@@ -337,6 +304,108 @@ Options
   Print verbose messages to STDERR.
 
 .. program:: baton-get
+.. option:: --version
+
+  Print the version number and exit.
+
+
+baton-list
+----------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{collection: "/unit/home/user/"}' | baton-list
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt"}' | baton-list
+
+This program accepts JSON objects as described in
+:ref:`representing_paths` and prints results in the same format. If
+the target path is a data object, the printed result is also a data
+object. However, if the target path is a collection, the printed
+result is a JSON array of JSON objects containing one object
+representing the target collection followed by one for each collection
+or data object directly within the target.
+
+Options
+^^^^^^^
+
+.. program:: baton-list
+.. option:: --acl
+
+  Print access control lists in the output, in the format described in
+  :ref:`representing_path_permissions`.
+
+.. program:: baton-list
+.. option:: --avu
+
+  Print AVU lists in output, in the format described in
+  :ref:`representing_path_metadata`.
+
+.. program:: baton-list
+.. option:: --checksum
+
+  Print the current checksums of data objects. This does not recalulate
+  checksums.
+
+.. program:: baton-list
+.. option:: --contents
+
+  If the path is a collection print its contents, in the format described in
+  :ref:`representing_path_metadata`. Only the paths contained directly
+  within a collection are printed.
+
+.. program:: baton-list
+.. option:: --file <file name>
+
+  The JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+.. program:: baton-list
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-list
+.. option:: --replicate
+
+  Print data object replicate information, in the format described in
+  :ref:`representing_replicates`.
+
+.. program:: baton-list
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-list
+.. option:: --size
+
+  Print data object sizes in the output. These appear as JSON integers under
+  the property 'size'.
+
+.. program:: baton-list
+.. option:: --timestamp
+
+  Print data object timestamps in the output, in the format described in
+  :ref:`representing_timestamps`.
+
+.. program:: baton-list
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-list
+.. option:: --unsafe
+
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+
+.. program:: baton-list
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-list
 .. option:: --version
 
   Print the version number and exit.
@@ -516,65 +585,6 @@ Options
 
    Query in a specific zone.
 
-
-baton-chmod
------------
-
-.. code-block:: sh
-
-   $ jq -n '{collection: "/unit/home/user",                            \
-                access: [{owner: "public", level: "null"},  \
-                         {owner: "admin",  level: "own"}]}' | baton-chmod --recurse
-
-   $ jq -n '{collection: "/unit/home/user", data_object: "a.txt"          \
-                 access: [{owner: "oscar",  level: "read"},    \
-                          {owner: "victor", level: "write"}]}' | baton-chmod
-
-Options
-^^^^^^^
-
-.. program:: baton-chmod
-.. option:: --file <file name>
-
-  The JSON file describing the data objects and collections. Optional,
-  defaults to STDIN.
-
-.. program:: baton-chmod
-.. option:: --help
-
-  Prints command line help.
-
-.. program:: baton-chmod
-.. option:: --recurse
-
-  Recurse into collections. Defaults to false.
-
-.. program:: baton-chmod
-.. option:: --silent
-
-   Silence error messages.
-
-.. program:: baton-chmod
-.. option:: --unbuffered
-
-  Flush output after each JSON object is processed.
-
-.. program:: baton-chmod
-.. option:: --unsafe
-
-  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
-
-.. program:: baton-chmod
-.. option:: --verbose
-
-  Print verbose messages to STDERR.
-
-.. program:: baton-chmod
-.. option:: --version
-
-  Print the version number and exit.
-
-
 .. _representing_paths:
 
 Representing data objects and collections
@@ -640,15 +650,6 @@ object checksums are given under the ``checksum`` property.
 
   {"collection:" "/unit/home/user", "data_object": "README.txt", "size": 123456}
 
-In cases where data objects have replicates, the full details of
-replication may be displayed, including replicate identity numbers,
-status (valid or invalid) and checksum.
-
-  {"collection": "/unit/home/user", "data_object": "README.txt",
-   "replicate": [{"checksum": "2ebec02316ddc3ee64a67c89b5e3140c",
-                 "number": 0,
-                 "valid": true}]}
-
 The above JSON representations of collections and data objects are
 sufficient to be passed to baton's ``baton-list`` program, which
 fulfils a similar role to the iRODS ``ils`` program, listing data
@@ -656,6 +657,24 @@ objects and collection contents.
 
 ``baton`` ignores JSON properties that it does not recognise, therefore it
 is harmless to include extra properties in program input.
+
+.. _representing_replicates:
+
+Representing replicates
+=======================
+
+In cases where data objects have replicates, the full details of
+replication may be displayed, including replicate identity numbers,
+status (valid or invalid), resource name, location and checksum.
+
+.. code-block:: json
+
+  {"collection": "/unit/home/user", "data_object": "README.txt",
+   "replicates": [{"checksum": "2ebec02316ddc3ee64a67c89b5e3140c",
+                   "location": "unit-a-1",
+                   "resource": "test_resource",
+                   "number": 0,
+                   "valid": true}]}
 
 .. _representing_local_paths:
 
@@ -706,6 +725,7 @@ identical.
 Representing metadata
 =====================
 
+
 .. _representing_path_metadata:
 
 Metadata on data objects and collections
@@ -734,6 +754,7 @@ properties have shorter synonyms ``a``, ``v`` and ``u``, respectively.
 
 Any path that has no metadata may have an ``avus`` property with an
 empty JSON array as its value.
+
 
 .. _representing_query_metadata:
 
@@ -858,9 +879,9 @@ shorter synonyms ``c``, ``m``, respectively.
                    {"modified": "2014-01-01T00:00:00"}]}
 
 Data objects may have replicates in iRODS. Where data object
-timestamps are reported by ``baton``, only the values for the
-lowest-numbered replicate are reported. The replicate number is given
-in the timestamp object as a JSON integer.
+timestamps are reported by ``baton``, the values for all replicates are
+reported. The replicate number is given in the timestamp object as a JSON
+integer.
 
 .. code-block:: json
 
@@ -910,6 +931,7 @@ modified in 2014-03, the syntax would be:
 
 Representing Access Control Lists
 =================================
+
 
 .. _representing_path_permissions:
 
