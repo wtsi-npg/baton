@@ -220,7 +220,14 @@ int do_modify_permissions(FILE *input, recursive_op recurse,
 
     rcDisconnect(conn);
 
-    logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
+    if (error_count > 0) {
+        logmsg(WARN, "Processed %d items with %d errors",
+               item_count, error_count);
+    }
+    else {
+        logmsg(DEBUG, "Processed %d items with %d errors",
+               item_count, error_count);
+    }
 
     return error_count;
 
