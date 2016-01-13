@@ -1,4 +1,10 @@
 
+sudo:
+  required
+
+dist:
+  precise
+
 language: c
 
 compiler: gcc
