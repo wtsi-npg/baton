@@ -1,4 +1,10 @@
 
+sudo:
+  required
+
+dist:
+  precise
+
 language: c
 
 compiler: gcc
@@ -18,7 +24,7 @@ env:
     - PG_PLUGIN_VERSION=1.6
   matrix:
     - IRODS_VERSION=3.3.1
-    - IRODS_VERSION=4.1.6
+#    - IRODS_VERSION=4.1.6
 
 before_install:
   - ./scripts/travis_before_install.sh
