@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <libgen.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +39,8 @@
 #include "read.h"
 #include "utilities.h"
 
+static rcComm_t *rods_connect(rodsEnv *env);
+
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
                                 option_flags flags, baton_error_t *error);
 
@@ -54,9 +57,38 @@ static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in);
 static int check_str_arg(const char *arg_name, const char *arg_value,
                          size_t arg_size, baton_error_t *error);
 
-int is_irods_available() {
+static rcComm_t *rods_connect(rodsEnv *env){
     rcComm_t *conn = NULL;
     rErrMsg_t errmsg;
+
+    // Override the signal handler installed by the iRODS client
+    // library (all versions up to 4.1.7, inclusive) because it
+    // detects the signal and leaves the program running in a tight
+    // loop. Here we ignore SIGPIPE and fail on read/write.
+    struct sigaction saction;
+    saction.sa_handler = SIG_IGN;
+    saction.sa_flags   = 0;
+    sigemptyset(&saction.sa_mask);
+
+    // TODO: add option for NO_RECONN vs. RECONN_TIMEOUT
+    conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
+                     env->rodsZone, NO_RECONN, &errmsg);
+    if (!conn) goto error;
+
+    int sigstatus = sigaction(SIGPIPE, &saction, NULL);
+    if (sigstatus != 0) {
+        logmsg(FATAL, "Failed to set the iRODS client SIGPIPE handler");
+        exit(1);
+    }
+
+    return conn;
+
+error:
+    return conn;
+}
+
+int is_irods_available() {
+    rcComm_t *conn = NULL;
     rodsEnv env;
     int status;
 
@@ -66,8 +98,8 @@ int is_irods_available() {
         goto error;
     }
 
-    conn = rcConnect(env.rodsHost, env.rodsPort, env.rodsUserName, env.rodsZone,
-                     NO_RECONN, &errmsg);
+    conn = rods_connect(&env);
+
     int available;
     if (conn) {
         available = 1;
@@ -80,7 +112,6 @@ int is_irods_available() {
     return available;
 
 error:
-
     return status;
 }
 
@@ -96,7 +127,6 @@ int declare_client_name(const char *prog_path) {
 
 rcComm_t *rods_login(rodsEnv *env) {
     rcComm_t *conn = NULL;
-    rErrMsg_t errmsg;
     int status;
 
     status = getRodsEnv(env);
@@ -105,9 +135,7 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
-    // TODO: add option for NO_RECONN vs. RECONN_TIMEOUT
-    conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
-                     env->rodsZone, RECONN_TIMEOUT, &errmsg);
+    conn = rods_connect(env);
     if (!conn) {
         logmsg(ERROR, "Failed to connect to %s:%d zone '%s' as '%s'",
                env->rodsHost, env->rodsPort, env->rodsZone, env->rodsUserName);
