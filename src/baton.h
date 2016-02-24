@@ -292,11 +292,13 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
  * @param[in]  query        A JSON query specification which includes the
  *                          SQL query and optionally input arguments and output
  *                          labels.
+ * @param[in]  zone_name    An iRODS zone name. Optional, NULL means the current
+ *                          zone.
  * @param[out] error        An error report struct.
  *
  * @return A newly constructed JSON array of JSON result objects.
  */
-json_t *search_specific(rcComm_t *conn, json_t *query,
+json_t *search_specific(rcComm_t *conn, json_t *query, char *zone_name, 
                         baton_error_t *error);
 
 /**

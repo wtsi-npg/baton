@@ -29,12 +29,12 @@ then
         if [[ $status -eq 0 ]]
         then
             echo "# Installing specific queries"
-            awk '{print "asq $s"}' < $sql_path | iadmin >/dev/null
+            awk '{print "asq "$s}' < $sql_path | iadmin >/dev/null
             status=$?
 
             if [[ $status -ne 0 ]]
             then
-                echo "Failed to install SQL in '$sql_path'"
+                echo "ERROR: failed to install SQL in '$sql_path': $s (exit $status)"
                 exit $status
             fi
         else

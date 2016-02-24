@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013, 2014, 2015, 2016 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,10 +37,11 @@ static int unbuffered_flag = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
-int do_search_specific(FILE *input);
+int do_search_specific(FILE *input, char *zone_name);
 
 int main(int argc, char *argv[]) {
     int exit_status = 0;
+    char *zone_name = NULL;
     char *json_file = NULL;
     FILE *input     = NULL;
 
@@ -52,11 +53,14 @@ int main(int argc, char *argv[]) {
             {"unbuffered", no_argument, &unbuffered_flag, 1},
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
+            // Indexed options
+            {"file",      required_argument, NULL, 'f'},
+            {"zone",      required_argument, NULL, 'z'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:", long_options, &option_index);
+        int c = getopt_long_only(argc, argv, "f:z:", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
@@ -64,6 +68,10 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'f':
                 json_file = optarg;
+                break;
+
+            case 'z':
+                zone_name = optarg;
                 break;
 
             case '?':
@@ -86,6 +94,7 @@ int main(int argc, char *argv[]) {
         puts("    baton-specificquery");
         puts("                    [--file <JSON file>]");
         puts("                    [--unbuffered] [--verbose] [--version]");
+        puts("                    [--zone <name>]");
         puts("");
         puts("Description");
         puts("    Runs a specific SQL query (must have been installed by");
@@ -96,6 +105,7 @@ int main(int argc, char *argv[]) {
         puts("    --unbuffered  Flush print operations for each JSON object.");
         puts("    --verbose     Print verbose messages to STDERR.");
         puts("    --version     Print the version number and exit.");
+        puts("    --zone        The zone to search. Optional.\n");
         puts("");
 
         exit(0);
@@ -111,13 +121,13 @@ int main(int argc, char *argv[]) {
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
-    int status = do_search_specific(input);
+    int status = do_search_specific(input, zone_name);
     if (status != 0) exit_status = 5;
 
     exit(exit_status);
 }
 
-int do_search_specific(FILE *input) {
+int do_search_specific(FILE *input, char *zone_name) {
     int item_count  = 0;
     int error_count = 0;
 
@@ -150,7 +160,7 @@ int do_search_specific(FILE *input) {
         json_t *results = NULL;
 
         baton_error_t search_error;
-        results = search_specific(conn, target, &search_error);
+        results = search_specific(conn, target, zone_name, &search_error);
         if (search_error.code != 0) {
             error_count++;
             add_error_value(target, &search_error);

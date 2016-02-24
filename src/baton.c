@@ -822,14 +822,19 @@ error:
     return NULL;
 }
 
-json_t *search_specific(rcComm_t *conn, json_t *query,
+json_t *search_specific(rcComm_t *conn, json_t *query, char *zone_name,
                         baton_error_t *error) {
     json_t *results = NULL;
 
     init_baton_error(error);
 
+    if (zone_name) {
+        check_str_arg("zone_name", zone_name, NAME_LEN, error);
+        if (error->code != 0) goto error;
+    }
+
     logmsg(TRACE, "Running specific query ...");
-    results = do_specific(conn, query, prepare_specific_query,
+    results = do_specific(conn, zone_name, query, prepare_specific_query,
                           prepare_specific_labels, error);
 
     if (error->code != 0) goto error;

@@ -191,7 +191,7 @@ error:
     return NULL;
 }
 
-json_t *do_specific(rcComm_t *conn, json_t *query,
+json_t *do_specific(rcComm_t *conn, char *zone_name, json_t *query,
                     prepare_specific_query_cb prepare_squery,
                     prepare_specific_labels_cb prepare_labels,
                     baton_error_t *error) {
@@ -212,6 +212,11 @@ json_t *do_specific(rcComm_t *conn, json_t *query,
 
     format = prepare_json_specific_labels(conn, specific, prepare_labels, error);
     if (error->code != 0) goto error;
+
+    if (zone_name) {
+        logmsg(TRACE, "Setting zone to '%s'", zone_name);
+        addKeyVal(&squery_in->condInput, ZONE_KW, zone_name);
+    }
 
     items = do_squery(conn, squery_in, format, error);
     if (error->code != 0) goto error;

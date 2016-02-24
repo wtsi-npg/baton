@@ -29,7 +29,7 @@ then
         if [[ $status -eq 0 ]]
         then
             echo "# Removing specific queries"
-            awk '{print "rsq $s"}' < $sql_path | iadmin >/dev/null
+            awk '{print "rsq "$s}' < $sql_path | iadmin >/dev/null
             status=$?
 
             if [[ $status -ne 0 ]]
