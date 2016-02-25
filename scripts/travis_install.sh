@@ -46,17 +46,7 @@ case $IRODS_VERSION in
         install_3_3_1
         ;;
 
-    4.1.4)
-        install_common
-        install_4_1_x
-        ;;
-
-    4.1.5)
-        install_common
-        install_4_1_x
-        ;;
-
-    4.1.6)
+    4.1.8)
         install_common
         install_4_1_x
         ;;
