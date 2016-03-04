@@ -17,6 +17,7 @@
  *
  * @file baton.c
  * @author Keith James <kdj@sanger.ac.uk>
+ * @author Joshua C. Randall <jcrandall@alum.mit.edu>
  */
 
 #include <errno.h>
@@ -817,6 +818,33 @@ error:
     if (results)      json_decref(results);
     if (collections)  json_decref(collections);
     if (data_objects) json_decref(data_objects);
+
+    return NULL;
+}
+
+json_t *search_specific(rcComm_t *conn, json_t *query, char *zone_name,
+                        baton_error_t *error) {
+    json_t *results = NULL;
+
+    init_baton_error(error);
+
+    if (zone_name) {
+        check_str_arg("zone_name", zone_name, NAME_LEN, error);
+        if (error->code != 0) goto error;
+    }
+
+    logmsg(TRACE, "Running specific query ...");
+    results = do_specific(conn, zone_name, query, prepare_specific_query,
+                          prepare_specific_labels, error);
+
+    if (error->code != 0) goto error;
+
+    return results;
+
+error:
+    logmsg(ERROR, error->message);
+
+    if (results) json_decref(results);
 
     return NULL;
 }

@@ -125,7 +125,7 @@ static void basic_teardown() {
 static int have_rodsadmin() {
     char *command = "iuserinfo |grep 'type: rodsadmin'";
 
-    return system(command);
+    return !system(command);
 }
 
 START_TEST(test_str_starts_with) {
@@ -1860,6 +1860,123 @@ START_TEST(test_slurp_file) {
 }
 END_TEST
 
+/**
+ * Tests that the `irods_get_sql_for_specific_alias` method can be used to get the SQL
+ * associated to a given alias.
+ */
+START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
+    if (!have_rodsadmin()) {
+        logmsg(WARN, "!!! Skipping specific query tests because we are not rodsadmin !!!");
+        return;
+    }
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+    // This is an alias that is inside the specific query table
+    const char *valid_alias = "dataModifiedIdOnly";
+    const char *sql = irods_get_sql_for_specific_alias(conn, valid_alias);
+
+    ck_assert_ptr_ne(sql, NULL);
+    ck_assert_str_eq(sql, 
+		     "SELECT DISTINCT Data.data_id AS data_id FROM R_DATA_MAIN Data WHERE CAST(Data.modify_ts AS INT) > CAST(? AS INT) AND CAST(Data.modify_ts AS INT) <= CAST(? AS INT)");
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+/**
+ * Tests that when the SQL associated to a non-existent alias is requested using the
+ * `irods_get_sql_for_specific_alias` method, null pointer is returned.
+ */
+START_TEST(test_irods_get_sql_for_specific_alias_with_non_existent_alias) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+    const char *invalid_alias = "invalidAlias";
+    const char *sql = irods_get_sql_for_specific_alias(conn, invalid_alias);
+
+    // Expect nullptr
+    ck_assert_ptr_eq(sql, NULL);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+/**
+ * Tests that `make_query_format_from_sql` correctly parses a simple SQL SELECT
+ * query.
+ */
+START_TEST(test_make_query_format_from_sql_with_simple_select_query) {
+    char *sql = "SELECT a, b, c from some_table";
+    query_format_in_t *format = make_query_format_from_sql(sql);
+
+    ck_assert_int_eq(format->num_columns, 3);
+    ck_assert_str_eq(format->labels[0], "a");
+    ck_assert_str_eq(format->labels[1], "b");
+    ck_assert_str_eq(format->labels[2], "c");
+}
+END_TEST
+
+/**
+ * Tests that `make_query_format_from_sql` correctly parses an SQL SELECT query
+ * that uses an alias.
+ */
+START_TEST(test_make_query_format_from_sql_with_select_query_using_column_alias) {
+    char *sql = "SELECT a as b from some_table";
+    query_format_in_t *format = make_query_format_from_sql(sql);
+
+    ck_assert_int_eq(format->num_columns, 1);
+    int number_of_labels = sizeof(format->labels[0]) / sizeof(char*);
+    ck_assert_int_eq(number_of_labels, 1);
+    ck_assert_str_eq(format->labels[0], "b");
+}
+END_TEST
+
+/**
+ * Tests that `make_query_format_from_sql` returns a null pointer if it is used to
+ * parse an invalid SQL statement.
+ */
+START_TEST(test_make_query_format_from_sql_with_invalid_query) {
+    char *sql = "INVALID";
+    query_format_in_t *format = make_query_format_from_sql(sql);
+
+    // Expecting nullptr
+    ck_assert_ptr_eq(format, NULL);
+}
+END_TEST
+
+/**
+ * Tests that the `search_specific` method can be used with a valid setup.
+ */
+START_TEST(test_search_specific_with_valid_setup) {
+    if (!have_rodsadmin()) {
+        logmsg(WARN, "!!! Skipping specific query tests because we are not rodsadmin !!!");
+        return;
+    }
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+    baton_error_t search_error;
+
+    char *zone_name = NULL;
+
+    json_t *query_json = json_pack("{s: {s:[s], s:s}}",
+            JSON_SPECIFIC_KEY,
+            JSON_ARGS_KEY, "dataModifiedIdOnly",
+            JSON_SQL_KEY, "findQueryByAlias");
+    ck_assert_ptr_ne(query_json, NULL);
+
+    json_t *search_results = search_specific(conn, query_json, zone_name, &search_error);
+
+    char *search_results_str = json_dumps(search_results, JSON_COMPACT | JSON_SORT_KEYS);
+    ck_assert_str_eq(search_results_str,
+                     "[{\"alias\":\"dataModifiedIdOnly\",\"sqlStr\":\"SELECT DISTINCT Data.data_id AS data_id FROM R_DATA_MAIN Data WHERE CAST(Data.modify_ts AS INT) > CAST(? AS INT) AND CAST(Data.modify_ts AS INT) <= CAST(? AS INT)\"}]");
+
+    free(search_results_str);
+    json_decref(search_results);
+    json_decref(query_json);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 // Having metadata on an item of (a = x, a = y), a search for "a = x"
 // gives correct results, as does a search for "a = y". However,
 // searching for "a = x and a = y" does not (nothing is returned).
@@ -2045,6 +2162,13 @@ Suite *baton_suite(void) {
 
     tcase_add_test(basic_tests, test_write_path_to_stream);
     tcase_add_test(basic_tests, test_slurp_file);
+
+    tcase_add_test(basic_tests, test_irods_get_sql_for_specific_alias_with_alias);
+    tcase_add_test(basic_tests, test_irods_get_sql_for_specific_alias_with_non_existent_alias);
+    tcase_add_test(basic_tests, test_make_query_format_from_sql_with_simple_select_query);
+    tcase_add_test(basic_tests, test_make_query_format_from_sql_with_select_query_using_column_alias);
+    tcase_add_test(basic_tests, test_make_query_format_from_sql_with_invalid_query);
+    tcase_add_test(basic_tests, test_search_specific_with_valid_setup);
 
     TCase *regression_tests = tcase_create("regression");
     tcase_add_unchecked_fixture(regression_tests, setup, teardown);

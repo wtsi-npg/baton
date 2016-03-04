@@ -31,6 +31,8 @@ before_script_3_3_1() {
 
     echo irods | script -q -c "iinit"
     iadmin mkresc testResc 'unix file system' cache `hostname --fqdn` $IRODS_TEST_VAULT
+
+    iadmin asq 'select alias,sqlStr from R_SPECIFIC_QUERY where alias = ?' findQueryByAlias
 }
 
 before_script_4_1_x() {

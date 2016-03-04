@@ -17,6 +17,7 @@
  *
  * @file json.c
  * @author Keith James <kdj@sanger.ac.uk>
+ * @author Joshua C. Randall <jcrandall@alum.mit.edu>
  */
 
 #include <errno.h>
@@ -46,6 +47,10 @@ static const char *get_opt_string_value(json_t *object, const char *name,
                                         const char *key,
                                         const char *short_key,
                                         baton_error_t *error);
+
+static json_t *get_opt_array(json_t *object, const char *name,
+                             const char *key, const char *short_key,
+                             baton_error_t *error);
 
 static int has_json_str_value(json_t *object, const char *key,
                               const char *short_key);
@@ -103,6 +108,22 @@ json_t *get_avus(json_t *object, baton_error_t *error) {
     }
 
     return avus;
+
+error:
+    return NULL;
+}
+
+json_t *get_specific(json_t *object, baton_error_t *error) {
+    json_t *specific = get_json_value(object, "path spec", JSON_SPECIFIC_KEY, NULL,
+                                      error);
+    if (!json_is_object(specific)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid '%s' attribute: not a JSON object",
+                        JSON_SPECIFIC_KEY);
+        goto error;
+    }
+
+    return specific;
 
 error:
     return NULL;
@@ -278,6 +299,16 @@ const char *get_avu_operator(json_t *avu, baton_error_t *error) {
 
     return get_opt_string_value(avu, "AVU", JSON_OPERATOR_KEY,
                                 JSON_OPERATOR_SHORT_KEY, error);
+}
+
+const char *get_specific_sql(json_t *sql, baton_error_t *error) {
+    return get_opt_string_value(sql, "SQL", JSON_SQL_KEY,
+                                JSON_SQL_SHORT_KEY, error);
+}
+
+json_t *get_specific_args(json_t *sql, baton_error_t *error) {
+    return get_opt_array(sql, "SQL", JSON_ARGS_KEY,
+                         JSON_ARGS_SHORT_KEY, error);
 }
 
 const char *get_access_owner(json_t *access, baton_error_t *error) {
@@ -867,6 +898,40 @@ static const char *get_opt_string_value(json_t *object, const char *name,
     }
 
     return str;
+
+error:
+    return NULL;
+}
+
+static json_t *get_opt_array(json_t *object, const char *name,
+                             const char *key, const char *short_key,
+                             baton_error_t *error) {
+    json_t *array;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    array = json_object_get(object, key);
+    if (!array && short_key) {
+        array = json_object_get(object, short_key);
+    }
+
+    if (array && !json_is_array(array)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s %s: not a JSON array", name, key);
+        goto error;
+    }
+
+    if (!array) {
+        array = json_array();
+    } else {
+        json_incref(array);
+    }
+
+    return array;
 
 error:
     return NULL;
