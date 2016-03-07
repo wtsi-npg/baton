@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2013, 2014, 2015, 2016 Genome Research Ltd. All rights reserved.
+ * Copyright (c) 2013, 2014, 2015, 2016 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -60,7 +61,8 @@ int main(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:z:", long_options, &option_index);
+        int c = getopt_long_only(argc, argv, "f:z:", long_options,
+                                 &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
