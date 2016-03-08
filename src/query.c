@@ -522,40 +522,51 @@ void free_squery_input(specificQueryInp_t *squery_in) {
 query_format_in_t *make_query_format_from_sql(const char *sql) {
     query_format_in_t *format = NULL;
     int reti;
-    const char *select_list_capture_re_str = "^.*?select[[:space:]]+(distinct|all[[:space:]]+)?(.*?[^[:space:]])[[:space:]]+from[[:space:]].*$";
-    const unsigned int select_list_capture_index = 2;
-    regex_t select_list_capture_re;
-    regmatch_t select_list_pmatch[select_list_capture_index+1];
+    const char *select_list_capt_re_str =
+      "^.*?select[[:space:]]+"
+      "(distinct|all[[:space:]]+)?(.*?[^[:space:]])[[:space:]]+"
+      "from[[:space:]].*$";
+    const unsigned int select_list_capt_idx = 2;
+    regex_t select_list_capt_re;
+    regmatch_t select_list_pmatch[select_list_capt_idx+1];
 
-    const char *trim_whitespace_capture_re_str = "^[[:space:]]*(.*?[^[:space:]])[[:space:]]*$";
-    const unsigned int trim_whitespace_capture_index = 1;
-    regex_t trim_whitespace_capture_re;
-    regmatch_t trim_whitespace_pmatch[trim_whitespace_capture_index+1];
+    const char *trim_whitespace_capt_re_str =
+      "^[[:space:]]*(.*?[^[:space:]])[[:space:]]*$";
+    const unsigned int trim_whitespace_capt_idx = 1;
+    regex_t trim_whitespace_capt_re;
+    regmatch_t trim_whitespace_pmatch[trim_whitespace_capt_idx+1];
 
-    const char *as_column_name_capture_re_str = "^.*[[:space:]]+as[[:space:]]+(.*?[^[:space:]])[[:space:]]*$";
-    const unsigned int as_column_name_capture_index = 1;
-    regex_t as_column_name_capture_re;
-    regmatch_t as_column_name_pmatch[as_column_name_capture_index+1];
+    const char *as_column_name_capt_re_str =
+      "^.*[[:space:]]+as[[:space:]]+(.*?[^[:space:]])[[:space:]]*$";
+    const unsigned int as_column_name_capt_idx = 1;
+    regex_t as_column_name_capt_re;
+    regmatch_t as_column_name_pmatch[as_column_name_capt_idx+1];
 
     char *select_list, *select_list_tokenize;
     char *column, *column_trim, *column_name;
     unsigned int i;
 
-    reti = regcomp(&select_list_capture_re, select_list_capture_re_str, REG_EXTENDED | REG_ICASE);
+    reti = regcomp(&select_list_capt_re, select_list_capt_re_str,
+                   REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
-        logmsg(ERROR, "Could not compile regex: '%s'", select_list_capture_re_str);
+        logmsg(ERROR, "Could not compile regex: '%s'",
+               select_list_capt_re_str);
         goto error;
     }
 
-    reti = regcomp(&trim_whitespace_capture_re, trim_whitespace_capture_re_str, REG_EXTENDED | REG_ICASE);
+    reti = regcomp(&trim_whitespace_capt_re, trim_whitespace_capt_re_str,
+                   REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
-        logmsg(ERROR, "Could not compile regex: '%s'", trim_whitespace_capture_re_str);
+        logmsg(ERROR, "Could not compile regex: '%s'",
+               trim_whitespace_capt_re_str);
         goto error;
     }
 
-    reti = regcomp(&as_column_name_capture_re, as_column_name_capture_re_str, REG_EXTENDED | REG_ICASE);
+    reti = regcomp(&as_column_name_capt_re, as_column_name_capt_re_str,
+                   REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
-        logmsg(ERROR, "Could not compile regex: '%s'", as_column_name_capture_re_str);
+        logmsg(ERROR, "Could not compile regex: '%s'",
+               as_column_name_capt_re_str);
         goto error;
     }
 
@@ -564,16 +575,25 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
 
     // extract select list from SQL query
     logmsg(DEBUG, "Extracting select column labels from SQL query: '%s'", sql);
-    reti = regexec(&select_list_capture_re, sql, select_list_capture_index+1, select_list_pmatch, 0);
+    reti = regexec(&select_list_capt_re, sql, select_list_capt_idx + 1,
+                   select_list_pmatch, 0);
     if (reti == 0) {
-        logmsg(DEBUG, "Extracting select_list from positions %u to %u", select_list_pmatch[select_list_capture_index].rm_so, select_list_pmatch[select_list_capture_index].rm_eo);
-        select_list = strndup(sql + select_list_pmatch[select_list_capture_index].rm_so, select_list_pmatch[select_list_capture_index].rm_eo - select_list_pmatch[select_list_capture_index].rm_so + 1);
+        logmsg(DEBUG, "Extracting select_list from positions %u to %u",
+               select_list_pmatch[select_list_capt_idx].rm_so,
+               select_list_pmatch[select_list_capt_idx].rm_eo);
+
+        select_list =
+          strndup(sql + select_list_pmatch[select_list_capt_idx].rm_so,
+                  select_list_pmatch[select_list_capt_idx].rm_eo -
+                  select_list_pmatch[select_list_capt_idx].rm_so + 1);
         logmsg(DEBUG, "Extracted select_list: '%s'", select_list);
     } else if (reti == REG_NOMATCH) {
-        logmsg(ERROR, "Regex '%s' did not match SQL: '%s'", select_list_capture_re_str, sql);
+        logmsg(ERROR, "Regex '%s' did not match SQL: '%s'",
+               select_list_capt_re_str, sql);
         goto error;
     } else {
-        logmsg(ERROR, "Regex match '%s' failed parsing SQL: '%s'", select_list_capture_re_str, sql);
+        logmsg(ERROR, "Regex match '%s' failed parsing SQL: '%s'",
+               select_list_capt_re_str, sql);
         goto error;
     }
     assert(select_list);
@@ -582,49 +602,70 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
     select_list_tokenize = select_list;
 
     // parse select_list_tokenize column by column
-    for (i=0; select_list_tokenize != NULL; i++) {
+    for (i = 0; select_list_tokenize != NULL; i++) {
         // get next column specification from select_list_tokenize
         column = strsep(&select_list_tokenize, ",");
-        logmsg(DEBUG, "Parsing column %d: strsep found column '%s' with remaining select_list_tokenize '%s'", i, column, select_list_tokenize);
+        logmsg(DEBUG, "Parsing column %d: strsep found column '%s' "
+               "with remaining select_list_tokenize '%s'",
+               i, column, select_list_tokenize);
 
         // trim whitespace from column
-        reti = regexec(&trim_whitespace_capture_re, column, trim_whitespace_capture_index+1, trim_whitespace_pmatch, 0);
+        reti = regexec(&trim_whitespace_capt_re, column,
+                       trim_whitespace_capt_idx + 1,
+                       trim_whitespace_pmatch, 0);
         if (reti == 0) {
             // point column_trim at first non-whitespace character
-            column_trim = column + trim_whitespace_pmatch[trim_whitespace_capture_index].rm_so;
+            column_trim = column +
+              trim_whitespace_pmatch[trim_whitespace_capt_idx].rm_so;
             // truncate at character after last non-whitespace character
-            column_trim[trim_whitespace_pmatch[trim_whitespace_capture_index].rm_eo - trim_whitespace_pmatch[trim_whitespace_capture_index].rm_so] = '\0';
+            column_trim[
+                trim_whitespace_pmatch[trim_whitespace_capt_idx].rm_eo -
+                trim_whitespace_pmatch[trim_whitespace_capt_idx].rm_so] = '\0';
             logmsg(DEBUG, "Trimmed whitespace from column: '%s'", column_trim);
         } else if (reti == REG_NOMATCH) {
-            logmsg(ERROR, "Attempting to trim whitespace regex '%s' did not match column: '%s'", trim_whitespace_capture_re_str, column);
+            logmsg(ERROR, "Attempting to trim whitespace regex '%s' "
+                   "did not match column: '%s'",
+                   trim_whitespace_capt_re_str, column);
             goto error_recoverable;
         } else {
-            logmsg(ERROR, "Regex match '%s' failed parsing column: '%s'", trim_whitespace_capture_re_str, column);
+            logmsg(ERROR, "Regex match '%s' failed parsing column: '%s'",
+                   trim_whitespace_capt_re_str, column);
             goto error_recoverable;
         }
         assert(column_trim);
 
         // check for 'AS column_name' in column_trim
-        reti = regexec(&as_column_name_capture_re, column_trim, as_column_name_capture_index+1, as_column_name_pmatch, 0);
+        reti = regexec(&as_column_name_capt_re, column_trim,
+                       as_column_name_capt_idx + 1,
+                       as_column_name_pmatch, 0);
         if (reti == 0) {
             // have 'AS column_name' - use it as the column_name
-            column_name = strndup(column_trim + as_column_name_pmatch[as_column_name_capture_index].rm_so, as_column_name_pmatch[as_column_name_capture_index].rm_eo - as_column_name_pmatch[as_column_name_capture_index].rm_so + 1);
+            column_name =
+              strndup(column_trim +
+                      as_column_name_pmatch[as_column_name_capt_idx].rm_so,
+                      as_column_name_pmatch[as_column_name_capt_idx].rm_eo -
+                      as_column_name_pmatch[as_column_name_capt_idx].rm_so + 1);
             if (!column_name) {
                 format->num_columns = i;
-                logmsg(ERROR, "Could not allocate memory for column_name from column: '%s'", column_trim);
+                logmsg(ERROR, "Could not allocate memory for column_name "
+                       "from column: '%s'", column_trim);
                 goto error_recoverable;
-            }              
+            }
             logmsg(DEBUG, "Found 'AS <column_name>': '%s'", column_name);
         } else if (reti == REG_NOMATCH) {
             column_name = strdup(column_trim);
             if (!column_name) {
                 format->num_columns = i;
-                logmsg(ERROR, "Could not allocate memory for column: '%s'", column_trim);
+                logmsg(ERROR, "Could not allocate memory for column: '%s'",
+                       column_trim);
                 goto error_recoverable;
-            }              
-            logmsg(DEBUG, "Did not find 'AS <column_name>', using whole column specifier as column_name: '%s'", column_name);
+            }
+            logmsg(DEBUG, "Did not find 'AS <column_name>', "
+                   "using whole column specifier as column_name: '%s'",
+                   column_name);
         } else {
-            logmsg(ERROR, "Regex match '%s' failed parsing column: '%s'", as_column_name_capture_re_str, column);
+            logmsg(ERROR, "Regex match '%s' failed parsing column: '%s'",
+                   as_column_name_capt_re_str, column);
             goto error_recoverable;
         }
         assert(column_name);
@@ -635,13 +676,14 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
     format->num_columns = i;
 
     free(select_list);
-    regfree(&select_list_capture_re);
-    regfree(&trim_whitespace_capture_re);
-    regfree(&as_column_name_capture_re);
+    regfree(&select_list_capt_re);
+    regfree(&trim_whitespace_capt_re);
+    regfree(&as_column_name_capt_re);
     return format;
 
 error_recoverable:
-    logmsg(ERROR, "Could not parse select columns from SQL into query format: '%s'", sql);
+    logmsg(ERROR, "Could not parse select columns from SQL "
+           "into query format: '%s'", sql);
     // create generic columns labels as a backup plan
     format->num_columns = MAX_NUM_COLUMNS;
     for (i=0; i<(format->num_columns-1); i++) {
@@ -693,19 +735,22 @@ const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
 
     size_t num_rows = (size_t) query_out->rowCnt;
     if (num_rows != 1) {
-        logmsg(ERROR, "Unexpectedly found %d rows of results querying specific alias: '%s'", num_rows, alias);
+        logmsg(ERROR, "Unexpectedly found %d rows of results "
+               "querying specific alias: '%s'", num_rows, alias);
         goto error;
     }
 
     size_t num_attr = query_out->attriCnt;
     if (num_attr != 2) {
-        logmsg(ERROR, "Unexpectedly found %d attributes querying specific alias: '%s'", num_attr, alias);
+        logmsg(ERROR, "Unexpectedly found %d attributes querying "
+               "specific alias: '%s'", num_attr, alias);
         goto error;
     }
 
     char *found_alias = query_out->sqlResult[0].value;
     if (strcmp(found_alias, alias) != 0) {
-        logmsg(ERROR, "Query for specific alias returned non-matching result. query alias: '%s', result alias: '%s'", alias, found_alias);
+        logmsg(ERROR, "Query for specific alias returned non-matching result. "
+               "query alias: '%s', result alias: '%s'", alias, found_alias);
         goto error;
     }
 
@@ -738,13 +783,14 @@ query_format_in_t *prepare_specific_labels(rcComm_t *conn,
         sql = sql_or_alias;
         logmsg(DEBUG, "Already have SQL specific query: '%s'", sql);
     } else if (reti == REG_NOMATCH) {
-        // no SELECT found in sql_or_alias
-        // we must have an alias (or a bad query, but try to look up the alias anyway)
+        // no SELECT found in sql_or_alias we must have an alias (or a
+        // bad query, but try to look up the alias anyway)
         sql = irods_get_sql_for_specific_alias(conn, sql_or_alias);
         if (sql == NULL) {
             goto error;
         }
-        logmsg(DEBUG, "Got SQL for specific alias '%s': '%s'", sql_or_alias, sql);
+        logmsg(DEBUG, "Got SQL for specific alias '%s': '%s'",
+               sql_or_alias, sql);
     } else {
         logmsg(ERROR, "Regex match failed parsing SQL: '%s'", sql_or_alias);
         goto error;
@@ -757,7 +803,8 @@ query_format_in_t *prepare_specific_labels(rcComm_t *conn,
     return format;
 
 error:
-    logmsg(ERROR, "Failed to prepare labels for specific query: '%s'", sql_or_alias);
+    logmsg(ERROR, "Failed to prepare labels for specific query: '%s'",
+           sql_or_alias);
     return NULL;
 }
 
