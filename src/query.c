@@ -34,6 +34,7 @@
 #include <jansson.h>
 
 #include "config.h"
+#include "error.h"
 #include "log.h"
 #include "query.h"
 #include "utilities.h"
@@ -522,6 +523,8 @@ void free_squery_input(specificQueryInp_t *squery_in) {
 query_format_in_t *make_query_format_from_sql(const char *sql) {
     query_format_in_t *format = NULL;
     unsigned int reti;
+    char remsg[MAX_ERROR_MESSAGE_LEN];
+
     const char *select_list_capt_re_str =
       "^.*?select[[:space:]]+"
       "(distinct|all[[:space:]]+)?(.*?[^[:space:]])[[:space:]]+"
@@ -549,24 +552,27 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
     reti = regcomp(&select_list_capt_re, select_list_capt_re_str,
                    REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
-        logmsg(ERROR, "Could not compile regex: '%s'",
-               select_list_capt_re_str);
+        regerror(reti, &select_list_capt_re, remsg, MAX_ERROR_MESSAGE_LEN);
+        logmsg(ERROR, "Could not compile regex: '%s': %s",
+               select_list_capt_re_str, remsg);
         goto error;
     }
 
     reti = regcomp(&trim_whitespace_capt_re, trim_whitespace_capt_re_str,
                    REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
-        logmsg(ERROR, "Could not compile regex: '%s'",
-               trim_whitespace_capt_re_str);
+        regerror(reti, &trim_whitespace_capt_re, remsg, MAX_ERROR_MESSAGE_LEN);
+        logmsg(ERROR, "Could not compile regex: '%s': %s",
+               trim_whitespace_capt_re_str, remsg);
         goto error;
     }
 
     reti = regcomp(&as_column_name_capt_re, as_column_name_capt_re_str,
                    REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
-        logmsg(ERROR, "Could not compile regex: '%s'",
-               as_column_name_capt_re_str);
+        regerror(reti, &as_column_name_capt_re, remsg, MAX_ERROR_MESSAGE_LEN);
+        logmsg(ERROR, "Could not compile regex: '%s': %s",
+               as_column_name_capt_re_str, remsg);
         goto error;
     }
 
@@ -767,6 +773,8 @@ query_format_in_t *prepare_specific_labels(rcComm_t *conn,
                                            const char *sql_or_alias) {
     regex_t select_s_re;
     unsigned int reti;
+    char remsg[MAX_ERROR_MESSAGE_LEN];
+
     const char *sql;
     const char *select_s_re_str ="^select[[:space:]]";
     query_format_in_t *format;
@@ -774,7 +782,9 @@ query_format_in_t *prepare_specific_labels(rcComm_t *conn,
     // does sql_or_alias begin with a SQL SELECT statement?
     reti = regcomp(&select_s_re, select_s_re_str, REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
-        logmsg(ERROR, "Could not compile regex: '%s'", select_s_re_str);
+        regerror(reti, &select_s_re, remsg, MAX_ERROR_MESSAGE_LEN);
+        logmsg(ERROR, "Could not compile regex: '%s': %s", select_s_re_str,
+               remsg);
         goto error;
     }
     reti = regexec(&select_s_re, sql_or_alias, 0, NULL, 0);
