@@ -521,7 +521,7 @@ void free_squery_input(specificQueryInp_t *squery_in) {
 
 query_format_in_t *make_query_format_from_sql(const char *sql) {
     query_format_in_t *format = NULL;
-    int reti;
+    unsigned int reti;
     const char *select_list_capt_re_str =
       "^.*?select[[:space:]]+"
       "(distinct|all[[:space:]]+)?(.*?[^[:space:]])[[:space:]]+"
@@ -766,7 +766,7 @@ error:
 query_format_in_t *prepare_specific_labels(rcComm_t *conn,
                                            const char *sql_or_alias) {
     regex_t select_s_re;
-    int reti;
+    unsigned int reti;
     const char *sql;
     const char *select_s_re_str ="^select[[:space:]]";
     query_format_in_t *format;
