@@ -410,7 +410,8 @@ json_t *make_replicate(const char *resource, const char *location,
                        const char *checksum, const char *replicate,
                        const char *status, baton_error_t *error) {
     json_t *result   = NULL;
-    json_t *is_valid = NULL;
+    json_t *is_valid = NULL; // Ref to be stolen by result
+    json_t *ck_value = NULL; // Ref to be stolen by result
 
     init_baton_error(error);
 
@@ -436,12 +437,20 @@ json_t *make_replicate(const char *resource, const char *location,
         goto error;
     }
 
-    result = json_pack("{s:s, s:s, s:s, s:i, s:o}",
+    if (checksum) {
+        ck_value = json_string(checksum);
+    }
+    else {
+        ck_value = json_null();
+    }
+
+    result = json_pack("{s:s, s:s, s:o, s:i, s:o}",
                        JSON_RESOURCE_KEY,         resource,
                        JSON_LOCATION_KEY,         location,
-                       JSON_CHECKSUM_KEY,         checksum,
+                       JSON_CHECKSUM_KEY,         ck_value,
                        JSON_REPLICATE_NUMBER_KEY, repl,
                        JSON_REPLICATE_STATUS_KEY, is_valid);
+
     if (!result) {
         set_baton_error(error, -1, "Failed to pack replicate object");
         goto error;
@@ -450,16 +459,23 @@ json_t *make_replicate(const char *resource, const char *location,
     return result;
 
 error:
-    if (result)   json_decref(result);
-    if (is_valid) json_decref(is_valid);
+    if (result)   {
+        json_decref(result);
+    }
+    else {
+        // Only decref these if they were not stolen by a succesfully
+        // created result
+        if (is_valid) json_decref(is_valid);
+        if (ck_value) json_decref(ck_value);
+    }
 
     return NULL;
 }
 
 int add_timestamps(json_t *object, const char *created, const char *modified,
                    const char *replicate, baton_error_t *error) {
-    json_t *iso_created  = NULL;
-    json_t *iso_modified = NULL;
+    json_t *iso_created  = NULL; // Ref to be stolen by result
+    json_t *iso_modified = NULL; // Ref to be stolen by result
     json_t *timestamps;
 
     init_baton_error(error);
@@ -487,6 +503,9 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
     return json_object_set_new(object, JSON_TIMESTAMPS_KEY, timestamps);
 
 error:
+    if (iso_created)  json_decref(iso_created);
+    if (iso_modified) json_decref(iso_modified);
+
     return error->code;
 }
 

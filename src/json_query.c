@@ -1035,6 +1035,7 @@ json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
 
         if (error->code != 0) goto error;
 
+        // Note: a replicate's checksum may be null in iRODS
         json_t *resc = json_object_get(result, JSON_RESOURCE_KEY);
         json_t *loc  = json_object_get(result, JSON_LOCATION_KEY);
         json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
