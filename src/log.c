@@ -91,7 +91,7 @@ void log_impl(int line, const char *file, char const *function,
         vfprintf(stderr, format, args);
         va_end(args);
 
-        fprintf(stderr, ".\n");
+        fprintf(stderr, "\n");
         fflush(stderr);
     }
 
