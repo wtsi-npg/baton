@@ -1,4 +1,6 @@
 
+	Bugfix: handle replicates that have no checksum.
+
 	[0.16.1]
 
 	Bugfix: search operators "n>=", "n<=" were not being accepted by

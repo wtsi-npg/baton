@@ -708,9 +708,6 @@ START_TEST(test_list_permissions_coll) {
                                  JSON_ZONE_KEY,  env.rodsZone,
                                  JSON_LEVEL_KEY, ACCESS_OWN);
 
-    print_json_stream(expected, stderr);
-    print_json_stream(results, stderr);
-
     ck_assert_int_eq(json_equal(results, expected), 1);
     ck_assert_int_eq(error.code, 0);
 
@@ -2095,6 +2092,69 @@ START_TEST(test_regression_github_issue137) {
 }
 END_TEST
 
+START_TEST(test_regression_github_issue140) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(BASIC_COLL, rods_root);
+    char obj_path_in[MAX_PATH_LEN];
+    snprintf(obj_path_in, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+    char obj_path_out[MAX_PATH_LEN];
+    snprintf(obj_path_out, MAX_PATH_LEN, "%s/f1.txt.no_checksum", rods_root);
+
+    // A Plain `icp' will create a copy having no checksum
+    char command[MAX_COMMAND_LEN];
+    snprintf(command, MAX_COMMAND_LEN, "icp %s %s", obj_path_in, obj_path_out);
+
+    int ret = system(command);
+    if (ret != 0) raise(SIGTERM);
+
+    rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path_out,
+                                       flags, &resolve_error), EXIST_ST);
+
+    json_t *expected =
+      json_pack("[{s:o, s:i, s:b, s:s}]",
+                // Assume the new copy is replicate 0 on default resource
+                JSON_CHECKSUM_KEY,         json_null(),
+                JSON_REPLICATE_NUMBER_KEY, 0,
+                JSON_REPLICATE_STATUS_KEY, 1,
+                JSON_RESOURCE_KEY,         env.rodsDefResource);
+
+    baton_error_t error;
+    json_t *results = list_replicates(conn, &rods_path, &error);
+
+    print_json(results);
+
+    ck_assert_int_eq(error.code, 0);
+    ck_assert(json_is_array(results));
+
+    size_t index;
+    json_t *result;
+    json_array_foreach(results, index, result) {
+        ck_assert(json_is_object(result));
+        // We don't know what the location value will be for a test
+        // run because it's an iRODS resource server hostname.
+        ck_assert(json_object_get(result, JSON_LOCATION_KEY));
+        // Remove it once tested so that we can easily check the other
+        // values together.
+        if (json_object_get(result, JSON_LOCATION_KEY)) {
+            json_object_del(result, JSON_LOCATION_KEY);
+        }
+    }
+
+    ck_assert_int_eq(json_equal(results, expected), 1);
+
+    json_decref(results);
+    json_decref(expected);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -2176,6 +2236,7 @@ Suite *baton_suite(void) {
 
     tcase_add_test(regression_tests, test_regression_github_issue83);
     tcase_add_test(regression_tests, test_regression_github_issue137);
+    tcase_add_test(regression_tests, test_regression_github_issue140);
 
     suite_add_tcase(suite, utilities_tests);
     suite_add_tcase(suite, basic_tests);
