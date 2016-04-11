@@ -20,22 +20,7 @@
 
 #include "compat_checksum.h"
 
-#ifdef HAVE_IRODS3
-void compat_MD5Init(MD5_CTX *context) {
-    MD5Init(context);
-}
-
-void compat_MD5Update(MD5_CTX *context, unsigned char *input,
-                      unsigned int len) {
-    MD5Update(context, input, len);
-}
-
-void compat_MD5Final(unsigned char digest[16], MD5_CTX *context) {
-    MD5Final(digest, context);
-}
-#endif
-
-#ifdef HAVE_IRODS4
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
 void compat_MD5Init(MD5_CTX *context) {
     MD5_Init(context);
 }
@@ -47,5 +32,18 @@ void compat_MD5Update(MD5_CTX *context, unsigned char *input,
 
 void compat_MD5Final(unsigned char digest[16], MD5_CTX *context) {
     MD5_Final(digest, context);
+}
+#else
+void compat_MD5Init(MD5_CTX *context) {
+    MD5Init(context);
+}
+
+void compat_MD5Update(MD5_CTX *context, unsigned char *input,
+                      unsigned int len) {
+    MD5Update(context, input, len);
+}
+
+void compat_MD5Final(unsigned char digest[16], MD5_CTX *context) {
+    MD5Final(digest, context);
 }
 #endif

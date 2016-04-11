@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2015, 2016 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,8 +18,15 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <rodsVersion.h>
+
 #include "config.h"
-#include "irods_api.h"
+
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
+#include <openssl/md5.h>
+#else
+#include "md5Checksum.h"
+#endif
 
 // iRODS 3.x shares the same checksum API as iRODS 4.0.x, while 4.1.x
 // uses openssl directly. Backwards compatibility was broken for the
@@ -28,7 +35,7 @@
 // baton's support for iRODS 4.0.x discontinued. It's a long-winded way
 // of doing things, but it's very clear what's going on.
 
-// MD5_CTX is the symbol that clashes between iRODS 3.x/4.0.x MD5 and
+// MD5_CTX is a symbol that clashes between iRODS 3.x/4.0.x MD5 and
 // OpenSSL MD5. We just use whichever is present, which the ifdefs
 // ensure will be the correct one.
 

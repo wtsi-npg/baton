@@ -27,7 +27,6 @@
 
 #include "config.h"
 #include "error.h"
-#include "irods_api.h"
 #include "query.h"
 #include "utilities.h"
 

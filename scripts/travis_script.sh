@@ -14,8 +14,8 @@ script_3_3_1() {
 }
 
 script_4_1_x() {
-    ./configure --with-test-resource=testResc
-    make distcheck
+    ./configure --with-test-resource=testResc --with-irods
+    make distcheck DISTCHECK_CONFIGURE_FLAGS=--with-irods
 }
 
 case $IRODS_VERSION in
