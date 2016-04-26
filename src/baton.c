@@ -143,14 +143,12 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
-#ifdef HAVE_IRODS3
-    status = clientLogin(conn);
-#endif
-
-#ifdef HAVE_IRODS4
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
     init_client_api_table();
 
     status = clientLogin(conn, "", "");
+#else
+    status = clientLogin(conn);
 #endif
 
     if (status < 0) {

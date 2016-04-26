@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,16 +17,16 @@
  *
  * @file query.h
  * @author Keith James <kdj@sanger.ac.uk>
- * @author Joshua C. Randall <jcrandall@alum.mit.edu> 
+ * @author Joshua C. Randall <jcrandall@alum.mit.edu>
 */
 
 #ifndef _BATON_QUERY_H
 #define _BATON_QUERY_H
 
 #include <jansson.h>
+#include <rodsClient.h>
 
 #include "config.h"
-#include "irods_api.h"
 #include "log.h"
 #include "utilities.h"
 

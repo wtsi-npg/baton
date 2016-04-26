@@ -27,7 +27,6 @@
 
 #include "config.h"
 #include "error.h"
-#include "irods_api.h"
 
 #define JSON_ERROR_KEY             "error"
 #define JSON_ERROR_CODE_KEY        "code"
@@ -167,15 +166,15 @@ const char *get_specific_sql(json_t *sql, baton_error_t *error);
 
 /**
  * Return a JSON array representing arguments from a JSON object
- * representing an iRODS specific query. If there are no 
+ * representing an iRODS specific query. If there are no
  * arguments, an empty JSON array will be returned.
  *
  * @param[in]                A JSON object.
  * @param[out] error         An error report struct.
  *
- * @return A JSON array on success, NULL on error. If a JSON 
- *         array is returned, the caller must call json_decref 
- *         on it when done using it in order to free its memory. 
+ * @return A JSON array on success, NULL on error. If a JSON
+ *         array is returned, the caller must call json_decref
+ *         on it when done using it in order to free its memory.
  */
 json_t *get_specific_args(json_t *sql, baton_error_t *error);
 

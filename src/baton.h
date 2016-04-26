@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2015,2016 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,10 +24,10 @@
 #define _BATON_H
 
 #include <jansson.h>
+#include <rodsClient.h>
 
 #include "config.h"
 #include "error.h"
-#include "irods_api.h"
 #include "query.h"
 #include "utilities.h"
 
@@ -298,7 +298,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
  *
  * @return A newly constructed JSON array of JSON result objects.
  */
-json_t *search_specific(rcComm_t *conn, json_t *query, char *zone_name, 
+json_t *search_specific(rcComm_t *conn, json_t *query, char *zone_name,
                         baton_error_t *error);
 
 /**
