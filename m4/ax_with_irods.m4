@@ -52,7 +52,7 @@
 
 AC_DEFUN([AX_WITH_IRODS], [
    IRODS_HOME=
-   Irods_CPPFLAGS=
+   IRODS_CPPFLAGS=
    IRODS_LDFLAGS=
    IRODS_LIBS=
 
@@ -193,7 +193,7 @@ AC_DEFUN([AX_WITH_IRODS], [
                IRODS_LIBS="$LIBS"
 
                CPPFLAGS="$saved_CPPFLAGS"
-               LDFALGS="$saved_LDFLAGS"
+               LDFLAGS="$saved_LDFLAGS"
                LIBS="$saved_LIBS"
 
                unset saved_CPPFLAGS

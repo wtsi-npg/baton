@@ -1,6 +1,7 @@
 
 AM_CPPFLAGS = -DTEST_ROOT='"$(top_srcdir)/tests"' -DTEST_RESOURCE='"$(TEST_RESOURCE)"' $(IRODS_CPPFLAGS)
-AM_CFLAGS = -Wall -Werror -Wextra -pedantic
+AM_CFLAGS   = -Wall -Werror -Wextra -pedantic
+AM_LDFLAGS  = $(IRODS_LDFLAGS)
 
 TESTS = check_baton
 

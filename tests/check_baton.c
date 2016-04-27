@@ -2127,8 +2127,6 @@ START_TEST(test_regression_github_issue140) {
     baton_error_t error;
     json_t *results = list_replicates(conn, &rods_path, &error);
 
-    print_json(results);
-
     ck_assert_int_eq(error.code, 0);
     ck_assert(json_is_array(results));
 
