@@ -182,6 +182,8 @@ const char *get_access_owner(json_t *access, baton_error_t *error);
 
 const char *get_access_level(json_t *access, baton_error_t *error);
 
+const char *get_access_zone(json_t *access, baton_error_t *error);
+
 const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error);
 
 int has_collection(json_t *object);

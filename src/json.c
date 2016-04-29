@@ -323,6 +323,13 @@ const char *get_access_level(json_t *access, baton_error_t *error) {
     return get_string_value(access, "access spec", JSON_LEVEL_KEY, NULL, error);
 }
 
+const char *get_access_zone(json_t *access, baton_error_t *error) {
+    init_baton_error(error);
+
+    return get_opt_string_value(access, "access spec", JSON_ZONE_KEY,
+                                NULL, error);
+}
+
 const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
     init_baton_error(error);
 

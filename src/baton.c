@@ -1138,18 +1138,27 @@ int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
     char owner_specifier[LONG_NAME_LEN] = { 0 };
     char access_level[LONG_NAME_LEN]    = { 0 };
     const char *owner;
+    const char *zone = NULL;
     const char *level;
 
     init_baton_error(error);
 
+    zone = get_access_zone(access, error);
     owner = get_access_owner(access, error);
     if (error->code != 0) goto error;
 
+    if (zone) {
+        snprintf(owner_specifier, sizeof owner_specifier, "%s#%s",
+                 owner, zone);
+    }
+    else {
+        snprintf(owner_specifier, sizeof owner_specifier, "%s", owner);
+    }
+
     level = get_access_level(access, error);
+    snprintf(access_level, sizeof access_level, "%s", level);
     if (error->code != 0) goto error;
 
-    snprintf(owner_specifier, sizeof owner_specifier, "%s", owner);
-    snprintf(access_level, sizeof access_level, "%s", level);
 
     modify_permissions(conn, rods_path, recurse, owner_specifier,
                        access_level, error);

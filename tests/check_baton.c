@@ -123,7 +123,7 @@ static void basic_teardown() {
 }
 
 static int have_rodsadmin() {
-    char *command = "iuserinfo |grep 'type: rodsadmin'";
+    char *command = "iuserinfo | grep 'type: rodsadmin'";
 
     return !system(command);
 }
@@ -1503,7 +1503,6 @@ START_TEST(test_modify_permissions_obj) {
     ck_assert_int_ne(num_elts, 0);
 
     int found = 0;
-
     for (int i = 0; i < num_elts; i++) {
         json_t *elt = json_array_get(acl, i);
 
@@ -1550,44 +1549,64 @@ START_TEST(test_modify_json_permissions_obj) {
 
     ck_assert_int_ne(expected_error2.code, 0);
     ck_assert_int_ne(fail_rv2, 0);
-    json_t *perm = json_pack("{s:s, s:s}",
-                             JSON_OWNER_KEY, "public",
-                             JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
 
-    baton_error_t error;
-    int rv = modify_json_permissions(conn, &rods_path, NO_RECURSE, perm,
-                                     &error);
-    ck_assert_int_eq(rv, 0);
-    ck_assert_int_eq(error.code, 0);
+    // Explicit zone
+    json_t *perm_with_zone = json_pack("{s:s, s:s, s:s}",
+                                       JSON_OWNER_KEY, "public",
+                                       JSON_ZONE_KEY,  env.rodsZone,
+                                       JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
 
-    json_t *expected = json_pack("{s:s, s:s, s:s}",
-                                 JSON_OWNER_KEY, "public",
-                                 JSON_ZONE_KEY,  env.rodsZone,
-                                 JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
+    baton_error_t error_with_zone;
+    int rv_with_zone =
+        modify_json_permissions(conn, &rods_path, NO_RECURSE,
+                                perm_with_zone, &error_with_zone);
+    ck_assert_int_eq(rv_with_zone, 0);
+    ck_assert_int_eq(error_with_zone.code, 0);
 
-    baton_error_t list_error;
-    json_t *acl = list_permissions(conn, &rods_path, &list_error);
-    ck_assert_int_eq(list_error.code, 0);
+    baton_error_t list_error_with_zone;
+    json_t *acl_with_zone =
+        list_permissions(conn, &rods_path, &list_error_with_zone);
+    ck_assert_int_eq(list_error_with_zone.code, 0);
 
-    int num_elts = json_array_size(acl);
+    int num_elts = json_array_size(acl_with_zone);
     ck_assert_int_ne(num_elts, 0);
 
     int found = 0;
-
     for (int i = 0; i < num_elts; i++) {
-        json_t *elt = json_array_get(acl, i);
+        json_t *elt = json_array_get(acl_with_zone, i);
 
+        // Return value should equal the input
         ck_assert(json_is_object(elt));
-        if (json_equal(expected, elt)) found = 1;
+        if (json_equal(perm_with_zone, elt)) found = 1;
     }
 
     ck_assert_int_eq(found, 1);
 
+    json_t *perm_without_zone = json_pack("{s:s, s:s}",
+                                          JSON_OWNER_KEY, "public",
+                                          JSON_LEVEL_KEY, ACCESS_LEVEL_READ);
+
+    // Implicit zone should not raise an error
+    baton_error_t error_without_zone;
+    int rv_without_zone =
+        modify_json_permissions(conn, &rods_path, NO_RECURSE,
+                                perm_without_zone, &error_without_zone);
+    ck_assert_int_eq(rv_without_zone, 0);
+    ck_assert_int_eq(error_without_zone.code, 0);
+
+    baton_error_t list_error_without_zone;
+    json_t *acl_without_zone =
+        list_permissions(conn, &rods_path, &list_error_without_zone);
+    ck_assert_int_eq(list_error_without_zone.code, 0);
+    // Zone should be populated in returned ACL
+    ck_assert_int_eq(json_equal(acl_without_zone, acl_with_zone), 1);
+
     json_decref(bad_perm1);
     json_decref(bad_perm2);
-    json_decref(perm);
-    json_decref(expected);
-    json_decref(acl);
+    json_decref(perm_with_zone);
+    json_decref(perm_without_zone);
+    json_decref(acl_with_zone);
+    json_decref(acl_without_zone);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1873,7 +1892,7 @@ START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
     const char *sql = irods_get_sql_for_specific_alias(conn, valid_alias);
 
     ck_assert_ptr_ne(sql, NULL);
-    ck_assert_str_eq(sql, 
+    ck_assert_str_eq(sql,
 		     "SELECT DISTINCT Data.data_id AS data_id FROM R_DATA_MAIN Data WHERE CAST(Data.modify_ts AS INT) > CAST(? AS INT) AND CAST(Data.modify_ts AS INT) <= CAST(? AS INT)");
 
     if (conn) rcDisconnect(conn);
