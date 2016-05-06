@@ -1,3 +1,15 @@
+	[0.16.3]
+
+	Added support for user#zone syntax in permissions.
+
+	Added baton-specificquery program (contributed by Joshua
+	C. Randall <jcrandall@alum.mit.edu>).
+
+	Added new autoconf macro ax_with_irods.
+
+	Test on iRODS 4.1.8.
+
+	[0.16.2]
 
 	Bugfix: handle replicates that have no checksum.
 
