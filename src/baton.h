@@ -166,14 +166,15 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
  * inPath and outPath and then resolving it on the server. The path is not
  * parsed, so must be derived from an existing parsed path.
  *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  env       A populated iRODS environment.
- * @param[out] rodspath  An iRODS path.
- * @param[in]  path      A string representing an unresolved iRODS path.
+ * @param[in]  conn     An open iRODS connection.
+ * @param[out] rodspath An iRODS path.
+ * @param[in]  path     A string representing an unresolved iRODS path.
+ * @param[out] error    An error report struct.
  *
  * @return 0 on success, iRODS error code on failure.
  */
-int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path);
+int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path,
+                  baton_error_t *error);
 
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
                        option_flags flags, baton_error_t *error);
