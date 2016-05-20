@@ -211,8 +211,13 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env, rodsPath_t *rods_path,
     }
 
     status = getRodsObjType(conn, rods_path);
-    if (status != EXIST_ST) {
-        logmsg(WARN, "Failed to stat iRODS path '%s'", rods_path->outPath);
+    if (status < 0) {
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to get the type of iRODS path '%s': %d %s",
+                        rods_path->inPath, status, err_name);
+        goto error;
     }
 
     return status;
@@ -221,31 +226,45 @@ error:
     return error->code;
 }
 
-int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path) {
+int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path,
+                  baton_error_t *error) {
     char *dest;
 
     int status = init_rods_path(rods_path, path);
     if (status < 0) {
-        logmsg(ERROR, "Failed to create iRODS path '%s'", path);
+        set_baton_error(error, status,
+                        "Failed to create iRODS path '%s'", path);
         goto error;
     }
 
     dest = rstrcpy(rods_path->outPath, path, MAX_NAME_LEN);
     if (!dest) {
-        status = USER_PATH_EXCEEDS_MAX;
+        set_baton_error(error, USER_PATH_EXCEEDS_MAX,
+                        "iRODS path '%s' is too long (exceeds %d",
+                        path, MAX_NAME_LEN);
         goto error;
     }
 
     status = getRodsObjType(conn, rods_path);
+    if (status < 0) {
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to get the type of iRODS path '%s': %d %s",
+                        rods_path->inPath, status, err_name);
+        goto error;
+    }
+
     if (status != EXIST_ST) {
-        logmsg(ERROR, "Failed to stat iRODS path '%s': %d", path, status);
+        set_baton_error(error, status,
+                        "iRODS path does not exist '%s'", path);
         goto error;
     }
 
     return status;
 
 error:
-    return status;
+    return error->code;
 }
 
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,

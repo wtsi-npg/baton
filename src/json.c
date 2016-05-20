@@ -979,8 +979,10 @@ static int has_json_str_value(json_t *object, const char *key,
 }
 
 static char *make_dir_path(const char *path, baton_error_t *error) {
-    size_t dlen = strnlen(path, MAX_STR_LEN) + 1; // +1 for NUL
-    if (str_ends_with(path, "/", MAX_STR_LEN)) {
+    size_t slen = strnlen(path, MAX_STR_LEN);
+    size_t dlen = slen + 1; // +1 for NUL
+    // Only trim trailing '/' if the path is >1 character long
+    if (slen > 1 && str_ends_with(path, "/", MAX_STR_LEN)) {
         dlen--;
     }
 
