@@ -114,12 +114,8 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     if (root_path) {
         rodsPath_t rods_path;
 
-        int status = set_rods_path(conn, &rods_path, root_path);
-        if (status < 0) {
-            set_baton_error(error, status, "Failed to set iRODS path '%s'",
-                            root_path);
-            goto error;
-        }
+        set_rods_path(conn, &rods_path, root_path, error);
+        if (error->code != 0) goto error;
 
         if (str_starts_with(root_path, "/", MAX_STR_LEN)) {
             // Is search path just a zone hint? e.g. "/seq"
@@ -722,7 +718,6 @@ json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
     char *path = NULL;
     rodsPath_t rods_path;
     json_t *checksum;
-    int status;
 
     init_baton_error(error);
 
@@ -735,11 +730,8 @@ json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    status = set_rods_path(conn, &rods_path, path);
-    if (status < 0) {
-        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
-        goto error;
-    }
+    set_rods_path(conn, &rods_path, path, error);
+    if (error->code != 0) goto error;
 
     checksum = list_checksum(conn, &rods_path, error);
     if (error->code != 0) goto error;
@@ -787,7 +779,6 @@ json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
     char *path = NULL;
     rodsPath_t rods_path;
     json_t *replicates;
-    int status;
 
     init_baton_error(error);
 
@@ -800,11 +791,8 @@ json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    status = set_rods_path(conn, &rods_path, path);
-    if (status < 0) {
-        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
-        goto error;
-    }
+    set_rods_path(conn, &rods_path, path, error);
+    if (error->code != 0) goto error;
 
     replicates = list_replicates(conn, &rods_path, error);
     if (error->code != 0) goto error;
@@ -867,11 +855,8 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    int status = set_rods_path(conn, &rods_path, path);
-    if (status < 0) {
-        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
-        goto error;
-    }
+    set_rods_path(conn, &rods_path, path, error);
+    if (error->code != 0) goto error;
 
     raw_timestamps = list_timestamps(conn, &rods_path, error);
     if (error->code != 0) goto error;
@@ -963,7 +948,6 @@ json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
     char *path = NULL;
     rodsPath_t rods_path;
     json_t *avus;
-    int status;
 
     init_baton_error(error);
 
@@ -976,11 +960,8 @@ json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    status = set_rods_path(conn, &rods_path, path);
-    if (status < 0) {
-        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
-        goto error;
-    }
+    set_rods_path(conn, &rods_path, path, error);
+    if (error->code != 0) goto error;
 
     avus = list_metadata(conn, &rods_path, NULL, error);
     if (error->code != 0) goto error;
@@ -1028,7 +1009,6 @@ json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
     char *path = NULL;
     rodsPath_t rods_path;
     json_t *perms;
-    int status;
 
     init_baton_error(error);
 
@@ -1041,11 +1021,8 @@ json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
     path = json_to_path(object, error);
     if (error->code != 0) goto error;
 
-    status = set_rods_path(conn, &rods_path, path);
-    if (status < 0) {
-        set_baton_error(error, status, "Failed to set iRODS path '%s'", path);
-        goto error;
-    }
+    set_rods_path(conn, &rods_path, path, error);
+    if (error->code != 0) goto error;
 
     perms = list_permissions(conn, &rods_path, error);
     if (error->code != 0) goto error;
