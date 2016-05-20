@@ -220,11 +220,6 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env, rodsPath_t *rods_path,
         goto error;
     }
 
-    if (status != EXIST_ST) {
-        logmsg(WARN, "Failed to get the type of iRODS path '%s': %d",
-               rods_path->outPath, status);
-    }
-
     return status;
 
 error:
