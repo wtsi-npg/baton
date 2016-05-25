@@ -1,3 +1,11 @@
+	[0.16.4]
+
+	Bugfix: an incorrect error code could be returned in JSON
+	responses.
+
+	Bugfix: the root collection '/' was incorrectly identified as
+	a relative path.
+
 	[0.16.3]
 
 	Added support for user#zone syntax in permissions.
