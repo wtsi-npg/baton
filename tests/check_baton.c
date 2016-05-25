@@ -1924,6 +1924,7 @@ START_TEST(test_make_query_format_from_sql_with_simple_select_query) {
     char *sql = "SELECT a, b, c from some_table";
     query_format_in_t *format = make_query_format_from_sql(sql);
 
+    ck_assert_ptr_ne(format, NULL);
     ck_assert_int_eq(format->num_columns, 3);
     ck_assert_str_eq(format->labels[0], "a");
     ck_assert_str_eq(format->labels[1], "b");
@@ -1939,6 +1940,7 @@ START_TEST(test_make_query_format_from_sql_with_select_query_using_column_alias)
     char *sql = "SELECT a as b from some_table";
     query_format_in_t *format = make_query_format_from_sql(sql);
 
+    ck_assert_ptr_ne(format, NULL);
     ck_assert_int_eq(format->num_columns, 1);
     int number_of_labels = sizeof(format->labels[0]) / sizeof(char*);
     ck_assert_int_eq(number_of_labels, 1);
@@ -1980,6 +1982,7 @@ START_TEST(test_search_specific_with_valid_setup) {
     ck_assert_ptr_ne(query_json, NULL);
 
     json_t *search_results = search_specific(conn, query_json, zone_name, &search_error);
+    ck_assert_ptr_ne(search_results, NULL);
 
     char *search_results_str = json_dumps(search_results, JSON_COMPACT | JSON_SORT_KEYS);
     ck_assert_str_eq(search_results_str,
