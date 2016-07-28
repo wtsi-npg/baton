@@ -25,7 +25,7 @@ case $IRODS_VERSION in
         script_3_3_1
         ;;
 
-    4.1.8)
+    4.1.9)
         script_common
         script_4_1_x
         ;;
