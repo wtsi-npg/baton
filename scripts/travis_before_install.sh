@@ -26,7 +26,7 @@ case $IRODS_VERSION in
         before_install_3_3_1
         ;;
 
-    4.1.8)
+    4.1.9)
         before_install_common
         before_install_4_1_x
         ;;

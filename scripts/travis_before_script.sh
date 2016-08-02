@@ -63,7 +63,7 @@ case $IRODS_VERSION in
         before_script_3_3_1
         ;;
 
-    4.1.8)
+    4.1.9)
         before_script_common
         before_script_4_1_x
         ;;
