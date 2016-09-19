@@ -266,7 +266,12 @@ json_t *map_access_args(json_t *access, baton_error_t *error);
 
 json_t *revmap_access_result(json_t *access, baton_error_t *error);
 
+// #if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
 json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
                                  baton_error_t *error);
+// #else
+// json_t *revmap_replicate_results(json_t *results,
+//                                  baton_error_t *error);
+// #endif
 
 #endif  // _BATON_JSON_QUERY_H

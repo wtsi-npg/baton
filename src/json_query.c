@@ -32,18 +32,121 @@
 #include "query.h"
 #include "utilities.h"
 
+static int is_zone_hint(const char *path) {
+    size_t len = strnlen(path, MAX_STR_LEN);
+    int is_zone = 1;
+
+    if (len < 2) {
+        is_zone = 0;
+    }
+    else {
+        for (size_t i = 0; i < len; i++) {
+            if (strncmp(path, "/", 1) == 0 && i != 0) {
+                is_zone = 0;
+                break;
+            }
+            path++;
+        }
+    }
+
+    return is_zone;
+}
+
 static size_t parse_attr_value(int column, const char *label,
                                const char *input, char *output,
-                               size_t max_len);
+                               size_t max_len) {
+    size_t size;
 
-static int is_zone_hint(const char *path);
+    if (maybe_utf8(input, max_len)) {
+        size = snprintf(output, max_len, "%s", input);
+    }
+    else {
+        logmsg(WARN,
+               "Failed to parse column %d '%s' value '%s' as UTF-8. "
+               "Attempting to coerce to UTF-8 assuming it is ISO_8859-1",
+               column, label, input);
 
+        size = to_utf8(input, output, max_len);
+        if (!maybe_utf8(output, max_len)) {
+            size = 0;
+            logmsg(ERROR, "Failed to coerce column %d '%s' value '%s' "
+                   "to UTF-8", column, label, input);
+        }
+    }
+
+    return size;
+}
+
+// Map a user-visible access level to the iCAT token
+// nomenclature. iRODS does a similar thing itself.
 static const char *map_access_level(const char *access_level,
-                                    baton_error_t *error);
+                                    baton_error_t *error) {
+    if (str_equals_ignore_case(access_level,
+                               ACCESS_LEVEL_NULL, MAX_STR_LEN)) {
+        return ACCESS_NULL;
+    }
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_OWN, MAX_STR_LEN)) {
+        return ACCESS_OWN;
+    }
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_READ, MAX_STR_LEN)) {
+        return ACCESS_READ_OBJECT;
+    }
+    else if (str_equals_ignore_case(access_level,
+                                    ACCESS_LEVEL_WRITE, MAX_STR_LEN)) {
+        return ACCESS_MODIFY_OBJECT;
+    }
+    else {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid permission level: expected one of "
+                        "[%s, %s, %s, %s]",
+                        ACCESS_LEVEL_NULL, ACCESS_LEVEL_OWN,
+                        ACCESS_LEVEL_READ, ACCESS_LEVEL_WRITE);
+        return NULL;
+    }
+}
 
-static const char *revmap_access_level(const char *icat_level);
+// Map an iCAT token back to a user-visible access level.
+static const char *revmap_access_level(const char *icat_level) {
+    if (str_equals_ignore_case(icat_level,
+                               ACCESS_NULL, MAX_STR_LEN)) {
+        return ACCESS_LEVEL_NULL;
+    }
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_OWN, MAX_STR_LEN)) {
+        return ACCESS_LEVEL_OWN;
+    }
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_READ_OBJECT, MAX_STR_LEN)) {
+        return ACCESS_LEVEL_READ;
+    }
+    else if (str_equals_ignore_case(icat_level,
+                                    ACCESS_MODIFY_OBJECT, MAX_STR_LEN)) {
+        return ACCESS_LEVEL_WRITE;
+    }
+    else {
+        // Fall back for anything else; not ideal, but it's more
+        // resilient to surprises than raising an error.
+        return icat_level;
+    }
+}
 
-static const char *resource_hierarchy_leaf(const char *hierarchy);
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
+static const char *resource_hierarchy_leaf(const char *hierarchy) {
+    char *last_delim = strrchr(hierarchy, ';');
+
+    const char *leaf = NULL;
+    if (last_delim) {
+        leaf = last_delim + 1;  // "foo;bar;baz" or bad hierarchy ";"
+    }
+    else {
+        leaf = hierarchy;       // "baz"
+    }
+
+    return leaf;
+}
+#endif
 
 void log_json_error(log_level level, json_error_t *error) {
     logmsg(level, "JSON error: %s, line %d, column %d, position %d",
@@ -1067,51 +1170,6 @@ error:
     return NULL;
 }
 
-static int is_zone_hint(const char *path) {
-    size_t len = strnlen(path, MAX_STR_LEN);
-    int is_zone = 1;
-
-    if (len < 2) {
-        is_zone = 0;
-    }
-    else {
-        for (size_t i = 0; i < len; i++) {
-            if (strncmp(path, "/", 1) == 0 && i != 0) {
-                is_zone = 0;
-                break;
-            }
-            path++;
-        }
-    }
-
-    return is_zone;
-}
-
-static size_t parse_attr_value(int column, const char *label,
-                               const char *input, char *output,
-                               size_t max_len) {
-    size_t size;
-
-    if (maybe_utf8(input, max_len)) {
-        size = snprintf(output, max_len, "%s", input);
-    }
-    else {
-        logmsg(WARN,
-               "Failed to parse column %d '%s' value '%s' as UTF-8. "
-               "Attempting to coerce to UTF-8 assuming it is ISO_8859-1",
-               column, label, input);
-
-        size = to_utf8(input, output, max_len);
-        if (!maybe_utf8(output, max_len)) {
-            size = 0;
-            logmsg(ERROR, "Failed to coerce column %d '%s' value '%s' "
-                   "to UTF-8", column, label, input);
-        }
-    }
-
-    return size;
-}
-
 json_t *map_access_args(json_t *query, baton_error_t *error) {
     json_t *user_info = NULL;
 
@@ -1189,7 +1247,6 @@ error:
     return NULL;
 }
 
-// pass in connection?
 json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
                                  baton_error_t *error) {
     char *zone_name = NULL;
@@ -1210,20 +1267,13 @@ json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
         if (error->code != 0) goto error;
 
         // Note: a replicate's checksum may be null in iRODS
-        // json_t *resc = json_object_get(result, JSON_RESOURCE_KEY);
+
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
         json_t *coll = json_object_get(result, JSON_COLLECTION_KEY);
         json_t *hier = json_object_get(result, JSON_RESOURCE_HIER_KEY);
-        json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
-        json_t *num  = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
-        json_t *stat = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
 
-        // const char *resource  = json_string_value(resc);
-        // const char *location  = json_string_value(loc);
         const char *collection = json_string_value(coll);
         const char *hierarchy  = json_string_value(hier);
-        const char *checksum   = json_string_value(chk);
-        const char *number     = json_string_value(num);
-        const char *status     = json_string_value(stat);
 
         zone_name = parse_zone_name(collection);
         const char *resource = resource_hierarchy_leaf(hierarchy);
@@ -1232,11 +1282,26 @@ json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
             list_resource(conn, resource, zone_name, error);
         if (error->code != 0) goto error;
 
-        free(zone_name);
-
         // Get a hostname aka location from the resource
         json_t *loc = json_object_get(resource_info, JSON_LOCATION_KEY);
         const char *location = json_string_value(loc);
+#else
+        conn = conn; // Silence unused parameter warning
+
+        json_t *resc = json_object_get(result, JSON_RESOURCE_KEY);
+        json_t *loc  = json_object_get(result, JSON_LOCATION_KEY);
+
+        const char *resource = json_string_value(resc);
+        const char *location = json_string_value(loc);
+#endif
+
+        json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
+        json_t *num  = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
+        json_t *stat = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
+
+        const char *checksum = json_string_value(chk);
+        const char *number   = json_string_value(num);
+        const char *status   = json_string_value(stat);
 
         json_t *replicate = make_replicate(resource, location,
                                            checksum, number, status, error);
@@ -1245,80 +1310,15 @@ json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
         json_array_append_new(mapped, replicate);
     }
 
+    if (zone_name) free(zone_name);
+
     return mapped;
 
 error:
+
     if (zone_name) free(zone_name);
     if (mapped)    json_decref(mapped);
 
     return NULL;
 }
 
-// Map a user-visible access level to the iCAT token
-// nomenclature. iRODS does a similar thing itself.
-static const char *map_access_level(const char *access_level,
-                                    baton_error_t *error) {
-    if (str_equals_ignore_case(access_level,
-                               ACCESS_LEVEL_NULL, MAX_STR_LEN)) {
-        return ACCESS_NULL;
-    }
-    else if (str_equals_ignore_case(access_level,
-                                    ACCESS_LEVEL_OWN, MAX_STR_LEN)) {
-        return ACCESS_OWN;
-    }
-    else if (str_equals_ignore_case(access_level,
-                                    ACCESS_LEVEL_READ, MAX_STR_LEN)) {
-        return ACCESS_READ_OBJECT;
-    }
-    else if (str_equals_ignore_case(access_level,
-                                    ACCESS_LEVEL_WRITE, MAX_STR_LEN)) {
-        return ACCESS_MODIFY_OBJECT;
-    }
-    else {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid permission level: expected one of "
-                        "[%s, %s, %s, %s]",
-                        ACCESS_LEVEL_NULL, ACCESS_LEVEL_OWN,
-                        ACCESS_LEVEL_READ, ACCESS_LEVEL_WRITE);
-        return NULL;
-    }
-}
-
-// Map an iCAT token back to a user-visible access level.
-static const char *revmap_access_level(const char *icat_level) {
-    if (str_equals_ignore_case(icat_level,
-                               ACCESS_NULL, MAX_STR_LEN)) {
-        return ACCESS_LEVEL_NULL;
-    }
-    else if (str_equals_ignore_case(icat_level,
-                                    ACCESS_OWN, MAX_STR_LEN)) {
-        return ACCESS_LEVEL_OWN;
-    }
-    else if (str_equals_ignore_case(icat_level,
-                                    ACCESS_READ_OBJECT, MAX_STR_LEN)) {
-        return ACCESS_LEVEL_READ;
-    }
-    else if (str_equals_ignore_case(icat_level,
-                                    ACCESS_MODIFY_OBJECT, MAX_STR_LEN)) {
-        return ACCESS_LEVEL_WRITE;
-    }
-    else {
-        // Fall back for anything else; not ideal, but it's more
-        // resilient to surprises than raising an error.
-        return icat_level;
-    }
-}
-
-static const char *resource_hierarchy_leaf(const char *hierarchy) {
-    char *last_delim = strrchr(hierarchy, ';');
-
-    const char *leaf = NULL;
-    if (last_delim) {
-        leaf = last_delim + 1;  // "foo;bar;baz" or bad hierarchy ";"
-    }
-    else {
-        leaf = hierarchy;       // "baz"
-    }
-
-    return leaf;
-}

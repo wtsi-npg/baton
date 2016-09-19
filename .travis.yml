@@ -21,12 +21,6 @@ env:
     - IRODS_VERSION=4.1.9
 
 before_install:
-  # workaround for iRODS buffer overflow
-  # see https://github.com/travis-ci/travis-ci/issues/5227
-  - cat /etc/hosts # optionally check the content *before*
-  - sudo hostname "$(hostname | cut -c1-63)"
-  - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
-  - cat /etc/hosts # optionally check the content *after*
   - ./scripts/travis_before_install.sh
 
 install:

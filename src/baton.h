@@ -252,8 +252,10 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
 json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
                         baton_error_t *error);
 
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
 json_t *list_resource(rcComm_t *conn, const char *resc_name,
                       const char *zone_name, baton_error_t *error);
+#endif
 
 /**
  * List metadata of a specified data object or collection.
