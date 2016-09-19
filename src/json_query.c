@@ -43,6 +43,8 @@ static const char *map_access_level(const char *access_level,
 
 static const char *revmap_access_level(const char *icat_level);
 
+static const char *resource_hierarchy_leaf(const char *hierarchy);
+
 void log_json_error(log_level level, json_error_t *error) {
     logmsg(level, "JSON error: %s, line %d, column %d, position %d",
            error->text, error->line, error->column, error->position);
@@ -1187,10 +1189,13 @@ error:
     return NULL;
 }
 
-json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
-    init_baton_error(error);
+// pass in connection?
+json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
+                                 baton_error_t *error) {
+    char *zone_name = NULL;
+    json_t *mapped  = json_array();
 
-    json_t *mapped = json_array();
+    init_baton_error(error);
 
     size_t num_elts = json_array_size(results);
     for (size_t i = 0; i < num_elts; i++) {
@@ -1205,21 +1210,36 @@ json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
         if (error->code != 0) goto error;
 
         // Note: a replicate's checksum may be null in iRODS
-        json_t *resc = json_object_get(result, JSON_RESOURCE_KEY);
-        json_t *loc  = json_object_get(result, JSON_LOCATION_KEY);
+        // json_t *resc = json_object_get(result, JSON_RESOURCE_KEY);
+        json_t *coll = json_object_get(result, JSON_COLLECTION_KEY);
+        json_t *hier = json_object_get(result, JSON_RESOURCE_HIER_KEY);
         json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
         json_t *num  = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
         json_t *stat = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
 
-        const char *resource = json_string_value(resc);
+        // const char *resource  = json_string_value(resc);
+        // const char *location  = json_string_value(loc);
+        const char *collection = json_string_value(coll);
+        const char *hierarchy  = json_string_value(hier);
+        const char *checksum   = json_string_value(chk);
+        const char *number     = json_string_value(num);
+        const char *status     = json_string_value(stat);
+
+        zone_name = parse_zone_name(collection);
+        const char *resource = resource_hierarchy_leaf(hierarchy);
+
+        json_t *resource_info =
+            list_resource(conn, resource, zone_name, error);
+        if (error->code != 0) goto error;
+
+        free(zone_name);
+
+        // Get a hostname aka location from the resource
+        json_t *loc = json_object_get(resource_info, JSON_LOCATION_KEY);
         const char *location = json_string_value(loc);
-        const char *checksum = json_string_value(chk);
-        const char *number   = json_string_value(num);
-        const char *status   = json_string_value(stat);
 
-        json_t *replicate =
-            make_replicate(resource, location, checksum, number, status, error);
-
+        json_t *replicate = make_replicate(resource, location,
+                                           checksum, number, status, error);
         if (error->code != 0) goto error;
 
         json_array_append_new(mapped, replicate);
@@ -1228,7 +1248,8 @@ json_t *revmap_replicate_results(json_t *results, baton_error_t *error) {
     return mapped;
 
 error:
-    if (mapped) json_decref(mapped);
+    if (zone_name) free(zone_name);
+    if (mapped)    json_decref(mapped);
 
     return NULL;
 }
@@ -1286,4 +1307,18 @@ static const char *revmap_access_level(const char *icat_level) {
         // resilient to surprises than raising an error.
         return icat_level;
     }
+}
+
+static const char *resource_hierarchy_leaf(const char *hierarchy) {
+    char *last_delim = strrchr(hierarchy, ';');
+
+    const char *leaf = NULL;
+    if (last_delim) {
+        leaf = last_delim + 1;  // "foo;bar;baz" or bad hierarchy ";"
+    }
+    else {
+        leaf = hierarchy;       // "baz"
+    }
+
+    return leaf;
 }

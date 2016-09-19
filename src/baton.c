@@ -1012,14 +1012,12 @@ json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
 
     query_format_in_t obj_format =
         { .num_columns = 5,
-          .columns     = { COL_D_REPL_STATUS, COL_DATA_REPL_NUM,
-                           COL_D_DATA_CHECKSUM, COL_D_RESC_NAME,
-                           COL_R_LOC
-          },
-          .labels      = { JSON_REPLICATE_STATUS_KEY, JSON_REPLICATE_NUMBER_KEY,
-                           JSON_CHECKSUM_KEY, JSON_RESOURCE_KEY,
-                           JSON_LOCATION_KEY
-          } };
+          .columns     = { COL_COLL_NAME, COL_D_REPL_STATUS,
+                           COL_DATA_REPL_NUM, COL_D_DATA_CHECKSUM,
+                           COL_D_RESC_HIER },
+          .labels      = { JSON_COLLECTION_KEY, JSON_REPLICATE_STATUS_KEY,
+                           JSON_REPLICATE_NUMBER_KEY, JSON_CHECKSUM_KEY,
+                           JSON_RESOURCE_HIER_KEY } };
 
     init_baton_error(error);
 
@@ -1060,7 +1058,7 @@ json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
     results = do_query(conn, query_in, obj_format.labels, error);
     if (error->code != 0) goto error;
 
-    json_t *mapped = revmap_replicate_results(results, error);
+    json_t *mapped = revmap_replicate_results(conn, results, error);
     if (error->code != 0) goto error;
 
     logmsg(DEBUG, "Obtained replicates of '%s'", rods_path->outPath);
@@ -1075,6 +1073,51 @@ error:
 
     if (query_in)   free_query_input(query_in);
     if (results)    json_decref(results);
+
+    return NULL;
+}
+
+json_t *list_resource(rcComm_t *conn, const char *resc_name,
+                      const char* zone_name, baton_error_t *error) {
+    genQueryInp_t *query_in = NULL;
+    json_t *results         = NULL;
+    json_t *resource        = NULL;
+
+    query_format_in_t obj_format =
+        { .num_columns = 3,
+          .columns     = { COL_R_RESC_NAME, COL_R_LOC,
+                           COL_R_TYPE_NAME },
+          .labels      = { JSON_RESOURCE_KEY, JSON_LOCATION_KEY,
+                           JSON_RESOURCE_TYPE_KEY} };
+
+    init_baton_error(error);
+
+    query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
+                                obj_format.columns);
+    query_in = prepare_resc_list(query_in, resc_name, zone_name);
+
+    addKeyVal(&query_in->condInput, ZONE_KW, zone_name);
+    results = do_query(conn, query_in, obj_format.labels, error);
+    if (error->code != 0) goto error;
+
+    if (json_array_size(results) != 1) {
+        set_baton_error(error, -1, "Expected 1 resource result but found %d",
+                        json_array_size(results));
+        goto error;
+    }
+
+    resource = json_incref(json_array_get(results, 0));
+    json_array_clear(results);
+    json_decref(results);
+
+    return resource;
+
+error:
+    logmsg(ERROR, "Failed to list resource '%s': error %d %s",
+           resc_name, error->code, error->message);
+
+    if (query_in) free_query_input(query_in);
+    if (results)  json_decref(results);
 
     return NULL;
 }

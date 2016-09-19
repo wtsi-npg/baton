@@ -80,6 +80,8 @@
 
 #define JSON_RESOURCE_KEY          "resource"
 #define JSON_LOCATION_KEY          "location"
+#define JSON_RESOURCE_TYPE_KEY     "type"
+#define JSON_RESOURCE_HIER_KEY     "hierarchy"
 
 /**
  * Add a new property containing error information to a JSON object.

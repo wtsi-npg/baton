@@ -252,6 +252,9 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
 json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
                         baton_error_t *error);
 
+json_t *list_resource(rcComm_t *conn, const char *resc_name,
+                      const char *zone_name, baton_error_t *error);
+
 /**
  * List metadata of a specified data object or collection.
  *
