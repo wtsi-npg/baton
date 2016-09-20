@@ -10,6 +10,7 @@ env:
   global:
     - secure: cDfB188ECmloGfScZQezqwiFef7l+gXgn2RiTOxINriy9wYS6RmZxuZBHGuR36u7QV3QEJtMdihyQ+XBN2eQPf5jULQXV15t7gArXEVPzzF8i+f8MTgVHugU3TqmPLQkY94wBBbpzvRD9xCAC/uNiQcLLwuD2SjPfTXkqgqqtd0=
     - PGVERSION="9.3"
+    - JANSSON_VERSION="2.7"
     - CK_DEFAULT_TIMEOUT=20
     - PLATFORM=ubuntu12
     - ARCH=x86_64

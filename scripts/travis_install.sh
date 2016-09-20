@@ -15,9 +15,9 @@ install_common() {
     autoreconf -fi
     ./configure ; make ; sudo make install
 
-    wget https://github.com/akheron/jansson/archive/v2.7.tar.gz -O /tmp/jansson-2.7.tar.gz
-    tar xfz /tmp/jansson-2.7.tar.gz -C /tmp
-    cd /tmp/jansson-2.7
+    wget -q https://github.com/akheron/jansson/archive/v${JANSSON_VERSION}.tar.gz -O /tmp/jansson-${JANSSON_VERSION}.tar.gz
+    tar xfz /tmp/jansson-${JANSSON_VERSION}.tar.gz -C /tmp
+    cd /tmp/jansson-${JANSSON_VERSION}
     autoreconf -fi
     ./configure ; make ; sudo make install
 
