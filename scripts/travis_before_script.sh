@@ -46,8 +46,13 @@ before_script_4_1_x() {
     sudo /etc/init.d/irods restart
     sudo -E su irods -c "iadmin mkuser $USER rodsadmin ; iadmin moduser $USER password testuser"
     sudo -E su irods -c "iadmin lu $USER"
+
     sudo -E su irods -c "mkdir -p /var/lib/irods/iRODS/Test"
-    sudo -E su irods -c "iadmin mkresc testResc unixfilesystem `hostname --fqdn`:/var/lib/irods/iRODS/Test"
+    sudo -E su irods -c "iadmin mkresc unixfs unixfilesystem `hostname --fqdn`:/var/lib/irods/iRODS/Test"
+
+    sudo -E su irods -c "iadmin mkresc testResc replication"
+    sudo -E su irods -c "iadmin addchildtoresc testResc unixfs"
+
     mkdir $HOME/.irods
     sed -e "s#__USER__#$USER#" -e "s#__HOME__#$HOME#" < .travis.irodsenv.json > $HOME/.irods/irods_environment.json
     cat $HOME/.irods/irods_environment.json

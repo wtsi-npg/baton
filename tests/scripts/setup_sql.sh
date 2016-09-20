@@ -29,14 +29,29 @@ then
         if [[ $status -eq 0 ]]
         then
             echo "# Installing specific queries"
-            awk '{print "asq "$s}' < $sql_path | iadmin >/dev/null
-            status=$?
 
-            if [[ $status -ne 0 ]]
-            then
-                echo "ERROR: failed to install SQL in '$sql_path': $s (exit $status)"
-                exit $status
-            fi
+            while read -r line || [[ -n "$line" ]]; do
+                # Is the query present already?
+                alias=`echo $line | awk -F"'" '{print $3}' | tr -d " " | tr -d "\n"`
+                echo "# Checking for SQL alias '$alias'"
+                iquest --sql ls | grep "^$alias$" >/dev/null
+                status=$?
+
+                if [[ $status -ne 0 ]]
+                then
+                    echo "# Installing SQL for alias '$alias'"
+                    echo "asq $line '$alias'" | iadmin >/dev/null
+                    status=$?
+
+                    if [[ $status -ne 0 ]]
+                    then
+                        echo "ERROR: failed to install SQL for '$alias' from '$sql_path': (exit $status)"
+                        exit $status
+                    fi
+                else
+                    echo "# Skipping SQL '$alias'; already installed"
+                fi
+            done < "$sql_path"
         else
             echo "# Not installing specific queries"
         fi

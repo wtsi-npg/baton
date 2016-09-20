@@ -29,14 +29,29 @@ then
         if [[ $status -eq 0 ]]
         then
             echo "# Removing specific queries"
-            awk '{print "rsq "$s}' < $sql_path | iadmin >/dev/null
-            status=$?
 
-            if [[ $status -ne 0 ]]
-            then
-                echo "Failed to remove SQL in '$sql_path'"
-                exit $status
-            fi
+            while read -r line || [[ -n "$line" ]]; do
+                # Is the query present?
+                alias=`echo $line | awk -F"'" '{print $3}' | tr -d " " | tr -d "\n"`
+                echo "# Checking for SQL alias '$alias'"
+                iquest --sql ls | grep "^$alias$" >/dev/null
+                status=$?
+
+                if [[ $status -eq 0 ]]
+                then
+                    echo "# Uninstalling SQL for alias '$alias'"
+                    echo "rsq '$alias'" | iadmin >/dev/null
+                    status=$?
+
+                    if [[ $status -ne 0 ]]
+                    then
+                        echo "ERROR: failed to uninstall SQL for '$alias' from '$sql_path': (exit $status)"
+                        exit $status
+                    fi
+                else
+                    echo "# Skipping SQL '$alias'; not installed"
+                fi
+            done < "$sql_path"
         else
             echo "# Not removing specific queries"
         fi
