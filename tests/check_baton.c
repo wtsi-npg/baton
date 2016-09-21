@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -819,17 +819,15 @@ START_TEST(test_list_replicates_obj) {
 
     char *checksum = "d41d8cd98f00b204e9800998ecf8427e";
     json_t *expected =
-      json_pack("[{s:s, s:i, s:b, s:s}, {s:s, s:i, s:b, s:s}]",
+      json_pack("[{s:s, s:i, s:b}, {s:s, s:i, s:b}]",
                 // Assume original copy is replicate 0 on default resource
                 JSON_CHECKSUM_KEY,         checksum,
                 JSON_REPLICATE_NUMBER_KEY, 0,
                 JSON_REPLICATE_STATUS_KEY, 1,
-                JSON_RESOURCE_KEY,         env.rodsDefResource,
                 // Assume replicated copy is replicate 1 on test resource
                 JSON_CHECKSUM_KEY,         checksum,
                 JSON_REPLICATE_NUMBER_KEY, 1,
-                JSON_REPLICATE_STATUS_KEY, 1,
-                JSON_RESOURCE_KEY,         TEST_RESOURCE);
+                JSON_REPLICATE_STATUS_KEY, 1);
 
     baton_error_t error;
     json_t *results = list_replicates(conn, &rods_path, &error);
@@ -848,6 +846,29 @@ START_TEST(test_list_replicates_obj) {
         // values together.
         if (json_object_get(result, JSON_LOCATION_KEY)) {
             json_object_del(result, JSON_LOCATION_KEY);
+        }
+
+        ck_assert(json_object_get(result, JSON_RESOURCE_KEY));
+        const char *resc =
+            json_string_value(json_object_get(result, JSON_RESOURCE_KEY));
+
+        if (index == 0) {
+            ck_assert_msg(str_equals(resc, env.rodsDefResource, MAX_STR_LEN),
+                          "resource is default");
+        }
+        else {
+            // For a compound resource, the resource is a leaf named
+            // unixfs* to which the named TEST_RESOURCE has delegated. For
+            // a non-compound resource, the resource is the single named
+            // TEST_RESOURCE.
+            ck_assert_msg(str_starts_with(resc, "unixfs", 7)
+                          ||
+                          str_equals(resc, TEST_RESOURCE, MAX_STR_LEN),
+                          "resource is either root or leaf");
+        }
+
+        if (json_object_get(result, JSON_RESOURCE_KEY)) {
+            json_object_del(result, JSON_RESOURCE_KEY);
         }
     }
 
@@ -1877,12 +1898,13 @@ START_TEST(test_slurp_file) {
 END_TEST
 
 /**
- * Tests that the `irods_get_sql_for_specific_alias` method can be used to get the SQL
- * associated to a given alias.
+ * Tests that the `irods_get_sql_for_specific_alias` method can be
+ * used to get the SQL associated to a given alias.
  */
 START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
     if (!have_rodsadmin()) {
-        logmsg(WARN, "!!! Skipping specific query tests because we are not rodsadmin !!!");
+        logmsg(WARN, "!!! Skipping specific query tests because we are "
+               "not rodsadmin !!!");
         return;
     }
     rodsEnv env;
@@ -1900,8 +1922,9 @@ START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
 END_TEST
 
 /**
- * Tests that when the SQL associated to a non-existent alias is requested using the
- * `irods_get_sql_for_specific_alias` method, null pointer is returned.
+ * Tests that when the SQL associated to a non-existent alias is
+ * requested using the `irods_get_sql_for_specific_alias` method, null
+ * pointer is returned.
  */
 START_TEST(test_irods_get_sql_for_specific_alias_with_non_existent_alias) {
     rodsEnv env;
@@ -1917,8 +1940,8 @@ START_TEST(test_irods_get_sql_for_specific_alias_with_non_existent_alias) {
 END_TEST
 
 /**
- * Tests that `make_query_format_from_sql` correctly parses a simple SQL SELECT
- * query.
+ * Tests that `make_query_format_from_sql` correctly parses a simple
+ * SQL SELECT query.
  */
 START_TEST(test_make_query_format_from_sql_with_simple_select_query) {
     char *sql = "SELECT a, b, c from some_table";
@@ -1933,8 +1956,8 @@ START_TEST(test_make_query_format_from_sql_with_simple_select_query) {
 END_TEST
 
 /**
- * Tests that `make_query_format_from_sql` correctly parses an SQL SELECT query
- * that uses an alias.
+ * Tests that `make_query_format_from_sql` correctly parses an SQL
+ * SELECT query that uses an alias.
  */
 START_TEST(test_make_query_format_from_sql_with_select_query_using_column_alias) {
     char *sql = "SELECT a as b from some_table";
@@ -1949,8 +1972,8 @@ START_TEST(test_make_query_format_from_sql_with_select_query_using_column_alias)
 END_TEST
 
 /**
- * Tests that `make_query_format_from_sql` returns a null pointer if it is used to
- * parse an invalid SQL statement.
+ * Tests that `make_query_format_from_sql` returns a null pointer if
+ * it is used to parse an invalid SQL statement.
  */
 START_TEST(test_make_query_format_from_sql_with_invalid_query) {
     char *sql = "INVALID";
@@ -1966,7 +1989,8 @@ END_TEST
  */
 START_TEST(test_search_specific_with_valid_setup) {
     if (!have_rodsadmin()) {
-        logmsg(WARN, "!!! Skipping specific query tests because we are not rodsadmin !!!");
+        logmsg(WARN, "!!! Skipping specific query tests because we are "
+               "not rodsadmin !!!");
         return;
     }
     rodsEnv env;
@@ -1976,15 +2000,17 @@ START_TEST(test_search_specific_with_valid_setup) {
     char *zone_name = NULL;
 
     json_t *query_json = json_pack("{s: {s:[s], s:s}}",
-            JSON_SPECIFIC_KEY,
-            JSON_ARGS_KEY, "dataModifiedIdOnly",
-            JSON_SQL_KEY, "findQueryByAlias");
+                                   JSON_SPECIFIC_KEY,
+                                   JSON_ARGS_KEY, "dataModifiedIdOnly",
+                                   JSON_SQL_KEY,  "findQueryByAlias");
     ck_assert_ptr_ne(query_json, NULL);
 
-    json_t *search_results = search_specific(conn, query_json, zone_name, &search_error);
+    json_t *search_results =
+        search_specific(conn, query_json, zone_name, &search_error);
     ck_assert_ptr_ne(search_results, NULL);
 
-    char *search_results_str = json_dumps(search_results, JSON_COMPACT | JSON_SORT_KEYS);
+    char *search_results_str =
+        json_dumps(search_results, JSON_COMPACT | JSON_SORT_KEYS);
     ck_assert_str_eq(search_results_str,
                      "[{\"alias\":\"dataModifiedIdOnly\",\"sqlStr\":\"SELECT DISTINCT Data.data_id AS data_id FROM R_DATA_MAIN Data WHERE CAST(Data.modify_ts AS INT) > CAST(? AS INT) AND CAST(Data.modify_ts AS INT) <= CAST(? AS INT)\"}]");
 
@@ -2139,12 +2165,11 @@ START_TEST(test_regression_github_issue140) {
                                        flags, &resolve_error), EXIST_ST);
 
     json_t *expected =
-      json_pack("[{s:o, s:i, s:b, s:s}]",
+      json_pack("[{s:o, s:i, s:b}]",
                 // Assume the new copy is replicate 0 on default resource
                 JSON_CHECKSUM_KEY,         json_null(),
                 JSON_REPLICATE_NUMBER_KEY, 0,
-                JSON_REPLICATE_STATUS_KEY, 1,
-                JSON_RESOURCE_KEY,         env.rodsDefResource);
+                JSON_REPLICATE_STATUS_KEY, 1);
 
     baton_error_t error;
     json_t *results = list_replicates(conn, &rods_path, &error);
@@ -2163,6 +2188,11 @@ START_TEST(test_regression_github_issue140) {
         // values together.
         if (json_object_get(result, JSON_LOCATION_KEY)) {
             json_object_del(result, JSON_LOCATION_KEY);
+        }
+
+        ck_assert(json_object_get(result, JSON_RESOURCE_KEY));
+        if (json_object_get(result, JSON_RESOURCE_KEY)) {
+            json_object_del(result, JSON_RESOURCE_KEY);
         }
     }
 
