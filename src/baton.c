@@ -259,7 +259,7 @@ static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
     data_obj_file_t *obj_file = NULL;
 
     if (buffer_size == 0) {
-        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+        set_baton_error(error, -1, "Invalid buffer_size argument %zu",
                         buffer_size);
         goto error;
     }
@@ -270,18 +270,24 @@ static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
     if (error->code != 0) goto error;
 
     char *content = slurp_data_object(conn, obj_file, buffer_size, error);
-    if (error->code != 0) goto error;
+    int status = close_data_obj(conn, obj_file);
 
-    close_data_obj(conn, obj_file);
+    if (error->code != 0) goto error;
+    if (status < 0) {
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to close data object: '%s' error %d %s",
+                        rods_path->outPath, status, err_name);
+        goto error;
+    }
+
     free_data_obj(obj_file);
 
     return content;
 
 error:
-    if (obj_file) {
-        close_data_obj(conn, obj_file);
-        free_data_obj(obj_file);
-    }
+    if (obj_file) free_data_obj(obj_file);
 
     return NULL;
 }
@@ -688,6 +694,7 @@ json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
     if (error->code != 0) goto error;
 
     content = slurp_file(conn, rods_path, buffer_size, error);
+    if (error->code != 0) goto error;
 
     if (content) {
         size_t len = strlen(content);
@@ -728,7 +735,7 @@ int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
     init_baton_error(error);
 
     if (buffer_size == 0) {
-        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+        set_baton_error(error, -1, "Invalid buffer_size argument %zu",
                         buffer_size);
         goto error;
     }
@@ -752,13 +759,19 @@ int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
     }
 
     write_path_to_stream(conn, rods_path, stream, buffer_size, error);
-    fclose(stream); // FIXME -- check for error
+    int status = fclose(stream);
+
+    if (error->code != 0) goto error;
+    if (status != 0) {
+        set_baton_error(error, errno,
+                        "Failed to close '%s': error %d %s",
+                        local_path, errno, strerror(errno));
+        goto error;
+    }
 
     return error->code;
 
 error:
-    if (stream) fclose(stream);
-
     return error->code;
 }
 
@@ -769,7 +782,7 @@ int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
     init_baton_error(error);
 
     if (buffer_size == 0) {
-        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+        set_baton_error(error, -1, "Invalid buffer_size argument %zu",
                         buffer_size);
         goto error;
     }
@@ -788,17 +801,24 @@ int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
     if (error->code != 0) goto error;
 
     size_t n = stream_data_object(conn, obj_file, out, buffer_size, error);
+    int status = close_data_obj(conn, obj_file);
 
-    close_data_obj(conn, obj_file);
+    if (error->code != 0) goto error;
+    if (status < 0) {
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to close data object: '%s' error %d %s",
+                        rods_path->outPath, status, err_name);
+        goto error;
+    }
+
     free_data_obj(obj_file);
 
     return n;
 
 error:
-    if (obj_file) {
-        close_data_obj(conn, obj_file);
-        free_data_obj(obj_file);
-    }
+    if (obj_file) free_data_obj(obj_file);
 
     return error->code;
 }
