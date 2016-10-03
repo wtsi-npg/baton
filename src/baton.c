@@ -1351,6 +1351,8 @@ json_t *list_resource(rcComm_t *conn, const char *resc_name,
     }
 
     resource = json_incref(json_array_get(results, 0));
+
+    free_query_input(query_in);
     json_array_clear(results);
     json_decref(results);
 

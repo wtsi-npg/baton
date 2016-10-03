@@ -1249,7 +1249,6 @@ error:
 
 json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
                                  baton_error_t *error) {
-    char *zone_name = NULL;
     json_t *mapped  = json_array();
 
     init_baton_error(error);
@@ -1275,11 +1274,13 @@ json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
         const char *collection = json_string_value(coll);
         const char *hierarchy  = json_string_value(hier);
 
-        zone_name = parse_zone_name(collection);
+        char *zone_name = parse_zone_name(collection);
         const char *resource = resource_hierarchy_leaf(hierarchy);
 
         json_t *resource_info =
             list_resource(conn, resource, zone_name, error);
+
+        if (zone_name) free(zone_name);
         if (error->code != 0) goto error;
 
         // Get a hostname aka location from the resource
@@ -1305,19 +1306,19 @@ json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
 
         json_t *replicate = make_replicate(resource, location,
                                            checksum, number, status, error);
+
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
+        if (resource_info) json_decref(resource_info);
+#endif
         if (error->code != 0) goto error;
 
         json_array_append_new(mapped, replicate);
     }
 
-    if (zone_name) free(zone_name);
-
     return mapped;
 
 error:
-
-    if (zone_name) free(zone_name);
-    if (mapped)    json_decref(mapped);
+    if (mapped) json_decref(mapped);
 
     return NULL;
 }
