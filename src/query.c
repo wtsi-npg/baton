@@ -321,6 +321,20 @@ genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
     return add_query_conds(query_in, num_conds, (query_cond_t []) { cn });
 }
 
+genQueryInp_t *prepare_resc_list(genQueryInp_t *query_in,
+                                 const char *resc_name,
+                                 const char *zone_name) {
+  query_cond_t rn = { .column   = COL_R_RESC_NAME,
+                      .operator = SEARCH_OP_EQUALS,
+                      .value    = resc_name };
+  query_cond_t zn = { .column   = COL_R_ZONE_NAME,
+                      .operator = SEARCH_OP_EQUALS,
+                      .value    = zone_name };
+
+  size_t num_conds = 2;
+  return add_query_conds(query_in, num_conds, (query_cond_t []) { rn, zn });
+}
+
 genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,

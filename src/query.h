@@ -189,6 +189,10 @@ genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
 genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
                                     rodsPath_t *rods_path);
 
+genQueryInp_t *prepare_resc_list(genQueryInp_t *query_in,
+                                 const char *resc_name,
+                                 const char *zone_name);
+
 genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
                                       const char *user_id,
                                       const char *perm_id);

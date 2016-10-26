@@ -114,6 +114,40 @@ const char *parse_base_name(const char *path) {
     return base_name;
 }
 
+char *parse_zone_name(const char *path) {
+    const char delim = '/';
+
+    const char *first_slash = strchr(path, delim);
+    if (first_slash && ((first_slash - path) != 0)) {
+        logmsg(ERROR, "Failed to parse a zone name from relative path '%s'",
+               path);
+        goto error;
+    }
+
+    const char *path_tmp = path;
+    path_tmp++; // Skip the leading '/'
+
+    size_t name_len = strlen(path_tmp);
+
+    const char *next_slash = strchr(path_tmp, delim);
+    if (next_slash) {
+        name_len = next_slash - path_tmp;
+    }
+
+    char *zone_name = calloc(name_len + 1, sizeof (char));
+    if (!zone_name) {
+        logmsg(ERROR, "Failed to allocate memory: error %d %s",
+               errno, strerror(errno));
+    }
+
+    snprintf(zone_name, name_len + 1, "%s", path_tmp);
+
+    return zone_name;
+
+error:
+    return NULL;
+}
+
 size_t parse_size(const char *str) {
     char *end;
     int base = 10;

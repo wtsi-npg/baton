@@ -36,28 +36,217 @@
 
 static json_t *get_json_value(json_t *object, const char *name,
                               const char *key, const char *short_key,
-                              baton_error_t *error);
+                              baton_error_t *error) {
+    json_t *value;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    value = json_object_get(object, key);
+    if (!value && short_key) {
+        value = json_object_get(object, short_key);
+    }
+
+    if (!value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid iRODS %s: %s property is missing", name, key);
+        goto error;
+    }
+
+    return value;
+
+error:
+    return NULL;
+}
 
 static const char *get_string_value(json_t *object, const char *name,
-                                    const char *key,
-                                    const char *short_key,
-                                    baton_error_t *error);
+                                    const char *key, const char *short_key,
+                                    baton_error_t *error) {
+    json_t *value;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    value = json_object_get(object, key);
+    if (!value && short_key) {
+        value = json_object_get(object, short_key);
+    }
+
+    if (!value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid iRODS %s: %s property is missing", name, key);
+        goto error;
+    }
+
+    if (!json_is_string(value)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s %s: not a JSON string", name, key);
+        goto error;
+    }
+
+    return json_string_value(value);
+
+error:
+    return NULL;
+}
 
 static const char *get_opt_string_value(json_t *object, const char *name,
-                                        const char *key,
-                                        const char *short_key,
-                                        baton_error_t *error);
+                                        const char *key, const char *short_key,
+                                        baton_error_t *error) {
+    const char *str = NULL;
+
+    json_t *value;
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    value = json_object_get(object, key);
+    if (!value && short_key) {
+        value = json_object_get(object, short_key);
+    }
+
+    if (value && !json_is_string(value)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s %s: not a JSON string", name, key);
+        goto error;
+    }
+
+    if (value) {
+        str = json_string_value(value);
+    }
+
+    return str;
+
+error:
+    return NULL;
+}
 
 static json_t *get_opt_array(json_t *object, const char *name,
                              const char *key, const char *short_key,
-                             baton_error_t *error);
+                             baton_error_t *error) {
+    json_t *array;
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s: not a JSON object", name);
+        goto error;
+    }
+
+    array = json_object_get(object, key);
+    if (!array && short_key) {
+        array = json_object_get(object, short_key);
+    }
+
+    if (array && !json_is_array(array)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid %s %s: not a JSON array", name, key);
+        goto error;
+    }
+
+    if (!array) {
+        array = json_array();
+    } else {
+        json_incref(array);
+    }
+
+    return array;
+
+error:
+    return NULL;
+}
 
 static int has_json_str_value(json_t *object, const char *key,
-                              const char *short_key);
+                              const char *short_key) {
+    json_t *value = NULL;
 
-static char *make_dir_path(const char *path, baton_error_t *error);
+    if (json_is_object(object)) {
+        value = json_object_get(object, key);
+
+        if (!value && short_key) {
+            value = json_object_get(object, short_key);
+        }
+    }
+
+    return value && json_is_string(value);
+}
+
+static char *make_dir_path(const char *path, baton_error_t *error) {
+    size_t slen = strnlen(path, MAX_STR_LEN);
+    size_t dlen = slen + 1; // +1 for NUL
+    // Only trim trailing '/' if the path is >1 character long
+    if (slen > 1 && str_ends_with(path, "/", MAX_STR_LEN)) {
+        dlen--;
+    }
+
+    if (dlen > MAX_STR_LEN) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "The path '%s' exceeded the maximum "
+                        "length of %d characters", path, MAX_STR_LEN);
+        goto error;
+    }
+
+    char *dpath = NULL;
+    dpath = calloc(dlen, sizeof (char));
+    if (!dpath) {
+        set_baton_error(error, errno, "Failed to allocate memory: error %d %s",
+                        errno, strerror(errno));
+        goto error;
+    }
+
+    snprintf(dpath, dlen, "%s", path);
+
+    return dpath;
+
+error:
+    return NULL;
+}
+
 static char *make_file_path(const char *path, const char *filename,
-                            baton_error_t *error);
+                            baton_error_t *error) {
+    size_t dlen = strnlen(path, MAX_STR_LEN);
+    size_t flen = strnlen(filename, MAX_STR_LEN);
+    size_t len = dlen + flen + 1; // +1 for NUL
+
+    int includes_slash = str_ends_with(path, "/", MAX_STR_LEN);
+    if (!includes_slash) len++;
+
+    if (len > MAX_STR_LEN) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "The path components '%s' + '%s' "
+                        "combined exceeded the maximum length of %d "
+                        "characters", path, filename, MAX_STR_LEN);
+        goto error;
+    }
+
+    char *fpath = NULL;
+    fpath = calloc(len, sizeof (char));
+    if (!fpath) {
+        set_baton_error(error, errno,
+                        "Failed to allocate memory: error %d %s",
+                        errno, strerror(errno));
+        goto error;
+    }
+
+    if (includes_slash) {
+        snprintf(fpath, len, "%s%s", path, filename);
+    }
+    else {
+        snprintf(fpath, len, "%s/%s", path, filename);
+    }
+
+    return fpath;
+
+error:
+    return NULL;
+}
 
 json_t *error_to_json(baton_error_t *error) {
     json_t *err = json_pack("{s:s, s:i}",
@@ -832,218 +1021,4 @@ int add_error_report(json_t *target, baton_error_t *error) {
     }
 
     return error->code;
-}
-
-static json_t *get_json_value(json_t *object, const char *name,
-                              const char *key, const char *short_key,
-                              baton_error_t *error) {
-    json_t *value;
-
-    if (!json_is_object(object)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid %s: not a JSON object", name);
-        goto error;
-    }
-
-    value = json_object_get(object, key);
-    if (!value && short_key) {
-        value = json_object_get(object, short_key);
-    }
-
-    if (!value) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid iRODS %s: %s property is missing", name, key);
-        goto error;
-    }
-
-    return value;
-
-error:
-    return NULL;
-}
-
-static const char *get_string_value(json_t *object, const char *name,
-                                    const char *key, const char *short_key,
-                                    baton_error_t *error) {
-    json_t *value;
-
-    if (!json_is_object(object)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid %s: not a JSON object", name);
-        goto error;
-    }
-
-    value = json_object_get(object, key);
-    if (!value && short_key) {
-        value = json_object_get(object, short_key);
-    }
-
-    if (!value) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid iRODS %s: %s property is missing", name, key);
-        goto error;
-    }
-
-    if (!json_is_string(value)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid %s %s: not a JSON string", name, key);
-        goto error;
-    }
-
-    return json_string_value(value);
-
-error:
-    return NULL;
-}
-
-static const char *get_opt_string_value(json_t *object, const char *name,
-                                        const char *key, const char *short_key,
-                                        baton_error_t *error) {
-    const char *str = NULL;
-
-    json_t *value;
-    if (!json_is_object(object)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid %s: not a JSON object", name);
-        goto error;
-    }
-
-    value = json_object_get(object, key);
-    if (!value && short_key) {
-        value = json_object_get(object, short_key);
-    }
-
-    if (value && !json_is_string(value)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid %s %s: not a JSON string", name, key);
-        goto error;
-    }
-
-    if (value) {
-        str = json_string_value(value);
-    }
-
-    return str;
-
-error:
-    return NULL;
-}
-
-static json_t *get_opt_array(json_t *object, const char *name,
-                             const char *key, const char *short_key,
-                             baton_error_t *error) {
-    json_t *array;
-
-    if (!json_is_object(object)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid %s: not a JSON object", name);
-        goto error;
-    }
-
-    array = json_object_get(object, key);
-    if (!array && short_key) {
-        array = json_object_get(object, short_key);
-    }
-
-    if (array && !json_is_array(array)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid %s %s: not a JSON array", name, key);
-        goto error;
-    }
-
-    if (!array) {
-        array = json_array();
-    } else {
-        json_incref(array);
-    }
-
-    return array;
-
-error:
-    return NULL;
-}
-
-static int has_json_str_value(json_t *object, const char *key,
-                              const char *short_key) {
-    json_t *value = NULL;
-
-    if (json_is_object(object)) {
-        value = json_object_get(object, key);
-
-        if (!value && short_key) {
-            value = json_object_get(object, short_key);
-        }
-    }
-
-    return value && json_is_string(value);
-}
-
-static char *make_dir_path(const char *path, baton_error_t *error) {
-    size_t slen = strnlen(path, MAX_STR_LEN);
-    size_t dlen = slen + 1; // +1 for NUL
-    // Only trim trailing '/' if the path is >1 character long
-    if (slen > 1 && str_ends_with(path, "/", MAX_STR_LEN)) {
-        dlen--;
-    }
-
-    if (dlen > MAX_STR_LEN) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "The path '%s' exceeded the maximum "
-                        "length of %d characters", path, MAX_STR_LEN);
-        goto error;
-    }
-
-    char *dpath = NULL;
-    dpath = calloc(dlen, sizeof (char));
-    if (!dpath) {
-        set_baton_error(error, errno, "Failed to allocate memory: error %d %s",
-                        errno, strerror(errno));
-        goto error;
-    }
-
-    snprintf(dpath, dlen, "%s", path);
-
-    return dpath;
-
-error:
-    return NULL;
-}
-
-static char *make_file_path(const char *path, const char *filename,
-                            baton_error_t *error) {
-    size_t dlen = strnlen(path, MAX_STR_LEN);
-    size_t flen = strnlen(filename, MAX_STR_LEN);
-    size_t len = dlen + flen + 1; // +1 for NUL
-
-    int includes_slash = str_ends_with(path, "/", MAX_STR_LEN);
-    if (!includes_slash) len++;
-
-    if (len > MAX_STR_LEN) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "The path components '%s' + '%s' "
-                        "combined exceeded the maximum length of %d "
-                        "characters", path, filename, MAX_STR_LEN);
-        goto error;
-    }
-
-    char *fpath = NULL;
-    fpath = calloc(len, sizeof (char));
-    if (!fpath) {
-        set_baton_error(error, errno,
-                        "Failed to allocate memory: error %d %s",
-                        errno, strerror(errno));
-        goto error;
-    }
-
-    if (includes_slash) {
-        snprintf(fpath, len, "%s%s", path, filename);
-    }
-    else {
-        snprintf(fpath, len, "%s/%s", path, filename);
-    }
-
-    return fpath;
-
-error:
-    return NULL;
 }

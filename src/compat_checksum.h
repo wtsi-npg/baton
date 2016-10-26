@@ -18,9 +18,14 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#ifndef _BATON_COMPAT_CHECKSUM_H
+#define _BATON_COMPAT_CHECKSUM_H
+
 #include <rodsVersion.h>
 
 #include "config.h"
+
+
 
 #if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
 #include <openssl/md5.h>
@@ -44,3 +49,5 @@ void compat_MD5Init(MD5_CTX *context);
 void compat_MD5Update(MD5_CTX *context, unsigned char *input, unsigned int len);
 
 void compat_MD5Final(unsigned char digest[16], MD5_CTX *context);
+
+#endif // _BATON_COMPAT_CHECKSUM_H
