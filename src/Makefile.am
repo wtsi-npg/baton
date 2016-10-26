@@ -44,3 +44,13 @@ baton_metasuper_LDADD = libbaton.la $(IRODS_LIBS)
 
 baton_specificquery_SOURCES = baton-specificquery.c
 baton_specificquery_LDADD = libbaton.la $(IRODS_LIBS)
+
+bin_SCRIPTS = baton
+CLEANFILES = $(bin_SCRIPTS)
+EXTRA_DIST = baton.in
+
+do_subst = sed -e 's,[@]PACKAGE_VERSION[@],$(PACKAGE_VERSION),g'
+
+baton: baton.in Makefile
+	$(do_subst) < $(srcdir)/baton.in > baton
+	@chmod +x baton
