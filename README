@@ -67,9 +67,12 @@ Installation:
    using a --with-boost argument.
 
    For a packaged (.deb) installation of iRODS 4.x, run the configure
-   script without any --with-irods argument.
+   script with a bare --with-irods argument.
 
-   ./configure
+   ./configure --with-irods
+
+   (The iRODS configuration options are implemented by a
+   macro 'ax_with_irods' which is included in the m4 subdirectory).
 
 4. Compile
 
@@ -120,6 +123,3 @@ lcov   http://ltp.sourceforge.net/coverage/ (for test coverage analysis)
 
 jq     http://stedolan.github.io/jq/        (for processing input and output)
 
-
-baton uses the boost.m4 M4 macros by Benoit Sigoure to detect the
-Boost libraries used by iRODS 4.x (https://github.com/tsuna/boost.m4)
