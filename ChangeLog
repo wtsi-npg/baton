@@ -1,3 +1,11 @@
+	[0.17.0]
+
+	Bug fix: Check for errors when closing data objects.
+
+	Added --version CLI argument to baton Perl script.
+
+	Allow baton to report the location of files in compound resources.
+
 	[0.16.4]
 
 	Bugfix: an incorrect error code could be returned in JSON
