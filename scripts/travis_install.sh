@@ -1,13 +1,10 @@
 #!/bin/bash
 
-set -e -x
+set -e -u -x
 
-sudo apt-get install -qq odbc-postgresql unixodbc-dev
 sudo -H pip install --upgrade pip
-sudo -H pip install sphinx
-sudo -H pip install --upgrade sphinx
-sudo -H pip install breathe
-sudo -H pip install --upgrade breathe
+sudo -H pip install 'sphinx==1.3.1'
+sudo -H pip install 'breathe==3.2.0'
 
 # iRODS
 wget -q https://github.com/wtsi-npg/disposable-irods/releases/download/${DISPOSABLE_IRODS_VERSION}/disposable-irods-${DISPOSABLE_IRODS_VERSION}.tar.gz -O /tmp/disposable-irods-${DISPOSABLE_IRODS_VERSION}.tar.gz

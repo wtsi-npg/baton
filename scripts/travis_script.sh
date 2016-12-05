@@ -1,6 +1,8 @@
 #!/bin/bash
 
-set -e -x
+set -e -u -x
+
+IRODS_RIP_DIR=${IRODS_RIP_DIR:+$IRODS_RIP_DIR}
 
 IRODS_HOME=
 baton_irods_conf="--with-test-resource=testResc --with-irods"

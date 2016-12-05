@@ -12,12 +12,12 @@ env:
     - PGVERSION="9.3"
     - JANSSON_VERSION="2.7"
     - CK_DEFAULT_TIMEOUT=20
-    - DISPOSABLE_IRODS_VERSION="1.1"
+    - DISPOSABLE_IRODS_VERSION="1.2"
     - RENCI_URL=ftp://ftp.renci.org
     - WTSI_NPG_GITHUB_URL=https://github.com/wtsi-npg
   matrix:
     - IRODS_VERSION=3.3.1 IRODS_RIP_DIR=/usr/local/irods
-    - IRODS_VERSION=4.1.9 PG_PLUGIN_VERSION=1.9 PLATFORM=ubuntu12
+    - IRODS_VERSION=4.1.10 PG_PLUGIN_VERSION=1.10 PLATFORM=ubuntu12
 
 before_install:
   - ./scripts/travis_before_install.sh
