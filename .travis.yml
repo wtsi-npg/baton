@@ -12,14 +12,12 @@ env:
     - PGVERSION="9.3"
     - JANSSON_VERSION="2.7"
     - CK_DEFAULT_TIMEOUT=20
-    - PLATFORM=ubuntu12
-    - ARCH=x86_64
+    - DISPOSABLE_IRODS_VERSION="1.2"
     - RENCI_URL=ftp://ftp.renci.org
-    - WTSI_NPG_URL=https://github.com/wtsi-npg/irods
-    - PG_PLUGIN_VERSION=1.9
+    - WTSI_NPG_GITHUB_URL=https://github.com/wtsi-npg
   matrix:
-    - IRODS_VERSION=3.3.1
-    - IRODS_VERSION=4.1.9
+    - IRODS_VERSION=3.3.1 IRODS_RIP_DIR=/usr/local/irods
+    - IRODS_VERSION=4.1.10 PG_PLUGIN_VERSION=1.10 PLATFORM=ubuntu12
 
 before_install:
   - ./scripts/travis_before_install.sh
@@ -27,17 +25,11 @@ before_install:
 install:
   - ./scripts/travis_install.sh
 
-before_script:
-  - source ./scripts/travis_before_script.sh
-  - ienv
-  - ilsresc -l
-  - ils
-
 script:
+  - export PATH=$IRODS_RIP_DIR/iRODS/clients/icommands/bin:$PATH
+  - ienv
+  - ils
   - ./scripts/travis_script.sh
-
-after_script:
-  - ./scripts/travis_after_script.sh
 
 after_success:
   - make dist
