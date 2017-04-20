@@ -19,14 +19,13 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#ifndef _READ_H
-#define _READ_H
+#ifndef _BATON_READ_H
+#define _BATON_READ_H
 
 #include <rodsClient.h>
 
 #include "config.h"
-#include "error.h"
-#include "log.h"
+#include "list.h"
 
 /**
  *  @struct data_obj_file
@@ -46,7 +45,6 @@ typedef struct data_obj_file {
         completely */
     char *md5_last_write;
 } data_obj_file_t;
-
 
 /**
  * Open a data object for reading.
@@ -73,6 +71,10 @@ data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
  */
 size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file,
                      char *buffer, size_t len, baton_error_t *error);
+
+int close_data_obj(rcComm_t *conn, data_obj_file_t *obj_file);
+
+void free_data_obj(data_obj_file_t *obj_file);
 
 /**
  * Copy a data object to a stream.
@@ -104,12 +106,11 @@ size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
 char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
                         size_t buffer_size, baton_error_t *error);
 
+json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
+                    size_t buffer_size, baton_error_t *error);
+
 void set_md5_last_read(data_obj_file_t *obj_file, unsigned char digest[16]);
 
 int validate_md5_last_read(rcComm_t *conn, data_obj_file_t *obj_file);
 
-int close_data_obj(rcComm_t *conn, data_obj_file_t *obj_file);
-
-void free_data_obj(data_obj_file_t *obj_file);
-
-#endif // _READ_H
+#endif // _BATON_READ_H

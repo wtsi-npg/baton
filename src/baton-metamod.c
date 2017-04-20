@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,12 +22,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-#include <jansson.h>
-
 #include "config.h"
 #include "baton.h"
-#include "json.h"
-#include "log.h"
 
 static int debug_flag      = 0;
 static int help_flag       = 0;

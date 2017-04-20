@@ -25,8 +25,6 @@
 
 #include "config.h"
 
-
-
 #if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
 #include <openssl/md5.h>
 #else

@@ -83,6 +83,9 @@
 #define JSON_RESOURCE_TYPE_KEY     "type"
 #define JSON_RESOURCE_HIER_KEY     "hierarchy"
 
+#define VALID_REPLICATE   "1"
+#define INVALID_REPLICATE "0"
+
 /**
  * Add a new property containing error information to a JSON object.
  *

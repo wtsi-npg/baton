@@ -28,8 +28,9 @@
 
 #include <jansson.h>
 
+#include <rodsClient.h>
+
 #include "config.h"
-#include "baton.h"
 #include "json.h"
 #include "log.h"
 #include "utilities.h"

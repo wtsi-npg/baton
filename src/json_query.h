@@ -86,7 +86,8 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
  * by the labels argument.
  *
  * @param[in]  conn          An open iRODS connection.
- * @param[in]  zone_name     The zone in which to search (can be NULL for default zone).
+ * @param[in]  zone_name     The zone in which to search (can be NULL for
+ *                           default zone).
  * @param[in]  query         The search query formulated as JSON.
  * @param[in,out] error      An error report struct.
  *

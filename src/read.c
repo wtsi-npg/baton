@@ -22,9 +22,103 @@
 
 #include "config.h"
 #include "compat_checksum.h"
-#include "error.h"
 #include "read.h"
-#include "utilities.h"
+
+static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
+                        size_t buffer_size, baton_error_t *error) {
+    data_obj_file_t *obj_file = NULL;
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %zu",
+                        buffer_size);
+        goto error;
+    }
+
+    logmsg(DEBUG, "Buffer size %zu", buffer_size);
+
+    obj_file = open_data_obj(conn, rods_path, error);
+    if (error->code != 0) goto error;
+
+    char *content = slurp_data_object(conn, obj_file, buffer_size, error);
+    int status = close_data_obj(conn, obj_file);
+
+    if (error->code != 0) goto error;
+    if (status < 0) {
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to close data object: '%s' error %d %s",
+                        rods_path->outPath, status, err_name);
+        goto error;
+    }
+
+    free_data_obj(obj_file);
+
+    return content;
+
+error:
+    if (obj_file) free_data_obj(obj_file);
+
+    return NULL;
+}
+
+json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
+                    option_flags flags, size_t buffer_size,
+                    baton_error_t *error) {
+    char *content = NULL;
+
+    init_baton_error(error);
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %zu",
+                        buffer_size);
+        goto error;
+    }
+
+    // Currently only data objects are supported
+    if (rods_path->objType != DATA_OBJ_T) {
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot read the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
+        goto error;
+    }
+
+    json_t *results = list_path(conn, rods_path, flags, error);
+    if (error->code != 0) goto error;
+
+    content = slurp_file(conn, rods_path, buffer_size, error);
+    if (error->code != 0) goto error;
+
+    if (content) {
+        size_t len = strlen(content);
+
+        if (maybe_utf8(content, len)) {
+            json_t *packed = json_pack("s", content);
+            if (!packed) {
+                set_baton_error(error, -1,
+                                "Failed to pack the %zu byte contents "
+                                "of '%s' as JSON", len, rods_path->outPath);
+                goto error;
+            }
+
+            json_object_set_new(results, JSON_DATA_KEY, packed);
+        }
+        else {
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "The contents of '%s' cannot be encoded as UTF-8 "
+                            "for JSON output", rods_path->outPath);
+            goto error;
+        }
+        free(content);
+    }
+
+    return results;
+
+error:
+    if (content) free(content);
+
+    return NULL;
+}
 
 data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
                                baton_error_t *error) {
@@ -103,6 +197,26 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
 
 error:
     return num_read;
+}
+
+int close_data_obj(rcComm_t *conn, data_obj_file_t *obj_file) {
+    openedDataObjInp_t obj_close_in;
+    memset(&obj_close_in, 0, sizeof obj_close_in);
+    obj_close_in.l1descInx = obj_file->descriptor;
+
+    logmsg(DEBUG, "Closing '%s'", obj_file->path);
+    int status = rcDataObjClose(conn, &obj_close_in);
+
+    return status;
+}
+
+void free_data_obj(data_obj_file_t *obj_file) {
+    assert(obj_file);
+
+    if (obj_file->md5_last_read)  free(obj_file->md5_last_read);
+    if (obj_file->md5_last_write) free(obj_file->md5_last_write);
+
+    free(obj_file);
 }
 
 char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
@@ -275,24 +389,4 @@ error:
     if (md5) free(md5);
 
     return status;
-}
-
-int close_data_obj(rcComm_t *conn, data_obj_file_t *obj_file) {
-    openedDataObjInp_t obj_close_in;
-    memset(&obj_close_in, 0, sizeof obj_close_in);
-    obj_close_in.l1descInx = obj_file->descriptor;
-
-    logmsg(DEBUG, "Closing '%s'", obj_file->path);
-    int status = rcDataObjClose(conn, &obj_close_in);
-
-    return status;
-}
-
-void free_data_obj(data_obj_file_t *obj_file) {
-    assert(obj_file);
-
-    if (obj_file->md5_last_read)  free(obj_file->md5_last_read);
-    if (obj_file->md5_last_write) free(obj_file->md5_last_write);
-
-    free(obj_file);
 }
