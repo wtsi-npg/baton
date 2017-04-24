@@ -40,10 +40,8 @@ static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
-int do_list_paths(FILE *input, option_flags oflags);
-
 int main(int argc, char *argv[]) {
-    option_flags oflags = 0;
+    option_flags flags = 0;
     int exit_status = 0;
     char *json_file = NULL;
     FILE *input     = NULL;
@@ -92,14 +90,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag)       oflags = oflags | PRINT_ACL;
-    if (avu_flag)       oflags = oflags | PRINT_AVU;
-    if (checksum_flag)  oflags = oflags | PRINT_CHECKSUM;
-    if (contents_flag)  oflags = oflags | PRINT_CONTENTS;
-    if (replicate_flag) oflags = oflags | PRINT_REPLICATE;
-    if (size_flag)      oflags = oflags | PRINT_SIZE;
-    if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
-    if (unsafe_flag)    oflags = oflags | UNSAFE_RESOLVE;
+    if (acl_flag)       flags = flags | PRINT_ACL;
+    if (avu_flag)       flags = flags | PRINT_AVU;
+    if (checksum_flag)  flags = flags | PRINT_CHECKSUM;
+    if (contents_flag)  flags = flags | PRINT_CONTENTS;
+    if (replicate_flag) flags = flags | PRINT_REPLICATE;
+    if (size_flag)      flags = flags | PRINT_SIZE;
+    if (timestamp_flag) flags = flags | PRINT_TIMESTAMP;
+    if (unsafe_flag)    flags = flags | UNSAFE_RESOLVE;
 
     const char *help =
         "Name\n"
@@ -149,97 +147,8 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    int status = do_list_paths(input, oflags);
+    int status = do_operation(input, baton_json_list_op, flags);
     if (status != 0) exit_status = 5;
 
     exit(exit_status);
-}
-
-int do_list_paths(FILE *input, option_flags oflags) {
-    int item_count  = 0;
-    int error_count = 0;
-
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-    if (!conn) goto error;
-
-    while (!feof(input)) {
-        size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-        json_error_t load_error;
-        json_t *target = json_loadf(input, jflags, &load_error);
-        if (!target) {
-            if (!feof(input)) {
-                logmsg(ERROR, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
-            }
-
-            continue;
-        }
-
-        item_count++;
-        if (!json_is_object(target)) {
-            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
-                   item_count);
-            error_count++;
-            json_decref(target);
-            continue;
-        }
-
-        baton_error_t path_error;
-        char *path = json_to_path(target, &path_error);
-
-        if (add_error_report(target, &path_error)) {
-            error_count++;
-            print_json(target);
-        }
-        else {
-            rodsPath_t rods_path;
-            resolve_rods_path(conn, &env, &rods_path, path, oflags,
-                              &path_error);
-            if (add_error_report(target, &path_error)) {
-                error_count++;
-                print_json(target);
-            }
-            else {
-                baton_error_t error;
-                json_t *results = list_path(conn, &rods_path, oflags, &error);
-
-                if (add_error_report(target, &error)) {
-                    error_count++;
-                    print_json(target);
-                }
-                else {
-                    print_json(results);
-                    json_decref(results);
-                }
-
-                if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-            }
-        }
-
-        if (unbuffered_flag) fflush(stdout);
-
-        json_decref(target);
-        if (path) free(path);
-    } // while
-
-    rcDisconnect(conn);
-
-    if (error_count > 0) {
-        logmsg(WARN, "Processed %d items with %d errors",
-               item_count, error_count);
-    }
-    else {
-        logmsg(DEBUG, "Processed %d items with %d errors",
-               item_count, error_count);
-    }
-
-    return error_count;
-
-error:
-    if (conn) rcDisconnect(conn);
-
-    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
-
-    return 1;
 }

@@ -34,7 +34,7 @@ static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
-    logmsg(DEBUG, "Buffer size %zu", buffer_size);
+    logmsg(DEBUG, "Using a 'slurp' buffer size of %zu bytes", buffer_size);
 
     obj_file = open_data_obj(conn, rods_path, error);
     if (error->code != 0) goto error;

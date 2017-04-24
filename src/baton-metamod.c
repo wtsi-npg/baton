@@ -36,9 +36,8 @@ static int version_flag    = 0;
 int do_modify_metadata(FILE *input, metadata_op operation, option_flags flags);
 
 int main(int argc, char *argv[]) {
-    option_flags oflags = 0;
+    option_flags flags = 0;
     int exit_status = 0;
-    metadata_op meta_op = -1;
     char *json_file = NULL;
     FILE     *input = NULL;
 
@@ -72,12 +71,16 @@ int main(int argc, char *argv[]) {
 
             case 'o':
                 if (strcmp("add", optarg) ==  0) {
-                    meta_op = META_ADD;
+                    flags = flags | ADD_AVU;
                 }
-                if (strcmp("rem", optarg) == 0) {
-                    meta_op = META_REM;
+                else if (strcmp("rem", optarg) == 0) {
+                    flags = flags | REMOVE_AVU;
                 }
-
+                else {
+                    fprintf(stderr, "No valid operation was specified; valid "
+                            "operations are: [add rem]\n");
+                    goto args_error;
+                }
                 break;
 
             case '?':
@@ -124,27 +127,17 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (unsafe_flag) oflags = oflags | UNSAFE_RESOLVE;
+    if (unsafe_flag) flags = flags | UNSAFE_RESOLVE;
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
     if (silent_flag)  set_log_threshold(FATAL);
 
     declare_client_name(argv[0]);
+    input = maybe_stdin(json_file);
 
-    switch (meta_op) {
-        case META_ADD:
-        case META_REM:
-            input = maybe_stdin(json_file);
-            int status = do_modify_metadata(input, meta_op, oflags);
-            if (status != 0) exit_status = 5;
-            break;
-
-        default:
-            fprintf(stderr, "No valid operation was specified; valid "
-                    "operations are: [add rem]\n");
-            goto args_error;
-    }
+    int status = do_operation(input, baton_json_metamod_op, flags);
+    if (status != 0) exit_status = 5;
 
     exit(exit_status);
 
@@ -152,102 +145,4 @@ args_error:
     exit_status = 4;
 
     exit(exit_status);
-}
-
-int do_modify_metadata(FILE *input, metadata_op operation,
-                       option_flags oflags) {
-    int item_count  = 0;
-    int error_count = 0;
-
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-    if (!conn) goto error;
-
-    while (!feof(input)) {
-        size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-        json_error_t load_error;
-        json_t *target = json_loadf(input, flags, &load_error);
-        if (!target) {
-            if (!feof(input)) {
-                logmsg(ERROR, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
-            }
-
-            continue;
-        }
-
-        item_count++;
-        if (!json_is_object(target)) {
-            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
-                   item_count);
-            error_count++;
-            json_decref(target);
-            continue;
-        }
-
-        baton_error_t path_error;
-        char *path = json_to_path(target, &path_error);
-
-        if (add_error_report(target, &path_error)) {
-            error_count++;
-        }
-        else {
-            json_t *avus = json_object_get(target, JSON_AVUS_KEY);
-            if (!json_is_array(avus)) {
-                error_count++;
-                set_baton_error(&path_error, -1,
-                                "AVU data for %s is not in a JSON array", path);
-                add_error_report(target, &path_error);
-            }
-            else {
-                rodsPath_t rods_path;
-                resolve_rods_path(conn, &env, &rods_path, path, oflags,
-                                  &path_error);
-                if (add_error_report(target, &path_error)) {
-                    error_count++;
-                }
-                else {
-                    for (size_t i = 0; i < json_array_size(avus); i++) {
-                        json_t *avu = json_array_get(avus, i);
-                        baton_error_t mod_error;
-                        modify_json_metadata(conn, &rods_path, operation, avu,
-                                             &mod_error);
-
-                        // FIXME: this only records the last error
-                        if (add_error_report(target, &mod_error)) {
-                            error_count++;
-                        }
-                    }
-
-                    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-                }
-            }
-        }
-
-        print_json(target);
-        if (unbuffered_flag) fflush(stdout);
-
-        json_decref(target);
-        if (path) free(path);
-    } // while
-
-    rcDisconnect(conn);
-
-    if (error_count > 0) {
-        logmsg(WARN, "Processed %d items with %d errors",
-               item_count, error_count);
-    }
-    else {
-        logmsg(DEBUG, "Processed %d items with %d errors",
-               item_count, error_count);
-    }
-
-    return error_count;
-
-error:
-    if (conn) rcDisconnect(conn);
-
-    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
-
-    return 1;
 }

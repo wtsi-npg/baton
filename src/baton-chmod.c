@@ -34,11 +34,8 @@ static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
-int do_modify_permissions(FILE *input, recursive_op recurse,
-                          option_flags flags);
-
 int main(int argc, char *argv[]) {
-    option_flags oflags = 0;
+    option_flags flags = 0;
     int exit_status = 0;
     char *json_file = NULL;
     FILE *input     = NULL;
@@ -115,7 +112,9 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (unsafe_flag) oflags = oflags | UNSAFE_RESOLVE;
+    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
+    if (recurse_flag)    flags = flags | RECURSE;
+    if (unbuffered_flag) flags = flags | FLUSH;
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
@@ -123,114 +122,9 @@ int main(int argc, char *argv[]) {
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
-    int status;
 
-    if (recurse_flag) {
-        status = do_modify_permissions(input, RECURSE, oflags);
-    }
-    else {
-        status = do_modify_permissions(input, NO_RECURSE, oflags);
-    }
-
+    int status = do_operation(input, baton_json_chmod_op, flags);
     if (status != 0) exit_status = 5;
 
     exit(exit_status);
-}
-
-int do_modify_permissions(FILE *input, recursive_op recurse,
-                          option_flags oflags) {
-    int item_count  = 0;
-    int error_count = 0;
-
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-    if (!conn) goto error;
-
-    while (!feof(input)) {
-        size_t flags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-        json_error_t load_error;
-        json_t *target = json_loadf(input, flags, &load_error);
-        if (!target) {
-            if (!feof(input)) {
-                logmsg(ERROR, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
-            }
-
-            continue;
-        }
-
-        item_count++;
-        if (!json_is_object(target)) {
-            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
-                   item_count);
-            error_count++;
-            json_decref(target);
-            continue;
-        }
-
-        baton_error_t path_error;
-        char *path = json_to_path(target, &path_error);
-
-        if (add_error_report(target, &path_error)) {
-            error_count++;
-        }
-        else {
-            json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
-            if (!json_is_array(perms)) {
-                error_count++;
-                set_baton_error(&path_error, -1,
-                                "Permissions data for %s is not in "
-                                "a JSON array", path);
-                add_error_report(target, &path_error);
-            }
-            else {
-                rodsPath_t rods_path;
-                resolve_rods_path(conn, &env, &rods_path, path,
-                                  oflags, &path_error);
-                if (add_error_report(target, &path_error)) {
-                    error_count++;
-                }
-                else {
-                    for (size_t i = 0; i < json_array_size(perms); i++) {
-                        json_t *perm = json_array_get(perms, i);
-                        baton_error_t mod_error;
-                        modify_json_permissions(conn, &rods_path, recurse, perm,
-                                                &mod_error);
-
-                        if (add_error_report(target, &mod_error)) {
-                            error_count++;
-                        }
-                    }
-
-                    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-                }
-            }
-        }
-
-        print_json(target);
-        if (unbuffered_flag) fflush(stdout);
-
-        json_decref(target);
-        if (path) free(path);
-    } // while
-
-    rcDisconnect(conn);
-
-    if (error_count > 0) {
-        logmsg(WARN, "Processed %d items with %d errors",
-               item_count, error_count);
-    }
-    else {
-        logmsg(DEBUG, "Processed %d items with %d errors",
-               item_count, error_count);
-    }
-
-    return error_count;
-
-error:
-    if (conn) rcDisconnect(conn);
-
-    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
-
-    return 1;
 }

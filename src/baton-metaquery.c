@@ -42,10 +42,8 @@ static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
-int do_search_metadata(FILE *input, char *zone_name, option_flags oflags);
-
 int main(int argc, char *argv[]) {
-    option_flags oflags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
+    option_flags flags = SEARCH_COLLECTIONS | SEARCH_OBJECTS;
     int exit_status = 0;
     char *zone_name = NULL;
     char *json_file = NULL;
@@ -102,19 +100,19 @@ int main(int argc, char *argv[]) {
     }
 
     if (coll_flag && !obj_flag)  {
-        oflags = oflags ^ SEARCH_OBJECTS;
+        flags = flags ^ SEARCH_OBJECTS;
     }
     else if (obj_flag && !coll_flag)  {
-        oflags = oflags ^ SEARCH_COLLECTIONS;
+        flags = flags ^ SEARCH_COLLECTIONS;
     }
 
-    if (acl_flag)       oflags = oflags | PRINT_ACL;
-    if (avu_flag)       oflags = oflags | PRINT_AVU;
-    if (checksum_flag)  oflags = oflags | PRINT_CHECKSUM;
-    if (replicate_flag) oflags = oflags | PRINT_REPLICATE;
-    if (size_flag)      oflags = oflags | PRINT_SIZE;
-    if (timestamp_flag) oflags = oflags | PRINT_TIMESTAMP;
-    if (unsafe_flag)    oflags = oflags | UNSAFE_RESOLVE;
+    if (acl_flag)       flags = flags | PRINT_ACL;
+    if (avu_flag)       flags = flags | PRINT_AVU;
+    if (checksum_flag)  flags = flags | PRINT_CHECKSUM;
+    if (replicate_flag) flags = flags | PRINT_REPLICATE;
+    if (size_flag)      flags = flags | PRINT_SIZE;
+    if (timestamp_flag) flags = flags | PRINT_TIMESTAMP;
+    if (unsafe_flag)    flags = flags | UNSAFE_RESOLVE;
 
     const char *help =
         "Name\n"
@@ -164,100 +162,10 @@ int main(int argc, char *argv[]) {
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
-    int status = do_search_metadata(input, zone_name, oflags);
+
+    int status = do_operation(input, baton_json_metaquery_op, flags,
+                              zone_name);
     if (status != 0) exit_status = 5;
 
     exit(exit_status);
-}
-
-int do_search_metadata(FILE *input, char *zone_name, option_flags oflags) {
-    int item_count  = 0;
-    int error_count = 0;
-
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-    if (!conn) goto error;
-
-    while (!feof(input)) {
-        size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
-        json_error_t load_error;
-        json_t *target = json_loadf(input, jflags, &load_error);
-        if (!target) {
-            if (!feof(input)) {
-                logmsg(ERROR, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
-            }
-
-            continue;
-        }
-
-        item_count++;
-        if (!json_is_object(target)) {
-            logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
-                   item_count);
-            error_count++;
-            json_decref(target);
-            continue;
-        }
-
-        json_t *results = NULL;
-
-        if (has_collection(target)) {
-            baton_error_t resolve_error;
-            resolve_collection(target, conn, &env, oflags, &resolve_error);
-
-            if (add_error_report(target, &resolve_error)) {
-                error_count++;
-            }
-            else {
-                baton_error_t search_error;
-                results = search_metadata(conn, target, zone_name, oflags,
-                                          &search_error);
-                if (add_error_report(target, &search_error)) {
-                    error_count++;
-                    print_json(target);
-                }
-                else {
-                    print_json(results);
-                }
-            }
-        }
-        else {
-            baton_error_t search_error;
-            results = search_metadata(conn, target, zone_name, oflags,
-                                      &search_error);
-            if (add_error_report(target, &search_error)) {
-                error_count++;
-                print_json(target);
-            }
-            else {
-                print_json(results);
-            }
-        }
-
-        if (unbuffered_flag) fflush(stdout);
-
-        if (results) json_decref(results);
-        json_decref(target);
-    } // while
-
-    rcDisconnect(conn);
-
-    if (error_count > 0) {
-        logmsg(WARN, "Processed %d items with %d errors",
-               item_count, error_count);
-    }
-    else {
-        logmsg(DEBUG, "Processed %d items with %d errors",
-               item_count, error_count);
-    }
-
-    return error_count;
-
-error:
-    if (conn) rcDisconnect(conn);
-
-    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
-
-    return 1;
 }

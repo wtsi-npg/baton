@@ -563,55 +563,6 @@ error:
     return NULL;
 }
 
-#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
-json_t *list_resource(rcComm_t *conn, const char *resc_name,
-                      const char* zone_name, baton_error_t *error) {
-    genQueryInp_t *query_in = NULL;
-    json_t *results         = NULL;
-    json_t *resource        = NULL;
-
-    query_format_in_t obj_format =
-        { .num_columns = 3,
-          .columns     = { COL_R_RESC_NAME, COL_R_LOC,
-                           COL_R_TYPE_NAME },
-          .labels      = { JSON_RESOURCE_KEY, JSON_LOCATION_KEY,
-                           JSON_RESOURCE_TYPE_KEY} };
-
-    init_baton_error(error);
-
-    query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
-                                obj_format.columns);
-    query_in = prepare_resc_list(query_in, resc_name, zone_name);
-
-    addKeyVal(&query_in->condInput, ZONE_KW, zone_name);
-    results = do_query(conn, query_in, obj_format.labels, error);
-    if (error->code != 0) goto error;
-
-    if (json_array_size(results) != 1) {
-        set_baton_error(error, -1, "Expected 1 resource result but found %d",
-                        json_array_size(results));
-        goto error;
-    }
-
-    resource = json_incref(json_array_get(results, 0));
-
-    free_query_input(query_in);
-    json_array_clear(results);
-    json_decref(results);
-
-    return resource;
-
-error:
-    logmsg(ERROR, "Failed to list resource '%s': error %d %s",
-           resc_name, error->code, error->message);
-
-    if (query_in) free_query_input(query_in);
-    if (results)  json_decref(results);
-
-    return NULL;
-}
-#endif
-
 int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
                        recursive_op recurse, char *owner_specifier,
                        char *access_level, baton_error_t *error) {

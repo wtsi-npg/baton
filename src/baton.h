@@ -28,6 +28,7 @@
 #include "config.h"
 #include "json_query.h"
 #include "list.h"
+#include "log.h"
 #include "read.h"
 #include "write.h"
 
@@ -101,7 +102,7 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath);
  * @param[in]  env          A populated iRODS environment.
  * @param[out] rodspath     An iRODS path.
  * @param[in]  inpath       A string representing an unresolved iRODS path.
- * @param[in]  option_flags Result print options.
+ * @param[in]  flags        Function behaviour options.
  * @param[out] error        An error report struct.
  *
  * @return 0 on success, iRODS error code on failure.
@@ -128,11 +129,6 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path,
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
                        option_flags flags, baton_error_t *error);
 
-#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
-json_t *list_resource(rcComm_t *conn, const char *resc_name,
-                      const char *zone_name, baton_error_t *error);
-#endif
-
 /**
  * List metadata of a specified data object or collection.
  *
@@ -158,7 +154,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  *                          means the search will be global.
  * @param[in]  zone_name    An iRODS zone name. Optional, NULL means the current
  *                          zone.
- * @param[in]  option_flags Result print options.
+ * @param[in]  flags        Search behaviour options.
  * @param[out] error        An error report struct.
  *
  * @return A newly constructed JSON array of JSON result objects.

@@ -19,7 +19,7 @@ libbaton_includedir = $(includedir)/baton
 
 libbaton_include_HEADERS = baton.h \
                            compat_checksum.h \
-						   error.h \
+                           error.h \
                            json.h \
                            json_query.h \
                            list.h \
@@ -31,15 +31,16 @@ libbaton_include_HEADERS = baton.h \
                            write.h
 
 libbaton_la_SOURCES = baton.c \
-	                  compat_checksum.c \
+                      compat_checksum.c \
                       error.c \
                       json.c \
                       json_query.c \
                       list.c \
                       log.c \
+                      operations.c \
                       query.c \
                       read.c \
-	                  utilities.c \
+                      utilities.c \
                       write.c
 
 libbaton_la_LDFLAGS = -version-info $(LT_VERSION_INFO) $(IRODS_LDFLAGS)
