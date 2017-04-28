@@ -130,20 +130,6 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
                        option_flags flags, baton_error_t *error);
 
 /**
- * List metadata of a specified data object or collection.
- *
- * @param[in]  conn       An open iRODS connection.
- * @param[out] rodspath   An iRODS path.
- * @param[in]  attr_name  An attribute name to limit the values returned.
- *                        Optional, NULL means return all metadata.
- * @param[out] error      An error report struct.
- *
- * @return A newly constructed JSON array of AVU JSON objects.
- */
-json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
-                      baton_error_t *error);
-
-/**
  * Search metadata to find matching data objects and collections.
  *
  * @param[in]  conn         An open iRODS connection.

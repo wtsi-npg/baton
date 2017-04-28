@@ -31,9 +31,9 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
     while (!feof(input)) {
         size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
-        json_t *target = json_loadf(input, jflags, &load_error);
+        json_t *doc = json_loadf(input, jflags, &load_error);
 
-        if (!target) {
+        if (!doc) {
             if (!feof(input)) {
                 logmsg(ERROR, "JSON error at line %d, column %d: %s",
                        load_error.line, load_error.column, load_error.text);
@@ -42,11 +42,11 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
             continue;
         }
 
-        if (!json_is_object(target)) {
+        if (!json_is_object(doc)) {
             logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
                    item_count);
             error_count++;
-            json_decref(target);
+            json_decref(doc);
             continue;
         }
 
@@ -54,15 +54,34 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
         va_copy(fnargs, args);
 
         baton_error_t error;
-        int status = fn(env, conn, target, flags, &error, fnargs);
-        if (status != 0) error_count++;
+        json_t *result = fn(env, conn, doc, flags, &error, fnargs);
+        if (error.code != 0) {
+            error_count++;
+            add_error_value(doc, &error);
+        }
+        else if (has_operation(doc) && has_operation_target(doc)) {
+            // It's an envelope, so we add the result as a property
+            add_result(doc, result, &error);
+            if (error.code != 0) {
+                logmsg(ERROR, "Failed to add error report to item %d "
+                       "in stream. Error code %d: %s", item_count,
+                       error.code, error.message);
+                error_count++;
+            }
+            print_json(doc);
+        }
+        else {
+            // There is no envelope, so the result is reported
+            // directly
+            print_json(result);
+            json_decref(result);
+        }
+        if (flags & FLUSH) fflush(stdout);
 
         va_end(fnargs);
-
         (*item_count)++;
 
-        if (flags & FLUSH) fflush(stdout);
-        json_decref(target);
+        json_decref(doc);
     } // while
 
     return error_count;
@@ -105,52 +124,119 @@ error:
     return 1;
 }
 
-int baton_json_list_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                       option_flags flags, baton_error_t *error,
-                       va_list args) {
+json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
+                               option_flags flags, baton_error_t *error,
+                               va_list args) {
+    json_t *result = NULL;
+
+    const char *op = get_operation_name(envelope, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
+        goto error;
+    }
+
+    json_t *target = get_operation_target(envelope, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
+        goto error;
+    }
+
+    if (has_operation_params(envelope)) {
+        json_t *params = get_operation_params(envelope, error);
+        if (error->code != 0) {
+            result = error_to_json(error);
+            goto error;
+        }
+
+        if (acl_p(params))        flags = flags | PRINT_ACL;
+        if (avu_p(params))        flags = flags | PRINT_AVU;
+        if (checksum_p(params))   flags = flags | PRINT_CHECKSUM;
+        if (contents_p(params))   flags = flags | PRINT_CONTENTS;
+        if (replicate_p(params))  flags = flags | PRINT_REPLICATE;
+        if (timestamp_p(params))  flags = flags | PRINT_TIMESTAMP;
+        if (collection_p(params)) flags = flags | SEARCH_COLLECTIONS;
+        if (object_p(params))     flags = flags | SEARCH_OBJECTS;
+    }
+
+    if (str_equals(op, JSON_CHMOD_OPERATION, MAX_STR_LEN)) {
+        logmsg(DEBUG, "Dispatching to operation '%s'", op);
+        result = baton_json_chmod_op(env, conn, target, flags, error, args);
+    }
+    else if (str_equals(op, JSON_LIST_OPERATION, MAX_STR_LEN)) {
+        logmsg(DEBUG, "Dispatching to operation '%s'", op);
+        result = baton_json_list_op(env, conn, target, flags, error, args);
+    }
+    else if (str_equals(op, JSON_METAMOD_OPERATION, MAX_STR_LEN)) {
+        logmsg(DEBUG, "Dispatching to operation '%s'", op);
+        result = baton_json_metamod_op(env, conn, target, flags, error, args);
+    }
+    else if (str_equals(op, JSON_METAQUERY_OPERATION, MAX_STR_LEN)) {
+        logmsg(DEBUG, "Dispatching to operation '%s'", op);
+        result = baton_json_metaquery_op(env, conn, target, flags, error, args);
+    }
+    else if (str_equals(op, JSON_GET_OPERATION, MAX_STR_LEN)) {
+        logmsg(DEBUG, "Dispatching to operation '%s'", op);
+        result = baton_json_get_op(env, conn, target, flags, error, args);
+    }
+    else {
+        set_baton_error(error, -1, "Invalid baton operation '%s'", op);
+        result = error_to_json(error);
+        goto error;
+    }
+
+    return result;
+
+error:
+    return result;
+}
+
+json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn, json_t *target,
+                           option_flags flags, baton_error_t *error,
+                           va_list args) {
     (void) args; // Not used
 
+    json_t *result = NULL;
+
     char *path = json_to_path(target, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
 
-    json_t *results = list_path(conn, &rods_path, flags, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    result = list_path(conn, &rods_path, flags, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
-
-    print_json(results);
-    json_decref(results);
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
-    return error->code;
+    return result;
 
 error:
     if (path) free(path);
 
-    return error->code;
+    return result;
 }
 
-int baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                        option_flags flags, baton_error_t *error,
-                        va_list args) {
+json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
+                            option_flags flags, baton_error_t *error,
+                            va_list args) {
     (void) args; // Not used
 
+    json_t *result = NULL;
+
     char *path = json_to_path(target, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
 
@@ -158,15 +244,14 @@ int baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (!json_is_array(perms)) {
         set_baton_error(error, -1, "Permissions data for %s is not in "
                         "a JSON array", path);
-        add_error_report(target, error);
-        print_json(target);
+        result = error_to_json(error);
         goto error;
     }
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
 
@@ -175,8 +260,9 @@ int baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     for (size_t i = 0; i < json_array_size(perms); i++) {
         json_t *perm = json_array_get(perms, i);
         modify_json_permissions(conn, &rods_path, recurse, perm, error);
-        if (add_error_report(target, error)) {
-            print_json(target);
+
+        if (error->code != 0) {
+            result = error_to_json(error);
             goto error;
         }
     }
@@ -184,24 +270,23 @@ int baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
-    return error->code;
+    return result;
 
 error:
     if (path) free(path);
 
-    return error->code;
+    return result;
 }
 
-int baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                            option_flags flags, baton_error_t *error,
-                            va_list args) {
-    json_t *results = NULL;
+json_t *baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn, json_t *target,
+                                option_flags flags, baton_error_t *error,
+                                va_list args) {
+    json_t *result = NULL;
 
     if (has_collection(target)) {
         resolve_collection(target, conn, env, flags, error);
-
-        if (add_error_report(target, error)) {
-            print_json(target);
+        if (error->code != 0) {
+            result = error_to_json(error);
             goto error;
         }
     }
@@ -209,31 +294,28 @@ int baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     char *zone_name = va_arg(args, char *);
     logmsg(DEBUG, "Metadata query in zone '%s'", zone_name);
 
-    results = search_metadata(conn, target, zone_name, flags, error);
-
-    if (add_error_report(target, error)) {
-        print_json(target);
+    result = search_metadata(conn, target, zone_name, flags, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
 
-    print_json(results);
-
-    if (results) json_decref(results);
-
-    return error->code;
+    return result;
 
 error:
-    return error->code;
+    return result;
 }
 
-int baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                          option_flags flags, baton_error_t *error,
-                          va_list args) {
+json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
+                              option_flags flags, baton_error_t *error,
+                              va_list args) {
     (void) args; // Not used
 
+    json_t *result = NULL;
+
     char *path = json_to_path(target, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
 
@@ -241,15 +323,14 @@ int baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (!json_is_array(avus)) {
         set_baton_error(error, -1, "AVU data for %s is not in a JSON array",
                         path);
-        add_error_report(target, error);
-        print_json(target);
+        result = error_to_json(error);
         goto error;
     }
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
 
@@ -261,49 +342,48 @@ int baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         operation = META_REM;
     }
     else {
-        set_baton_error(error, -1, "No metadata operation was requested",
-                        path);
-        add_error_report(target, error);
-        print_json(target);
+        set_baton_error(error, -1, "No metadata operation was requested ",
+                        " for %s", path);
+        result = error_to_json(error);
         goto error;
     }
 
     for (size_t i = 0; i < json_array_size(avus); i++) {
         json_t *avu = json_array_get(avus, i);
         modify_json_metadata(conn, &rods_path, operation, avu, error);
-        if (add_error_report(target, error)) {
-            print_json(target);
+        if (error->code != 0) {
+            result = error_to_json(error);
             goto error;
         }
     }
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
-    return error->code;
+    return result;
 
 error:
     if (path) free(path);
 
-    return error->code;
+    return result;
 }
 
-int baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                      option_flags flags, baton_error_t *error,
-                      va_list args) {
+json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
+                          option_flags flags, baton_error_t *error,
+                          va_list args) {
+    json_t *result = NULL;
+
     char *path = json_to_path(target, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (add_error_report(target, error)) {
-        print_json(target);
+    if (error->code != 0) {
+        result = error_to_json(error);
         goto error;
     }
-
-    FILE *report_stream = stdout;
 
     va_arg(args, char *); // zone_name not used
     size_t buffer_size = va_arg(args, size_t);
@@ -318,39 +398,59 @@ int baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
             free(file);
         }
 
-        if (add_error_report(target, error)) {
-            print_json_stream(target, report_stream);
+        if (error->code != 0) {
+            result = error_to_json(error);
             goto error;
         }
     }
     else if (flags & PRINT_RAW) {
-        report_stream = stderr;
         write_path_to_stream(conn, &rods_path, stdout, buffer_size, error);
-
-        if (add_error_report(target, error)) {
-            print_json_stream(target, report_stream);
+        if (error->code != 0) {
+            result = error_to_json(error);
             goto error;
         }
     }
     else {
-        json_t *results =
-            ingest_path(conn, &rods_path, flags, buffer_size, error);
-        if (add_error_report(target, error)) {
-            print_json_stream(target, report_stream);
+        result = ingest_path(conn, &rods_path, flags, buffer_size, error);
+        if (error->code != 0) {
+            result = error_to_json(error);
             goto error;
-        }
-        else {
-            print_json_stream(results, report_stream);
-            json_decref(results);
         }
     }
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
-    return error->code;
+    return result;
 
 error:
     if (path) free(path);
 
+    return result;
+}
+
+int check_str_arg(const char *arg_name, const char *arg_value,
+                  size_t arg_size, baton_error_t *error) {
+    if (!arg_value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was null", arg_name);
+        goto error;
+    }
+
+    size_t len = strnlen(arg_value, MAX_STR_LEN);
+    size_t term_len = len + 1;
+
+    if (len == 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was empty", arg_name);
+        goto error;
+    }
+    if (term_len > arg_size) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "%s exceeded the maximum length of %d characters",
+                        arg_name, arg_size);
+        goto error;
+    }
+
+    return error->code;
+
+error:
     return error->code;
 }

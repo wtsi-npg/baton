@@ -47,6 +47,7 @@ libbaton_la_LDFLAGS = -version-info $(LT_VERSION_INFO) $(IRODS_LDFLAGS)
 libbaton_la_LIBADD = $(IRODS_LIBS)
 
 bin_PROGRAMS = baton-chmod \
+               baton-do \
                baton-get \
                baton-list \
                baton-metamod \
@@ -56,6 +57,9 @@ bin_PROGRAMS = baton-chmod \
 
 baton_chmod_SOURCES = baton-chmod.c
 baton_chmod_LDADD = libbaton.la $(IRODS_LIBS)
+
+baton_do_SOURCES = baton-do.c
+baton_do_LDADD = libbaton.la $(IRODS_LIBS)
 
 baton_get_SOURCES = baton-get.c
 baton_get_LDADD = libbaton.la $(IRODS_LIBS)

@@ -112,8 +112,8 @@ stream of JSON objects on standard output. The ``baton`` programs are:
 
 * `baton-list`_
 
-  Prints the paths, metadata and access control lists and timestamps
-  of collections and data objects.
+  Print the paths, metadata and access control lists and timestamps of
+  collections and data objects.
 
 * `baton-metamod`_
 
@@ -125,10 +125,10 @@ stream of JSON objects on standard output. The ``baton`` programs are:
   Print the paths, metadata and access control lists of collections
   and data objects matching queries on metadata.
 
-* `baton-metasuper`
+* `baton-do`_
 
-  Replace all :term:`AVU` s in the metadata on collections and data
-  objects.
+  Perform a mixture of list, chmod, get, metamod or metaquery ``baton``
+  operations specified by parameters supplied as JSON.
 
 All of the programs are designed to accept a stream of JSON objects,
 one for each operation on a collection or data object. After each
@@ -584,6 +584,79 @@ Options
 .. option:: --zone <zone name>
 
    Query in a specific zone.
+
+
+baton-do
+-------------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{"operation": "metaquery",
+             "parameters": {
+                 "avu": true,
+                 "acl": true,
+                 "replicate": true,
+                 "object": true
+              },
+              "target": {avus: [{attribute: "x", value: "y"},   \
+                                {attribute: "m", value: "n"}]}' | baton-do
+
+This program accepts JSON objects as described in :ref:`representing_paths`
+that have been wrapped in an additional JSON envelope describing a operation
+to be carried out, along with any parameters for that operation.
+
+The JSON envelope has two mandatory properties; `operation`, whose
+value must be a string naming a ``baton`` operation to be performed
+(one of `chmod`, `get`, `list`, `metamod`, `metaquery`) and `target`
+which must be a ``baton``-format JSON object. The envelope has one
+optional property `parameters` which, if present, must be a JSON
+object whose keys and values may be any of the command line options
+permitted for the standard ``baton`` clients supporting the previously
+named operations. Where command line options are boolean flags, a JSON
+`true` value should be used.
+
+
+Options
+^^^^^^^
+
+.. program:: baton-do
+.. option:: --file <file name>
+
+  The JSON file describing the ``baton`` operations and their parameters.
+  Optional, defaults to STDIN.
+
+.. program:: baton-do
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-do
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-do
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-do
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-do
+.. option:: --version
+
+  Print the version number and exit.
+
+.. program:: baton-do
+.. option:: --zone <zone name>
+
+   Operate in a specific zone.
+
 
 .. _representing_paths:
 

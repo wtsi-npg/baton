@@ -304,8 +304,8 @@ error:
 }
 
 json_t *get_specific(json_t *object, baton_error_t *error) {
-    json_t *specific = get_json_value(object, "path spec", JSON_SPECIFIC_KEY, NULL,
-                                      error);
+    json_t *specific = get_json_value(object, "path spec", JSON_SPECIFIC_KEY,
+                                      NULL, error);
     if (!json_is_object(specific)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid '%s' attribute: not a JSON object",
@@ -527,6 +527,51 @@ const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
                                 JSON_OPERATOR_SHORT_KEY, error);
 }
 
+const char *get_operation_name(json_t *envelope, baton_error_t *error) {
+    init_baton_error(error);
+
+    return get_string_value(envelope, "operation name", JSON_OPERATION_KEY,
+                            JSON_OPERATION_SHORT_KEY, error);
+}
+
+json_t *get_operation_target(json_t *envelope, baton_error_t *error) {
+    init_baton_error(error);
+
+    json_t *target = get_json_value(envelope, "operation target",
+                                    JSON_TARGET_KEY, NULL, error);
+    if (error->code != 0) goto error;
+    if (!json_is_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid '%s' attribute: not a JSON object",
+                        JSON_TARGET_KEY);
+        goto error;
+    }
+
+    return target;
+
+error:
+    return NULL;
+}
+
+json_t *get_operation_params(json_t *envelope, baton_error_t *error) {
+    init_baton_error(error);
+
+    json_t *params = get_json_value(envelope, "operation parameters",
+                                    JSON_PARAMS_KEY, NULL, error);
+    if (error->code != 0) goto error;
+    if (!json_is_object(params)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid '%s' attribute: not a JSON object",
+                        JSON_PARAMS_KEY);
+        goto error;
+    }
+
+    return params;
+
+error:
+    return NULL;
+}
+
 int has_collection(json_t *object) {
     baton_error_t error;
 
@@ -541,19 +586,96 @@ int has_acl(json_t *object) {
 }
 
 int has_timestamps(json_t *object) {
-  baton_error_t error;
+    baton_error_t error;
 
-  init_baton_error(&error); // Ignore error
+    init_baton_error(&error); // Ignore error
 
-  return get_timestamps(object, &error) != NULL;
+    return get_timestamps(object, &error) != NULL;
 }
 
 int has_created_timestamp(json_t *object) {
-  return has_json_str_value(object, JSON_CREATED_KEY, JSON_CREATED_SHORT_KEY);
+    return has_json_str_value(object, JSON_CREATED_KEY,
+                              JSON_CREATED_SHORT_KEY);
 }
 
 int has_modified_timestamp(json_t *object) {
-  return has_json_str_value(object, JSON_MODIFIED_KEY, JSON_MODIFIED_SHORT_KEY);
+    return has_json_str_value(object, JSON_MODIFIED_KEY,
+                              JSON_MODIFIED_SHORT_KEY);
+}
+
+int has_operation(json_t *object) {
+  return has_json_str_value(object, JSON_OPERATION_KEY,
+                            JSON_OPERATION_SHORT_KEY);
+}
+
+int has_operation_params(json_t *object) {
+    baton_error_t error;
+
+    init_baton_error(&error); // Ignore error
+
+    return get_json_value(object, "operation params", JSON_PARAMS_KEY,
+                          JSON_PARAMS_SHORT_KEY, &error) != NULL;
+}
+
+int has_operation_target(json_t *object) {
+    return json_object_get(object, JSON_TARGET_KEY) != NULL;
+}
+
+int acl_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params, JSON_PARAM_ACL));
+}
+
+int avu_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params, JSON_PARAM_AVU));
+}
+
+int checksum_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params,
+                                        JSON_PARAM_CHECKSUM));
+}
+
+int collection_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params,
+                                        JSON_PARAM_COLLECTION));
+}
+
+int contents_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params,
+                                        JSON_PARAM_CONTENTS));
+}
+
+int object_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params, JSON_PARAM_OBJECT));
+}
+int operation_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params,
+                                        JSON_PARAM_OPERATION));
+}
+
+int raw_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params, JSON_PARAM_RAW));
+}
+
+int recurse_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params, JSON_PARAM_RECURSE));
+}
+
+int replicate_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params,
+                                        JSON_PARAM_REPLICATE));
+}
+
+int save_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params, JSON_PARAM_SAVE));
+}
+
+int size_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params, JSON_PARAM_SIZE));
+}
+
+int timestamp_p(json_t *operation_params) {
+    return json_is_true(json_object_get(operation_params,
+                                        JSON_PARAM_TIMESTAMP));
 }
 
 int contains_avu(json_t *avus, json_t *avu) {
@@ -830,6 +952,21 @@ int add_contents(json_t *object, json_t *contents, baton_error_t *error) {
     }
 
     return json_object_set_new(object, JSON_CONTENTS_KEY, contents);
+
+error:
+    return error->code;
+}
+
+int add_result(json_t *object, json_t *result, baton_error_t *error) {
+    init_baton_error(error);
+
+    if (!json_is_object(object)) {
+        set_baton_error(error, -1, "Failed to add result data: "
+                        "target not a JSON object");
+        goto error;
+    }
+
+    return json_object_set_new(object, JSON_RESULT_KEY, result);
 
 error:
     return error->code;

@@ -596,3 +596,79 @@ error:
 
     return NULL;
 }
+
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
+                      baton_error_t *error) {
+    genQueryInp_t *query_in = NULL;
+    json_t *results         = NULL;
+
+    query_format_in_t obj_format =
+        { .num_columns  = 3,
+          .columns      = { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE,
+                            COL_META_DATA_ATTR_UNITS },
+          .labels       = { JSON_ATTRIBUTE_KEY, JSON_VALUE_KEY,
+                            JSON_UNITS_KEY } };
+
+    query_format_in_t col_format =
+        { .num_columns  = 3,
+          .columns      = { COL_META_COLL_ATTR_NAME, COL_META_COLL_ATTR_VALUE,
+                            COL_META_COLL_ATTR_UNITS },
+          .labels       = { JSON_ATTRIBUTE_KEY, JSON_VALUE_KEY,
+                            JSON_UNITS_KEY } };
+
+    init_baton_error(error);
+
+    if (attr_name) {
+        check_str_arg("attr_name", attr_name, MAX_STR_LEN, error);
+        if (error->code != 0) goto error;
+    }
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a data object",
+                   rods_path->outPath);
+            query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
+                                        obj_format.columns);
+            query_in = prepare_obj_list(query_in, rods_path, attr_name);
+            break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a collection",
+                   rods_path->outPath);
+            query_in = make_query_input(SEARCH_MAX_ROWS, col_format.num_columns,
+                                        col_format.columns);
+            query_in = prepare_col_list(query_in, rods_path, attr_name);
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to list metadata on '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    results = do_query(conn, query_in, obj_format.labels, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Obtained metadata on '%s'", rods_path->outPath);
+    free_query_input(query_in);
+
+    return results;
+
+error:
+    logmsg(ERROR, "Failed to list metadata on '%s': error %d %s",
+           rods_path->outPath, error->code, error->message);
+
+    if (query_in) free_query_input(query_in);
+    if (results)  json_decref(results);
+
+    return NULL;
+}

@@ -83,33 +83,31 @@ typedef enum {
     FLUSH              = 1 << 16
 } option_flags;
 
-
 /**
  * Typedef for baton JSON document processing functions.
  *
- * @param[in]  env          A populated iRODS environment.
- * @param[in]  conn         An open iRODS connection.
- * @param[fn]  target       A baton JSON document.
- * @param[in]  flags        Function behaviour options.
- * @param[out] error        An error report struct.
- * @param[in]  zone_name    An iRODS zone name, optional (may be NULL).
- * @param[in]  buffer_size  Buffer size in bytes, optional.
+ * @param[in]      env          A populated iRODS environment.
+ * @param[in]      conn         An open iRODS connection.
+ * @param[in,out]  target       A baton JSON document.
+ * @param[in]      flags        Function behaviour options.
+ * @param[out]     error        An error report struct.
+ * @param[in]      args         Optional arguments, char * zone name,
+ *                              size_t transfer buffer size.
  *
  * @return 0 on success, iRODS error code on failure.
  */
-typedef int (*baton_json_op) (rodsEnv *env,
-                              rcComm_t *conn,
-                              json_t *target,
-                              option_flags flags,
-                              baton_error_t *error,
-                              va_list args);
+typedef json_t *(*baton_json_op) (rodsEnv *env,
+                                  rcComm_t *conn,
+                                  json_t *target,
+                                  option_flags flags,
+                                  baton_error_t *error,
+                                  va_list args);
 
 /**
  * Process a stream of baton JSON documents by executing the specifed
  * function on each one.
  *
  * @param[in]  input        A file handle.
- * @param[in]  zone_name    An iRODS zone name (may be NULL if not required).
  * @param[fn]  fn           A function.
  * @param[in]  flags        Function behaviour options.
  *
@@ -117,24 +115,31 @@ typedef int (*baton_json_op) (rodsEnv *env,
  */
 int do_operation(FILE *input, baton_json_op fn, option_flags flags, ...);
 
-int baton_json_list_op(rodsEnv *env, rcComm_t *conn,
-                       json_t *target, option_flags flags,
-                       baton_error_t *error, va_list args);
+json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn,
+                               json_t *target, option_flags flags,
+                               baton_error_t *error, va_list args);
 
-int baton_json_chmod_op(rodsEnv *env, rcComm_t *conn,
-                        json_t *target, option_flags flags,
-                        baton_error_t *error, va_list args);
+json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn,
+                           json_t *target, option_flags flags,
+                           baton_error_t *error, va_list args);
 
-int baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn,
+json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn,
                             json_t *target, option_flags flags,
                             baton_error_t *error, va_list args);
 
-int baton_json_metamod_op(rodsEnv *env, rcComm_t *conn,
+json_t *baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn,
+                                json_t *target, option_flags flags,
+                                baton_error_t *error, va_list args);
+
+json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn,
+                              json_t *target, option_flags flags,
+                              baton_error_t *error, va_list args);
+
+json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn,
                           json_t *target, option_flags flags,
                           baton_error_t *error, va_list args);
 
-int baton_json_get_op(rodsEnv *env, rcComm_t *conn,
-                      json_t *target, option_flags flags,
-                      baton_error_t *error, va_list args);
+int check_str_arg(const char *arg_name, const char *arg_value,
+                  size_t arg_size, baton_error_t *error);
 
 #endif // _BATON_OPERATIONS_H
