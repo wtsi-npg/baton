@@ -58,7 +58,7 @@ static void set_current_rods_root(char *in, char *out) {
 }
 
 static void setup() {
-    set_log_threshold(WARN);
+    set_log_threshold(ERROR);
 
     char command[MAX_COMMAND_LEN];
     char rods_root[MAX_PATH_LEN];
@@ -716,7 +716,6 @@ START_TEST(test_list_permissions_coll) {
     if (conn) rcDisconnect(conn);
 }
 END_TEST
-
 
 // Can we list metadata on a data object?
 START_TEST(test_list_metadata_obj) {
@@ -1802,7 +1801,8 @@ START_TEST(test_represents_file) {
 }
 END_TEST
 
-START_TEST(test_write_path_to_stream) {
+// Can we read a data object and write to a stream?
+START_TEST(test_get_data_obj_stream) {
     option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -1821,10 +1821,11 @@ START_TEST(test_write_path_to_stream) {
     FILE *tmp = tmpfile();
     ck_assert_ptr_ne(NULL, tmp);
 
-    size_t size = 1024;
+    size_t buffer_size = 1024;
     baton_error_t error;
-    int status = write_path_to_stream(conn, &rods_obj_path, tmp, size, &error);
-    ck_assert_int_eq(status, 10240);
+    int num_written =
+        get_data_obj_stream(conn, &rods_obj_path, tmp, buffer_size, &error);
+    ck_assert_int_eq(num_written, 10240);
     ck_assert_int_eq(error.code, 0);
 
     rewind(tmp);
@@ -1835,9 +1836,9 @@ START_TEST(test_write_path_to_stream) {
 
     char buffer[1024];
 
-    size_t n;
-    while ((n = fread(buffer, 1, 1024, tmp)) > 0) {
-        compat_MD5Update(&context, (unsigned char *) buffer, n);
+    size_t nr;
+    while ((nr = fread(buffer, 1, 1024, tmp)) > 0) {
+        compat_MD5Update(&context, (unsigned char *) buffer, nr);
     }
 
     compat_MD5Final(digest, &context);
@@ -1848,6 +1849,7 @@ START_TEST(test_write_path_to_stream) {
     }
 
     ck_assert_str_eq(md5, "4efe0c1befd6f6ac4621cbdb13241246");
+    free(md5);
 
     fclose(tmp);
     tmp = NULL;
@@ -1856,7 +1858,8 @@ START_TEST(test_write_path_to_stream) {
 }
 END_TEST
 
-START_TEST(test_slurp_file) {
+// Can we read a data object into a UTF-8 string?
+START_TEST(test_slurp_data_obj) {
     option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -1878,20 +1881,213 @@ START_TEST(test_slurp_file) {
                                 2048, 4096, 8192, 16384, 37268 };
     for (int i = 0; i < 10; i++) {
         baton_error_t open_error;
-        data_obj_file_t *obj_file = open_data_obj(conn, &rods_obj_path,
-                                                  &open_error);
+        data_obj_file_t *obj = open_data_obj(conn, &rods_obj_path,
+                                             O_RDONLY, &open_error);
         ck_assert_int_eq(open_error.code, 0);
 
         baton_error_t slurp_error;
-        char *data = slurp_data_object(conn, obj_file, buffer_sizes[i],
-                                       &slurp_error);
+        char *data = slurp_data_obj(conn, obj, buffer_sizes[i],
+                                    &slurp_error);
         ck_assert_int_eq(slurp_error.code, 0);
         ck_assert_int_eq(strnlen(data, 10240), 10240);
-        ck_assert_str_eq(obj_file->md5_last_read,
+        ck_assert_str_eq(obj->md5_last_read,
                          "4efe0c1befd6f6ac4621cbdb13241246");
+
+        ck_assert_int_eq(close_data_obj(conn, obj), 0);
 
         if (data) free(data);
     }
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we ingest a data object as JSON?
+START_TEST(test_ingest_data_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
+
+    // Test a range of buffer sizes, both smaller and larger than the
+    // data
+    size_t buffer_sizes[10] = {    1,  128,  256,   512,  1024,
+                                2048, 4096, 8192, 16384, 37268 };
+    for (int i = 0; i < 10; i++) {
+        baton_error_t error;
+        json_t *obj = ingest_data_obj(conn, &rods_obj_path, flags,
+                                      buffer_sizes[i], &error);
+        ck_assert_int_eq(error.code, 0);
+
+        json_decref(obj);
+    }
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_get_data_obj_file) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
+
+    // Write data object to temp file
+    char template[] = "baton_test_get_data_obj_file.XXXXXX";
+    int fd = mkstemp(template);
+
+    size_t buffer_size = 1024;
+    baton_error_t error;
+    int status = get_data_obj_file(conn, &rods_obj_path, template,
+                                   buffer_size, &error);
+    ck_assert_int_eq(error.code, 0);
+    close(fd);
+
+    // Check the MD5 of the tempfile
+    unsigned char digest[16];
+    MD5_CTX context;
+    compat_MD5Init(&context);
+
+    FILE *tmpfile = fopen(template, "r");
+    char buffer[1024];
+
+    size_t nr;
+    while ((nr = fread(buffer, 1, 1024, tmpfile)) > 0) {
+        compat_MD5Update(&context, (unsigned char *) buffer, nr);
+    }
+
+    fclose(tmpfile);
+    unlink(template);
+
+    compat_MD5Final(digest, &context);
+
+    char *md5 = calloc(33, sizeof (char));
+    for (int i = 0; i < 16; i++) {
+        snprintf(md5 + i * 2, 3, "%02x", digest[i]);
+    }
+
+    ck_assert_str_eq(md5, "4efe0c1befd6f6ac4621cbdb13241246");
+    free(md5);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_write_data_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char file_path[MAX_PATH_LEN];
+    snprintf(file_path, MAX_PATH_LEN, "%s/%s/lorem_10k.txt",
+             TEST_ROOT, TEST_DATA_PATH);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/test_write_data_obj.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                      flags, &resolve_error);
+
+    // Test a range of buffer sizes, both smaller and larger than the
+    // data
+    size_t buffer_sizes[10] = {    1,  128,  256,   512,  1024,
+                                2048, 4096, 8192, 16384, 37268 };
+
+    for (int i = 0; i < 10; i++) {
+        baton_error_t write_error;
+        FILE *in = fopen(file_path, "r");
+        size_t num_written = write_data_obj(conn, in, &rods_obj_path,
+                                            buffer_sizes[i], &write_error);
+        ck_assert_int_eq(write_error.code, 0);
+        ck_assert_int_eq(num_written, 10240);
+        ck_assert_int_eq(fclose(in), 0);
+
+        rodsPath_t result_obj_path;
+        baton_error_t result_error;
+        resolve_rods_path(conn, &env, &result_obj_path, obj_path,
+                          flags, &result_error);
+        ck_assert_int_eq(result_error.code, 0);
+
+        baton_error_t list_error;
+        json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
+                                   &list_error);
+        ck_assert_int_eq(list_error.code, 0);
+        json_t *checksum = json_object_get(result, JSON_CHECKSUM_KEY);
+        ck_assert(json_is_string(checksum));
+        ck_assert_str_eq(json_string_value(checksum),
+                         "4efe0c1befd6f6ac4621cbdb13241246");
+        json_decref(result);
+    }
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_put_data_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char file_path[MAX_PATH_LEN];
+    snprintf(file_path, MAX_PATH_LEN, "%s/%s/lorem_10k.txt",
+             TEST_ROOT, TEST_DATA_PATH);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/test_put_data_obj.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                      flags, &resolve_error);
+
+    baton_error_t error;
+    int status = put_data_obj(conn, file_path, &rods_obj_path, 0, &error);
+    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(status, 0);
+
+    rodsPath_t result_obj_path;
+    baton_error_t result_error;
+    resolve_rods_path(conn, &env, &result_obj_path, obj_path,
+                      flags, &result_error);
+    ck_assert_int_eq(result_error.code, 0);
+
+    baton_error_t list_error;
+    json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
+                               &list_error);
+    ck_assert_int_eq(list_error.code, 0);
+    json_t *checksum = json_object_get(result, JSON_CHECKSUM_KEY);
+    ck_assert(json_is_string(checksum));
+    ck_assert_str_eq(json_string_value(checksum),
+                     "4efe0c1befd6f6ac4621cbdb13241246");
+    json_decref(result);
 
     if (conn) rcDisconnect(conn);
 }
@@ -1972,6 +2168,7 @@ START_TEST(test_do_operation) {
 }
 END_TEST
 
+
 // Tests that the `irods_get_sql_for_specific_alias` method can be
 // used to get the SQL associated to a given alias.
 START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
@@ -1988,7 +2185,7 @@ START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
 
     ck_assert_ptr_ne(sql, NULL);
     ck_assert_str_eq(sql,
-             "SELECT DISTINCT Data.data_id AS data_id FROM R_DATA_MAIN Data WHERE CAST(Data.modify_ts AS INT) > CAST(? AS INT) AND CAST(Data.modify_ts AS INT) <= CAST(? AS INT)");
+		     "SELECT DISTINCT Data.data_id AS data_id FROM R_DATA_MAIN Data WHERE CAST(Data.modify_ts AS INT) > CAST(? AS INT) AND CAST(Data.modify_ts AS INT) <= CAST(? AS INT)");
 
     if (conn) rcDisconnect(conn);
 }
@@ -2204,6 +2401,8 @@ START_TEST(test_regression_github_issue137) {
 }
 END_TEST
 
+// Ensure that we can create JSON representing replicates that have no
+// checksum
 START_TEST(test_regression_github_issue140) {
     option_flags flags = 0;
     rodsEnv env;
@@ -2332,8 +2531,12 @@ Suite *baton_suite(void) {
     tcase_add_unchecked_fixture(read_write, setup, teardown);
     tcase_add_checked_fixture(read_write, basic_setup, basic_teardown);
 
-    tcase_add_test(read_write, test_write_path_to_stream);
-    tcase_add_test(read_write, test_slurp_file);
+    tcase_add_test(read_write, test_get_data_obj_stream);
+    tcase_add_test(read_write, test_get_data_obj_file);
+    tcase_add_test(read_write, test_slurp_data_obj);
+    tcase_add_test(read_write, test_ingest_data_obj);
+    tcase_add_test(read_write, test_write_data_obj);
+    tcase_add_test(read_write, test_put_data_obj);
 
     TCase *json = tcase_create("json");
     tcase_add_unchecked_fixture(json, setup, teardown);

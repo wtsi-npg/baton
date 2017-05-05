@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2016 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2014, 2015, 2016, 2017 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,13 +26,48 @@
 
 #include "config.h"
 #include "read.h"
-#include "write.h"
 
-int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
-                       const char *local_path, size_t buffer_size,
-                       baton_error_t *error);
+/**
+ * Write to a data object from a local file using the put protocol.
+ *
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  obj_file    A local file name.
+ * @param[in]  rods_path   An iRODS data object path.
+ * @param[in]  flags       CALCULATE_CHECKSUM to calculate a checksum on
+                           the server side. Optional.
+ * @param[out] error       An error report struct.
+ *
+ * @return The number of bytes copied in total.
+ */
+int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
+                 int flags, baton_error_t *error);
 
-int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
-                         size_t buffer_size, baton_error_t *error);
+/**
+ * Write bytes from a buffer into a data object.
+ *
+ * @param[in]  conn       An open iRODS connection.
+ * @param[in]  buffer     A buffer to write from.
+ * @param[in]  obj_file   A data object handle.
+ * @param[in]  len        The number of bytes to write.
+ * @param[out] error      An error report struct.
+ *
+ * @return The number of bytes actually written, which may be 0.
+ */
+size_t write_chunk(rcComm_t *conn, char *buffer, data_obj_file_t *obj_file,
+                   size_t len, baton_error_t *error);
+
+/**
+ * Write to a data object from a stream.
+ *
+ * @param[in]  conn        An open iRODS connection.
+ * @param[in]  in          File to read from.
+ * @param[in]  rods_path   An iRODS data object path.
+ * @param[in]  buffer_size The number of bytes to copy at one time.
+ * @param[out] error       An error report struct.
+ *
+ * @return The number of bytes copied in total.
+ */
+size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
+                      size_t buffer_size, baton_error_t *error);
 
 #endif // _BATON_WRITE_H

@@ -52,7 +52,7 @@ bin_PROGRAMS = baton-chmod \
                baton-list \
                baton-metamod \
                baton-metaquery \
-               baton-metasuper \
+               baton-put \
                baton-specificquery
 
 baton_chmod_SOURCES = baton-chmod.c
@@ -73,8 +73,8 @@ baton_metamod_LDADD = libbaton.la $(IRODS_LIBS)
 baton_metaquery_SOURCES = baton-metaquery.c
 baton_metaquery_LDADD = libbaton.la $(IRODS_LIBS)
 
-baton_metasuper_SOURCES = baton-metasuper.c
-baton_metasuper_LDADD = libbaton.la $(IRODS_LIBS)
+baton_put_SOURCES = baton-put.c
+baton_put_LDADD = libbaton.la $(IRODS_LIBS)
 
 baton_specificquery_SOURCES = baton-specificquery.c
 baton_specificquery_LDADD = libbaton.la $(IRODS_LIBS)

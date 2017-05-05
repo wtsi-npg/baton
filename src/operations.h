@@ -80,7 +80,9 @@ typedef enum {
     /** Save files */
     SAVE_FILES         = 1 << 14,
     /** Flush output */
-    FLUSH              = 1 << 16
+    FLUSH              = 1 << 16,
+    /** Calculate server side checksum */
+    CALCULATE_CHECKSUM = 1 << 17
 } option_flags;
 
 /**
@@ -110,6 +112,8 @@ typedef json_t *(*baton_json_op) (rodsEnv *env,
  * @param[in]  input        A file handle.
  * @param[fn]  fn           A function.
  * @param[in]  flags        Function behaviour options.
+ * @param[in]  zone_name    Zone name, char * (optional).
+ * @param[in]  buffer_size  Data transfer buffer, size_t (optional).
  *
  * @return 0 on success, iRODS error code on failure.
  */
@@ -138,6 +142,14 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn,
 json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn,
                           json_t *target, option_flags flags,
                           baton_error_t *error, va_list args);
+
+json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn,
+                          json_t *target, option_flags flags,
+                          baton_error_t *error, va_list args);
+
+json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn,
+                            json_t *target, option_flags flags,
+                            baton_error_t *error, va_list args);
 
 int check_str_arg(const char *arg_name, const char *arg_value,
                   size_t arg_size, baton_error_t *error);

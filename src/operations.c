@@ -31,9 +31,9 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
     while (!feof(input)) {
         size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
-        json_t *doc = json_loadf(input, jflags, &load_error);
+        json_t *item = json_loadf(input, jflags, &load_error);
 
-        if (!doc) {
+        if (!item) {
             if (!feof(input)) {
                 logmsg(ERROR, "JSON error at line %d, column %d: %s",
                        load_error.line, load_error.column, load_error.text);
@@ -42,11 +42,11 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
             continue;
         }
 
-        if (!json_is_object(doc)) {
+        if (!json_is_object(item)) {
             logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
                    item_count);
             error_count++;
-            json_decref(doc);
+            json_decref(item);
             continue;
         }
 
@@ -54,21 +54,22 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
         va_copy(fnargs, args);
 
         baton_error_t error;
-        json_t *result = fn(env, conn, doc, flags, &error, fnargs);
+        json_t *result = fn(env, conn, item, flags, &error, fnargs);
         if (error.code != 0) {
             error_count++;
-            add_error_value(doc, &error);
+            add_error_value(item, &error);
+            print_json(item);
         }
-        else if (has_operation(doc) && has_operation_target(doc)) {
+        else if (has_operation(item) && has_operation_target(item)) {
             // It's an envelope, so we add the result as a property
-            add_result(doc, result, &error);
+            add_result(item, result, &error);
             if (error.code != 0) {
                 logmsg(ERROR, "Failed to add error report to item %d "
                        "in stream. Error code %d: %s", item_count,
                        error.code, error.message);
                 error_count++;
             }
-            print_json(doc);
+            print_json(item);
         }
         else {
             // There is no envelope, so the result is reported
@@ -81,7 +82,7 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
         va_end(fnargs);
         (*item_count)++;
 
-        json_decref(doc);
+        json_decref(item);
     } // while
 
     return error_count;
@@ -177,6 +178,10 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     else if (str_equals(op, JSON_GET_OPERATION, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_get_op(env, conn, target, flags, error, args);
+    }
+    else if (str_equals(op, JSON_PUT_OPERATION, MAX_STR_LEN)) {
+        logmsg(DEBUG, "Dispatching to operation '%s'", op);
+        result = baton_json_put_op(env, conn, target, flags, error, args);
     }
     else {
         set_baton_error(error, -1, "Invalid baton operation '%s'", op);
@@ -393,10 +398,13 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (flags & SAVE_FILES) {
         char *file = NULL;
         file = json_to_local_path(target, error);
-        if (file) {
-            write_path_to_file(conn, &rods_path, file, buffer_size, error);
-            free(file);
+        if (error->code != 0) {
+            result = error_to_json(error);
+            goto error;
         }
+
+        get_data_obj_file(conn, &rods_path, file, buffer_size, error);
+        free(file);
 
         if (error->code != 0) {
             result = error_to_json(error);
@@ -404,14 +412,14 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         }
     }
     else if (flags & PRINT_RAW) {
-        write_path_to_stream(conn, &rods_path, stdout, buffer_size, error);
+        get_data_obj_stream(conn, &rods_path, stdout, buffer_size, error);
         if (error->code != 0) {
             result = error_to_json(error);
             goto error;
         }
     }
     else {
-        result = ingest_path(conn, &rods_path, flags, buffer_size, error);
+        result = ingest_data_obj(conn, &rods_path, flags, buffer_size, error);
         if (error->code != 0) {
             result = error_to_json(error);
             goto error;
@@ -419,6 +427,106 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     }
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+
+    return result;
+
+error:
+    if (path) free(path);
+
+    return result;
+}
+
+json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
+                            option_flags flags, baton_error_t *error,
+                            va_list args) {
+    json_t *result = NULL;
+
+    char *path = json_to_path(target, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
+        goto error;
+    }
+
+    rodsPath_t rods_path;
+    resolve_rods_path(conn, env, &rods_path, path, flags, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
+        goto error;
+    }
+
+    char *file = json_to_local_path(target, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
+        goto error;
+    }
+
+    va_arg(args, char *); // zone_name not used
+    size_t buffer_size = va_arg(args, size_t);
+
+    logmsg(DEBUG, "Using a 'put' buffer size of %zu bytes", buffer_size);
+
+    FILE *in = fopen(file, "r");
+    if (!in) {
+        set_baton_error(error, errno,
+                        "Failed to open '%s' for reading: error %d %s",
+                        "README", errno, strerror(errno));
+        goto error;
+    }
+
+    write_data_obj(conn, in, &rods_path, buffer_size, error);
+    int status = fclose(in);
+
+    if (error->code != 0) goto error;
+    if (status != 0) {
+        set_baton_error(error, errno,
+                        "Failed to close '%s': error %d %s",
+                        "README", errno, strerror(errno));
+        goto error;
+    }
+
+    return result;
+
+error:
+    if (path) free(path);
+
+    return result;
+}
+
+json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
+                          option_flags flags, baton_error_t *error,
+                          va_list args) {
+    (void) args; // Not used
+
+    json_t *result = NULL;
+
+    char *path = json_to_path(target, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
+        goto error;
+    }
+
+    rodsPath_t rods_path;
+    resolve_rods_path(conn, env, &rods_path, path, flags, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
+        goto error;
+    }
+
+    char *file = json_to_local_path(target, error);
+    if (error->code != 0) {
+        result = error_to_json(error);
+        goto error;
+    }
+
+    int status = put_data_obj(conn, file, &rods_path, flags, error);
+
+    if (error->code != 0) goto error;
+    if (status != 0) {
+        set_baton_error(error, errno,
+                        "Failed to close '%s': error %d %s",
+                        "README", errno, strerror(errno));
+        goto error;
+    }
 
     return result;
 

@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2014, 2015 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2014, 2015, 2017 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,8 +25,8 @@
 #include "compat_checksum.h"
 #include "read.h"
 
-static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
-                        size_t buffer_size, baton_error_t *error) {
+static char *do_slurp(rcComm_t *conn, rodsPath_t *rods_path,
+                      size_t buffer_size, baton_error_t *error) {
     data_obj_file_t *obj_file = NULL;
 
     if (buffer_size == 0) {
@@ -36,10 +37,10 @@ static char *slurp_file(rcComm_t *conn, rodsPath_t *rods_path,
 
     logmsg(DEBUG, "Using a 'slurp' buffer size of %zu bytes", buffer_size);
 
-    obj_file = open_data_obj(conn, rods_path, error);
+    obj_file = open_data_obj(conn, rods_path, O_RDONLY, error);
     if (error->code != 0) goto error;
 
-    char *content = slurp_data_object(conn, obj_file, buffer_size, error);
+    char *content = slurp_data_obj(conn, obj_file, buffer_size, error);
     int status = close_data_obj(conn, obj_file);
 
     if (error->code != 0) goto error;
@@ -62,9 +63,9 @@ error:
     return NULL;
 }
 
-json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
-                    option_flags flags, size_t buffer_size,
-                    baton_error_t *error) {
+json_t *ingest_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
+                        option_flags flags, size_t buffer_size,
+                        baton_error_t *error) {
     char *content = NULL;
 
     init_baton_error(error);
@@ -86,7 +87,7 @@ json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *results = list_path(conn, rods_path, flags, error);
     if (error->code != 0) goto error;
 
-    content = slurp_file(conn, rods_path, buffer_size, error);
+    content = do_slurp(conn, rods_path, buffer_size, error);
     if (error->code != 0) goto error;
 
     if (content) {
@@ -121,19 +122,41 @@ error:
 }
 
 data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
-                               baton_error_t *error) {
+                               int flags, baton_error_t *error) {
+    data_obj_file_t *data_obj = NULL;
     dataObjInp_t obj_open_in;
+    int descriptor;
 
     init_baton_error(error);
 
     memset(&obj_open_in, 0, sizeof obj_open_in);
-    obj_open_in.openFlags = O_RDONLY;
 
     logmsg(DEBUG, "Opening data object '%s'", rods_path->outPath);
-
     snprintf(obj_open_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
 
-    int descriptor = rcDataObjOpen(conn, &obj_open_in);
+    switch(flags) {
+        case (O_RDONLY):
+          obj_open_in.openFlags = O_RDONLY;
+
+          descriptor = rcDataObjOpen(conn, &obj_open_in);
+          break;
+
+        case (O_WRONLY):
+          obj_open_in.openFlags  = O_WRONLY;
+          obj_open_in.createMode = 0750;
+          obj_open_in.dataSize   = 0;
+          addKeyVal(&obj_open_in.condInput, FORCE_FLAG_KW, "");
+
+          descriptor = rcDataObjCreate(conn, &obj_open_in);
+          break;
+
+        default:
+          set_baton_error(error, -1,
+                          "Failed to open '%s': file open flag must be either"
+                          "O_RDONLY or O_WRONLY", rods_path->outPath, flags);
+          goto error;
+    }
+
     if (descriptor < 0) {
         char *err_subname;
         char *err_name = rodsErrorName(descriptor, &err_subname);
@@ -143,55 +166,69 @@ data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
-    data_obj_file_t *obj_file = NULL;
-
-    obj_file = calloc(1, sizeof (data_obj_file_t));
-    if (!obj_file) {
+    data_obj = calloc(1, sizeof (data_obj_file_t));
+    if (!data_obj) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
         goto error;
     }
 
-    obj_file->path           = rods_path->outPath;
-    obj_file->flags          = obj_open_in.openFlags;
-    obj_file->descriptor     = descriptor;
-    obj_file->md5_last_read  = calloc(33, sizeof (char));
-    obj_file->md5_last_write = calloc(33, sizeof (char));
+    data_obj->path                = rods_path->outPath;
+    data_obj->flags               = obj_open_in.openFlags;
+    data_obj->open_obj            = calloc(1, sizeof (openedDataObjInp_t));
+    data_obj->open_obj->l1descInx = descriptor;
+    data_obj->md5_last_read       = calloc(33, sizeof (char));
+    data_obj->md5_last_write      = calloc(33, sizeof (char));
 
-    return obj_file;
+    return data_obj;
 
 error:
+    if (data_obj) free_data_obj(data_obj);
+
     return NULL;
 }
 
-size_t read_data_obj(rcComm_t *conn, data_obj_file_t *obj_file, char *buffer,
-                     size_t len, baton_error_t *error) {
-    openedDataObjInp_t obj_read_in;
+int close_data_obj(rcComm_t *conn, data_obj_file_t *data_obj) {
+    logmsg(DEBUG, "Closing '%s'", data_obj->path);
+    int status = rcDataObjClose(conn, data_obj->open_obj);
 
+    return status;
+}
+
+void free_data_obj(data_obj_file_t *data_obj) {
+    assert(data_obj);
+
+    if (data_obj->open_obj)       free(data_obj->open_obj);
+    if (data_obj->md5_last_read)  free(data_obj->md5_last_read);
+    if (data_obj->md5_last_write) free(data_obj->md5_last_write);
+
+    free(data_obj);
+}
+
+size_t read_chunk(rcComm_t *conn, data_obj_file_t *data_obj, char *buffer,
+                  size_t len, baton_error_t *error) {
     init_baton_error(error);
 
-    memset(&obj_read_in, 0, sizeof obj_read_in);
-    obj_read_in.l1descInx = obj_file->descriptor;
-    obj_read_in.len       = len;
+    data_obj->open_obj->len = len;
 
     bytesBuf_t obj_read_out;
     memset(&obj_read_out, 0, sizeof obj_read_out);
     obj_read_out.buf = buffer;
     obj_read_out.len = len;
 
-    logmsg(DEBUG, "Reading up to %zu bytes from '%s'", len, obj_file->path);
+    logmsg(DEBUG, "Reading up to %zu bytes from '%s'", len, data_obj->path);
 
-    int num_read = rcDataObjRead(conn, &obj_read_in, &obj_read_out);
+    int num_read = rcDataObjRead(conn, data_obj->open_obj, &obj_read_out);
     if (num_read < 0) {
         char *err_subname;
         char *err_name = rodsErrorName(num_read, &err_subname);
         set_baton_error(error, num_read,
                         "Failed to read up to %zu bytes from '%s': %s",
-                        len, obj_file->path, err_name);
+                        len, data_obj->path, err_name);
         goto error;
     }
 
-    logmsg(DEBUG, "Read %d bytes from '%s'", num_read, obj_file->path);
+    logmsg(DEBUG, "Read %d bytes from '%s'", num_read, data_obj->path);
 
     return num_read;
 
@@ -199,28 +236,79 @@ error:
     return num_read;
 }
 
-int close_data_obj(rcComm_t *conn, data_obj_file_t *obj_file) {
-    openedDataObjInp_t obj_close_in;
-    memset(&obj_close_in, 0, sizeof obj_close_in);
-    obj_close_in.l1descInx = obj_file->descriptor;
+size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
+                     FILE *out, size_t buffer_size, baton_error_t *error) {
+    size_t num_read    = 0;
+    size_t num_written = 0;
+    char *buffer       = NULL;
 
-    logmsg(DEBUG, "Closing '%s'", obj_file->path);
-    int status = rcDataObjClose(conn, &obj_close_in);
+    init_baton_error(error);
 
-    return status;
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+                        buffer_size);
+        goto error;
+    }
+
+    buffer = calloc(buffer_size +1, sizeof (char));
+    if (!buffer) {
+        logmsg(ERROR, "Failed to allocate memory: error %d %s",
+               errno, strerror(errno));
+        goto error;
+    }
+
+    unsigned char digest[16];
+    MD5_CTX context;
+    compat_MD5Init(&context);
+
+    size_t nr, nw;
+    while ((nr = read_chunk(conn, data_obj, buffer, buffer_size, error)) > 0) {
+        num_read += nr;
+        logmsg(DEBUG, "Writing %zu bytes from '%s' to stream",
+               nr, data_obj->path);
+
+        int status = fwrite(buffer, 1, nr, out);
+        if (status < 0) {
+            logmsg(ERROR, "Failed to write to stream: error %d %s",
+                   errno, strerror(errno));
+            goto error;
+        }
+        nw = nr;
+        num_written += nw;
+
+        compat_MD5Update(&context, (unsigned char*) buffer, nr);
+        memset(buffer, 0, buffer_size);
+    }
+
+    compat_MD5Final(digest, &context);
+    set_md5_last_read(data_obj, digest);
+
+    if (num_read != num_written) {
+        set_baton_error(error, -1, "Read %zu bytes from '%s' but wrote "
+                        "%zu bytes ", num_read, data_obj->path, num_written);
+        goto error;
+    }
+
+    if (!validate_md5_last_read(conn, data_obj)) {
+        logmsg(WARN, "Checksum mismatch for '%s' having MD5 %s on reading",
+               data_obj->path, data_obj->md5_last_read);
+    }
+
+    logmsg(NOTICE, "Wrote %zu bytes from '%s' to stream having MD5 %s",
+           num_written, data_obj->path, data_obj->md5_last_read);
+
+    if (buffer) free(buffer);
+
+    return num_written;
+
+error:
+    if (buffer) free(buffer);
+
+    return num_written;
 }
 
-void free_data_obj(data_obj_file_t *obj_file) {
-    assert(obj_file);
-
-    if (obj_file->md5_last_read)  free(obj_file->md5_last_read);
-    if (obj_file->md5_last_write) free(obj_file->md5_last_write);
-
-    free(obj_file);
-}
-
-char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
-                        size_t buffer_size, baton_error_t *error) {
+char *slurp_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
+                     size_t buffer_size, baton_error_t *error) {
     char *buffer  = NULL;
     char *content = NULL;
 
@@ -247,12 +335,11 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
         goto error;
     }
 
-    size_t n;
-    while ((n = read_data_obj(conn, obj_file, buffer, buffer_size,
-                              error)) > 0) {
+    size_t nr;
+    while ((nr = read_chunk(conn, data_obj, buffer, buffer_size, error)) > 0) {
       logmsg(TRACE, "Read %zu bytes. Capacity %zu, num read %zu",
-	     n, capacity, num_read);
-        if (num_read + n > capacity) {
+             nr, capacity, num_read);
+        if (num_read + nr > capacity) {
             capacity = capacity * 2;
 
             char *tmp = NULL;
@@ -267,24 +354,24 @@ char *slurp_data_object(rcComm_t *conn, data_obj_file_t *obj_file,
             content = tmp;
         }
 
-        memcpy(content + num_read, buffer, n);
+        memcpy(content + num_read, buffer, nr);
         memset(buffer, 0, buffer_size);
-        num_read += n;
+        num_read += nr;
     }
 
     logmsg(DEBUG, "Final capacity %zu, offset %zu", capacity, num_read);
 
-    compat_MD5Update(&context, (unsigned char*) content, num_read);
+    compat_MD5Update(&context, (unsigned char *) content, num_read);
     compat_MD5Final(digest, &context);
-    set_md5_last_read(obj_file, digest);
+    set_md5_last_read(data_obj, digest);
 
-    if (!validate_md5_last_read(conn, obj_file)) {
+    if (!validate_md5_last_read(conn, data_obj)) {
         logmsg(WARN, "Checksum mismatch for '%s' having MD5 %s on reading",
-               obj_file->path, obj_file->md5_last_read);
+               data_obj->path, data_obj->md5_last_read);
     }
 
     logmsg(NOTICE, "Wrote %zu bytes from '%s' to buffer having MD5 %s",
-           num_read, obj_file->path, obj_file->md5_last_read);
+           num_read, data_obj->path, data_obj->md5_last_read);
 
     if (buffer) free(buffer);
 
@@ -297,90 +384,122 @@ error:
     return NULL;
 }
 
-size_t stream_data_object(rcComm_t *conn, data_obj_file_t *obj_file, FILE *out,
-                          size_t buffer_size, baton_error_t *error) {
-    size_t num_written = 0;
-    char *buffer = NULL;
+int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
+                      const char *local_path, size_t buffer_size,
+                      baton_error_t *error) {
+    FILE *stream = NULL;
 
     init_baton_error(error);
 
     if (buffer_size == 0) {
-        set_baton_error(error, -1, "Invalid buffer_size argument %u",
+        set_baton_error(error, -1, "Invalid buffer_size argument %zu",
                         buffer_size);
         goto error;
     }
 
-    buffer = calloc(buffer_size +1, sizeof (char));
-    if (!buffer) {
-        logmsg(ERROR, "Failed to allocate memory: error %d %s",
-               errno, strerror(errno));
+    logmsg(DEBUG, "Writing '%s' to '%s'", rods_path->outPath, local_path);
+
+    // Currently only data objects are supported
+    if (rods_path->objType != DATA_OBJ_T) {
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot write the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
         goto error;
     }
 
-    unsigned char digest[16];
-    MD5_CTX context;
-    compat_MD5Init(&context);
-
-    size_t n;
-    while ((n = read_data_obj(conn, obj_file, buffer, buffer_size,
-                              error)) > 0) {
-        logmsg(DEBUG, "Writing %zu bytes from '%s' to stream",
-	       n, obj_file->path);
-
-        int status = fwrite(buffer, 1, n, out);
-        if (status < 0) {
-            logmsg(ERROR, "Failed to write to stream: error %d %s",
-                   errno, strerror(errno));
-            goto error;
-        }
-
-        compat_MD5Update(&context, (unsigned char*) buffer, n);
-        memset(buffer, 0, buffer_size);
-        num_written += n;
+    stream = fopen(local_path, "w");
+    if (!stream) {
+        set_baton_error(error, errno,
+                        "Failed to open '%s' for writing: error %d %s",
+                        local_path, errno, strerror(errno));
+        goto error;
     }
 
-    compat_MD5Final(digest, &context);
-    set_md5_last_read(obj_file, digest);
+    get_data_obj_stream(conn, rods_path, stream, buffer_size, error);
+    int status = fclose(stream);
 
-    if (!validate_md5_last_read(conn, obj_file)) {
-        logmsg(WARN, "Checksum mismatch for '%s' having MD5 %s on reading",
-               obj_file->path, obj_file->md5_last_read);
+    if (error->code != 0) goto error;
+    if (status != 0) {
+        set_baton_error(error, errno,
+                        "Failed to close '%s': error %d %s",
+                        local_path, errno, strerror(errno));
+        goto error;
     }
 
-    logmsg(NOTICE, "Wrote %zu bytes from '%s' to stream having MD5 %s",
-           num_written, obj_file->path, obj_file->md5_last_read);
-
-    if (buffer) free(buffer);
-
-    return num_written;
+    return error->code;
 
 error:
-    if (buffer) free(buffer);
-
-    return num_written;
+    return error->code;
 }
 
-void set_md5_last_read(data_obj_file_t *obj_file, unsigned char digest[16]) {
-    char *md5 = obj_file->md5_last_read;
+int get_data_obj_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
+                        size_t buffer_size, baton_error_t *error) {
+    data_obj_file_t *data_obj = NULL;
+
+    init_baton_error(error);
+
+    if (buffer_size == 0) {
+        set_baton_error(error, -1, "Invalid buffer_size argument %zu",
+                        buffer_size);
+        goto error;
+    }
+
+    logmsg(DEBUG, "Writing '%s' to a stream", rods_path->outPath);
+
+    if (rods_path->objType != DATA_OBJ_T) {
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Cannot write the contents of '%s' because "
+                        "it is not a data object", rods_path->outPath);
+        goto error;
+    }
+
+    data_obj = open_data_obj(conn, rods_path, O_RDONLY, error);
+    if (error->code != 0) goto error;
+
+    size_t nr = read_data_obj(conn, data_obj, out, buffer_size, error);
+    int status = close_data_obj(conn, data_obj);
+
+    if (error->code != 0) goto error;
+    if (status < 0) {
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to close data object: '%s' error %d %s",
+                        rods_path->outPath, status, err_name);
+        goto error;
+    }
+
+    free_data_obj(data_obj);
+
+    return nr;
+
+error:
+    if (data_obj) free_data_obj(data_obj);
+
+    return error->code;
+}
+
+void set_md5_last_read(data_obj_file_t *data_obj, unsigned char digest[16]) {
+    char *md5 = data_obj->md5_last_read;
     for (int i = 0; i < 16; i++) {
         snprintf(md5 + i * 2, 3, "%02x", digest[i]);
     }
 }
 
-int validate_md5_last_read(rcComm_t *conn, data_obj_file_t *obj_file) {
+int validate_md5_last_read(rcComm_t *conn, data_obj_file_t *data_obj) {
     dataObjInp_t obj_md5_in;
     memset(&obj_md5_in, 0, sizeof obj_md5_in);
 
-    snprintf(obj_md5_in.objPath, MAX_NAME_LEN, "%s", obj_file->path);
+    snprintf(obj_md5_in.objPath, MAX_NAME_LEN, "%s", data_obj->path);
 
     char *md5 = NULL;
     int status = rcDataObjChksum(conn, &obj_md5_in, &md5);
     if (status < 0) goto error;
 
     logmsg(DEBUG, "Comparing last read MD5 of '%s' with expected MD5 of '%s'",
-           obj_file->md5_last_read, md5);
+           data_obj->md5_last_read, md5);
 
-    status = str_equals_ignore_case(obj_file->md5_last_read, md5, 32);
+    status = str_equals_ignore_case(data_obj->md5_last_read, md5, 32);
     free(md5);
 
     return status;

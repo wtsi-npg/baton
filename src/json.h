@@ -102,6 +102,7 @@
 #define JSON_LIST_OPERATION        "list"
 #define JSON_METAMOD_OPERATION     "metamod"
 #define JSON_METAQUERY_OPERATION   "metaquery"
+#define JSON_PUT_OPERATION         "put"
 
 #define JSON_PARAMS_KEY            "parameters"
 #define JSON_PARAMS_SHORT_KEY      "params"
