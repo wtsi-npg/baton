@@ -56,27 +56,40 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
         baton_error_t error;
         json_t *result = fn(env, conn, item, flags, &error, fnargs);
         if (error.code != 0) {
+            // On error, add an error report to the input JSON as a
+            // property and print the input JSON
             error_count++;
             add_error_value(item, &error);
             print_json(item);
         }
-        else if (has_operation(item) && has_operation_target(item)) {
-            // It's an envelope, so we add the result as a property
-            add_result(item, result, &error);
-            if (error.code != 0) {
-                logmsg(ERROR, "Failed to add error report to item %d "
-                       "in stream. Error code %d: %s", item_count,
-                       error.code, error.message);
-                error_count++;
-            }
-            print_json(item);
-        }
         else {
-            // There is no envelope, so the result is reported
-            // directly
-            print_json(result);
-            json_decref(result);
+            if (has_operation(item) && has_operation_target(item) && result) {
+                // It's an envelope, so we add the result to the input
+                // JSON as a property and print the input JSON
+                baton_error_t rerror;
+                add_result(item, result, &rerror);
+                if (rerror.code != 0) {
+                    logmsg(ERROR, "Failed to add error report to item %d "
+                           "in stream. Error code %d: %s", item_count,
+                           rerror.code, rerror.message);
+                    error_count++;
+                }
+                print_json(item);
+            }
+            else if (result) {
+                // There is no envelope and there is some result JSON,
+                // so we print the result JSON
+                print_json(result);
+                json_decref(result);
+            }
+            else {
+                // There is no envelope and it's a void operation
+                // giving no result JSON, so we print the input JSON
+                // instead
+                print_json(item);
+            }
         }
+
         if (flags & FLUSH) fflush(stdout);
 
         va_end(fnargs);
@@ -95,6 +108,8 @@ int do_operation(FILE *input, baton_json_op fn, option_flags flags, ...) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
     if (!conn) goto error;
+
+    if (!input) goto error;
 
     va_list args;
     va_start(args, flags);
@@ -131,23 +146,14 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     json_t *result = NULL;
 
     const char *op = get_operation_name(envelope, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     json_t *target = get_operation_target(envelope, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     if (has_operation_params(envelope)) {
         json_t *params = get_operation_params(envelope, error);
-        if (error->code != 0) {
-            result = error_to_json(error);
-            goto error;
-        }
+        if (error->code != 0)  goto error;
 
         if (acl_p(params))        flags = flags | PRINT_ACL;
         if (avu_p(params))        flags = flags | PRINT_AVU;
@@ -185,7 +191,6 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     }
     else {
         set_baton_error(error, -1, "Invalid baton operation '%s'", op);
-        result = error_to_json(error);
         goto error;
     }
 
@@ -203,23 +208,14 @@ json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     result = list_path(conn, &rods_path, flags, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
@@ -240,25 +236,18 @@ json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
     if (!json_is_array(perms)) {
         set_baton_error(error, -1, "Permissions data for %s is not in "
                         "a JSON array", path);
-        result = error_to_json(error);
         goto error;
     }
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     recursive_op recurse = (flags & RECURSIVE) ? RECURSE : NO_RECURSE;
 
@@ -266,10 +255,7 @@ json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         json_t *perm = json_array_get(perms, i);
         modify_json_permissions(conn, &rods_path, recurse, perm, error);
 
-        if (error->code != 0) {
-            result = error_to_json(error);
-            goto error;
-        }
+        if (error->code != 0) goto error;
     }
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
@@ -290,20 +276,14 @@ json_t *baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn, json_t *target,
 
     if (has_collection(target)) {
         resolve_collection(target, conn, env, flags, error);
-        if (error->code != 0) {
-            result = error_to_json(error);
-            goto error;
-        }
+        if (error->code != 0) goto error;
     }
 
     char *zone_name = va_arg(args, char *);
     logmsg(DEBUG, "Metadata query in zone '%s'", zone_name);
 
     result = search_metadata(conn, target, zone_name, flags, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     return result;
 
@@ -319,25 +299,18 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     json_t *avus = json_object_get(target, JSON_AVUS_KEY);
     if (!json_is_array(avus)) {
         set_baton_error(error, -1, "AVU data for %s is not in a JSON array",
                         path);
-        result = error_to_json(error);
         goto error;
     }
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     metadata_op operation;
     if (flags & ADD_AVU) {
@@ -349,20 +322,17 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     else {
         set_baton_error(error, -1, "No metadata operation was requested ",
                         " for %s", path);
-        result = error_to_json(error);
         goto error;
     }
 
     for (size_t i = 0; i < json_array_size(avus); i++) {
         json_t *avu = json_array_get(avus, i);
         modify_json_metadata(conn, &rods_path, operation, avu, error);
-        if (error->code != 0) {
-            result = error_to_json(error);
-            goto error;
-        }
+        if (error->code != 0) goto error;
     }
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+    if (path) free(path);
 
     return result;
 
@@ -378,17 +348,11 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     va_arg(args, char *); // zone_name not used
     size_t buffer_size = va_arg(args, size_t);
@@ -398,35 +362,23 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (flags & SAVE_FILES) {
         char *file = NULL;
         file = json_to_local_path(target, error);
-        if (error->code != 0) {
-            result = error_to_json(error);
-            goto error;
-        }
+        if (error->code != 0) goto error;
 
         get_data_obj_file(conn, &rods_path, file, buffer_size, error);
         free(file);
-
-        if (error->code != 0) {
-            result = error_to_json(error);
-            goto error;
-        }
+        if (error->code != 0) goto error;
     }
     else if (flags & PRINT_RAW) {
         get_data_obj_stream(conn, &rods_path, stdout, buffer_size, error);
-        if (error->code != 0) {
-            result = error_to_json(error);
-            goto error;
-        }
+        if (error->code != 0) goto error;
     }
     else {
         result = ingest_data_obj(conn, &rods_path, flags, buffer_size, error);
-        if (error->code != 0) {
-            result = error_to_json(error);
-            goto error;
-        }
+        if (error->code != 0) goto error;
     }
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+    if (path) free(path);
 
     return result;
 
@@ -442,23 +394,14 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     char *file = json_to_local_path(target, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     va_arg(args, char *); // zone_name not used
     size_t buffer_size = va_arg(args, size_t);
@@ -484,6 +427,8 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         goto error;
     }
 
+    if (path) free(path);
+
     return result;
 
 error:
@@ -500,23 +445,14 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     char *file = json_to_local_path(target, error);
-    if (error->code != 0) {
-        result = error_to_json(error);
-        goto error;
-    }
+    if (error->code != 0) goto error;
 
     int status = put_data_obj(conn, file, &rods_path, flags, error);
 
@@ -527,6 +463,8 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                         "README", errno, strerror(errno));
         goto error;
     }
+
+    if (path) free(path);
 
     return result;
 

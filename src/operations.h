@@ -96,7 +96,8 @@ typedef enum {
  * @param[in]      args         Optional arguments, char * zone name,
  *                              size_t transfer buffer size.
  *
- * @return 0 on success, iRODS error code on failure.
+ * @return json_t on success, which may be NULL if the operation
+ * is void e.g. side-effect only operations.
  */
 typedef json_t *(*baton_json_op) (rodsEnv *env,
                                   rcComm_t *conn,

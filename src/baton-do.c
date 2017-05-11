@@ -112,6 +112,8 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
+    if (unbuffered_flag) flags = flags | FLUSH;
+
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
     if (silent_flag)  set_log_threshold(FATAL);

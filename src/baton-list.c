@@ -140,6 +140,9 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
+    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
+    if (unbuffered_flag) flags = flags | FLUSH;
+
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
     if (silent_flag)  set_log_threshold(FATAL);
@@ -148,6 +151,8 @@ int main(int argc, char *argv[]) {
     input = maybe_stdin(json_file);
 
     int status = do_operation(input, baton_json_list_op, flags);
+    if (input != stdin) fclose(input);
+
     if (status != 0) exit_status = 5;
 
     exit(exit_status);

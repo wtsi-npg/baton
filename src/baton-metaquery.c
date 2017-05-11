@@ -106,13 +106,15 @@ int main(int argc, char *argv[]) {
         flags = flags ^ SEARCH_COLLECTIONS;
     }
 
-    if (acl_flag)       flags = flags | PRINT_ACL;
-    if (avu_flag)       flags = flags | PRINT_AVU;
-    if (checksum_flag)  flags = flags | PRINT_CHECKSUM;
-    if (replicate_flag) flags = flags | PRINT_REPLICATE;
-    if (size_flag)      flags = flags | PRINT_SIZE;
-    if (timestamp_flag) flags = flags | PRINT_TIMESTAMP;
-    if (unsafe_flag)    flags = flags | UNSAFE_RESOLVE;
+    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
+    if (unbuffered_flag) flags = flags | FLUSH;
+
+    if (acl_flag)        flags = flags | PRINT_ACL;
+    if (avu_flag)        flags = flags | PRINT_AVU;
+    if (checksum_flag)   flags = flags | PRINT_CHECKSUM;
+    if (replicate_flag)  flags = flags | PRINT_REPLICATE;
+    if (size_flag)       flags = flags | PRINT_SIZE;
+    if (timestamp_flag)  flags = flags | PRINT_TIMESTAMP;
 
     const char *help =
         "Name\n"
@@ -165,6 +167,8 @@ int main(int argc, char *argv[]) {
 
     int status = do_operation(input, baton_json_metaquery_op, flags,
                               zone_name);
+    if (input != stdin) fclose(input);
+
     if (status != 0) exit_status = 5;
 
     exit(exit_status);

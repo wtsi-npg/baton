@@ -33,8 +33,6 @@ static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
-int do_modify_metadata(FILE *input, metadata_op operation, option_flags flags);
-
 int main(int argc, char *argv[]) {
     option_flags flags = 0;
     int exit_status = 0;
@@ -127,7 +125,8 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (unsafe_flag) flags = flags | UNSAFE_RESOLVE;
+    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
+    if (unbuffered_flag) flags = flags | FLUSH;
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
@@ -137,6 +136,8 @@ int main(int argc, char *argv[]) {
     input = maybe_stdin(json_file);
 
     int status = do_operation(input, baton_json_metamod_op, flags);
+    if (input != stdin) fclose(input);
+
     if (status != 0) exit_status = 5;
 
     exit(exit_status);

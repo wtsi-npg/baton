@@ -88,8 +88,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (checksum_flag)  flags = flags | CALCULATE_CHECKSUM;
-    if (unsafe_flag) flags    = flags | UNSAFE_RESOLVE;
+    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
+    if (unbuffered_flag) flags = flags | FLUSH;
+
+    if (checksum_flag)   flags = flags | CALCULATE_CHECKSUM;
 
     const char *help =
         "Name\n"
@@ -156,8 +158,8 @@ int main(int argc, char *argv[]) {
 
     int status = do_operation(input, baton_json_put_op, flags, zone_name,
                               buffer_size);
-
     if (input != stdin) fclose(input);
+
     if (status != 0)    exit_status = 5;
 
     exit(exit_status);

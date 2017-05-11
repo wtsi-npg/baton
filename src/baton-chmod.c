@@ -124,6 +124,8 @@ int main(int argc, char *argv[]) {
     input = maybe_stdin(json_file);
 
     int status = do_operation(input, baton_json_chmod_op, flags);
+    if (input != stdin) fclose(input);
+
     if (status != 0) exit_status = 5;
 
     exit(exit_status);
