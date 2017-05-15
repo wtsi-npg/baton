@@ -29,6 +29,8 @@ iRODS:
   modification timestamps and timestamp ranges. The full range of
   iRODS query operators is supported.
 
+* Uploading local files to create data objects.
+
 * Fetching data object content inlined within JSON (text files only)
   or downloading data objects to local files.
 
@@ -110,10 +112,14 @@ stream of JSON objects on standard output. The ``baton`` programs are:
 
   Download data objects as raw files or with metadata, embedded in JSON.
 
+* `baton-put`_
+
+  Upload local files to create data objects.
+
 * `baton-list`_
 
-  Prints the paths, metadata and access control lists and timestamps
-  of collections and data objects.
+  Print the paths, metadata and access control lists and timestamps of
+  collections and data objects.
 
 * `baton-metamod`_
 
@@ -125,10 +131,10 @@ stream of JSON objects on standard output. The ``baton`` programs are:
   Print the paths, metadata and access control lists of collections
   and data objects matching queries on metadata.
 
-* `baton-metasuper`
+* `baton-do`_
 
-  Replace all :term:`AVU` s in the metadata on collections and data
-  objects.
+  Perform a mixture of list, chmod, get, put, metamod or metaquery
+  ``baton`` operations specified by parameters supplied as JSON.
 
 All of the programs are designed to accept a stream of JSON objects,
 one for each operation on a collection or data object. After each
@@ -158,7 +164,7 @@ Options
 .. program:: baton-chmod
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-chmod
@@ -214,7 +220,7 @@ Synopsis:
 
 This program accepts JSON objects as described in
 :ref:`representing_paths` and prints results in the same format. The
-target path must represent a data object. It's default mode is to JSON
+target path must represent a data object. Its default mode is to JSON
 encode the file content under the JSON property ``data`` in the output.
 
 Some local path properties may be omitted from the input JSON and will
@@ -247,7 +253,7 @@ Options
 .. program:: baton-get
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-get
@@ -309,6 +315,67 @@ Options
   Print the version number and exit.
 
 
+baton-put
+---------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt", \
+             directory: "/data/user/local",  file: "a_copy.txt"}'  | baton-put
+
+This program accepts JSON objects as described in
+:ref:`representing_paths` and prints results in the same format. The
+JSON must dsecribe a local file to upload and a target data object
+path to write. The target path may be an existing object, in which
+case it will overwrite.
+
+``baton-put`` performs an on the-the-fly MD5 checksum of the local
+file content as it is uploaded. It compares this with the eventual MD5
+checksum held in iRODS and will raise an error if they do not
+match.
+
+Options
+^^^^^^^
+
+.. program:: baton-put
+.. option:: --file <file name>
+
+  A JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+.. program:: baton-put
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-put
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-put
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-put
+.. option:: --unsafe
+
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+
+.. program:: baton-put
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-put
+.. option:: --version
+
+  Print the version number and exit.
+
+
 baton-list
 ----------
 
@@ -359,7 +426,7 @@ Options
 .. program:: baton-list
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-list
@@ -436,7 +503,7 @@ Options
 .. program:: baton-metamod
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-metamod
@@ -530,7 +597,7 @@ Options
 .. program:: baton-metaquery
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-metaquery
@@ -584,6 +651,78 @@ Options
 .. option:: --zone <zone name>
 
    Query in a specific zone.
+
+
+baton-do
+-------------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{"operation": "metaquery",
+             "parameters": {
+                 "avu": true,
+                 "acl": true,
+                 "replicate": true,
+                 "object": true
+              },
+              "target": {avus: [{attribute: "x", value: "y"},   \
+                                {attribute: "m", value: "n"}]}' | baton-do
+
+This program accepts JSON objects as described in :ref:`representing_paths`
+that have been wrapped in an additional JSON envelope describing a operation
+to be carried out, along with any parameters for that operation.
+
+The JSON envelope has two mandatory properties; `operation`, whose
+value must be a string naming a ``baton`` operation to be performed
+(one of `chmod`, `get`, `put`, `list`, `metamod`, `metaquery`) and
+`target` which must be a ``baton``-format JSON object. The envelope
+has one optional property `parameters` which, if present, must be a
+JSON object whose keys and values may be any of the command line
+options permitted for the standard ``baton`` clients supporting the
+previously named operations. Where command line options are boolean
+flags, a JSON `true` value should be used.
+
+Options
+^^^^^^^
+
+.. program:: baton-do
+.. option:: --file <file name>
+
+  A JSON file describing the ``baton`` operations and their parameters.
+  Optional, defaults to STDIN.
+
+.. program:: baton-do
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-do
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-do
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-do
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-do
+.. option:: --version
+
+  Print the version number and exit.
+
+.. program:: baton-do
+.. option:: --zone <zone name>
+
+   Operate in a specific zone.
+
 
 .. _representing_paths:
 

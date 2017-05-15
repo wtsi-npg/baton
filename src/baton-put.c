@@ -1,6 +1,5 @@
 /**
- * Copyright (C) 2014, 2015, 2017 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2017 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,15 +24,10 @@
 #include "config.h"
 #include "baton.h"
 
-static int acl_flag        = 0;
-static int avu_flag        = 0;
+static int checksum_flag   = 0;
 static int debug_flag      = 0;
 static int help_flag       = 0;
-static int raw_flag        = 0;
-static int save_flag       = 0;
 static int silent_flag     = 0;
-static int size_flag       = 0;
-static int timestamp_flag  = 0;
 static int unbuffered_flag = 0;
 static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
@@ -44,7 +38,8 @@ static size_t max_buffer_size     = 1024 * 1024 * 1024;
 
 int main(int argc, char *argv[]) {
     option_flags flags = 0;
-    int exit_status = 0;
+    int exit_status    = 0;
+    char *zone_name = NULL;
     char *json_file = NULL;
     FILE *input     = NULL;
     size_t buffer_size = default_buffer_size;
@@ -52,15 +47,10 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"acl",         no_argument, &acl_flag,        1},
-            {"avu",         no_argument, &avu_flag,        1},
+            {"checksum",    no_argument, &checksum_flag,   1},
             {"debug",       no_argument, &debug_flag,      1},
             {"help",        no_argument, &help_flag,       1},
-            {"raw",         no_argument, &raw_flag,        1},
-            {"save",        no_argument, &save_flag,       1},
             {"silent",      no_argument, &silent_flag,     1},
-            {"size",        no_argument, &size_flag,       1},
-            {"timestamp",   no_argument, &timestamp_flag,  1},
             {"unbuffered",  no_argument, &unbuffered_flag, 1},
             {"unsafe",      no_argument, &unsafe_flag,     1},
             {"verbose",     no_argument, &verbose_flag,    1},
@@ -98,40 +88,30 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag)       flags = flags | PRINT_ACL;
-    if (avu_flag)       flags = flags | PRINT_AVU;
-    if (raw_flag)       flags = flags | PRINT_RAW;
-    if (size_flag)      flags = flags | PRINT_SIZE;
-    if (timestamp_flag) flags = flags | PRINT_TIMESTAMP;
-    if (unsafe_flag)    flags = flags | UNSAFE_RESOLVE;
+    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
+    if (unbuffered_flag) flags = flags | FLUSH;
+
+    if (checksum_flag)   flags = flags | CALCULATE_CHECKSUM;
 
     const char *help =
         "Name\n"
-        "    baton-get\n"
+        "    baton-put\n"
         "\n"
         "Synopsis\n"
         "\n"
-        "    baton-get [--acl] [--avu] [--file <JSON file>]\n"
-        "              [--raw] [--save] [--silent] [--size]\n"
-        "              [--timestamp] [--unbuffered] [--unsafe]\n"
+        "    baton-put [--file <JSON file>] [--silent]\n"
+        "              [--unbuffered] [--unsafe]\n"
         "              [--verbose] [--version]\n"
         "\n"
         "Description\n"
-        "    Gets the contents of data objects described in a JSON\n"
-        "    input file.\n"
+        "    Puts the contents of files into data objects described in a\n"
+        "    JSON input file.\n"
         ""
-        "    --acl         Print access control lists in output.\n"
-        "    --avu         Print AVU lists in output.\n"
         "    --buffer-size Set the transfer buffer size.\n"
+        "    --checksum    Calculate a checksum on the server side.\n"
         "    --file        The JSON file describing the data objects.\n"
         "                  Optional, defaults to STDIN.\n"
-        "    --raw         Print data object content without any JSON\n"
-        "                  wrapping.\n"
-        "    --save        Save data object content to individual files,\n"
-        "                  without any JSON wrapping i.e. implies --raw.\n"
         "    --silent      Silence error messages.\n"
-        "    --size        Print data object sizes in output.\n"
-        "    --timestamp   Print timestamps in output.\n"
         "    --unbuffered  Flush print operations for each JSON object.\n"
         "    --unsafe      Permit unsafe relative iRODS paths.\n"
         "    --verbose     Print verbose messages to STDERR.\n"
@@ -147,20 +127,9 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
-    if (unbuffered_flag) flags = flags | FLUSH;
-
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
     if (silent_flag)  set_log_threshold(FATAL);
-    if (raw_flag || save_flag) {
-        const char *msg = "Ignoring the %s flag because raw output requested";
-
-        if (acl_flag)       logmsg(WARN, msg, "--acl");
-        if (avu_flag)       logmsg(WARN, msg, "--avu");
-        if (size_flag)      logmsg(WARN, msg, "--size");
-        if (timestamp_flag) logmsg(WARN, msg, "--timestamp");
-    }
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
@@ -187,11 +156,11 @@ int main(int argc, char *argv[]) {
 
     logmsg(DEBUG, "Using a transfer buffer size of %zu bytes", buffer_size);
 
-    int status = do_operation(input, baton_json_get_op, flags, NULL,
+    int status = do_operation(input, baton_json_put_op, flags, zone_name,
                               buffer_size);
     if (input != stdin) fclose(input);
 
-    if (status != 0) exit_status = 5;
+    if (status != 0)    exit_status = 5;
 
     exit(exit_status);
 }

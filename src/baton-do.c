@@ -1,6 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2017 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,34 +28,35 @@ static int debug_flag      = 0;
 static int help_flag       = 0;
 static int silent_flag     = 0;
 static int unbuffered_flag = 0;
-static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
+static size_t default_buffer_size = 1024 * 64 * 16 * 2;
+
 int main(int argc, char *argv[]) {
     option_flags flags = 0;
-    int exit_status = 0;
+    int exit_status    = 0;
+    char *zone_name = NULL;
     char *json_file = NULL;
-    FILE     *input = NULL;
+    FILE *input     = NULL;
 
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"debug",      no_argument, &debug_flag,      1},
-            {"help",       no_argument, &help_flag,       1},
-            {"silent",     no_argument, &silent_flag,     1},
-            {"unbuffered", no_argument, &unbuffered_flag, 1},
-            {"unsafe",     no_argument, &unsafe_flag,     1},
-            {"verbose",    no_argument, &verbose_flag,    1},
-            {"version",    no_argument, &version_flag,    1},
+            {"debug",       no_argument, &debug_flag,      1},
+            {"help",        no_argument, &help_flag,       1},
+            {"silent",      no_argument, &silent_flag,     1},
+            {"unbuffered",  no_argument, &unbuffered_flag, 1},
+            {"verbose",     no_argument, &verbose_flag,    1},
+            {"version",     no_argument, &version_flag,    1},
             // Indexed options
-            {"file",      required_argument, NULL, 'f'},
-            {"operation", required_argument, NULL, 'o'},
+            {"file",        required_argument, NULL, 'f'},
+            {"zone",        required_argument, NULL, 'z'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:o:",
+        int c = getopt_long_only(argc, argv, "f:z:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -67,18 +67,8 @@ int main(int argc, char *argv[]) {
                 json_file = optarg;
                 break;
 
-            case 'o':
-                if (strcmp("add", optarg) ==  0) {
-                    flags = flags | ADD_AVU;
-                }
-                else if (strcmp("rem", optarg) == 0) {
-                    flags = flags | REMOVE_AVU;
-                }
-                else {
-                    fprintf(stderr, "No valid operation was specified; valid "
-                            "operations are: [add rem]\n");
-                    goto args_error;
-                }
+            case 'z':
+                zone_name = optarg;
                 break;
 
             case '?':
@@ -93,30 +83,27 @@ int main(int argc, char *argv[]) {
 
     const char *help =
         "Name\n"
-        "    baton-metamod\n"
+        "    baton-do\n"
         "\n"
         "Synopsis\n"
         "\n"
-        "    baton-metamod [--file <JSON file>] --operation <operation>\n"
-        "                  [--silent] [--unbuffered] [--unsafe]\n"
-        "                  [--verbose] [--version]\n"
+        "    baton-do [--file <JSON file>] [--silent]\n"
+        "             [--unbuffered] [--verbose] [--version]\n"
         "\n"
         "Description\n"
-        "    Modifies metadata AVUs on collections and data objects\n"
-        "described in a JSON input file.\n"
-        "\n"
-        "    --file        The JSON file describing the data objects and\n"
-        "                  collections. Optional, defaults to STDIN.\n"
-        "    --operation   Operation to perform. One of [add, rem].\n"
-        "                  Required.\n"
+        "    Performs remote operations as described in the JSON\n"
+        "    input file.\n"
+        ""
+        "    --file        The JSON file describing the operations.\n"
+        "                  Optional, defaults to STDIN.\n"
         "    --silent      Silence error messages.\n"
         "    --unbuffered  Flush print operations for each JSON object.\n"
-        "    --unsafe      Permit unsafe relative iRODS paths.\n"
         "    --verbose     Print verbose messages to STDERR.\n"
-        "    --version     Print the version number and exit.\n";
+        "    --version     Print the version number and exit.\n"
+        "    --zone        The zone to operate within. Optional.\n";
 
     if (help_flag) {
-        printf("%s\n", help);
+        printf("%s\n",help);
         exit(0);
     }
 
@@ -125,7 +112,6 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
     if (unbuffered_flag) flags = flags | FLUSH;
 
     if (debug_flag)   set_log_threshold(DEBUG);
@@ -135,15 +121,11 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    int status = do_operation(input, baton_json_metamod_op, flags);
+    int status = do_operation(input, baton_json_dispatch_op, flags, zone_name,
+                              default_buffer_size);
     if (input != stdin) fclose(input);
 
     if (status != 0) exit_status = 5;
-
-    exit(exit_status);
-
-args_error:
-    exit_status = 4;
 
     exit(exit_status);
 }

@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015,2016 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,70 +23,21 @@
 #ifndef _BATON_H
 #define _BATON_H
 
-#include <jansson.h>
 #include <rodsClient.h>
 
 #include "config.h"
-#include "error.h"
-#include "query.h"
-#include "utilities.h"
+#include "json_query.h"
+#include "list.h"
+#include "log.h"
+#include "read.h"
+#include "write.h"
 
 #define MAX_CLIENT_NAME_LEN   512
 
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rm"
 
-#define VALID_REPLICATE   "1"
-#define INVALID_REPLICATE "0"
-
 #define FILE_SIZE_UNITS "KB"
-
-/**
- *  @enum metadata_op
- *  @brief AVU metadata operations.
- */
-typedef enum {
-    /** Add an AVU. */
-    META_ADD,
-    /** Remove an AVU. */
-    META_REM,
-    /** Query AVUs */
-    META_QUERY
-} metadata_op;
-
-typedef enum {
-    /** Non-recursive operation */
-    NO_RECURSE,
-    /** Recursive operation */
-    RECURSE
-} recursive_op;
-
-typedef enum {
-    /** Print AVUs on collections and data objects */
-    PRINT_AVU          = 1 << 0,
-    /** Print ACLs on collections and data objects */
-    PRINT_ACL          = 1 << 1,
-    /** Print the contents of collections */
-    PRINT_CONTENTS     = 1 << 2,
-    /** Print timestamps on collections and data objects */
-    PRINT_TIMESTAMP    = 1 << 3,
-    /** Print file sizes for data objects */
-    PRINT_SIZE         = 1 << 4,
-    /** Pretty-print JSON */
-    PRINT_PRETTY       = 1 << 5,
-    /** Print raw output */
-    PRINT_RAW          = 1 << 6,
-    /** Search collection AVUs */
-    SEARCH_COLLECTIONS = 1 << 7,
-    /** Search data object AVUs */
-    SEARCH_OBJECTS     = 1 << 8,
-    /** Unsafely resolve relative paths */
-    UNSAFE_RESOLVE     = 1 << 9,
-    /** Print replicate details for data objects */
-    PRINT_REPLICATE    = 1 << 10,
-    /** Print checksums for data objects */
-    PRINT_CHECKSUM     = 1 << 11
-} option_flags;
 
 /**
  *  @struct metadata_op
@@ -106,7 +57,6 @@ typedef struct mod_metadata_in {
     /** The AVU attribute units. */
     char *attr_units;
 } mod_metadata_in_t;
-
 
 /**
  * Test that a connection can be made to the server.
@@ -152,7 +102,7 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath);
  * @param[in]  env          A populated iRODS environment.
  * @param[out] rodspath     An iRODS path.
  * @param[in]  inpath       A string representing an unresolved iRODS path.
- * @param[in]  option_flags Result print options.
+ * @param[in]  flags        Function behaviour options.
  * @param[out] error        An error report struct.
  *
  * @return 0 on success, iRODS error code on failure.
@@ -180,98 +130,6 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
                        option_flags flags, baton_error_t *error);
 
 /**
- * Return a JSON representation of the content of a resolved iRODS
- * path (data object or collection). In the case of a data object,
- * return the representation of that path. In the case of an
- * collection, return a JSON array containing zero or more JSON
- * representations of its contents.
- *
- * @param[in]  conn         An open iRODS connection.
- * @param[in]  rodspath     An iRODS path.
- * @param[in]  option_flags Result print options.
- * @param[out] error        An error report struct.
- *
- * @return A new struct representing the path content, which must be
- * freed by the caller.
- */
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
-                  baton_error_t *error);
-
-json_t *ingest_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
-                    size_t buffer_size, baton_error_t *error);
-
-int write_path_to_file(rcComm_t *conn, rodsPath_t *rods_path,
-                       const char *local_path, size_t buffer_size,
-                       baton_error_t *error);
-
-int write_path_to_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
-                         size_t buffer_size, baton_error_t *error);
-
-json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
-                      baton_error_t *error);
-
-/**
- * Return a JSON representation of the created and modified timestamps
- * of a resolved iRODS path (data object or collection).
- *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  rodspath  An iRODS path.
- * @param[out] error     An error report struct.
- *
- * @return A new struct representing the timestamps, which must be
- * freed by the caller.
- */
-json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
-                        baton_error_t *error);
-
-/**
- * Return a JSON representation of the access control list of a
- * resolved iRODS path (data object or collection).
- *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  rodspath  An iRODS path.
- * @param[out] error     An error report struct.
- *
- * @return A new struct representing the path access control list,
- * which must be freed by the caller.
- */
-json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                         baton_error_t *error);
-
-/**
- * Return a JSON representation of the replicates of a resolved iRODS
- * path (data object).
- *
- * @param[in]  conn      An open iRODS connection.
- * @param[in]  rodspath  An iRODS path.
- * @param[out] error     An error report struct.
- *
- * @return A new struct representing the path access control list,
- * which must be freed by the caller.
- */
-json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
-                        baton_error_t *error);
-
-#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
-json_t *list_resource(rcComm_t *conn, const char *resc_name,
-                      const char *zone_name, baton_error_t *error);
-#endif
-
-/**
- * List metadata of a specified data object or collection.
- *
- * @param[in]  conn       An open iRODS connection.
- * @param[out] rodspath   An iRODS path.
- * @param[in]  attr_name  An attribute name to limit the values returned.
- *                        Optional, NULL means return all metadata.
- * @param[out] error      An error report struct.
- *
- * @return A newly constructed JSON array of AVU JSON objects.
- */
-json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
-                      baton_error_t *error);
-
-/**
  * Search metadata to find matching data objects and collections.
  *
  * @param[in]  conn         An open iRODS connection.
@@ -282,7 +140,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
  *                          means the search will be global.
  * @param[in]  zone_name    An iRODS zone name. Optional, NULL means the current
  *                          zone.
- * @param[in]  option_flags Result print options.
+ * @param[in]  flags        Search behaviour options.
  * @param[out] error        An error report struct.
  *
  * @return A newly constructed JSON array of JSON result objects.

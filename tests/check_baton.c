@@ -34,9 +34,9 @@
 static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
 
-static char *BASIC_COLL          = "baton-basic-test";
-static char *BASIC_DATA_PATH     = "data";
-static char *BASIC_METADATA_PATH = "metadata/meta1.imeta";
+static char *TEST_COLL          = "baton-basic-test";
+static char *TEST_DATA_PATH     = "data";
+static char *TEST_METADATA_PATH = "metadata/meta1.imeta";
 static char *SQL_PATH            = "sql/specific_queries.sql";
 
 static char *SETUP_SCRIPT        = "scripts/setup_irods.sh";
@@ -58,11 +58,11 @@ static void set_current_rods_root(char *in, char *out) {
 }
 
 static void setup() {
-    set_log_threshold(WARN);
+    set_log_threshold(ERROR);
 
     char command[MAX_COMMAND_LEN];
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s",
              TEST_ROOT, SQL_SETUP_SCRIPT,
@@ -77,7 +77,7 @@ static void setup() {
 static void teardown() {
     char command[MAX_COMMAND_LEN];
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s",
              TEST_ROOT, SQL_TEARDOWN_SCRIPT,
@@ -92,14 +92,14 @@ static void teardown() {
 static void basic_setup() {
     char command[MAX_COMMAND_LEN];
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     snprintf(command, MAX_COMMAND_LEN, "%s/%s %s/%s %s %s %s/%s",
              TEST_ROOT, SETUP_SCRIPT,
-             TEST_ROOT, BASIC_DATA_PATH,
+             TEST_ROOT, TEST_DATA_PATH,
              rods_root,
              TEST_RESOURCE,
-             TEST_ROOT, BASIC_METADATA_PATH);
+             TEST_ROOT, TEST_METADATA_PATH);
 
     printf("Data setup: %s\n", command);
     int ret = system(command);
@@ -110,7 +110,7 @@ static void basic_setup() {
 static void basic_teardown() {
     char command[MAX_COMMAND_LEN];
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     snprintf(command, MAX_COMMAND_LEN, "%s/%s %s",
              TEST_ROOT, TEARDOWN_SCRIPT,
@@ -188,7 +188,7 @@ START_TEST(test_maybe_stdin) {
 
     char file_path[MAX_PATH_LEN];
     snprintf(file_path, MAX_PATH_LEN, "%s/%s/f1.txt",
-             TEST_ROOT, BASIC_DATA_PATH);
+             TEST_ROOT, TEST_DATA_PATH);
 
     FILE *f = maybe_stdin(file_path);
     ck_assert_ptr_ne(f, NULL);
@@ -333,7 +333,7 @@ START_TEST(test_list_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
@@ -473,7 +473,7 @@ START_TEST(test_list_coll) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -509,7 +509,7 @@ START_TEST(test_list_coll_contents) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -662,7 +662,7 @@ START_TEST(test_list_permissions_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -694,7 +694,7 @@ START_TEST(test_list_permissions_coll) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -717,7 +717,6 @@ START_TEST(test_list_permissions_coll) {
 }
 END_TEST
 
-
 // Can we list metadata on a data object?
 START_TEST(test_list_metadata_obj) {
     option_flags flags = 0;
@@ -736,7 +735,7 @@ START_TEST(test_list_metadata_obj) {
     ck_assert_int_ne(no_path_error.code, 0);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -769,7 +768,7 @@ START_TEST(test_list_metadata_coll) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char coll_path[MAX_PATH_LEN];
     snprintf(coll_path, MAX_PATH_LEN, "%s/a", rods_root);
 
@@ -808,7 +807,7 @@ START_TEST(test_list_replicates_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -853,8 +852,8 @@ START_TEST(test_list_replicates_obj) {
             json_string_value(json_object_get(result, JSON_RESOURCE_KEY));
 
         if (index == 0) {
-            ck_assert_msg(str_equals(resc, env.rodsDefResource, MAX_STR_LEN),
-                          "resource is default");
+            ck_assert_msg(!str_equals(resc, TEST_RESOURCE, MAX_STR_LEN),
+                          "resource other than TEST_RESOURCE");
         }
         else {
             // For a compound resource, the resource is a leaf named
@@ -887,7 +886,7 @@ START_TEST(test_list_timestamps_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -929,7 +928,7 @@ START_TEST(test_list_timestamps_coll) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -968,7 +967,7 @@ START_TEST(test_search_metadata_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -1019,7 +1018,7 @@ START_TEST(test_search_metadata_path_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -1087,7 +1086,7 @@ START_TEST(test_search_metadata_perm_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
@@ -1139,7 +1138,7 @@ START_TEST(test_search_metadata_tps_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -1220,7 +1219,7 @@ START_TEST(test_search_metadata_coll) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -1260,7 +1259,7 @@ START_TEST(test_add_metadata_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -1354,7 +1353,7 @@ START_TEST(test_remove_metadata_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -1390,7 +1389,7 @@ START_TEST(test_add_json_metadata_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -1457,7 +1456,7 @@ START_TEST(test_remove_json_metadata_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -1496,7 +1495,7 @@ START_TEST(test_modify_permissions_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -1547,7 +1546,7 @@ START_TEST(test_modify_json_permissions_obj) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
 
@@ -1802,13 +1801,14 @@ START_TEST(test_represents_file) {
 }
 END_TEST
 
-START_TEST(test_write_path_to_stream) {
+// Can we read a data object and write to a stream?
+START_TEST(test_get_data_obj_stream) {
     option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
@@ -1821,10 +1821,11 @@ START_TEST(test_write_path_to_stream) {
     FILE *tmp = tmpfile();
     ck_assert_ptr_ne(NULL, tmp);
 
-    size_t size = 1024;
+    size_t buffer_size = 1024;
     baton_error_t error;
-    int status = write_path_to_stream(conn, &rods_obj_path, tmp, size, &error);
-    ck_assert_int_eq(status, 10240);
+    int num_written =
+        get_data_obj_stream(conn, &rods_obj_path, tmp, buffer_size, &error);
+    ck_assert_int_eq(num_written, 10240);
     ck_assert_int_eq(error.code, 0);
 
     rewind(tmp);
@@ -1835,9 +1836,9 @@ START_TEST(test_write_path_to_stream) {
 
     char buffer[1024];
 
-    size_t n;
-    while ((n = fread(buffer, 1, 1024, tmp)) > 0) {
-        compat_MD5Update(&context, (unsigned char *) buffer, n);
+    size_t nr;
+    while ((nr = fread(buffer, 1, 1024, tmp)) > 0) {
+        compat_MD5Update(&context, (unsigned char *) buffer, nr);
     }
 
     compat_MD5Final(digest, &context);
@@ -1848,6 +1849,7 @@ START_TEST(test_write_path_to_stream) {
     }
 
     ck_assert_str_eq(md5, "4efe0c1befd6f6ac4621cbdb13241246");
+    free(md5);
 
     fclose(tmp);
     tmp = NULL;
@@ -1856,13 +1858,14 @@ START_TEST(test_write_path_to_stream) {
 }
 END_TEST
 
-START_TEST(test_slurp_file) {
+// Can we read a data object into a UTF-8 string?
+START_TEST(test_slurp_data_obj) {
     option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
@@ -1878,17 +1881,19 @@ START_TEST(test_slurp_file) {
                                 2048, 4096, 8192, 16384, 37268 };
     for (int i = 0; i < 10; i++) {
         baton_error_t open_error;
-        data_obj_file_t *obj_file = open_data_obj(conn, &rods_obj_path,
-                                                  &open_error);
+        data_obj_file_t *obj = open_data_obj(conn, &rods_obj_path,
+                                             O_RDONLY, &open_error);
         ck_assert_int_eq(open_error.code, 0);
 
         baton_error_t slurp_error;
-        char *data = slurp_data_object(conn, obj_file, buffer_sizes[i],
-                                       &slurp_error);
+        char *data = slurp_data_obj(conn, obj, buffer_sizes[i],
+                                    &slurp_error);
         ck_assert_int_eq(slurp_error.code, 0);
         ck_assert_int_eq(strnlen(data, 10240), 10240);
-        ck_assert_str_eq(obj_file->md5_last_read,
+        ck_assert_str_eq(obj->md5_last_read,
                          "4efe0c1befd6f6ac4621cbdb13241246");
+
+        ck_assert_int_eq(close_data_obj(conn, obj), 0);
 
         if (data) free(data);
     }
@@ -1897,10 +1902,275 @@ START_TEST(test_slurp_file) {
 }
 END_TEST
 
-/**
- * Tests that the `irods_get_sql_for_specific_alias` method can be
- * used to get the SQL associated to a given alias.
- */
+// Can we ingest a data object as JSON?
+START_TEST(test_ingest_data_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
+
+    // Test a range of buffer sizes, both smaller and larger than the
+    // data
+    size_t buffer_sizes[10] = {    1,  128,  256,   512,  1024,
+                                2048, 4096, 8192, 16384, 37268 };
+    for (int i = 0; i < 10; i++) {
+        baton_error_t error;
+        json_t *obj = ingest_data_obj(conn, &rods_obj_path, flags,
+                                      buffer_sizes[i], &error);
+        ck_assert_int_eq(error.code, 0);
+
+        json_decref(obj);
+    }
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_get_data_obj_file) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_10k.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
+
+    // Write data object to temp file
+    char template[] = "baton_test_get_data_obj_file.XXXXXX";
+    int fd = mkstemp(template);
+
+    size_t buffer_size = 1024;
+    baton_error_t error;
+    int status = get_data_obj_file(conn, &rods_obj_path, template,
+                                   buffer_size, &error);
+    ck_assert_int_eq(error.code, 0);
+    close(fd);
+
+    // Check the MD5 of the tempfile
+    unsigned char digest[16];
+    MD5_CTX context;
+    compat_MD5Init(&context);
+
+    FILE *tmpfile = fopen(template, "r");
+    char buffer[1024];
+
+    size_t nr;
+    while ((nr = fread(buffer, 1, 1024, tmpfile)) > 0) {
+        compat_MD5Update(&context, (unsigned char *) buffer, nr);
+    }
+
+    fclose(tmpfile);
+    unlink(template);
+
+    compat_MD5Final(digest, &context);
+
+    char *md5 = calloc(33, sizeof (char));
+    for (int i = 0; i < 16; i++) {
+        snprintf(md5 + i * 2, 3, "%02x", digest[i]);
+    }
+
+    ck_assert_str_eq(md5, "4efe0c1befd6f6ac4621cbdb13241246");
+    free(md5);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_write_data_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char file_path[MAX_PATH_LEN];
+    snprintf(file_path, MAX_PATH_LEN, "%s/%s/lorem_10k.txt",
+             TEST_ROOT, TEST_DATA_PATH);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/test_write_data_obj.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                      flags, &resolve_error);
+
+    // Test a range of buffer sizes, both smaller and larger than the
+    // data
+    size_t buffer_sizes[10] = {    1,  128,  256,   512,  1024,
+                                2048, 4096, 8192, 16384, 37268 };
+
+    for (int i = 0; i < 10; i++) {
+        baton_error_t write_error;
+        FILE *in = fopen(file_path, "r");
+        size_t num_written = write_data_obj(conn, in, &rods_obj_path,
+                                            buffer_sizes[i], &write_error);
+        ck_assert_int_eq(write_error.code, 0);
+        ck_assert_int_eq(num_written, 10240);
+        ck_assert_int_eq(fclose(in), 0);
+
+        rodsPath_t result_obj_path;
+        baton_error_t result_error;
+        resolve_rods_path(conn, &env, &result_obj_path, obj_path,
+                          flags, &result_error);
+        ck_assert_int_eq(result_error.code, 0);
+
+        baton_error_t list_error;
+        json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
+                                   &list_error);
+        ck_assert_int_eq(list_error.code, 0);
+        json_t *checksum = json_object_get(result, JSON_CHECKSUM_KEY);
+        ck_assert(json_is_string(checksum));
+        ck_assert_str_eq(json_string_value(checksum),
+                         "4efe0c1befd6f6ac4621cbdb13241246");
+        json_decref(result);
+    }
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+START_TEST(test_put_data_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char file_path[MAX_PATH_LEN];
+    snprintf(file_path, MAX_PATH_LEN, "%s/%s/lorem_10k.txt",
+             TEST_ROOT, TEST_DATA_PATH);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/test_put_data_obj.txt", rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                      flags, &resolve_error);
+
+    baton_error_t error;
+    int status = put_data_obj(conn, file_path, &rods_obj_path, 0, &error);
+    ck_assert_int_eq(error.code, 0);
+    ck_assert_int_eq(status, 0);
+
+    rodsPath_t result_obj_path;
+    baton_error_t result_error;
+    resolve_rods_path(conn, &env, &result_obj_path, obj_path,
+                      flags, &result_error);
+    ck_assert_int_eq(result_error.code, 0);
+
+    baton_error_t list_error;
+    json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
+                               &list_error);
+    ck_assert_int_eq(list_error.code, 0);
+    json_t *checksum = json_object_get(result, JSON_CHECKSUM_KEY);
+    ck_assert(json_is_string(checksum));
+    ck_assert_str_eq(json_string_value(checksum),
+                     "4efe0c1befd6f6ac4621cbdb13241246");
+    json_decref(result);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we do a sequence of baton operations described by a JSON
+// stream?
+START_TEST(test_do_operation) {
+    option_flags flags = SEARCH_OBJECTS | REMOVE_AVU;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    FILE *json_tmp     = tmpfile();
+    char *zone_name    = NULL;
+    size_t buffer_size = 1024;
+    int num_ops        = 4;
+    baton_json_op ops[4] = { baton_json_list_op,
+                             baton_json_chmod_op,
+                             baton_json_metaquery_op,
+                             baton_json_metamod_op
+                             // baton_json_get_op,
+                             // baton_json_put_op
+                            };
+
+    // Arbitrarily use 2 correct objects,
+    json_t *perm = json_pack("{s:s, s:s, s:s}",
+                             JSON_OWNER_KEY, env.rodsUserName,
+                             JSON_ZONE_KEY,  env.rodsZone,
+                             JSON_LEVEL_KEY, ACCESS_LEVEL_OWN);
+    json_t *avu = json_pack("{s:s, s:s, s:s}",
+                            JSON_ATTRIBUTE_KEY, "attr1",
+                            JSON_VALUE_KEY,     "value1",
+                            JSON_UNITS_KEY,     "units1");
+    json_t *obj1 = json_pack("{s:s, s:s, s:[O], s:[O]}",
+                             JSON_COLLECTION_KEY,  rods_root,
+                             JSON_DATA_OBJECT_KEY, "f1.txt",
+                             JSON_ACCESS_KEY,      perm,
+                             JSON_AVUS_KEY,        avu);
+    json_t *obj2 = json_pack("{s:s, s:s, s:[O], s:[O]}",
+                             JSON_COLLECTION_KEY,  rods_root,
+                             JSON_DATA_OBJECT_KEY, "f2.txt",
+                             JSON_ACCESS_KEY,      perm,
+                             JSON_AVUS_KEY,        avu);
+    json_t *incorrect_obj = json_pack("{s:s, s:s}",
+                                      JSON_COLLECTION_KEY,  rods_root,
+                                      JSON_DATA_OBJECT_KEY, "INVALID");
+
+    json_dumpf(obj1, json_tmp, 0);
+    json_dumpf(obj2, json_tmp, 0);
+    for (int i = 0; i < num_ops; i++) {
+        rewind(json_tmp);
+        int pass_status =
+            do_operation(json_tmp, ops[i], flags, zone_name, buffer_size);
+        ck_assert_int_eq(pass_status, 0);
+    }
+
+    // Add JSON for a non-existent file; should fail
+    json_dumpf(incorrect_obj, json_tmp, 0);
+
+    rewind(json_tmp);
+    int fail_status =
+        do_operation(json_tmp, ops[0], flags, zone_name, buffer_size);
+    ck_assert_int_ne(fail_status, 0);
+
+    fclose(json_tmp);
+    json_tmp = NULL;
+
+    json_decref(obj1);
+    json_decref(obj2);
+    json_decref(incorrect_obj);
+    json_decref(perm);
+    json_decref(avu);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+
+// Tests that the `irods_get_sql_for_specific_alias` method can be
+// used to get the SQL associated to a given alias.
 START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
     if (!have_rodsadmin()) {
         logmsg(WARN, "!!! Skipping specific query tests because we are "
@@ -1921,11 +2191,9 @@ START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
 }
 END_TEST
 
-/**
- * Tests that when the SQL associated to a non-existent alias is
- * requested using the `irods_get_sql_for_specific_alias` method, null
- * pointer is returned.
- */
+// Tests that when the SQL associated to a non-existent alias is
+// requested using the `irods_get_sql_for_specific_alias` method, null
+// pointer is returned.
 START_TEST(test_irods_get_sql_for_specific_alias_with_non_existent_alias) {
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -1939,10 +2207,8 @@ START_TEST(test_irods_get_sql_for_specific_alias_with_non_existent_alias) {
 }
 END_TEST
 
-/**
- * Tests that `make_query_format_from_sql` correctly parses a simple
- * SQL SELECT query.
- */
+// Tests that `make_query_format_from_sql` correctly parses a simple
+// SQL SELECT query.
 START_TEST(test_make_query_format_from_sql_with_simple_select_query) {
     char *sql = "SELECT a, b, c from some_table";
     query_format_in_t *format = make_query_format_from_sql(sql);
@@ -1955,10 +2221,8 @@ START_TEST(test_make_query_format_from_sql_with_simple_select_query) {
 }
 END_TEST
 
-/**
- * Tests that `make_query_format_from_sql` correctly parses an SQL
- * SELECT query that uses an alias.
- */
+// Tests that `make_query_format_from_sql` correctly parses an SQL
+// SELECT query that uses an alias.
 START_TEST(test_make_query_format_from_sql_with_select_query_using_column_alias) {
     char *sql = "SELECT a as b from some_table";
     query_format_in_t *format = make_query_format_from_sql(sql);
@@ -1971,10 +2235,8 @@ START_TEST(test_make_query_format_from_sql_with_select_query_using_column_alias)
 }
 END_TEST
 
-/**
- * Tests that `make_query_format_from_sql` returns a null pointer if
- * it is used to parse an invalid SQL statement.
- */
+// Tests that `make_query_format_from_sql` returns a null pointer if
+// it is used to parse an invalid SQL statement.
 START_TEST(test_make_query_format_from_sql_with_invalid_query) {
     char *sql = "INVALID";
     query_format_in_t *format = make_query_format_from_sql(sql);
@@ -1984,9 +2246,8 @@ START_TEST(test_make_query_format_from_sql_with_invalid_query) {
 }
 END_TEST
 
-/**
- * Tests that the `search_specific` method can be used with a valid setup.
- */
+// Tests that the `search_specific` method can be used with a valid
+// setup.
 START_TEST(test_search_specific_with_valid_setup) {
     if (!have_rodsadmin()) {
         logmsg(WARN, "!!! Skipping specific query tests because we are "
@@ -2034,7 +2295,7 @@ START_TEST(test_regression_github_issue83) {
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
 
     rodsPath_t rods_path;
     baton_error_t resolve_error;
@@ -2140,13 +2401,15 @@ START_TEST(test_regression_github_issue137) {
 }
 END_TEST
 
+// Ensure that we can create JSON representing replicates that have no
+// checksum
 START_TEST(test_regression_github_issue140) {
     option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
 
     char rods_root[MAX_PATH_LEN];
-    set_current_rods_root(BASIC_COLL, rods_root);
+    set_current_rods_root(TEST_COLL, rods_root);
     char obj_path_in[MAX_PATH_LEN];
     snprintf(obj_path_in, MAX_PATH_LEN, "%s/f1.txt", rods_root);
     char obj_path_out[MAX_PATH_LEN];
@@ -2208,89 +2471,118 @@ END_TEST
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
-    TCase *utilities_tests = tcase_create("utilities");
-    tcase_add_test(utilities_tests, test_str_equals);
-    tcase_add_test(utilities_tests, test_str_equals_ignore_case);
-    tcase_add_test(utilities_tests, test_str_starts_with);
-    tcase_add_test(utilities_tests, test_str_ends_with);
-    tcase_add_test(utilities_tests, test_parse_base_name);
-    tcase_add_test(utilities_tests, test_maybe_stdin);
-    tcase_add_test(utilities_tests, test_format_timestamp);
-    tcase_add_test(utilities_tests, test_parse_timestamp);
-    tcase_add_test(utilities_tests, test_parse_size);
-    tcase_add_test(utilities_tests, test_to_utf8);
+    TCase *utilities = tcase_create("utilities");
+    tcase_add_test(utilities, test_str_equals);
+    tcase_add_test(utilities, test_str_equals_ignore_case);
+    tcase_add_test(utilities, test_str_starts_with);
+    tcase_add_test(utilities, test_str_ends_with);
+    tcase_add_test(utilities, test_parse_base_name);
+    tcase_add_test(utilities, test_maybe_stdin);
+    tcase_add_test(utilities, test_format_timestamp);
+    tcase_add_test(utilities, test_parse_timestamp);
+    tcase_add_test(utilities, test_parse_size);
+    tcase_add_test(utilities, test_to_utf8);
 
-    TCase *basic_tests = tcase_create("basic");
-    tcase_add_unchecked_fixture(basic_tests, setup, teardown);
-    tcase_add_checked_fixture (basic_tests, basic_setup, basic_teardown);
+    TCase *basic = tcase_create("basic");
+    tcase_add_unchecked_fixture(basic, setup, teardown);
+    tcase_add_checked_fixture(basic, basic_setup, basic_teardown);
 
-    tcase_add_test(basic_tests, test_rods_login);
-    tcase_add_test(basic_tests, test_is_irods_available);
-    tcase_add_test(basic_tests, test_init_rods_path);
-    tcase_add_test(basic_tests, test_resolve_rods_path);
-    tcase_add_test(basic_tests, test_make_query_input);
+    tcase_add_test(basic, test_rods_login);
+    tcase_add_test(basic, test_is_irods_available);
+    tcase_add_test(basic, test_init_rods_path);
+    tcase_add_test(basic, test_resolve_rods_path);
+    tcase_add_test(basic, test_make_query_input);
 
-    tcase_add_test(basic_tests, test_list_missing_path);
-    tcase_add_test(basic_tests, test_list_obj);
-    tcase_add_test(basic_tests, test_list_coll);
-    tcase_add_test(basic_tests, test_list_coll_contents);
+    TCase *path = tcase_create("path");
+    tcase_add_unchecked_fixture(path, setup, teardown);
+    tcase_add_checked_fixture(path, basic_setup, basic_teardown);
 
-    tcase_add_test(basic_tests, test_list_permissions_missing_path);
-    tcase_add_test(basic_tests, test_list_permissions_obj);
-    tcase_add_test(basic_tests, test_list_permissions_coll);
+    tcase_add_test(path, test_list_missing_path);
+    tcase_add_test(path, test_list_obj);
+    tcase_add_test(path, test_list_coll);
+    tcase_add_test(path, test_list_coll_contents);
+    tcase_add_test(path, test_list_permissions_missing_path);
+    tcase_add_test(path, test_list_permissions_obj);
+    tcase_add_test(path, test_list_permissions_coll);
+    tcase_add_test(path, test_modify_permissions_obj);
+    tcase_add_test(path, test_modify_json_permissions_obj);
+    tcase_add_test(path, test_list_replicates_obj);
+    tcase_add_test(path, test_list_timestamps_obj);
+    tcase_add_test(path, test_list_timestamps_coll);
 
-    tcase_add_test(basic_tests, test_list_metadata_obj);
-    tcase_add_test(basic_tests, test_list_metadata_coll);
+    TCase *metadata = tcase_create("metadata");
+    tcase_add_unchecked_fixture(metadata, setup, teardown);
+    tcase_add_checked_fixture(metadata, basic_setup, basic_teardown);
 
-    tcase_add_test(basic_tests, test_list_replicates_obj);
+    tcase_add_test(metadata, test_list_metadata_obj);
+    tcase_add_test(metadata, test_list_metadata_coll);
+    tcase_add_test(metadata, test_contains_avu);
+    tcase_add_test(metadata, test_add_metadata_missing_path);
+    tcase_add_test(metadata, test_remove_metadata_obj);
+    tcase_add_test(metadata, test_add_json_metadata_obj);
+    tcase_add_test(metadata, test_remove_json_metadata_obj);
+    tcase_add_test(metadata, test_search_metadata_obj);
+    tcase_add_test(metadata, test_search_metadata_coll);
+    tcase_add_test(metadata, test_search_metadata_path_obj);
+    tcase_add_test(metadata, test_search_metadata_perm_obj);
+    tcase_add_test(metadata, test_search_metadata_tps_obj);
 
-    tcase_add_test(basic_tests, test_list_timestamps_obj);
-    tcase_add_test(basic_tests, test_list_timestamps_coll);
+    TCase *read_write = tcase_create("read_write");
+    tcase_add_unchecked_fixture(read_write, setup, teardown);
+    tcase_add_checked_fixture(read_write, basic_setup, basic_teardown);
 
-    tcase_add_test(basic_tests, test_search_metadata_obj);
-    tcase_add_test(basic_tests, test_search_metadata_coll);
-    tcase_add_test(basic_tests, test_search_metadata_path_obj);
-    tcase_add_test(basic_tests, test_search_metadata_perm_obj);
-    tcase_add_test(basic_tests, test_search_metadata_tps_obj);
+    tcase_add_test(read_write, test_get_data_obj_stream);
+    tcase_add_test(read_write, test_get_data_obj_file);
+    tcase_add_test(read_write, test_slurp_data_obj);
+    tcase_add_test(read_write, test_ingest_data_obj);
+    tcase_add_test(read_write, test_write_data_obj);
+    tcase_add_test(read_write, test_put_data_obj);
 
-    tcase_add_test(basic_tests, test_add_metadata_missing_path);
-    tcase_add_test(basic_tests, test_remove_metadata_obj);
-    tcase_add_test(basic_tests, test_add_json_metadata_obj);
-    tcase_add_test(basic_tests, test_remove_json_metadata_obj);
+    TCase *json = tcase_create("json");
+    tcase_add_unchecked_fixture(json, setup, teardown);
+    tcase_add_checked_fixture(json, basic_setup, basic_teardown);
 
-    tcase_add_test(basic_tests, test_modify_permissions_obj);
-    tcase_add_test(basic_tests, test_modify_json_permissions_obj);
+    tcase_add_test(json, test_represents_collection);
+    tcase_add_test(json, test_represents_data_object);
+    tcase_add_test(json, test_represents_directory);
+    tcase_add_test(json, test_represents_file);
+    tcase_add_test(json, test_json_to_path);
+    tcase_add_test(json, test_json_to_local_path);
+    tcase_add_test(json, test_do_operation);
 
-    tcase_add_test(basic_tests, test_represents_collection);
-    tcase_add_test(basic_tests, test_represents_data_object);
-    tcase_add_test(basic_tests, test_represents_directory);
-    tcase_add_test(basic_tests, test_represents_file);
+    TCase *specific_query = tcase_create("specific_query");
+    tcase_add_unchecked_fixture(specific_query, setup, teardown);
+    tcase_add_checked_fixture(specific_query, basic_setup, basic_teardown);
 
-    tcase_add_test(basic_tests, test_json_to_path);
-    tcase_add_test(basic_tests, test_json_to_local_path);
-    tcase_add_test(basic_tests, test_contains_avu);
+    tcase_add_test(specific_query,
+                   test_irods_get_sql_for_specific_alias_with_alias);
+    tcase_add_test(specific_query,
+                   test_irods_get_sql_for_specific_alias_with_non_existent_alias);
+    tcase_add_test(specific_query,
+                   test_make_query_format_from_sql_with_simple_select_query);
+    tcase_add_test(specific_query,
+                   test_make_query_format_from_sql_with_select_query_using_column_alias);
+    tcase_add_test(specific_query,
+                   test_make_query_format_from_sql_with_invalid_query);
+    tcase_add_test(specific_query,
+                   test_search_specific_with_valid_setup);
 
-    tcase_add_test(basic_tests, test_write_path_to_stream);
-    tcase_add_test(basic_tests, test_slurp_file);
+    TCase *regression = tcase_create("regression");
+    tcase_add_unchecked_fixture(regression, setup, teardown);
+    tcase_add_checked_fixture(regression, basic_setup, basic_teardown);
 
-    tcase_add_test(basic_tests, test_irods_get_sql_for_specific_alias_with_alias);
-    tcase_add_test(basic_tests, test_irods_get_sql_for_specific_alias_with_non_existent_alias);
-    tcase_add_test(basic_tests, test_make_query_format_from_sql_with_simple_select_query);
-    tcase_add_test(basic_tests, test_make_query_format_from_sql_with_select_query_using_column_alias);
-    tcase_add_test(basic_tests, test_make_query_format_from_sql_with_invalid_query);
-    tcase_add_test(basic_tests, test_search_specific_with_valid_setup);
+    tcase_add_test(regression, test_regression_github_issue83);
+    tcase_add_test(regression, test_regression_github_issue137);
+    tcase_add_test(regression, test_regression_github_issue140);
 
-    TCase *regression_tests = tcase_create("regression");
-    tcase_add_unchecked_fixture(regression_tests, setup, teardown);
-    tcase_add_checked_fixture (regression_tests, basic_setup, basic_teardown);
-
-    tcase_add_test(regression_tests, test_regression_github_issue83);
-    tcase_add_test(regression_tests, test_regression_github_issue137);
-    tcase_add_test(regression_tests, test_regression_github_issue140);
-
-    suite_add_tcase(suite, utilities_tests);
-    suite_add_tcase(suite, basic_tests);
-    suite_add_tcase(suite, regression_tests);
+    suite_add_tcase(suite, utilities);
+    suite_add_tcase(suite, basic);
+    suite_add_tcase(suite, path);
+    suite_add_tcase(suite, metadata);
+    suite_add_tcase(suite, read_write);
+    suite_add_tcase(suite, json);
+    suite_add_tcase(suite, specific_query);
+    suite_add_tcase(suite, regression);
 
     return suite;
 }

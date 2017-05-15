@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015, 2016 Genome Research Ltd. All
+ * Copyright (c) 2013, 2014, 2015, 2016, 2017 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,13 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "rodsClient.h"
-#include "rodsPath.h"
-
-#include "baton.h"
 #include "config.h"
-#include "json.h"
-#include "log.h"
+#include "baton.h"
 
 static int debug_flag      = 0;
 static int help_flag       = 0;
