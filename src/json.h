@@ -121,6 +121,9 @@
 #define JSON_PARAM_SIZE            "size"
 #define JSON_PARAM_TIMESTAMP       "timestamp"
 
+#define JSON_ARG_META_ADD          "add"
+#define JSON_ARG_META_REM          "rem"
+
 #define VALID_REPLICATE   "1"
 #define INVALID_REPLICATE "0"
 
@@ -235,6 +238,8 @@ json_t *get_operation_target(json_t *envelope, baton_error_t *error);
 
 json_t *get_operation_params(json_t *envelope, baton_error_t *error);
 
+const char *get_operation_arg(json_t *envelope, baton_error_t *error);
+
 int has_collection(json_t *object);
 
 int has_acl(json_t *object);
@@ -264,6 +269,8 @@ int contents_p(json_t *operation_params);
 int object_p(json_t *operation_params);
 
 int operation_p(json_t *operation_params);
+
+int operation_argument_p(json_t *operation_params);
 
 int raw_p(json_t *operation_params);
 

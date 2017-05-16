@@ -163,6 +163,24 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         if (timestamp_p(params))  flags = flags | PRINT_TIMESTAMP;
         if (collection_p(params)) flags = flags | SEARCH_COLLECTIONS;
         if (object_p(params))     flags = flags | SEARCH_OBJECTS;
+
+        if (operation_argument_p(params)) {
+            const char *arg = get_operation_arg(params, error);
+            if (error->code != 0) goto error;
+
+            logmsg(DEBUG, "Detected operation argument '%s'", arg);
+            if (str_equals(arg, JSON_ARG_META_ADD, MAX_STR_LEN)) {
+                flags = flags | ADD_AVU;
+            }
+            else if (str_equals(arg, JSON_ARG_META_REM, MAX_STR_LEN)) {
+                flags = flags | REMOVE_AVU;
+            }
+            else {
+                set_baton_error(error, -1,
+                                "Invalid baton operation argument '%s'", arg);
+              goto error;
+            }
+        }
     }
 
     if (str_equals(op, JSON_CHMOD_OPERATION, MAX_STR_LEN)) {
@@ -320,8 +338,8 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         operation = META_REM;
     }
     else {
-        set_baton_error(error, -1, "No metadata operation was requested ",
-                        " for %s", path);
+        set_baton_error(error, -1, "No metadata operation was specified "
+                        " for '%s'", path);
         goto error;
     }
 

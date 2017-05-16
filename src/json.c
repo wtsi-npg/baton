@@ -527,7 +527,7 @@ const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
                                 JSON_OPERATOR_SHORT_KEY, error);
 }
 
-const char *get_operation_name(json_t *envelope, baton_error_t *error) {
+const char *get_operation_arg(json_t *envelope, baton_error_t *error) {
     init_baton_error(error);
 
     return get_string_value(envelope, "operation name", JSON_OPERATION_KEY,
@@ -570,6 +570,13 @@ json_t *get_operation_params(json_t *envelope, baton_error_t *error) {
 
 error:
     return NULL;
+}
+
+const char *get_operation_name(json_t *parameters, baton_error_t *error) {
+    init_baton_error(error);
+
+    return get_opt_string_value(parameters, "operation", JSON_OPERATION_KEY,
+                                JSON_OPERATION_SHORT_KEY, error);
 }
 
 int has_collection(json_t *object) {
@@ -647,9 +654,14 @@ int contents_p(json_t *operation_params) {
 int object_p(json_t *operation_params) {
     return json_is_true(json_object_get(operation_params, JSON_PARAM_OBJECT));
 }
+
 int operation_p(json_t *operation_params) {
     return json_is_true(json_object_get(operation_params,
                                         JSON_PARAM_OPERATION));
+}
+
+int operation_argument_p(json_t *operation_params) {
+    return json_object_get(operation_params, JSON_PARAM_OPERATION) != NULL;
 }
 
 int raw_p(json_t *operation_params) {

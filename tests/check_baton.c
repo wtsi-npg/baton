@@ -128,6 +128,31 @@ static int have_rodsadmin() {
     return !system(command);
 }
 
+static void confirm_checksum(FILE *in, const char *expected_md5) {
+    char buffer[1024];
+    unsigned char digest[16];
+
+    MD5_CTX context;
+    compat_MD5Init(&context);
+
+    size_t nr;
+    while ((nr = fread(buffer, 1, 1024, in)) > 0) {
+        compat_MD5Update(&context, (unsigned char *) buffer, nr);
+    }
+
+    compat_MD5Final(digest, &context);
+
+    char *md5 = calloc(33, sizeof (char));
+    for (int i = 0; i < 16; i++) {
+        snprintf(md5 + i * 2, 3, "%02x", digest[i]);
+    }
+
+    ck_assert_str_eq(md5, expected_md5);
+    free(md5);
+
+    return;
+}
+
 START_TEST(test_str_starts_with) {
     size_t len = MAX_STR_LEN;
     ck_assert_msg(str_starts_with("",   "",  len),    "'' starts with ''");
@@ -1829,30 +1854,8 @@ START_TEST(test_get_data_obj_stream) {
     ck_assert_int_eq(error.code, 0);
 
     rewind(tmp);
-
-    unsigned char digest[16];
-    MD5_CTX context;
-    compat_MD5Init(&context);
-
-    char buffer[1024];
-
-    size_t nr;
-    while ((nr = fread(buffer, 1, 1024, tmp)) > 0) {
-        compat_MD5Update(&context, (unsigned char *) buffer, nr);
-    }
-
-    compat_MD5Final(digest, &context);
-
-    char *md5 = calloc(33, sizeof (char));
-    for (int i = 0; i < 16; i++) {
-        snprintf(md5 + i * 2, 3, "%02x", digest[i]);
-    }
-
-    ck_assert_str_eq(md5, "4efe0c1befd6f6ac4621cbdb13241246");
-    free(md5);
-
+    confirm_checksum(tmp, "4efe0c1befd6f6ac4621cbdb13241246");
     fclose(tmp);
-    tmp = NULL;
 
     if (conn) rcDisconnect(conn);
 }
@@ -1964,30 +1967,10 @@ START_TEST(test_get_data_obj_file) {
     close(fd);
 
     // Check the MD5 of the tempfile
-    unsigned char digest[16];
-    MD5_CTX context;
-    compat_MD5Init(&context);
-
-    FILE *tmpfile = fopen(template, "r");
-    char buffer[1024];
-
-    size_t nr;
-    while ((nr = fread(buffer, 1, 1024, tmpfile)) > 0) {
-        compat_MD5Update(&context, (unsigned char *) buffer, nr);
-    }
-
-    fclose(tmpfile);
+    FILE *tmp = fopen(template, "r");
+    confirm_checksum(tmp, "4efe0c1befd6f6ac4621cbdb13241246");
+    fclose(tmp);
     unlink(template);
-
-    compat_MD5Final(digest, &context);
-
-    char *md5 = calloc(33, sizeof (char));
-    for (int i = 0; i < 16; i++) {
-        snprintf(md5 + i * 2, 3, "%02x", digest[i]);
-    }
-
-    ck_assert_str_eq(md5, "4efe0c1befd6f6ac4621cbdb13241246");
-    free(md5);
 
     if (conn) rcDisconnect(conn);
 }
@@ -2042,6 +2025,24 @@ START_TEST(test_write_data_obj) {
         ck_assert_str_eq(json_string_value(checksum),
                          "4efe0c1befd6f6ac4621cbdb13241246");
         json_decref(result);
+
+        // Get the data object to temp file
+        char template[] = "baton_test_write_data_obj.XXXXXX";
+        int fd = mkstemp(template);
+
+        size_t buffer_size = 1024;
+        baton_error_t get_error;
+        int get_status = get_data_obj_file(conn, &result_obj_path, template,
+                                           buffer_size, &get_error);
+        ck_assert_int_eq(get_error.code, 0);
+        ck_assert_int_eq(get_status, 0);
+        close(fd);
+
+        // Check the MD5 of the tempfile
+        FILE *tmp = fopen(template, "r");
+        confirm_checksum(tmp, "4efe0c1befd6f6ac4621cbdb13241246");
+        fclose(tmp);
+        unlink(template);
     }
 
     if (conn) rcDisconnect(conn);
@@ -2068,10 +2069,11 @@ START_TEST(test_put_data_obj) {
     resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
                       flags, &resolve_error);
 
-    baton_error_t error;
-    int status = put_data_obj(conn, file_path, &rods_obj_path, 0, &error);
-    ck_assert_int_eq(error.code, 0);
-    ck_assert_int_eq(status, 0);
+    baton_error_t put_error;
+    int put_status =
+        put_data_obj(conn, file_path, &rods_obj_path, 0, &put_error);
+    ck_assert_int_eq(put_error.code, 0);
+    ck_assert_int_eq(put_status, 0);
 
     rodsPath_t result_obj_path;
     baton_error_t result_error;
@@ -2088,6 +2090,24 @@ START_TEST(test_put_data_obj) {
     ck_assert_str_eq(json_string_value(checksum),
                      "4efe0c1befd6f6ac4621cbdb13241246");
     json_decref(result);
+
+    // Get the data object to temp file
+    char template[] = "baton_test_put_data_obj.XXXXXX";
+    int fd = mkstemp(template);
+
+    size_t buffer_size = 1024;
+    baton_error_t get_error;
+    int get_status = get_data_obj_file(conn, &result_obj_path, template,
+                                       buffer_size, &get_error);
+    ck_assert_int_eq(get_error.code, 0);
+    ck_assert_int_eq(get_status, 0);
+    close(fd);
+
+    // Check the MD5 of the tempfile
+    FILE *tmp = fopen(template, "r");
+    confirm_checksum(tmp, "4efe0c1befd6f6ac4621cbdb13241246");
+    fclose(tmp);
+    unlink(template);
 
     if (conn) rcDisconnect(conn);
 }
@@ -2167,7 +2187,6 @@ START_TEST(test_do_operation) {
     if (conn) rcDisconnect(conn);
 }
 END_TEST
-
 
 // Tests that the `irods_get_sql_for_specific_alias` method can be
 // used to get the SQL associated to a given alias.
