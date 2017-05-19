@@ -58,6 +58,11 @@ typedef struct mod_metadata_in {
     char *attr_units;
 } mod_metadata_in_t;
 
+typedef struct baton_session {
+    rodsEnv *env;
+    rcComm_t *connection;
+} baton_session_t;
+
 /**
  * Test that a connection can be made to the server.
  *
@@ -125,6 +130,9 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env,
  */
 int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path,
                   baton_error_t *error);
+
+int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
+                   baton_error_t *error);
 
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
                        option_flags flags, baton_error_t *error);

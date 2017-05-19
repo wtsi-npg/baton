@@ -272,6 +272,75 @@ error:
     return error->code;
 }
 
+int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
+                   baton_error_t *error) {
+    dataObjCopyInp_t obj_rename_in;
+    int status;
+
+    init_baton_error(error);
+
+    memset(&obj_rename_in, 0, sizeof (dataObjCopyInp_t));
+
+    fprintf(stderr, "MOVING %s to %s\n", rods_path->outPath, new_path);
+
+    switch (rods_path->objType) {
+        case DATA_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a data object",
+                   rods_path->outPath);
+            obj_rename_in.destDataObjInp.oprType = RENAME_DATA_OBJ;
+        break;
+
+        case COLL_OBJ_T:
+            logmsg(TRACE, "Identified '%s' as a collection",
+                   rods_path->outPath);
+            obj_rename_in.destDataObjInp.oprType = RENAME_COLL;
+            break;
+
+        default:
+            set_baton_error(error, USER_INPUT_PATH_ERR,
+                            "Failed to move '%s' as it is "
+                            "neither data object nor collection",
+                            rods_path->outPath);
+            goto error;
+    }
+
+    check_str_arg("path", new_path, MAX_NAME_LEN, error);
+    if (error->code != 0) goto error;
+
+    char *src = rstrcpy(obj_rename_in.srcDataObjInp.objPath,
+                        rods_path->outPath, MAX_NAME_LEN);
+    if (!src) {
+        set_baton_error(error, USER_PATH_EXCEEDS_MAX,
+                        "iRODS source path '%s' is too long (exceeds %d",
+                        rods_path->outPath, MAX_NAME_LEN);
+        goto error;
+    }
+
+    char *dest = rstrcpy(obj_rename_in.destDataObjInp.objPath,
+                         new_path, MAX_NAME_LEN);
+    if (!dest) {
+        set_baton_error(error, USER_PATH_EXCEEDS_MAX,
+                        "iRODS destination path '%s' is too long (exceeds %d",
+                        rods_path->outPath, MAX_NAME_LEN);
+        goto error;
+    }
+
+    status = rcDataObjRename(conn, &obj_rename_in);
+    if (status < 0) {
+        char *err_subname;
+        char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to rename '%s' to '%s': %d %s",
+                        src, dest, status, err_name);
+        goto error;
+    }
+
+    return error->code;
+
+error:
+    return error->code;
+}
+
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
                        option_flags flags, baton_error_t *error) {
     char *collection = NULL;

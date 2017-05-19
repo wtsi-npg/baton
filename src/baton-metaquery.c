@@ -165,8 +165,10 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    int status = do_operation(input, baton_json_metaquery_op, flags,
-                              zone_name);
+    operation_args_t args = { .flags     = flags,
+                              .zone_name = zone_name };
+
+    int status = do_operation(input, baton_json_metaquery_op, &args);
     if (input != stdin) fclose(input);
 
     if (status != 0) exit_status = 5;

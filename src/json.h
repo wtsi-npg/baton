@@ -103,6 +103,7 @@
 #define JSON_METAMOD_OPERATION     "metamod"
 #define JSON_METAQUERY_OPERATION   "metaquery"
 #define JSON_PUT_OPERATION         "put"
+#define JSON_MOVE_OPERATION        "move"
 
 #define JSON_PARAMS_KEY            "parameters"
 #define JSON_PARAMS_SHORT_KEY      "params"
@@ -120,6 +121,7 @@
 #define JSON_PARAM_SAVE            "save"
 #define JSON_PARAM_SIZE            "size"
 #define JSON_PARAM_TIMESTAMP       "timestamp"
+#define JSON_PARAM_PATH            "path"
 
 #define JSON_ARG_META_ADD          "add"
 #define JSON_ARG_META_REM          "rem"
@@ -238,7 +240,9 @@ json_t *get_operation_target(json_t *envelope, baton_error_t *error);
 
 json_t *get_operation_params(json_t *envelope, baton_error_t *error);
 
-const char *get_operation_arg(json_t *envelope, baton_error_t *error);
+const char *get_operation_arg(json_t *operation_params, baton_error_t *error);
+
+const char *get_operation_path(json_t *operation_params, baton_error_t *error);
 
 int has_collection(json_t *object);
 
@@ -250,11 +254,15 @@ int has_created_timestamp(json_t *object);
 
 int has_modified_timestamp(json_t *object);
 
-int has_operation(json_t *object);
+int has_operation(json_t *envelope);
 
-int has_operation_params(json_t *object);
+int has_operation_params(json_t *envelope);
 
-int has_operation_target(json_t *object);
+int has_operation_target(json_t *envelope);
+
+int has_operation_arg(json_t *operation_params);
+
+int has_operation_path(json_t *operation_params);
 
 int acl_p(json_t *operation_params);
 
@@ -269,8 +277,6 @@ int contents_p(json_t *operation_params);
 int object_p(json_t *operation_params);
 
 int operation_p(json_t *operation_params);
-
-int operation_argument_p(json_t *operation_params);
 
 int raw_p(json_t *operation_params);
 

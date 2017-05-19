@@ -2160,10 +2160,14 @@ START_TEST(test_do_operation) {
 
     json_dumpf(obj1, json_tmp, 0);
     json_dumpf(obj2, json_tmp, 0);
+
+    operation_args_t args = { .flags       = flags,
+                              .buffer_size = buffer_size,
+                              .zone_name   = zone_name };
+
     for (int i = 0; i < num_ops; i++) {
         rewind(json_tmp);
-        int pass_status =
-            do_operation(json_tmp, ops[i], flags, zone_name, buffer_size);
+        int pass_status = do_operation(json_tmp, ops[i], &args);
         ck_assert_int_eq(pass_status, 0);
     }
 
@@ -2171,8 +2175,7 @@ START_TEST(test_do_operation) {
     json_dumpf(incorrect_obj, json_tmp, 0);
 
     rewind(json_tmp);
-    int fail_status =
-        do_operation(json_tmp, ops[0], flags, zone_name, buffer_size);
+    int fail_status = do_operation(json_tmp, ops[0], &args);
     ck_assert_int_ne(fail_status, 0);
 
     fclose(json_tmp);
