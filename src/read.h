@@ -115,6 +115,9 @@ int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
 int get_data_obj_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
                         size_t buffer_size, baton_error_t *error);
 
+json_t *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
+                          option_flags flags, baton_error_t *error);
+
 void set_md5_last_read(data_obj_file_t *obj_file, unsigned char digest[16]);
 
 int validate_md5_last_read(rcComm_t *conn, data_obj_file_t *obj_file);

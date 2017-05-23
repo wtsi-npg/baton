@@ -71,18 +71,20 @@ typedef enum {
     PRINT_REPLICATE    = 1 << 10,
     /** Print checksums for data objects */
     PRINT_CHECKSUM     = 1 << 11,
+    /** Calculate checksums for data objects */
+    CALCULATE_CHECKSUM = 1 << 12,
     /** Add an AVU */
-    ADD_AVU            = 1 << 12,
+    ADD_AVU            = 1 << 13,
     /** Remove an AVU */
-    REMOVE_AVU         = 1 << 13,
+    REMOVE_AVU         = 1 << 14,
     /** Recursive operation on collections */
-    RECURSIVE          = 1 << 14,
+    RECURSIVE          = 1 << 15,
     /** Save files */
-    SAVE_FILES         = 1 << 14,
+    SAVE_FILES         = 1 << 16,
     /** Flush output */
-    FLUSH              = 1 << 16,
-    /** Calculate server side checksum */
-    CALCULATE_CHECKSUM = 1 << 17
+    FLUSH              = 1 << 17,
+    /** Force an operation */
+    FORCE              = 1 << 18
 } option_flags;
 
 typedef struct operation_args {
@@ -137,6 +139,10 @@ json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn,
 json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn,
                             json_t *target, operation_args_t *args,
                             baton_error_t *error);
+
+json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn,
+                               json_t *target, operation_args_t *args,
+                               baton_error_t *error);
 
 json_t *baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn,
                                 json_t *target, operation_args_t *args,

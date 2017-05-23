@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
-    if (recurse_flag)    flags = flags | RECURSE;
+    if (recurse_flag)    flags = flags | RECURSIVE;
     if (unbuffered_flag) flags = flags | FLUSH;
 
     if (debug_flag)   set_log_threshold(DEBUG);

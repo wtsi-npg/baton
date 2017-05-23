@@ -134,7 +134,7 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
                                operation_args_t *args, baton_error_t *error) {
     json_t *result  = NULL;
 
-    const char *op = get_operation_name(envelope, error);
+    const char *op = get_operation(envelope, error);
     if (error->code != 0) goto error;
 
     json_t *target = get_operation_target(envelope, error);
@@ -142,28 +142,32 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
 
     operation_args_t args_copy = { .flags       = args->flags,
                                    .buffer_size = args->buffer_size,
-                                   .zone_name   = args->zone_name };
+                                   .zone_name   = args->zone_name,
+                                   .path        = NULL };
 
-    if (has_operation_params(envelope)) {
-        json_t *params = get_operation_params(envelope, error);
+    if (has_operation(envelope)) {
+        json_t *args = get_operation_args(envelope, error);
         if (error->code != 0)  goto error;
 
         option_flags flags = args_copy.flags;
-        if (acl_p(params))        flags = flags | PRINT_ACL;
-        if (avu_p(params))        flags = flags | PRINT_AVU;
-        if (checksum_p(params))   flags = flags | PRINT_CHECKSUM;
-        if (contents_p(params))   flags = flags | PRINT_CONTENTS;
-        if (replicate_p(params))  flags = flags | PRINT_REPLICATE;
-        if (timestamp_p(params))  flags = flags | PRINT_TIMESTAMP;
-        if (collection_p(params)) flags = flags | SEARCH_COLLECTIONS;
-        if (object_p(params))     flags = flags | SEARCH_OBJECTS;
+        if (op_acl_p(args))        flags = flags | PRINT_ACL;
+        if (op_avu_p(args))        flags = flags | PRINT_AVU;
+        if (op_checksum_p(args))   flags = flags | PRINT_CHECKSUM;
+        if (op_contents_p(args))   flags = flags | PRINT_CONTENTS;
+        if (op_replicate_p(args))  flags = flags | PRINT_REPLICATE;
+        if (op_size_p(args))       flags = flags | PRINT_SIZE;
+        if (op_timestamp_p(args))  flags = flags | PRINT_TIMESTAMP;
+        if (op_recurse_p(args))    flags = flags | RECURSIVE;
+        if (op_force_p(args))      flags = flags | FORCE;
+        if (op_collection_p(args)) flags = flags | SEARCH_COLLECTIONS;
+        if (op_object_p(args))     flags = flags | SEARCH_OBJECTS;
         args_copy.flags = flags;
 
-        if (has_operation_arg(params)) {
-            const char *arg = get_operation_arg(params, error);
+        if (has_operation(args)) {
+            const char *arg = get_operation(args, error);
             if (error->code != 0) goto error;
 
-            logmsg(DEBUG, "Detected operation argument '%s'", arg);
+            logmsg(DEBUG, "Detected operation '%s'", op);
             if (str_equals(arg, JSON_ARG_META_ADD, MAX_STR_LEN)) {
                 args_copy.flags = flags | ADD_AVU;
             }
@@ -177,8 +181,8 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
             }
         }
 
-        if (has_operation_path(params)) {
-            const char *path = get_operation_path(params, error);
+        if (has_op_path(args)) {
+            const char *path = get_op_path(args, error);
             if (error->code != 0) goto error;
 
             char *tmp = copy_str(path, MAX_STR_LEN);
@@ -192,31 +196,35 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         }
     }
 
-    if (str_equals(op, JSON_CHMOD_OPERATION, MAX_STR_LEN)) {
+    if (str_equals(op, JSON_CHMOD_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_chmod_op(env, conn, target, &args_copy, error);
     }
-    else if (str_equals(op, JSON_LIST_OPERATION, MAX_STR_LEN)) {
+    else if (str_equals(op, JSON_CHECKSUM_OP, MAX_STR_LEN)) {
+        logmsg(DEBUG, "Dispatching to operation '%s'", op);
+        result = baton_json_checksum_op(env, conn, target, &args_copy, error);
+    }
+    else if (str_equals(op, JSON_LIST_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_list_op(env, conn, target, &args_copy, error);
     }
-    else if (str_equals(op, JSON_METAMOD_OPERATION, MAX_STR_LEN)) {
+    else if (str_equals(op, JSON_METAMOD_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_metamod_op(env, conn, target, &args_copy, error);
     }
-    else if (str_equals(op, JSON_METAQUERY_OPERATION, MAX_STR_LEN)) {
+    else if (str_equals(op, JSON_METAQUERY_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_metaquery_op(env, conn, target, &args_copy, error);
     }
-    else if (str_equals(op, JSON_GET_OPERATION, MAX_STR_LEN)) {
+    else if (str_equals(op, JSON_GET_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_get_op(env, conn, target, &args_copy, error);
     }
-    else if (str_equals(op, JSON_PUT_OPERATION, MAX_STR_LEN)) {
+    else if (str_equals(op, JSON_PUT_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_put_op(env, conn, target, &args_copy, error);
     }
-    else if (str_equals(op, JSON_MOVE_OPERATION, MAX_STR_LEN)) {
+    else if (str_equals(op, JSON_MOVE_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_move_op(env, conn, target, &args_copy, error);
     }
@@ -288,6 +296,34 @@ json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     }
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+    if (path) free(path);
+
+    return result;
+
+error:
+    if (path) free(path);
+
+    return result;
+}
+
+json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
+                               operation_args_t *args, baton_error_t *error) {
+    json_t *result = NULL;
+    char *path     = NULL;
+
+    path = json_to_path(target, error);
+    if (error->code != 0) goto error;
+
+    option_flags flags = args->flags;
+    flags = flags | CALCULATE_CHECKSUM;
+
+    rodsPath_t rods_path;
+    resolve_rods_path(conn, env, &rods_path, path, flags, error);
+    if (error->code != 0) goto error;
+
+    result = checksum_data_obj(conn, &rods_path, flags, error);
+    if (error->code != 0) goto error;
+
     if (path) free(path);
 
     return result;
