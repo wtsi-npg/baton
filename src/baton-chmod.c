@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
-    if (recurse_flag)    flags = flags | RECURSE;
+    if (recurse_flag)    flags = flags | RECURSIVE;
     if (unbuffered_flag) flags = flags | FLUSH;
 
     if (debug_flag)   set_log_threshold(DEBUG);
@@ -123,7 +123,9 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    int status = do_operation(input, baton_json_chmod_op, flags);
+    operation_args_t args = { .flags = flags };
+
+    int status = do_operation(input, baton_json_chmod_op, &args);
     if (input != stdin) fclose(input);
 
     if (status != 0) exit_status = 5;

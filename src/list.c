@@ -20,6 +20,7 @@
  */
 
 #include "list.h"
+#include "read.h"
 
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
                                 option_flags flags, baton_error_t *error) {
@@ -178,71 +179,7 @@ error:
 
 json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
                       baton_error_t *error) {
-    char *checksum_str = NULL;
-    json_t *checksum = NULL;
-
-    dataObjInp_t obj_chk_in;
-    memset(&obj_chk_in, 0, sizeof obj_chk_in);
-    obj_chk_in.openFlags = O_RDONLY;
-
-    init_baton_error(error);
-
-    if (rods_path->objState == NOT_EXIST_ST) {
-        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
-                        "Path '%s' does not exist "
-                        "(or lacks access permission)", rods_path->outPath);
-        goto error;
-    }
-
-    switch (rods_path->objType) {
-        case DATA_OBJ_T:
-            logmsg(TRACE, "Identified '%s' as a data object",
-                   rods_path->outPath);
-            snprintf(obj_chk_in.objPath, MAX_NAME_LEN, "%s",
-                     rods_path->outPath);
-            break;
-
-        case COLL_OBJ_T:
-            logmsg(TRACE, "Identified '%s' as a collection",
-                   rods_path->outPath);
-            set_baton_error(error, USER_INPUT_PATH_ERR,
-                            "Failed to list checksum of '%s' as it is "
-                            "a collection", rods_path->outPath);
-            break;
-
-        default:
-            set_baton_error(error, USER_INPUT_PATH_ERR,
-                            "Failed to list checksum of '%s' as it is "
-                            "neither data object nor collection",
-                            rods_path->outPath);
-            goto error;
-    }
-
-    logmsg(DEBUG, "Checksumming data object '%s'", rods_path->outPath);
-
-    int status = rcDataObjChksum(conn, &obj_chk_in, &checksum_str);
-    if (status < 0) {
-        char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
-        set_baton_error(error, status,
-                        "Failed to list checksum of '%s': %d %s",
-                        rods_path->outPath, status, err_name);
-        goto error;
-    }
-
-    checksum = json_pack("s", checksum_str);
-    if (!checksum) {
-        set_baton_error(error, -1, "Failed to pack checksum '%s' as JSON",
-                        checksum_str);
-        goto error;
-    }
-
-    return checksum;
-
-error:
-    if (checksum) json_decref(checksum);
-
-    return NULL;
+    return checksum_data_obj(conn, rods_path, 0, error);
 }
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,

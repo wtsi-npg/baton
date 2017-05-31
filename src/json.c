@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -527,11 +527,31 @@ const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error) {
                                 JSON_OPERATOR_SHORT_KEY, error);
 }
 
-const char *get_operation_name(json_t *envelope, baton_error_t *error) {
+const char *get_operation(json_t *envelope, baton_error_t *error) {
     init_baton_error(error);
 
-    return get_string_value(envelope, "operation name", JSON_OPERATION_KEY,
-                            JSON_OPERATION_SHORT_KEY, error);
+    return get_opt_string_value(envelope, "operation", JSON_OP_KEY,
+                                JSON_OP_SHORT_KEY, error);
+}
+
+json_t *get_operation_args(json_t *envelope, baton_error_t *error) {
+    init_baton_error(error);
+
+    json_t *params = get_json_value(envelope, "operation arguments",
+                                    JSON_OP_ARGS_KEY, JSON_OP_ARGS_SHORT_KEY,
+                                    error);
+    if (error->code != 0) goto error;
+    if (!json_is_object(params)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Invalid '%s' attribute: not a JSON object",
+                        JSON_OP_ARGS_KEY);
+        goto error;
+    }
+
+    return params;
+
+error:
+    return NULL;
 }
 
 json_t *get_operation_target(json_t *envelope, baton_error_t *error) {
@@ -553,23 +573,95 @@ error:
     return NULL;
 }
 
-json_t *get_operation_params(json_t *envelope, baton_error_t *error) {
+int has_operation(json_t *object) {
+    return has_json_str_value(object, JSON_OP_KEY, JSON_OP_SHORT_KEY);
+}
+
+int has_operation_args(json_t *object) {
+    baton_error_t error;
+
+    init_baton_error(&error); // Ignore error
+
+    return get_json_value(object, "operation arguments", JSON_OP_ARGS_KEY,
+                          JSON_OP_ARGS_SHORT_KEY, &error) != NULL;
+}
+
+int has_operation_target(json_t *envelope) {
+    return json_object_get(envelope, JSON_TARGET_KEY) != NULL;
+}
+
+int has_op_path(json_t *operation_args) {
+    return json_object_get(operation_args, JSON_OP_PATH) != NULL;
+}
+
+int op_acl_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_ACL));
+}
+
+int op_avu_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_AVU));
+}
+
+int op_checksum_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_CHECKSUM));
+}
+
+int op_force_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_FORCE));
+}
+
+int op_collection_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_COLLECTION));
+}
+
+int op_contents_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_CONTENTS));
+}
+
+int op_object_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_OBJECT));
+}
+
+int op_operation_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_OPERATION));
+}
+
+int op_raw_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_RAW));
+}
+
+int op_recurse_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_RECURSE));
+}
+
+int op_replicate_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_REPLICATE));
+}
+
+int op_save_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_SAVE));
+}
+
+int op_size_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_SIZE));
+}
+
+int op_timestamp_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_TIMESTAMP));
+}
+
+const char *get_op(json_t *operation_args, baton_error_t *error) {
     init_baton_error(error);
 
-    json_t *params = get_json_value(envelope, "operation parameters",
-                                    JSON_PARAMS_KEY, NULL, error);
-    if (error->code != 0) goto error;
-    if (!json_is_object(params)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "Invalid '%s' attribute: not a JSON object",
-                        JSON_PARAMS_KEY);
-        goto error;
-    }
+    return get_string_value(operation_args, "operation op", JSON_OP_KEY,
+                            JSON_OP_SHORT_KEY, error);
+}
 
-    return params;
+const char *get_op_path(json_t *operation_args, baton_error_t *error) {
+    init_baton_error(error);
 
-error:
-    return NULL;
+    return get_string_value(operation_args, "operation path",
+                            JSON_OP_PATH, NULL, error);
 }
 
 int has_collection(json_t *object) {
@@ -601,81 +693,6 @@ int has_created_timestamp(json_t *object) {
 int has_modified_timestamp(json_t *object) {
     return has_json_str_value(object, JSON_MODIFIED_KEY,
                               JSON_MODIFIED_SHORT_KEY);
-}
-
-int has_operation(json_t *object) {
-  return has_json_str_value(object, JSON_OPERATION_KEY,
-                            JSON_OPERATION_SHORT_KEY);
-}
-
-int has_operation_params(json_t *object) {
-    baton_error_t error;
-
-    init_baton_error(&error); // Ignore error
-
-    return get_json_value(object, "operation params", JSON_PARAMS_KEY,
-                          JSON_PARAMS_SHORT_KEY, &error) != NULL;
-}
-
-int has_operation_target(json_t *object) {
-    return json_object_get(object, JSON_TARGET_KEY) != NULL;
-}
-
-int acl_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params, JSON_PARAM_ACL));
-}
-
-int avu_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params, JSON_PARAM_AVU));
-}
-
-int checksum_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params,
-                                        JSON_PARAM_CHECKSUM));
-}
-
-int collection_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params,
-                                        JSON_PARAM_COLLECTION));
-}
-
-int contents_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params,
-                                        JSON_PARAM_CONTENTS));
-}
-
-int object_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params, JSON_PARAM_OBJECT));
-}
-int operation_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params,
-                                        JSON_PARAM_OPERATION));
-}
-
-int raw_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params, JSON_PARAM_RAW));
-}
-
-int recurse_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params, JSON_PARAM_RECURSE));
-}
-
-int replicate_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params,
-                                        JSON_PARAM_REPLICATE));
-}
-
-int save_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params, JSON_PARAM_SAVE));
-}
-
-int size_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params, JSON_PARAM_SIZE));
-}
-
-int timestamp_p(json_t *operation_params) {
-    return json_is_true(json_object_get(operation_params,
-                                        JSON_PARAM_TIMESTAMP));
 }
 
 int contains_avu(json_t *avus, json_t *avu) {
@@ -1118,7 +1135,7 @@ char *json_to_local_path(json_t *object, baton_error_t *error) {
     else if (filename) {
         path = make_file_path(".", filename, error);
     }
-     else if (data_object) {
+    else if (data_object) {
         path = make_file_path(".", data_object, error);
     }
     else if (directory) {

@@ -156,8 +156,11 @@ int main(int argc, char *argv[]) {
 
     logmsg(DEBUG, "Using a transfer buffer size of %zu bytes", buffer_size);
 
-    int status = do_operation(input, baton_json_put_op, flags, zone_name,
-                              buffer_size);
+    operation_args_t args = { .flags       = flags,
+                              .buffer_size = default_buffer_size,
+                              .zone_name   = zone_name };
+
+    int status = do_operation(input, baton_json_put_op, &args);
     if (input != stdin) fclose(input);
 
     if (status != 0)    exit_status = 5;

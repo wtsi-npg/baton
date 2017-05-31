@@ -150,7 +150,9 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    int status = do_operation(input, baton_json_list_op, flags);
+    operation_args_t args = { .flags = flags };
+
+    int status = do_operation(input, baton_json_list_op, &args);
     if (input != stdin) fclose(input);
 
     if (status != 0) exit_status = 5;

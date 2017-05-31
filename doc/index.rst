@@ -134,7 +134,7 @@ stream of JSON objects on standard output. The ``baton`` programs are:
 * `baton-do`_
 
   Perform a mixture of list, chmod, get, put, metamod or metaquery
-  ``baton`` operations specified by parameters supplied as JSON.
+  ``baton`` operations specified by arguments supplied as JSON.
 
 All of the programs are designed to accept a stream of JSON objects,
 one for each operation on a collection or data object. After each
@@ -661,7 +661,7 @@ Synopsis:
 .. code-block:: sh
 
    $ jq -n '{"operation": "metaquery",
-             "parameters": {
+             "arguments": {
                  "avu": true,
                  "acl": true,
                  "replicate": true,
@@ -676,13 +676,13 @@ to be carried out, along with any parameters for that operation.
 
 The JSON envelope has two mandatory properties; `operation`, whose
 value must be a string naming a ``baton`` operation to be performed
-(one of `chmod`, `get`, `put`, `list`, `metamod`, `metaquery`) and
-`target` which must be a ``baton``-format JSON object. The envelope
-has one optional property `parameters` which, if present, must be a
-JSON object whose keys and values may be any of the command line
-options permitted for the standard ``baton`` clients supporting the
-previously named operations. Where command line options are boolean
-flags, a JSON `true` value should be used.
+(one of `checksum`, `chmod`, `get`, `put`, `list`, `metamod`,
+`metaquery`, `move`) and `target` which must be a ``baton``-format
+JSON object. The envelope has one optional property `arguments` which,
+if present, must be a JSON object whose keys and values may be any of
+the command line options permitted for the standard ``baton`` clients
+supporting the previously named operations. Where command line options
+are boolean flags, a JSON `true` value should be used.
 
 Options
 ^^^^^^^

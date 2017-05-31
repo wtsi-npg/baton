@@ -71,19 +71,28 @@ typedef enum {
     PRINT_REPLICATE    = 1 << 10,
     /** Print checksums for data objects */
     PRINT_CHECKSUM     = 1 << 11,
+    /** Calculate checksums for data objects */
+    CALCULATE_CHECKSUM = 1 << 12,
     /** Add an AVU */
-    ADD_AVU            = 1 << 12,
+    ADD_AVU            = 1 << 13,
     /** Remove an AVU */
-    REMOVE_AVU         = 1 << 13,
+    REMOVE_AVU         = 1 << 14,
     /** Recursive operation on collections */
-    RECURSIVE          = 1 << 14,
+    RECURSIVE          = 1 << 15,
     /** Save files */
-    SAVE_FILES         = 1 << 14,
+    SAVE_FILES         = 1 << 16,
     /** Flush output */
-    FLUSH              = 1 << 16,
-    /** Calculate server side checksum */
-    CALCULATE_CHECKSUM = 1 << 17
+    FLUSH              = 1 << 17,
+    /** Force an operation */
+    FORCE              = 1 << 18
 } option_flags;
+
+typedef struct operation_args {
+    option_flags flags;
+    size_t buffer_size;
+    char *zone_name;
+    char *path;
+} operation_args_t;
 
 /**
  * Typedef for baton JSON document processing functions.
@@ -102,9 +111,8 @@ typedef enum {
 typedef json_t *(*baton_json_op) (rodsEnv *env,
                                   rcComm_t *conn,
                                   json_t *target,
-                                  option_flags flags,
-                                  baton_error_t *error,
-                                  va_list args);
+                                  operation_args_t *args,
+                                  baton_error_t *error);
 
 /**
  * Process a stream of baton JSON documents by executing the specifed
@@ -118,39 +126,47 @@ typedef json_t *(*baton_json_op) (rodsEnv *env,
  *
  * @return 0 on success, iRODS error code on failure.
  */
-int do_operation(FILE *input, baton_json_op fn, option_flags flags, ...);
+int do_operation(FILE *input, baton_json_op fn, operation_args_t *args);
 
 json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn,
-                               json_t *target, option_flags flags,
-                               baton_error_t *error, va_list args);
+                               json_t *target, operation_args_t *args,
+                               baton_error_t *error);
 
 json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn,
-                           json_t *target, option_flags flags,
-                           baton_error_t *error, va_list args);
+                           json_t *target, operation_args_t *args,
+                           baton_error_t *error);
 
 json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn,
-                            json_t *target, option_flags flags,
-                            baton_error_t *error, va_list args);
+                            json_t *target, operation_args_t *args,
+                            baton_error_t *error);
+
+json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn,
+                               json_t *target, operation_args_t *args,
+                               baton_error_t *error);
 
 json_t *baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn,
-                                json_t *target, option_flags flags,
-                                baton_error_t *error, va_list args);
+                                json_t *target, operation_args_t *args,
+                                baton_error_t *error);
 
 json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn,
-                              json_t *target, option_flags flags,
-                              baton_error_t *error, va_list args);
+                              json_t *target, operation_args_t *args,
+                              baton_error_t *error);
 
 json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn,
-                          json_t *target, option_flags flags,
-                          baton_error_t *error, va_list args);
+                          json_t *target, operation_args_t *args,
+                          baton_error_t *error);
 
 json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn,
-                          json_t *target, option_flags flags,
-                          baton_error_t *error, va_list args);
+                          json_t *target, operation_args_t *args,
+                          baton_error_t *error);
 
 json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn,
-                            json_t *target, option_flags flags,
-                            baton_error_t *error, va_list args);
+                            json_t *target, operation_args_t *args,
+                            baton_error_t *error);
+
+json_t *baton_json_move_op(rodsEnv *env, rcComm_t *conn,
+                           json_t *target, operation_args_t *args,
+                           baton_error_t *error);
 
 int check_str_arg(const char *arg_name, const char *arg_value,
                   size_t arg_size, baton_error_t *error);

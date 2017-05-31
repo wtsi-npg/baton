@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -85,6 +85,8 @@
 #define JSON_OPERATOR_SHORT_KEY    "o"
 #define JSON_ARGS_KEY              "args"
 #define JSON_ARGS_SHORT_KEY        "?"
+#define JSON_ARG_META_ADD          "add"
+#define JSON_ARG_META_REM          "rem"
 
 // SQL specific query operations
 #define JSON_SPECIFIC_KEY          "specific"
@@ -94,32 +96,36 @@
 // baton operations
 #define JSON_TARGET_KEY            "target"
 #define JSON_RESULT_KEY            "result"
-#define JSON_OPERATION_KEY         "operation"
-#define JSON_OPERATION_SHORT_KEY   "op"
+#define JSON_OP_KEY                "operation"
+#define JSON_OP_SHORT_KEY          "op"
 
-#define JSON_CHMOD_OPERATION       "chmod"
-#define JSON_GET_OPERATION         "get"
-#define JSON_LIST_OPERATION        "list"
-#define JSON_METAMOD_OPERATION     "metamod"
-#define JSON_METAQUERY_OPERATION   "metaquery"
-#define JSON_PUT_OPERATION         "put"
+#define JSON_CHMOD_OP              "chmod"
+#define JSON_CHECKSUM_OP           "checksum"
+#define JSON_GET_OP                "get"
+#define JSON_LIST_OP               "list"
+#define JSON_METAMOD_OP            "metamod"
+#define JSON_METAQUERY_OP          "metaquery"
+#define JSON_PUT_OP                "put"
+#define JSON_MOVE_OP               "move"
 
-#define JSON_PARAMS_KEY            "parameters"
-#define JSON_PARAMS_SHORT_KEY      "params"
+#define JSON_OP_ARGS_KEY           "arguments"
+#define JSON_OP_ARGS_SHORT_KEY     "args"
 
-#define JSON_PARAM_ACL             "acl"
-#define JSON_PARAM_AVU             "avu"
-#define JSON_PARAM_CHECKSUM        "checksum"
-#define JSON_PARAM_COLLECTION      "collection"
-#define JSON_PARAM_CONTENTS        "contents"
-#define JSON_PARAM_OBJECT          "object"
-#define JSON_PARAM_OPERATION       "operation"
-#define JSON_PARAM_RAW             "raw"
-#define JSON_PARAM_RECURSE         "recurse"
-#define JSON_PARAM_REPLICATE       "replicate"
-#define JSON_PARAM_SAVE            "save"
-#define JSON_PARAM_SIZE            "size"
-#define JSON_PARAM_TIMESTAMP       "timestamp"
+#define JSON_OP_ACL                "acl"
+#define JSON_OP_AVU                "avu"
+#define JSON_OP_CHECKSUM           "checksum"
+#define JSON_OP_FORCE              "force"
+#define JSON_OP_COLLECTION         "collection"
+#define JSON_OP_CONTENTS           "contents"
+#define JSON_OP_OBJECT             "object"
+#define JSON_OP_OPERATION          "operation"
+#define JSON_OP_RAW                "raw"
+#define JSON_OP_RECURSE            "recurse"
+#define JSON_OP_REPLICATE          "replicate"
+#define JSON_OP_SAVE               "save"
+#define JSON_OP_SIZE               "size"
+#define JSON_OP_TIMESTAMP          "timestamp"
+#define JSON_OP_PATH               "path"
 
 #define VALID_REPLICATE   "1"
 #define INVALID_REPLICATE "0"
@@ -229,11 +235,49 @@ const char *get_access_zone(json_t *access, baton_error_t *error);
 
 const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error);
 
-const char *get_operation_name(json_t *envelope, baton_error_t *error);
+const char *get_operation(json_t *object, baton_error_t *error);
+
+json_t *get_operation_args(json_t *envelope, baton_error_t *error);
 
 json_t *get_operation_target(json_t *envelope, baton_error_t *error);
 
-json_t *get_operation_params(json_t *envelope, baton_error_t *error);
+const char *get_op_path(json_t *operation_args, baton_error_t *error);
+
+int has_operation(json_t *object);
+
+int has_operation_args(json_t *object);
+
+int has_operation_target(json_t *envelope);
+
+int has_op_path(json_t *operation_args);
+
+int op_acl_p(json_t *operation_args);
+
+int op_avu_p(json_t *operation_args);
+
+int op_checksum_p(json_t *operation_args);
+
+int op_force_p(json_t *operation_args);
+
+int op_collection_p(json_t *operation_args);
+
+int op_contents_p(json_t *operation_args);
+
+int op_object_p(json_t *operation_args);
+
+int op_operation_p(json_t *operation_args);
+
+int op_raw_p(json_t *operation_args);
+
+int op_recurse_p(json_t *operation_args);
+
+int op_replicate_p(json_t *operation_args);
+
+int op_save_p(json_t *operation_args);
+
+int op_size_p(json_t *operation_args);
+
+int op_timestamp_p(json_t *operation_args);
 
 int has_collection(json_t *object);
 
@@ -244,38 +288,6 @@ int has_timestamps(json_t *object);
 int has_created_timestamp(json_t *object);
 
 int has_modified_timestamp(json_t *object);
-
-int has_operation(json_t *object);
-
-int has_operation_params(json_t *object);
-
-int has_operation_target(json_t *object);
-
-int acl_p(json_t *operation_params);
-
-int avu_p(json_t *operation_params);
-
-int checksum_p(json_t *operation_params);
-
-int collection_p(json_t *operation_params);
-
-int contents_p(json_t *operation_params);
-
-int object_p(json_t *operation_params);
-
-int operation_p(json_t *operation_params);
-
-int raw_p(json_t *operation_params);
-
-int recurse_p(json_t *operation_params);
-
-int replicate_p(json_t *operation_params);
-
-int save_p(json_t *operation_params);
-
-int size_p(json_t *operation_params);
-
-int timestamp_p(json_t *operation_params);
 
 int contains_avu(json_t *avus, json_t *avu);
 

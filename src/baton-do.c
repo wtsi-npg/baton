@@ -28,6 +28,7 @@ static int debug_flag      = 0;
 static int help_flag       = 0;
 static int silent_flag     = 0;
 static int unbuffered_flag = 0;
+static int unsafe_flag     = 0;
 static int verbose_flag    = 0;
 static int version_flag    = 0;
 
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
             {"help",        no_argument, &help_flag,       1},
             {"silent",      no_argument, &silent_flag,     1},
             {"unbuffered",  no_argument, &unbuffered_flag, 1},
+            {"unsafe",      no_argument, &unsafe_flag,     1},
             {"verbose",     no_argument, &verbose_flag,    1},
             {"version",     no_argument, &version_flag,    1},
             // Indexed options
@@ -98,6 +100,7 @@ int main(int argc, char *argv[]) {
         "                  Optional, defaults to STDIN.\n"
         "    --silent      Silence error messages.\n"
         "    --unbuffered  Flush print operations for each JSON object.\n"
+
         "    --verbose     Print verbose messages to STDERR.\n"
         "    --version     Print the version number and exit.\n"
         "    --zone        The zone to operate within. Optional.\n";
@@ -113,6 +116,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (unbuffered_flag) flags = flags | FLUSH;
+    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
@@ -121,8 +125,11 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    int status = do_operation(input, baton_json_dispatch_op, flags, zone_name,
-                              default_buffer_size);
+    operation_args_t args = { .flags       = flags,
+                              .buffer_size = default_buffer_size,
+                              .zone_name   = zone_name };
+
+    int status = do_operation(input, baton_json_dispatch_op, &args);
     if (input != stdin) fclose(input);
 
     if (status != 0) exit_status = 5;
