@@ -1,3 +1,16 @@
+	[1.0.0]
+
+	This release includes C API changes that are not backwards compatible.
+
+	Added the baton-put command-line program.
+
+	Added baton-do command-line program.
+
+	Added new move and checksum operations.
+
+	Deprecated baton-metasuper program.
+
+	Use FindBin in baton wrapper script.
 
 	[0.17.1]
 
