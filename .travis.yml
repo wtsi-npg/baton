@@ -8,7 +8,6 @@ addons:
 
 env:
   global:
-    - secure: cDfB188ECmloGfScZQezqwiFef7l+gXgn2RiTOxINriy9wYS6RmZxuZBHGuR36u7QV3QEJtMdihyQ+XBN2eQPf5jULQXV15t7gArXEVPzzF8i+f8MTgVHugU3TqmPLQkY94wBBbpzvRD9xCAC/uNiQcLLwuD2SjPfTXkqgqqtd0=
     - PGVERSION="9.3"
     - JANSSON_VERSION="2.9"
     - CK_DEFAULT_TIMEOUT=20
@@ -36,20 +35,3 @@ script:
   - ienv
   - ils
   - ./scripts/travis_script.sh
-
-after_success:
-  - make dist
-  - export DIST_FILE=$(ls baton-*.tar.gz)
-  - export SHA256_FILE=$DIST_FILE.sha256
-  - shasum -a 256 $DIST_FILE > $SHA256_FILE
-
-deploy:
-  provider: releases
-  api-key: $GH_OAUTH
-  file:
-    - $DIST_FILE
-    - $SHA256_FILE
-  skip_cleanup: true
-  on:
-    tags: true
-    all_branches: true
