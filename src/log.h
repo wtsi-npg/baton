@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2017 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,7 +39,7 @@ typedef enum {
 } log_level;
 
 #define logmsg(level, ...) \
-    log_impl(__LINE__, __FILE__, __FUNCTION__, level, __VA_ARGS__);
+    log_impl(__LINE__, __FILE__, __func__, level, __VA_ARGS__);
 
 void log_impl(int line, const char *file, char const *function,
               log_level level, ...);
