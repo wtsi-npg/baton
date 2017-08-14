@@ -46,6 +46,33 @@ AS_IF(
 AM_CONDITIONAL(HAVE_SPHINX, [test "x${SPHINXBUILD}" != "xno"])
 dnl End Sphinx
 
+dnl Begin GitHub release upload
+AC_ARG_VAR([GITHUB_API_TOKEN], [GitHub API token file])
+AC_ARG_VAR([GITHUB_USER], [GitHub release user name (default: $USER)])
+AC_ARG_VAR([GITHUB_REPO], [GitHub release repository (default: baton)])
+
+if test -z "$GITHUB_USER"; then
+   GITHUB_USER=${USER}
+fi
+
+if test -z "$GITHUB_REPO"; then
+   GITHUB_REPO=baton
+fi
+
+AC_ARG_ENABLE([github-release],
+  [AS_HELP_STRING([--enable-github-release],
+    [Enable GitHub release (default is no)])],
+  [release_enabled=${enableval}], [release_enabled=no])
+
+AS_IF(
+  [test "x${release_enabled}" = "xyes"],
+    AS_IF([test "x${GITHUB_API_TOKEN}" = "x"],
+            [AC_MSG_ERROR(No GitHub API token file set. GitHub releases will not be made)],
+          [AC_MSG_NOTICE([GitHub release enabled for repo $GITHUB_REPO])
+           AC_MSG_NOTICE([GitHub release user $GITHUB_USER])
+           AC_MSG_NOTICE([GitHub release API token $GITHUB_API_TOKEN])]))
+dnl End GitHub
+
 dnl Begin Lcov code coverage analysis
 
 dnl Be aware on OS X that gcc may not really be gcc, but a symlink to

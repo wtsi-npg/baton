@@ -1,6 +1,8 @@
 
 ACLOCAL_AMFLAGS= -I m4
 
+AM_DISTCHECK_CONFIGURE_FLAGS = --with-irods
+
 if HAVE_SPHINX
 MAYBE_DOC = doc
 endif
@@ -15,6 +17,12 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = baton.pc
 
 etcdir = $(sysconfdir)
+
+github-release:
+	$(top_builddir)/scripts/github_release.sh \
+-a $(GITHUB_API_TOKEN) -b "Release $(PACKAGE_VERSION)" \
+-c master -d -n $(PACKAGE_VERSION) -r $(GITHUB_REPO) \
+-t $(PACKAGE_VERSION) -u $(GITHUB_USER) baton-$(PACKAGE_VERSION).tar.gz
 
 if COVERAGE_ENABLED
 .PHONY: coverage coverage-report clean-coverage-report check-coverage
