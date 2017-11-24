@@ -1,3 +1,6 @@
+	[1.0.1]
+	restore the --save CLI option of baton-get
+
 	[1.0.0]
 
 	This release includes C API changes that are not backwards compatible.
