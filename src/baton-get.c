@@ -98,12 +98,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (acl_flag)       flags = flags | PRINT_ACL;
-    if (avu_flag)       flags = flags | PRINT_AVU;
-    if (raw_flag)       flags = flags | PRINT_RAW;
-    if (size_flag)      flags = flags | PRINT_SIZE;
-    if (timestamp_flag) flags = flags | PRINT_TIMESTAMP;
-    if (unsafe_flag)    flags = flags | UNSAFE_RESOLVE;
+    if (acl_flag)        flags = flags | PRINT_ACL;
+    if (avu_flag)        flags = flags | PRINT_AVU;
+    if (raw_flag)        flags = flags | PRINT_RAW;
+    if (save_flag)       flags = flags | SAVE_FILES;
+    if (size_flag)       flags = flags | PRINT_SIZE;
+    if (timestamp_flag)  flags = flags | PRINT_TIMESTAMP;
+    if (unbuffered_flag) flags = flags | FLUSH;
+    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
 
     const char *help =
         "Name\n"
@@ -146,9 +148,6 @@ int main(int argc, char *argv[]) {
         printf("%s\n", VERSION);
         exit(0);
     }
-
-    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
-    if (unbuffered_flag) flags = flags | FLUSH;
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
