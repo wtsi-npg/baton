@@ -218,7 +218,7 @@ int resolve_rods_path(rcComm_t *conn, rodsEnv *env, rodsPath_t *rods_path,
     status = getRodsObjType(conn, rods_path);
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to get the type of iRODS path '%s': %d %s",
                         rods_path->inPath, status, err_name);
@@ -253,7 +253,7 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path,
     status = getRodsObjType(conn, rods_path);
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to get the type of iRODS path '%s': %d %s",
                         rods_path->inPath, status, err_name);
@@ -328,7 +328,7 @@ int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
     status = rcDataObjRename(conn, &obj_rename_in);
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to rename '%s' to '%s': %d %s",
                         src, dest, status, err_name);
@@ -695,7 +695,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     int status = rcModAVUMetadata(conn, &anon_args);
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to %s metadata '%s' -> '%s' on '%s': "
                         "error %d %s", metadata_op_name(operation),

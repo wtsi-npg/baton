@@ -543,19 +543,19 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
       "^.*?select[[:space:]]+"
       "(distinct|all[[:space:]]+)?(.*?[^[:space:]])[[:space:]]+"
       "from[[:space:]].*$";
-    const unsigned int select_list_capt_idx = 2;
+    enum { select_list_capt_idx = 2 };
     regex_t select_list_capt_re;
     regmatch_t select_list_pmatch[select_list_capt_idx+1];
 
     const char *trim_whitespace_capt_re_str =
       "^[[:space:]]*(.*?[^[:space:]])[[:space:]]*$";
-    const unsigned int trim_whitespace_capt_idx = 1;
+    enum { trim_whitespace_capt_idx = 1 };
     regex_t trim_whitespace_capt_re;
     regmatch_t trim_whitespace_pmatch[trim_whitespace_capt_idx+1];
 
     const char *as_column_name_capt_re_str =
       "^.*[[:space:]]+as[[:space:]]+(.*?[^[:space:]])[[:space:]]*$";
-    const unsigned int as_column_name_capt_idx = 1;
+    enum { as_column_name_capt_idx = 1 };
     regex_t as_column_name_capt_re;
     regmatch_t as_column_name_pmatch[as_column_name_capt_idx+1];
 
@@ -725,7 +725,7 @@ const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
     specificQueryInp_t *sql_alias_squery_in;
     genQueryOut_t *query_out = NULL;
 
-    char *err_name;
+    const char *err_name;
     char *err_subname;
     int status;
 

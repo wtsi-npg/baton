@@ -458,7 +458,7 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
         }
         else {
             char *err_subname;
-            char *err_name = rodsErrorName(status, &err_subname);
+            const char *err_name = rodsErrorName(status, &err_subname);
             set_baton_error(error, status,
                             "Failed to fetch query result: in chunk %d "
                             "error %d %s", chunk_num, status, err_name);
@@ -493,7 +493,7 @@ json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
     size_t chunk_num  = 0;
     int continue_flag = 0;
 
-    char *err_name;
+    const char *err_name;
     char *err_subname;
     int status;
 

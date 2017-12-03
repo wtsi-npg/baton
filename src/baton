@@ -1,0 +1,230 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use FindBin qw[$Bin];
+use lib (-d "$Bin/../lib/perl5" ? "$Bin/../lib/perl5" : "$Bin/../lib");
+
+use Getopt::Long;
+use JSON;
+use List::AllUtils qw{each_array};
+use Pod::Usage;
+
+our $VERSION = '1.0.1-dirty';
+
+# Paths
+my $collection;
+my $data_object;
+my $directory;
+my $file;
+
+# AVUs
+my @attributes;
+my @values;
+my @units;
+my @avu_operators;
+
+# Permissions
+my @owners;
+my @levels;
+
+# Timestamps
+my $created;
+my $cre_operator;
+my @modified;
+my @mod_operators;
+
+# Specific query
+my $specific_sql;
+my @specific_args;
+
+GetOptions("c|collection=s"      => \$collection,
+           "d|data-object=s"     => \$data_object,
+           "directory=s"         => \$directory,
+           "f|file=s"            => \$file,
+           "a|attribute=s"       => \@attributes,
+           "v|value=s"           => \@values,
+           "u|units=s"           => \@units,
+           "o|operator=s"        => \@avu_operators,
+           "w|owners=s"          => \@owners,
+           "l|levels=s"          => \@levels,
+           "r|created=s"         => \$created,
+           "created-operator=s"  => \$cre_operator,
+           "m|modified=s"        => \@modified,
+           "modified-operator=s" => \@mod_operators,
+           "s|specific-sql=s"    => \$specific_sql,
+           "b|bind-arg=s"        => \@specific_args,
+           "version"             => sub { print "$VERSION\n"; exit 0 },
+           "h|help"              => sub { pod2usage(-verbose => 2,
+                                                    -exitval => 0) });
+
+my $json = {};
+
+# Handle paths
+my @property_names = qw(collection data_object directory file);
+my @property_values = ($collection, $data_object, $directory, $file);
+my $propi = each_array(@property_names, @property_values);
+while (my ($name, $value) = $propi->()) {
+  if ($value) {
+    $json->{$name} = $value;
+  }
+}
+
+# Handle AVUs
+my @avus;
+my $avui = each_array(@attributes, @values, @units, @avu_operators);
+while (my ($attr, $value, $units, $op) = $avui->()) {
+  my $avu = {attribute => $attr, value => $value};
+
+  if (defined $units) { $avu->{units}    = $units }
+  if (defined $op)    { $avu->{operator} = $op    }
+
+  push @avus, $avu;
+}
+
+$json->{avus} = \@avus;
+
+# Handle access permissions
+my @access;
+my $acci = each_array(@owners, @levels);
+while (my ($owner, $level) = $acci->()) {
+  push @access, {owner => $owner, level => $level};
+}
+
+if (@access) {
+  $json->{access} = \@access;
+}
+
+# Handle timestamps
+my @timestamps;
+if ($created) {
+  push @timestamps, {created => $created, operator => $cre_operator};
+}
+
+my $modi = each_array(@modified, @mod_operators);
+while (my ($time, $op) = $modi->()) {
+  push @timestamps, {modified => $time, operator => $op};
+}
+
+if (@timestamps) {
+  $json->{timestamps} = \@timestamps;
+}
+
+# Handle specific query
+if ($specific_sql) {
+    my %specific;
+    $specific{sql} = $specific_sql;
+    $specific{args} = \@specific_args; 
+    $json->{specific} = \%specific;
+}
+
+print JSON->new->utf8(1)->canonical(1)->encode($json), "\n";
+
+
+__END__
+
+=head1 NAME
+
+baton - generate JSON suitable for input to baton command line programs
+
+=head1 SYNOPSIS
+
+ baton -a my_key -v my_value
+  => {"avus":[{"attribute":"my_key","value":"my_value"}]}
+
+ baton -a my_key1 -v my_value1 -a my_key2 -v my_value2
+  => {"avus":[{"attribute":"my_key1","value":"my_value1"},
+              {"attribute":"my_key2","value":"my_value2"}]}
+
+ baton -a my_num_key -v 99 -o 'n<='
+  => {"avus":[{"attribute":"my_num_key","operator":"n<=","value":"99"}]}
+
+ baton -a my_key -v my_value -w a_user -l own
+  => {"access":[{"level":"own","owner":"a_user"}],
+      "avus":[{"attribute":"my_key","value":"my_value"}]}
+
+ baton -a my_key -v my_value -r 2014-01-01T00:00:00 --created-op 'n>='
+  => {"avus":[{"attribute":"my_key","value":"my_value"}],
+      "timestamps":[{"created":"2014-01-01T00:00:00","operator":"n>="}]}
+
+ baton -a my_key -v my_value -m 2014-01-01T00:00:00 --modified-op 'n>=' \
+       -m 2014-12-01T00:00:00 --modified-op 'n<'
+  => {"avus":[{"attribute":"my_key","value":"my_value"}],
+      "timestamps":[{"modified":"2014-01-01T00:00:00","operator":"n>="},
+                    {"modified":"2014-12-01T00:00:00","operator":"n<"}]}
+
+ baton -s findQueryByAlias -b lsl 
+  => {"avus":[],
+      "specific":{"args":["lsl"],
+                  "sql":"findQueryByAlias"}}
+
+Options:
+
+  -c | --collection         An iRODS collection path. Optional.
+  -d | --data-object        An iRODS data object name. Optional.
+       --directory          A local directory. Optional.
+  -f | --file               A local file name. Optional.
+
+  -a | --attribute          An AVU attribute. Optional, may be used multiple
+                            times.
+  -v | --value              An AVU value. Optional, may be used multiple
+                            times.
+  -u | --units              An AVU unit. Optional, may be used multiple
+                            times.
+  -o | --operator           An AVU value comparison operator. Optional, may
+                            be used multiple times.
+
+  -w | --owner              An iRODS data owner (user or group).
+                            Optional, may be used multiple times.
+  -l | --level              An iRODS data access level (null, read ,
+                            own etc ). Optional, may be used multiple
+                            times.
+  -r | --created            An ISO8601 formatted creation timestamp.
+                            Optional, may be used multiple times.
+       --created-operator   A creation timestamp comparison operator.
+                            Optional, may be used multiple times.
+  -m | --modified           An ISO8601 formatted modification timestamp.
+                            Optional, may be used multiple times.
+       --modified-operator  A modification timestamp comparison operator.
+                            Optional, may be used multiple times.
+  -s | --specific-sql       A specific query (SQL or alias)
+  -b | --bind-arg           Arguments to bind into specific query.
+                            Placeholders in SQL '?' will be replaced by
+                            these arguments in order. Optional, may be
+                            used multiple times.
+
+       --version            Report the current baton version and exit.
+
+=head1 DESCRIPTION
+
+This script generates JSON suitable for use as input to the various
+baton programs. It's purpose is to provide a convenient baton CLI that
+avoids typing JSON on the command line. Where an option may be used
+multiple times and may be associated with multiple uses of another
+option, option values are processed in order of occurrence, left to
+right i.e. when specifying AVUs, the first -a value will associate
+with the first -u, -v and -o values etc.
+
+The data content i.e. the attributes, values, operators, timestamps
+etc. are not validated by this script.
+
+=head1 AUTHOR
+
+Keith James <kdj@sanger.ac.uk>
+
+=head1 COPYRIGHT AND DISCLAIMER
+
+Copyright (C) 2015, 2016 Genome Research Limited. All Rights Reserved.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the Perl Artistic License or the GNU General
+Public License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+=cut

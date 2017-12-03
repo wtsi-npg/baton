@@ -46,7 +46,7 @@ static char *do_slurp(rcComm_t *conn, rodsPath_t *rods_path,
     if (error->code != 0) goto error;
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to close data object: '%s' error %d %s",
                         rods_path->outPath, status, err_name);
@@ -159,7 +159,7 @@ data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
 
     if (descriptor < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(descriptor, &err_subname);
+        const char *err_name = rodsErrorName(descriptor, &err_subname);
         set_baton_error(error, descriptor,
                         "Failed to open '%s': error %d %s",
                         rods_path->outPath, descriptor, err_name);
@@ -221,7 +221,7 @@ size_t read_chunk(rcComm_t *conn, data_obj_file_t *data_obj, char *buffer,
     int num_read = rcDataObjRead(conn, data_obj->open_obj, &obj_read_out);
     if (num_read < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(num_read, &err_subname);
+        const char *err_name = rodsErrorName(num_read, &err_subname);
         set_baton_error(error, num_read,
                         "Failed to read up to %zu bytes from '%s': %s",
                         len, data_obj->path, err_name);
@@ -462,7 +462,7 @@ int get_data_obj_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
     if (error->code != 0) goto error;
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to close data object: '%s' error %d %s",
                         rods_path->outPath, status, err_name);
@@ -538,7 +538,7 @@ json_t *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
 
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to list checksum of '%s': %d %s",
                         rods_path->outPath, status, err_name);

@@ -94,7 +94,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                                    &coll_handle);
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to open collection: '%s' error %d %s",
                         rods_path->outPath, status, err_name);
