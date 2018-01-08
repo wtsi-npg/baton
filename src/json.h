@@ -123,6 +123,7 @@
 #define JSON_OP_RECURSE            "recurse"
 #define JSON_OP_REPLICATE          "replicate"
 #define JSON_OP_SAVE               "save"
+#define JSON_OP_SINGLE_SERVER      "single-server"
 #define JSON_OP_SIZE               "size"
 #define JSON_OP_TIMESTAMP          "timestamp"
 #define JSON_OP_PATH               "path"
@@ -274,6 +275,8 @@ int op_recurse_p(json_t *operation_args);
 int op_replicate_p(json_t *operation_args);
 
 int op_save_p(json_t *operation_args);
+
+int op_single_server_p(json_t *operation_args);
 
 int op_size_p(json_t *operation_args);
 

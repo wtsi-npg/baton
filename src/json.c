@@ -642,6 +642,10 @@ int op_save_p(json_t *operation_args) {
     return json_is_true(json_object_get(operation_args, JSON_OP_SAVE));
 }
 
+int op_single_server_p(json_t *operation_args) {
+  return json_is_true(json_object_get(operation_args, JSON_OP_SINGLE_SERVER));
+}
+
 int op_size_p(json_t *operation_args) {
     return json_is_true(json_object_get(operation_args, JSON_OP_SIZE));
 }

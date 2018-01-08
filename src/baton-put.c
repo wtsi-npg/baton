@@ -24,14 +24,15 @@
 #include "config.h"
 #include "baton.h"
 
-static int checksum_flag   = 0;
-static int debug_flag      = 0;
-static int help_flag       = 0;
-static int silent_flag     = 0;
-static int unbuffered_flag = 0;
-static int unsafe_flag     = 0;
-static int verbose_flag    = 0;
-static int version_flag    = 0;
+static int checksum_flag      = 0;
+static int debug_flag         = 0;
+static int help_flag          = 0;
+static int silent_flag        = 0;
+static int single_server_flag = 0;
+static int unbuffered_flag    = 0;
+static int unsafe_flag        = 0;
+static int verbose_flag       = 0;
+static int version_flag       = 0;
 
 static size_t default_buffer_size = 1024 * 64 * 16 * 2;
 static size_t max_buffer_size     = 1024 * 1024 * 1024;
@@ -47,17 +48,18 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"checksum",    no_argument, &checksum_flag,   1},
-            {"debug",       no_argument, &debug_flag,      1},
-            {"help",        no_argument, &help_flag,       1},
-            {"silent",      no_argument, &silent_flag,     1},
-            {"unbuffered",  no_argument, &unbuffered_flag, 1},
-            {"unsafe",      no_argument, &unsafe_flag,     1},
-            {"verbose",     no_argument, &verbose_flag,    1},
-            {"version",     no_argument, &version_flag,    1},
+            {"checksum",      no_argument, &checksum_flag,      1},
+            {"debug",         no_argument, &debug_flag,         1},
+            {"help",          no_argument, &help_flag,          1},
+            {"silent",        no_argument, &silent_flag,        1},
+            {"single-server", no_argument, &single_server_flag, 1},
+            {"unbuffered",    no_argument, &unbuffered_flag,    1},
+            {"unsafe",        no_argument, &unsafe_flag,        1},
+            {"verbose",       no_argument, &verbose_flag,       1},
+            {"version",       no_argument, &version_flag,       1},
             // Indexed options
-            {"file",        required_argument, NULL, 'f'},
-            {"buffer-size", required_argument, NULL, 'b'},
+            {"file",          required_argument, NULL, 'f'},
+            {"buffer-size",   required_argument, NULL, 'b'},
             {0, 0, 0, 0}
         };
 
@@ -88,10 +90,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (unsafe_flag)     flags = flags | UNSAFE_RESOLVE;
-    if (unbuffered_flag) flags = flags | FLUSH;
-
-    if (checksum_flag)   flags = flags | CALCULATE_CHECKSUM;
+    if (checksum_flag)      flags = flags | CALCULATE_CHECKSUM;
+    if (single_server_flag) flags = flags | SINGLE_SERVER;
+    if (unsafe_flag)        flags = flags | UNSAFE_RESOLVE;
+    if (unbuffered_flag)    flags = flags | FLUSH;
 
     const char *help =
         "Name\n"
@@ -107,15 +109,16 @@ int main(int argc, char *argv[]) {
         "    Puts the contents of files into data objects described in a\n"
         "    JSON input file.\n"
         ""
-        "    --buffer-size Set the transfer buffer size.\n"
-        "    --checksum    Calculate a checksum on the server side.\n"
-        "    --file        The JSON file describing the data objects.\n"
-        "                  Optional, defaults to STDIN.\n"
-        "    --silent      Silence error messages.\n"
-        "    --unbuffered  Flush print operations for each JSON object.\n"
-        "    --unsafe      Permit unsafe relative iRODS paths.\n"
-        "    --verbose     Print verbose messages to STDERR.\n"
-        "    --version     Print the version number and exit.\n";
+        "    --buffer-size   Set the transfer buffer size.\n"
+        "    --checksum      Calculate a checksum on the server side.\n"
+        "    --file          The JSON file describing the data objects.\n"
+        "                    Optional, defaults to STDIN.\n"
+        "    --silent        Silence error messages.\n"
+        "    --single-server Only connect to a single iRODS server\n"
+        "    --unbuffered    Flush print operations for each JSON object.\n"
+        "    --unsafe        Permit unsafe relative iRODS paths.\n"
+        "    --verbose       Print verbose messages to STDERR.\n"
+        "    --version       Print the version number and exit.\n";
 
     if (help_flag) {
         printf("%s\n",help);
@@ -134,33 +137,41 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    if (buffer_size > max_buffer_size) {
-        logmsg(WARN, "Requested transfer buffer size %zu exceeds maximum of "
-               "%zu. Setting buffer size to %zu",
-               buffer_size, max_buffer_size, max_buffer_size);
-        buffer_size = max_buffer_size;
-    }
-
-    if (buffer_size % 1024 != 0) {
-        size_t tmp = ((buffer_size / 1024) + 1) * 1024;
-        if (tmp > max_buffer_size) {
-            tmp = max_buffer_size;
-        }
-
-        if (tmp > buffer_size) {
-            buffer_size = tmp;
-            logmsg(NOTICE, "Rounding transfer buffer size upwards from "
-                   "%zu to %zu", buffer_size, tmp);
-        }
-    }
-
-    logmsg(DEBUG, "Using a transfer buffer size of %zu bytes", buffer_size);
-
     operation_args_t args = { .flags       = flags,
                               .buffer_size = default_buffer_size,
                               .zone_name   = zone_name };
 
-    int status = do_operation(input, baton_json_put_op, &args);
+    int status;
+    if (flags & SINGLE_SERVER) {
+        logmsg(DEBUG, "Single-server mode, falling back to operation 'write'");
+
+        if (buffer_size > max_buffer_size) {
+            logmsg(WARN, "Requested transfer buffer size %zu exceeds maximum of "
+                   "%zu. Setting buffer size to %zu",
+                   buffer_size, max_buffer_size, max_buffer_size);
+            buffer_size = max_buffer_size;
+        }
+
+        if (buffer_size % 1024 != 0) {
+            size_t tmp = ((buffer_size / 1024) + 1) * 1024;
+            if (tmp > max_buffer_size) {
+                tmp = max_buffer_size;
+            }
+
+            if (tmp > buffer_size) {
+                buffer_size = tmp;
+                logmsg(NOTICE, "Rounding transfer buffer size upwards from "
+                       "%zu to %zu", buffer_size, tmp);
+            }
+        }
+
+        logmsg(DEBUG, "Using a transfer buffer size of %zu bytes", buffer_size);
+        status = do_operation(input, baton_json_write_op, &args);
+    }
+    else {
+      status = do_operation(input, baton_json_put_op, &args);
+    }
+
     if (input != stdin) fclose(input);
 
     if (status != 0)    exit_status = 5;
