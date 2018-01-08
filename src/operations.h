@@ -84,7 +84,9 @@ typedef enum {
     /** Flush output */
     FLUSH              = 1 << 17,
     /** Force an operation */
-    FORCE              = 1 << 18
+    FORCE              = 1 << 18,
+    /** Avoid any operations that contact servers other than rodshost */
+    SINGLE_SERVER      = 1 << 19
 } option_flags;
 
 typedef struct operation_args {

@@ -150,17 +150,18 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         if (error->code != 0)  goto error;
 
         option_flags flags = args_copy.flags;
-        if (op_acl_p(args))        flags = flags | PRINT_ACL;
-        if (op_avu_p(args))        flags = flags | PRINT_AVU;
-        if (op_checksum_p(args))   flags = flags | PRINT_CHECKSUM;
-        if (op_contents_p(args))   flags = flags | PRINT_CONTENTS;
-        if (op_replicate_p(args))  flags = flags | PRINT_REPLICATE;
-        if (op_size_p(args))       flags = flags | PRINT_SIZE;
-        if (op_timestamp_p(args))  flags = flags | PRINT_TIMESTAMP;
-        if (op_recurse_p(args))    flags = flags | RECURSIVE;
-        if (op_force_p(args))      flags = flags | FORCE;
-        if (op_collection_p(args)) flags = flags | SEARCH_COLLECTIONS;
-        if (op_object_p(args))     flags = flags | SEARCH_OBJECTS;
+        if (op_acl_p(args))           flags = flags | PRINT_ACL;
+        if (op_avu_p(args))           flags = flags | PRINT_AVU;
+        if (op_checksum_p(args))      flags = flags | PRINT_CHECKSUM;
+        if (op_contents_p(args))      flags = flags | PRINT_CONTENTS;
+        if (op_replicate_p(args))     flags = flags | PRINT_REPLICATE;
+        if (op_size_p(args))          flags = flags | PRINT_SIZE;
+        if (op_timestamp_p(args))     flags = flags | PRINT_TIMESTAMP;
+        if (op_recurse_p(args))       flags = flags | RECURSIVE;
+        if (op_force_p(args))         flags = flags | FORCE;
+        if (op_collection_p(args))    flags = flags | SEARCH_COLLECTIONS;
+        if (op_object_p(args))        flags = flags | SEARCH_OBJECTS;
+        if (op_single_server_p(args)) flags = flags | SINGLE_SERVER;
         args_copy.flags = flags;
 
         if (has_operation(args)) {
@@ -222,7 +223,13 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     }
     else if (str_equals(op, JSON_PUT_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
-        result = baton_json_put_op(env, conn, target, &args_copy, error);
+        if (args_copy.flags & SINGLE_SERVER) {
+            logmsg(DEBUG, "Single-server mode, falling back to operation 'write'");
+            result = baton_json_write_op(env, conn, target, &args_copy, error);
+        }
+        else {
+            result = baton_json_put_op(env, conn, target, &args_copy, error);
+        }
     }
     else if (str_equals(op, JSON_MOVE_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
@@ -461,13 +468,13 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (error->code != 0) goto error;
 
     size_t bsize = args->buffer_size;
-    logmsg(DEBUG, "Using a 'put' buffer size of %zu bytes", bsize);
+    logmsg(DEBUG, "Using a 'write' buffer size of %zu bytes", bsize);
 
     FILE *in = fopen(file, "r");
     if (!in) {
         set_baton_error(error, errno,
                         "Failed to open '%s' for reading: error %d %s",
-                        "README", errno, strerror(errno));
+                        file, errno, strerror(errno));
         goto error;
     }
 
@@ -478,7 +485,7 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (status != 0) {
         set_baton_error(error, errno,
                         "Failed to close '%s': error %d %s",
-                        "README", errno, strerror(errno));
+                        file, errno, strerror(errno));
         goto error;
     }
 
@@ -512,7 +519,7 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (status != 0) {
         set_baton_error(error, errno,
                         "Failed to close '%s': error %d %s",
-                        "README", errno, strerror(errno));
+                        file, errno, strerror(errno));
         goto error;
     }
 
