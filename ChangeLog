@@ -1,3 +1,6 @@
+	[1.1.0]
+	Added --single-server CLI option to allow the user to prevent direct access to resource servers when uploading files
+
 	[1.0.1]
 	restore the --save CLI option of baton-get
 
