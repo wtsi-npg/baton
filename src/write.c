@@ -55,7 +55,7 @@ int put_data_obj(rcComm_t *conn, const char *path, rodsPath_t *rods_path,
     status = rcDataObjPut(conn, &obj_open_in, tmpname);
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to put data object: '%s' error %d %s",
                         rods_path->outPath, status, err_name);
@@ -124,7 +124,7 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
     int status = close_data_obj(conn, obj);
     if (status < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(status, &err_subname);
+        const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to close data object: '%s' error %d %s",
                         obj->path, status, err_name);
@@ -171,7 +171,7 @@ size_t write_chunk(rcComm_t *conn, char *buffer, data_obj_file_t *data_obj,
     int num_written = rcDataObjWrite(conn, data_obj->open_obj, &obj_write_in);
     if (num_written < 0) {
         char *err_subname;
-        char *err_name = rodsErrorName(num_written, &err_subname);
+        const char *err_name = rodsErrorName(num_written, &err_subname);
         set_baton_error(error, num_written,
                         "Failed to write %zu bytes to '%s': %s",
                         len, data_obj->path, err_name);
