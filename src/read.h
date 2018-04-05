@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014, 2015, 2016, 2017 Genome Research Ltd. All
+ * Copyright (C) 2014, 2015, 2016, 2017, 2018 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -49,13 +49,15 @@ typedef struct data_obj_file {
  *
  * @param[in]  conn       An open iRODS connection.
  * @param[in]  rods_path  An iRODS data object path.
- * @param[in]  flags      O_RDONLY or O_WRONLY.
- * @parem[out] error      An error report struct.
+ * @param[in]  open_flag  O_RDONLY or O_WRONLY.
+ * @param[in]  flags      WRITE_LOCK to use an advisory lock server-side.
+ *                        Optional.
+ * @param[out] error      An error report struct.
  *
  * @return A new struct, which must be freed by the caller.
  */
 data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
-                               int flags, baton_error_t *error);
+                               int open_flag, int flags, baton_error_t *error);
 
 int close_data_obj(rcComm_t *conn, data_obj_file_t *obj_file);
 

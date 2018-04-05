@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1885,7 +1885,7 @@ START_TEST(test_slurp_data_obj) {
     for (int i = 0; i < 10; i++) {
         baton_error_t open_error;
         data_obj_file_t *obj = open_data_obj(conn, &rods_obj_path,
-                                             O_RDONLY, &open_error);
+                                             O_RDONLY, flags, &open_error);
         ck_assert_int_eq(open_error.code, 0);
 
         baton_error_t slurp_error;
@@ -2005,7 +2005,8 @@ START_TEST(test_write_data_obj) {
         baton_error_t write_error;
         FILE *in = fopen(file_path, "r");
         size_t num_written = write_data_obj(conn, in, &rods_obj_path,
-                                            buffer_sizes[i], &write_error);
+                                            buffer_sizes[i], flags,
+                                            &write_error);
         ck_assert_int_eq(write_error.code, 0);
         ck_assert_int_eq(num_written, 10240);
         ck_assert_int_eq(fclose(in), 0);

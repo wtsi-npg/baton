@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014, 2015, 2016, 2017 Genome Research Ltd. All
+ * Copyright (C) 2014, 2015, 2016, 2017, 2018 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -34,7 +34,8 @@
  * @param[in]  obj_file    A local file name.
  * @param[in]  rods_path   An iRODS data object path.
  * @param[in]  flags       CALCULATE_CHECKSUM to calculate a checksum on
-                           the server side. Optional.
+                           the server side. WRITE_LOCK to use an advisory
+                           lock server-side. Optional.
  * @param[out] error       An error report struct.
  *
  * @return The number of bytes copied in total.
@@ -63,11 +64,13 @@ size_t write_chunk(rcComm_t *conn, char *buffer, data_obj_file_t *obj_file,
  * @param[in]  in          File to read from.
  * @param[in]  rods_path   An iRODS data object path.
  * @param[in]  buffer_size The number of bytes to copy at one time.
+ * @param[in]  flags       WRITE_LOCK to use an advisory lock server-side.
+                           Optional.
  * @param[out] error       An error report struct.
  *
  * @return The number of bytes copied in total.
  */
 size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
-                      size_t buffer_size, baton_error_t *error);
+                      size_t buffer_size, int flags, baton_error_t *error);
 
 #endif // _BATON_WRITE_H

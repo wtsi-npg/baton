@@ -33,6 +33,7 @@ static int unbuffered_flag    = 0;
 static int unsafe_flag        = 0;
 static int verbose_flag       = 0;
 static int version_flag       = 0;
+static int wlock_flag         = 0;
 
 static size_t default_buffer_size = 1024 * 64 * 16 * 2;
 static size_t max_buffer_size     = 1024 * 1024 * 1024;
@@ -57,6 +58,7 @@ int main(int argc, char *argv[]) {
             {"unsafe",        no_argument, &unsafe_flag,        1},
             {"verbose",       no_argument, &verbose_flag,       1},
             {"version",       no_argument, &version_flag,       1},
+            {"wlock",         no_argument, &wlock_flag,         1},
             // Indexed options
             {"file",          required_argument, NULL, 'f'},
             {"buffer-size",   required_argument, NULL, 'b'},
@@ -103,7 +105,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "    baton-put [--file <JSON file>] [--silent]\n"
         "              [--unbuffered] [--unsafe]\n"
-        "              [--verbose] [--version]\n"
+        "              [--verbose] [--version] [--wlock]\n"
         "\n"
         "Description\n"
         "    Puts the contents of files into data objects described in a\n"
@@ -118,7 +120,9 @@ int main(int argc, char *argv[]) {
         "    --unbuffered    Flush print operations for each JSON object.\n"
         "    --unsafe        Permit unsafe relative iRODS paths.\n"
         "    --verbose       Print verbose messages to STDERR.\n"
-        "    --version       Print the version number and exit.\n";
+        "    --version       Print the version number and exit.\n"
+        "    --wlock         Enable server-side advisory write locking.\n"
+        "                    Optional, defaults to false.\n";
 
     if (help_flag) {
         printf("%s\n",help);
@@ -129,6 +133,8 @@ int main(int argc, char *argv[]) {
         printf("%s\n", VERSION);
         exit(0);
     }
+
+    if (wlock_flag) flags = flags | WRITE_LOCK;
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
@@ -146,7 +152,8 @@ int main(int argc, char *argv[]) {
         logmsg(DEBUG, "Single-server mode, falling back to operation 'write'");
 
         if (buffer_size > max_buffer_size) {
-            logmsg(WARN, "Requested transfer buffer size %zu exceeds maximum of "
+            logmsg(WARN,
+                   "Requested transfer buffer size %zu exceeds maximum of "
                    "%zu. Setting buffer size to %zu",
                    buffer_size, max_buffer_size, max_buffer_size);
             buffer_size = max_buffer_size;

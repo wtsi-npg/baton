@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2017 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2014, 2015, 2017, 2018 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 static char *do_slurp(rcComm_t *conn, rodsPath_t *rods_path,
                       size_t buffer_size, baton_error_t *error) {
     data_obj_file_t *obj_file = NULL;
+    int                 flags = 0;
 
     if (buffer_size == 0) {
         set_baton_error(error, -1, "Invalid buffer_size argument %zu",
@@ -37,7 +38,7 @@ static char *do_slurp(rcComm_t *conn, rodsPath_t *rods_path,
 
     logmsg(DEBUG, "Using a 'slurp' buffer size of %zu bytes", buffer_size);
 
-    obj_file = open_data_obj(conn, rods_path, O_RDONLY, error);
+    obj_file = open_data_obj(conn, rods_path, O_RDONLY, flags, error);
     if (error->code != 0) goto error;
 
     char *content = slurp_data_obj(conn, obj_file, buffer_size, error);
@@ -122,7 +123,8 @@ error:
 }
 
 data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
-                               int flags, baton_error_t *error) {
+                               int open_flag, int flags,
+                               baton_error_t *error) {
     data_obj_file_t *data_obj = NULL;
     dataObjInp_t obj_open_in;
     int descriptor;
@@ -134,7 +136,12 @@ data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
     logmsg(DEBUG, "Opening data object '%s'", rods_path->outPath);
     snprintf(obj_open_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
 
-    switch(flags) {
+    if (flags & WRITE_LOCK) {
+      logmsg(DEBUG, "Enabling write lock for '%s'", rods_path->outPath);
+      addKeyVal(&obj_open_in.condInput, LOCK_TYPE_KW, WRITE_LOCK_TYPE);
+    }
+
+    switch(open_flag) {
         case (O_RDONLY):
           obj_open_in.openFlags = O_RDONLY;
 
@@ -153,7 +160,8 @@ data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
         default:
           set_baton_error(error, -1,
                           "Failed to open '%s': file open flag must be either"
-                          "O_RDONLY or O_WRONLY", rods_path->outPath, flags);
+                          "O_RDONLY or O_WRONLY", rods_path->outPath,
+                          open_flag);
           goto error;
     }
 
@@ -435,6 +443,7 @@ error:
 int get_data_obj_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
                         size_t buffer_size, baton_error_t *error) {
     data_obj_file_t *data_obj = NULL;
+    int                 flags = 0;
 
     init_baton_error(error);
 
@@ -453,7 +462,7 @@ int get_data_obj_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
         goto error;
     }
 
-    data_obj = open_data_obj(conn, rods_path, O_RDONLY, error);
+    data_obj = open_data_obj(conn, rods_path, O_RDONLY, flags, error);
     if (error->code != 0) goto error;
 
     size_t nr = read_data_obj(conn, data_obj, out, buffer_size, error);

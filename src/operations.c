@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2017, 2018 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -224,7 +224,8 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     else if (str_equals(op, JSON_PUT_OP, MAX_STR_LEN)) {
         logmsg(DEBUG, "Dispatching to operation '%s'", op);
         if (args_copy.flags & SINGLE_SERVER) {
-            logmsg(DEBUG, "Single-server mode, falling back to operation 'write'");
+            logmsg(DEBUG,
+                   "Single-server mode, falling back to operation 'write'");
             result = baton_json_write_op(env, conn, target, &args_copy, error);
         }
         else {
@@ -478,7 +479,7 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         goto error;
     }
 
-    write_data_obj(conn, in, &rods_path, bsize, error);
+    write_data_obj(conn, in, &rods_path, bsize, args->flags, error);
     int status = fclose(in);
 
     if (error->code != 0) goto error;
