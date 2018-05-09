@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2017 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2014, 2015, 2017, 2018 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,8 +47,13 @@ int put_data_obj(rcComm_t *conn, const char *path, rodsPath_t *rods_path,
     obj_open_in.dataSize   = 0;
 
     if (flags & CALCULATE_CHECKSUM) {
-        logmsg(DEBUG, "Calculating checksum server-side for '%s'", tmpname);
+        logmsg(DEBUG, "Calculating checksum server-side for '%s'",
+               rods_path->outPath);
         addKeyVal(&obj_open_in.condInput, REG_CHKSUM_KW, "");
+    }
+    if (flags & WRITE_LOCK) {
+      logmsg(DEBUG, "Enabling put write lock for '%s'", rods_path->outPath);
+      addKeyVal(&obj_open_in.condInput, LOCK_TYPE_KW, WRITE_LOCK_TYPE);
     }
     addKeyVal(&obj_open_in.condInput, FORCE_FLAG_KW, "");
 
@@ -61,6 +66,7 @@ int put_data_obj(rcComm_t *conn, const char *path, rodsPath_t *rods_path,
                         rods_path->outPath, status, err_name);
         goto error;
     }
+    logmsg(NOTICE, "Put '%s' to '%s'", tmpname, rods_path->outPath);
 
     free(tmpname);
 
@@ -73,7 +79,7 @@ error:
 }
 
 size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
-                      size_t buffer_size, baton_error_t *error) {
+                      size_t buffer_size, int flags, baton_error_t *error) {
     data_obj_file_t *obj = NULL;
     char *buffer         = NULL;
     size_t num_read      = 0;
@@ -94,7 +100,7 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
         goto error;
     }
 
-    obj = open_data_obj(conn, rods_path, O_WRONLY, error);
+    obj = open_data_obj(conn, rods_path, O_WRONLY, flags, error);
     if (error->code != 0) goto error;
 
     unsigned char digest[16];

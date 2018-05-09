@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -86,7 +86,9 @@ typedef enum {
     /** Force an operation */
     FORCE              = 1 << 18,
     /** Avoid any operations that contact servers other than rodshost */
-    SINGLE_SERVER      = 1 << 19
+    SINGLE_SERVER      = 1 << 19,
+    /** USe advisory write lock on server */
+    WRITE_LOCK         = 1 << 20
 } option_flags;
 
 typedef struct operation_args {

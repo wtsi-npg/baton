@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2017, 2018 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ static int unbuffered_flag    = 0;
 static int unsafe_flag        = 0;
 static int verbose_flag       = 0;
 static int version_flag       = 0;
+static int wlock_flag         = 0;
 
 static size_t default_buffer_size = 1024 * 64 * 16 * 2;
 
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]) {
             {"unsafe",        no_argument, &unsafe_flag,        1},
             {"verbose",       no_argument, &verbose_flag,       1},
             {"version",       no_argument, &version_flag,       1},
+            {"wlock",         no_argument, &wlock_flag,         1},
             // Indexed options
             {"file",          required_argument, NULL, 'f'},
             {"zone",          required_argument, NULL, 'z'},
@@ -92,7 +94,8 @@ int main(int argc, char *argv[]) {
         "Synopsis\n"
         "\n"
         "    baton-do [--file <JSON file>] [--silent]\n"
-        "             [--unbuffered] [--verbose] [--version]\n"
+        "             [--unbuffered] [--verbose] [--version] [--wlock]\n"
+        "             [--zone]\n"
         "\n"
         "Description\n"
         "    Performs remote operations as described in the JSON\n"
@@ -106,6 +109,8 @@ int main(int argc, char *argv[]) {
 
         "    --verbose       Print verbose messages to STDERR.\n"
         "    --version       Print the version number and exit.\n"
+        "    --wlock         Enable server-side advisory write locking.\n"
+        "                    Optional, defaults to false.\n"
         "    --zone          The zone to operate within. Optional.\n";
 
     if (help_flag) {
@@ -121,6 +126,7 @@ int main(int argc, char *argv[]) {
     if (single_server_flag) flags = flags | SINGLE_SERVER;
     if (unbuffered_flag)    flags = flags | FLUSH;
     if (unsafe_flag)        flags = flags | UNSAFE_RESOLVE;
+    if (wlock_flag)         flags = flags | WRITE_LOCK;
 
     if (debug_flag)   set_log_threshold(DEBUG);
     if (verbose_flag) set_log_threshold(NOTICE);
