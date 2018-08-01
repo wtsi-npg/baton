@@ -669,6 +669,8 @@ Synopsis:
               },
               "target": {avus: [{attribute: "x", value: "y"},   \
                                 {attribute: "m", value: "n"}]}' | baton-do
+   OR ( One way to pipe multiple JSON files into the baton-do stream )
+   $ cat *.json | baton-do 
 
 This program accepts JSON objects as described in :ref:`representing_paths`
 that have been wrapped in an additional JSON envelope describing a operation
@@ -683,6 +685,8 @@ if present, must be a JSON object whose keys and values may be any of
 the command line options permitted for the standard ``baton`` clients
 supporting the previously named operations. Where command line options
 are boolean flags, a JSON `true` value should be used.
+This can be one large JSON file, or lots of small, independent JSON files 
+(as long as each file is complete in its own right).
 
 Options
 ^^^^^^^
