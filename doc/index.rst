@@ -102,7 +102,20 @@ The ``baton`` suite of programs
 
 ``baton`` comprises several command-line programs, all of which accept
 a stream of JSON objects on standard input (or from a file) and emit a
-stream of JSON objects on standard output. The ``baton`` programs are:
+stream of JSON objects on standard output i.e.
+
+.. code-block:: sh
+
+   { object 1 }  { object 2 }  ...  { object n } 
+
+
+The JSON stream may be in a single file (the filename given on the
+command line using the ``--file`` option) or in multiple files
+concatenated on ``STDIN``. Any whitespace between the JSON objects is
+ignored.
+
+
+The ``baton`` programs are:
 
 * `baton-chmod`_
 
