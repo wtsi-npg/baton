@@ -132,18 +132,18 @@ error:
 
 json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
                                operation_args_t *args, baton_error_t *error) {
-    json_t *result  = NULL;
+    json_t *result = NULL;
+
+    operation_args_t args_copy = { .flags       = args->flags,
+                                   .buffer_size = args->buffer_size,
+                                   .zone_name   = args->zone_name,
+                                   .path        = NULL };
 
     const char *op = get_operation(envelope, error);
     if (error->code != 0) goto error;
 
     json_t *target = get_operation_target(envelope, error);
     if (error->code != 0) goto error;
-
-    operation_args_t args_copy = { .flags       = args->flags,
-                                   .buffer_size = args->buffer_size,
-                                   .zone_name   = args->zone_name,
-                                   .path        = NULL };
 
     if (has_operation(envelope)) {
         json_t *args = get_operation_args(envelope, error);
