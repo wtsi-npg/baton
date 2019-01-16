@@ -64,12 +64,22 @@ iRODS C API and requires a C compiler to build.
    autoreconf -i
 
 3. Generate the makefiles (see INSTALL for arguments to configure).
-   The path to iRODS must be the root directory of the iRODS installation,
-   which defaults to ``/usr/local/lib/irods``.
+   iRODS may be installed from OS packages or from source.
 
 .. code-block:: sh
 
-   ./configure --with-irods=/path/to/irods
+   ./configure
+
+
+   If you have iRODS headers and libraries installed in a non-standard
+   place, you will need to set the CPPFLAGS and LDFLAGS environmment
+   variables appropriately.
+
+.. code-block:: sh
+
+   CPPFLAGS="-I/path/to/irods/headers" \
+     LDFLAGS="-L/path/to/irods/libraries" ./configure
+
 
 4. Compile
 

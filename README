@@ -38,7 +38,13 @@ online at http://wtsi-npg.github.io/baton/
 
 iRODS compatibility:
 
-- Compatible with iRODS 3.2, 3.3, 3.3.1 and 4.1.x
+- Compatible with iRODS 4.1.x and 4.2.x
+
+  Only iRODS 4.x is supported on the main branch. If you use iRODS
+  3.x, please refer to the "irods-3-lts" branch which will provide
+  continued support for iRODS 3.x users to recieve backported
+  bugfixes, but will not see new features. No releases will be created
+  from the irods-3-lts branch - you will need to build from source.
 
 - Not compatible with iRODS 4.0.1 and 4.0.2 (which lack required API
   functions with C linkage).
@@ -46,8 +52,8 @@ iRODS compatibility:
 
 Installation:
 
-1. Install iRODS 3.3.x or 4.x and the baton dependencies (Jansson) as
-   described in their documentation.
+1. Install iRODS 4.x and the baton dependencies (Jansson) as described
+   in their documentation.
 
 2. If you have cloned the baton git repository, run autoconf to
    generate the configure script:
@@ -57,26 +63,26 @@ Installation:
    If you have downloaded a release tarball, the configure script is
    included, so proceed to step 3.
 
-3. For a run-in-place installation of iRODS 3.3.x or iRODS 4.x, run the
-   configure script using a --with-irods argument to indicate the root
-   directory of the iRODS source tree.
+3. Run the configure script:
 
-   ./configure --with-irods=/path/to/irods
+   ./configure
 
-   You may set the location of your preferred Boost installation by
-   using a --with-boost argument.
+   If you have iRODS headers and libraries installed in a non-standard
+   place, you will need to set the CPPFLAGS and LDFLAGS environmment
+   variables appropriately. E.g.
 
-   For a packaged (.deb) installation of iRODS 4.x, run the configure
-   script with a bare --with-irods argument.
-
-   ./configure --with-irods
-
-   (The iRODS configuration options are implemented by a
-   macro 'ax_with_irods' which is included in the m4 subdirectory).
+   CPPFLAGS="-I/path/to/irods/headers" \
+     LDFLAGS="-L/path/to/irods/libraries" ./configure
 
 4. Compile
 
-   make
+   make CPPFLAGS="-I/path/to/irods/headers" LDFLAGS="-L/path/to/irods/libraries" 
+
+   If you have iRODS headers and libraries installed in a non-standard
+   place, you will need to set the CPPFLAGS and LDFLAGS environmment
+   variables appropriately. E.g.
+
+   make 
 
 5. Optionally, run the test suite
 
@@ -100,13 +106,9 @@ baton, see the manual in the doc directory.
 
 Dependencies:
 
-iRODS   https://github.com/irods/irods-legacy
+iRODS   https://github.com/irods/irods
 
-        Versions 3.2, 3.3, 3.3.1
-
-        https://github.com/irods/irods
-
-        Versions 4.1.x
+        Versions 4.1.x, 4.2.x
 
 Jansson https://github.com/akheron/jansson.git
 
@@ -122,4 +124,3 @@ check  http://check.sourceforge.net/        (for unit tests).
 lcov   http://ltp.sourceforge.net/coverage/ (for test coverage analysis)
 
 jq     http://stedolan.github.io/jq/        (for processing input and output)
-
