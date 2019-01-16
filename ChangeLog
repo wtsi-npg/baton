@@ -1,8 +1,23 @@
+        [1.2.0]
+
+	Bugfix: Ensure args_copy.path is defined during error handling.
+
+	Added --wlock command line argument to baton-put and baton-do,
+	enabling server-side advisory locking.
+
+	Fixed llvm build warnings (Joshua Randall).
+
+	Documentation updates.
+
+
 	[1.1.0]
-	Added --single-server CLI option to allow the user to prevent direct access to resource servers when uploading files
+
+	Added --single-server CLI option to allow the user to prevent
+	direct access to resource servers when uploading files.
 
 	[1.0.1]
-	restore the --save CLI option of baton-get
+
+	Restore the --save CLI option of baton-get
 
 	[1.0.0]
 
@@ -26,7 +41,7 @@
 
 	[0.17.0]
 
-	Bug fix: Check for errors when closing data objects.
+	Bugfix: Check for errors when closing data objects.
 
 	Added --version CLI argument to baton Perl script.
 
