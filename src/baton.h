@@ -32,7 +32,9 @@
 #include "read.h"
 #include "write.h"
 
-#define MAX_CLIENT_NAME_LEN   512
+#define MAX_CLIENT_NAME_LEN 512
+
+#define DEFAULT_MAX_CONNECT_TIME 600
 
 #define META_ADD_NAME "add"
 #define META_REM_NAME "rm"

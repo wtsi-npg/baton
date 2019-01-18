@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2017, 2019 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,8 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -45,6 +47,7 @@ int main(int argc, char *argv[]) {
     char *json_file = NULL;
     FILE *input     = NULL;
     size_t buffer_size = default_buffer_size;
+    unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
 
     while (1) {
         static struct option long_options[] = {
@@ -60,8 +63,9 @@ int main(int argc, char *argv[]) {
             {"version",       no_argument, &version_flag,       1},
             {"wlock",         no_argument, &wlock_flag,         1},
             // Indexed options
-            {"file",          required_argument, NULL, 'f'},
+            {"connect-time", required_argument, NULL, 'c'},
             {"buffer-size",   required_argument, NULL, 'b'},
+            {"file",          required_argument, NULL, 'f'},
             {0, 0, 0, 0}
         };
 
@@ -73,6 +77,21 @@ int main(int argc, char *argv[]) {
         if (c == -1) break;
 
         switch (c) {
+            case 'c':
+                errno = 0;
+                char *endptr;
+                unsigned long val = strtoul(optarg, &endptr, 10);
+
+                if ((errno == ERANGE && val == ULONG_MAX) ||
+                    (errno != 0 && val == 0)              ||
+                    endptr == optarg) {
+                    fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
+                    exit(1);
+                }
+
+                max_connect_time = val;
+                break;
+
             case 'b':
                 buffer_size = parse_size(optarg);
                 if (errno != 0) buffer_size = default_buffer_size;
@@ -103,26 +122,31 @@ int main(int argc, char *argv[]) {
         "\n"
         "Synopsis\n"
         "\n"
-        "    baton-put [--file <JSON file>] [--silent]\n"
+        "    baton-put [--connect-time <n>] [--file <JSON file>] [--silent]\n"
         "              [--unbuffered] [--unsafe]\n"
         "              [--verbose] [--version] [--wlock]\n"
         "\n"
         "Description\n"
-        "    Puts the contents of files into data objects described in a\n"
-        "    JSON input file.\n"
+        "  Puts the contents of files into data objects described in a\n"
+        "  JSON input file.\n"
         ""
-        "    --buffer-size   Set the transfer buffer size.\n"
-        "    --checksum      Calculate a checksum on the server side.\n"
-        "    --file          The JSON file describing the data objects.\n"
-        "                    Optional, defaults to STDIN.\n"
-        "    --silent        Silence error messages.\n"
-        "    --single-server Only connect to a single iRODS server\n"
-        "    --unbuffered    Flush print operations for each JSON object.\n"
-        "    --unsafe        Permit unsafe relative iRODS paths.\n"
-        "    --verbose       Print verbose messages to STDERR.\n"
-        "    --version       Print the version number and exit.\n"
-        "    --wlock         Enable server-side advisory write locking.\n"
-        "                    Optional, defaults to false.\n";
+        "  --buffer-size   Set the transfer buffer size.\n"
+        "  --checksum      Calculate a checksum on the server side.\n"
+        "  --connect-time  The duration in seconds after which a connection\n"
+        "                  to iRODS will be refreshed (closed and reopened\n"
+        "                  between JSON documents) to allow iRODS server\n"
+        "                  resources to be released. Optional, defaults to\n"
+        "                  30 minutes.\n"
+        "  --file          The JSON file describing the data objects.\n"
+        "                  Optional, defaults to STDIN.\n"
+        "  --silent        Silence error messages.\n"
+        "  --single-server Only connect to a single iRODS server\n"
+        "  --unbuffered    Flush print operations for each JSON object.\n"
+        "  --unsafe        Permit unsafe relative iRODS paths.\n"
+        "  --verbose       Print verbose messages to STDERR.\n"
+        "  --version       Print the version number and exit.\n"
+        "  --wlock         Enable server-side advisory write locking.\n"
+        "                  Optional, defaults to false.\n";
 
     if (help_flag) {
         printf("%s\n",help);
@@ -143,9 +167,10 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    operation_args_t args = { .flags       = flags,
-                              .buffer_size = default_buffer_size,
-                              .zone_name   = zone_name };
+    operation_args_t args = { .flags            = flags,
+                              .buffer_size      = default_buffer_size,
+                              .zone_name        = zone_name,
+                              .max_connect_time = max_connect_time };
 
     int status;
     if (flags & SINGLE_SERVER) {
@@ -172,7 +197,8 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        logmsg(DEBUG, "Using a transfer buffer size of %zu bytes", buffer_size);
+        logmsg(DEBUG, "Using a transfer buffer size of %zu bytes",
+               buffer_size);
         status = do_operation(input, baton_json_write_op, &args);
     }
     else {

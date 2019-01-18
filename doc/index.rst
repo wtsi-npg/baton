@@ -175,6 +175,14 @@ Options
 ^^^^^^^
 
 .. program:: baton-chmod
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-chmod
 .. option:: --file <file name>
 
   A JSON file describing the data objects and collections. Optional,
@@ -262,6 +270,14 @@ Options
 
   Print AVU lists in output, in the format described in
   :ref:`representing_path_metadata`.
+
+.. program:: baton-get
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
 
 .. program:: baton-get
 .. option:: --file <file name>
@@ -353,6 +369,14 @@ Options
 ^^^^^^^
 
 .. program:: baton-put
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-put
 .. option:: --file <file name>
 
   A JSON file describing the data objects and collections. Optional,
@@ -416,6 +440,14 @@ Options
 
   Print access control lists in the output, in the format described in
   :ref:`representing_path_permissions`.
+
+.. program:: baton-list
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
 
 .. program:: baton-list
 .. option:: --avu
@@ -514,6 +546,14 @@ Options
 ^^^^^^^
 
 .. program:: baton-metamod
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-metamod
 .. option:: --file <file name>
 
   A JSON file describing the data objects and collections. Optional,
@@ -595,6 +635,14 @@ Options
 
   Print AVU lists in the output, in the format described in
   :ref:`representing_path_metadata`.
+
+.. program:: baton-metaquery
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
 
 .. program:: baton-metaquery
 .. option:: --checksum
@@ -699,6 +747,14 @@ are boolean flags, a JSON `true` value should be used.
 
 Options
 ^^^^^^^
+
+.. program:: baton-do
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
 
 .. program:: baton-do
 .. option:: --file <file name>

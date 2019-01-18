@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,6 +18,8 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -45,6 +47,7 @@ int main(int argc, char *argv[]) {
     int exit_status = 0;
     char *json_file = NULL;
     FILE *input     = NULL;
+    unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
 
     while (1) {
         static struct option long_options[] = {
@@ -64,18 +67,34 @@ int main(int argc, char *argv[]) {
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
-            {"file",      required_argument, NULL, 'f'},
+            {"connect-time", required_argument, NULL, 'c'},
+            {"file",         required_argument, NULL, 'f'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:",
+        int c = getopt_long_only(argc, argv, "c:v:f:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
 
         switch (c) {
+            case 'c':
+                errno = 0;
+                char *endptr;
+                unsigned long val = strtoul(optarg, &endptr, 10);
+
+                if ((errno == ERANGE && val == ULONG_MAX) ||
+                    (errno != 0 && val == 0)              ||
+                    endptr == optarg) {
+                    fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
+                    exit(1);
+                }
+
+                max_connect_time = val;
+                break;
+
             case 'f':
                 json_file = optarg;
                 break;
@@ -106,7 +125,7 @@ int main(int argc, char *argv[]) {
         "Synopsis\n"
         "\n"
         "    baton-list [--acl] [--avu] [--checksum] [--contents]\n"
-        "               [--file <JSON file>]\n"
+        "               [--connect-time <n>] [--file <JSON file>]\n"
         "               [--replicate] [--silent] [--size]\n"
         "               [--timestamp] [--unbuffered] [--unsafe]\n"
         "               [--verbose] [--version]\n"
@@ -118,6 +137,11 @@ int main(int argc, char *argv[]) {
         "    --acl         Print access control lists in output.\n"
         "    --avu         Print AVU lists in output.\n"
         "    --checksum    Print data object checksums in output.\n"
+        "  --connect-time  The duration in seconds after which a connection\n"
+        "                  to iRODS will be refreshed (closed and reopened\n"
+        "                  between JSON documents) to allow iRODS server\n"
+        "                  resources to be released. Optional, defaults to\n"
+        "                  10 minutes.\n"
         "    --contents    Print collection contents in output.\n"
         "    --file        The JSON file describing the data objects and\n"
         "                  collections. Optional, defaults to STDIN.\n"
@@ -150,7 +174,8 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    operation_args_t args = { .flags = flags };
+    operation_args_t args = { .flags            = flags,
+                              .max_connect_time = max_connect_time };
 
     int status = do_operation(input, baton_json_list_op, &args);
     if (input != stdin) fclose(input);

@@ -87,7 +87,7 @@ typedef enum {
     FORCE              = 1 << 18,
     /** Avoid any operations that contact servers other than rodshost */
     SINGLE_SERVER      = 1 << 19,
-    /** USe advisory write lock on server */
+    /** Use advisory write lock on server */
     WRITE_LOCK         = 1 << 20
 } option_flags;
 
@@ -96,6 +96,7 @@ typedef struct operation_args {
     size_t buffer_size;
     char *zone_name;
     char *path;
+    unsigned long max_connect_time;
 } operation_args_t;
 
 /**
