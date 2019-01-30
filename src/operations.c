@@ -19,14 +19,17 @@
  */
 
 #include "config.h"
+#include "time.h"
 
 #include "baton.h"
 #include "operations.h"
 
-static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
-                        baton_json_op fn, operation_args_t *args,
-                        int *item_count) {
-    int error_count = 0;
+static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
+                        operation_args_t *args, int *item_count) {
+    time_t connect_time = 0;
+    int       reconnect = 0; // Set to 1 when reconnecting
+    rcComm_t *conn      = NULL;
+    int error_count     = 0;
 
     while (!feof(input)) {
         size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
@@ -48,6 +51,18 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
             error_count++;
             json_decref(item);
             continue;
+        }
+
+        if (!conn) {
+            conn = rods_login(env);
+            if (!conn) goto error;
+
+            if (reconnect == 0) {
+                logmsg(INFO, "Connected to iRODS");
+            } else {
+                logmsg(INFO, "Re-connected to iRODS");
+            }
+            connect_time = time(0);
         }
 
         baton_error_t error;
@@ -92,7 +107,25 @@ static int iterate_json(FILE *input, rodsEnv *env, rcComm_t *conn,
         (*item_count)++;
 
         json_decref(item);
+
+        time_t now = time(0);
+        double duration = difftime(now, connect_time);
+        if (args->max_connect_time > 0 && duration > args->max_connect_time) {
+            logmsg(INFO, "The connection to iRODS open for %d seconds, "
+                   "the maximum allowed is %d; closing the connection to "
+                   "reopen a new one", duration, args->max_connect_time);
+            rcDisconnect(conn);
+            conn      = NULL;
+            reconnect = 1;
+        }
     } // while
+
+    if (conn) rcDisconnect(conn);
+
+    return error_count;
+
+error:
+    if (conn) rcDisconnect(conn);
 
     return error_count;
 }
@@ -102,12 +135,10 @@ int do_operation(FILE *input, baton_json_op fn, operation_args_t *args) {
     int error_count = 0;
 
     rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-    if (!conn) goto error;
 
     if (!input) goto error;
 
-    error_count = iterate_json(input, &env, conn, fn, args, &item_count);
+    error_count = iterate_json(input, &env, fn, args, &item_count);
     if (error_count > 0) {
         logmsg(WARN, "Processed %d items with %d errors",
                item_count, error_count);
@@ -117,13 +148,9 @@ int do_operation(FILE *input, baton_json_op fn, operation_args_t *args) {
                item_count, error_count);
     }
 
-    rcDisconnect(conn);
-
     return error_count;
 
 error:
-    if (conn) rcDisconnect(conn);
-
     logmsg(ERROR, "Processed %d items with %d errors",
            item_count, error_count);
 

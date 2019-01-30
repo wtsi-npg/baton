@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2017 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2014, 2015, 2017, 2019 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,8 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -48,6 +50,7 @@ int main(int argc, char *argv[]) {
     char *json_file = NULL;
     FILE *input     = NULL;
     size_t buffer_size = default_buffer_size;
+    unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
 
     while (1) {
         static struct option long_options[] = {
@@ -66,19 +69,35 @@ int main(int argc, char *argv[]) {
             {"verbose",     no_argument, &verbose_flag,    1},
             {"version",     no_argument, &version_flag,    1},
             // Indexed options
-            {"file",        required_argument, NULL, 'f'},
-            {"buffer-size", required_argument, NULL, 'b'},
+            {"buffer-size",  required_argument, NULL, 'b'},
+            {"connect-time", required_argument, NULL, 'c'},
+            {"file",         required_argument, NULL, 'f'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "b:f:",
+        int c = getopt_long_only(argc, argv, "c:b:f:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
 
         switch (c) {
+            case 'c':
+                errno = 0;
+                char *endptr;
+                unsigned long val = strtoul(optarg, &endptr, 10);
+
+                if ((errno == ERANGE && val == ULONG_MAX) ||
+                    (errno != 0 && val == 0)              ||
+                    endptr == optarg) {
+                    fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
+                    exit(1);
+                }
+
+                max_connect_time = val;
+                break;
+
             case 'b':
                 buffer_size = parse_size(optarg);
                 if (errno != 0) buffer_size = default_buffer_size;
@@ -114,30 +133,35 @@ int main(int argc, char *argv[]) {
         "Synopsis\n"
         "\n"
         "    baton-get [--acl] [--avu] [--file <JSON file>]\n"
-        "              [--raw] [--save] [--silent] [--size]\n"
-        "              [--timestamp] [--unbuffered] [--unsafe]\n"
-        "              [--verbose] [--version]\n"
+        "              [--connect-time <n>] [--raw] [--save]\n"
+        "              [--silent] [--size] [--timestamp] [--unbuffered]\n"
+        "              [--unsafe] [--verbose] [--version]\n"
         "\n"
         "Description\n"
         "    Gets the contents of data objects described in a JSON\n"
         "    input file.\n"
         ""
-        "    --acl         Print access control lists in output.\n"
-        "    --avu         Print AVU lists in output.\n"
-        "    --buffer-size Set the transfer buffer size.\n"
-        "    --file        The JSON file describing the data objects.\n"
-        "                  Optional, defaults to STDIN.\n"
-        "    --raw         Print data object content without any JSON\n"
-        "                  wrapping.\n"
-        "    --save        Save data object content to individual files,\n"
-        "                  without any JSON wrapping i.e. implies --raw.\n"
-        "    --silent      Silence error messages.\n"
-        "    --size        Print data object sizes in output.\n"
-        "    --timestamp   Print timestamps in output.\n"
-        "    --unbuffered  Flush print operations for each JSON object.\n"
-        "    --unsafe      Permit unsafe relative iRODS paths.\n"
-        "    --verbose     Print verbose messages to STDERR.\n"
-        "    --version     Print the version number and exit.\n";
+        "  --acl          Print access control lists in output.\n"
+        "  --avu          Print AVU lists in output.\n"
+        "  --buffer-size  Set the transfer buffer size.\n"
+        "  --connect-time The duration in seconds after which a connection\n"
+        "                 to iRODS will be refreshed (closed and reopened\n"
+        "                 between JSON documents) to allow iRODS server\n"
+        "                 resources to be released. Optional, defaults to\n"
+        "                 10 minutes.\n"
+        "  --file         The JSON file describing the data objects.\n"
+        "                 Optional, defaults to STDIN.\n"
+        "  --raw          Print data object content without any JSON\n"
+        "                 wrapping.\n"
+        "  --save         Save data object content to individual files,\n"
+        "                 without any JSON wrapping i.e. implies --raw.\n"
+        "  --silent       Silence error messages.\n"
+        "  --size         Print data object sizes in output.\n"
+        "  --timestamp    Print timestamps in output.\n"
+        "  --unbuffered   Flush print operations for each JSON object.\n"
+        "  --unsafe       Permit unsafe relative iRODS paths.\n"
+        "  --verbose      Print verbose messages to STDERR.\n"
+        "  --version      Print the version number and exit.\n";
 
     if (help_flag) {
         printf("%s\n",help);
@@ -186,8 +210,9 @@ int main(int argc, char *argv[]) {
 
     logmsg(DEBUG, "Using a transfer buffer size of %zu bytes", buffer_size);
 
-    operation_args_t args = { .flags       = flags,
-                              .buffer_size = buffer_size };
+    operation_args_t args = { .flags            = flags,
+                              .buffer_size      = buffer_size,
+                              .max_connect_time = max_connect_time };
 
     int status = do_operation(input, baton_json_get_op, &args);
     if (input != stdin) fclose(input);

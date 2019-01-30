@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,6 +18,8 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <errno.h>
+#include <limits.h>
 #include <assert.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -48,6 +50,7 @@ int main(int argc, char *argv[]) {
     char *zone_name = NULL;
     char *json_file = NULL;
     FILE *input     = NULL;
+    unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
 
     while (1) {
         static struct option long_options[] = {
@@ -68,19 +71,35 @@ int main(int argc, char *argv[]) {
             {"verbose",    no_argument, &verbose_flag,    1},
             {"version",    no_argument, &version_flag,    1},
             // Indexed options
-            {"file",      required_argument, NULL, 'f'},
-            {"zone",      required_argument, NULL, 'z'},
+            {"connect-time", required_argument, NULL, 'c'},
+            {"file",         required_argument, NULL, 'f'},
+            {"zone",         required_argument, NULL, 'z'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:z:",
+        int c = getopt_long_only(argc, argv, "c:f:z:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
 
         switch (c) {
+            case 'c':
+                errno = 0;
+                char *endptr;
+                unsigned long val = strtoul(optarg, &endptr, 10);
+
+                if ((errno == ERANGE && val == ULONG_MAX) ||
+                    (errno != 0 && val == 0)              ||
+                    endptr == optarg) {
+                    fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
+                    exit(1);
+                }
+
+                max_connect_time = val;
+                break;
+
             case 'f':
                 json_file = optarg;
                 break;
@@ -123,7 +142,7 @@ int main(int argc, char *argv[]) {
         "Synopsis\n"
         "\n"
         "    baton-metaquery [--acl] [--avu] [--checksum] [--coll]\n"
-        "                    [--file <JSON file>]\n"
+        "                    [--connect-time <n>] [--file <JSON file>]\n"
         "                    [--obj ] [--replicate] [--silent] [--size]\n"
         "                    [--timestamp] [--unbuffered] [--unsafe]\n"
         "                    [--verbose] [--version] [--zone <name>]\n"
@@ -132,21 +151,26 @@ int main(int argc, char *argv[]) {
         "    Finds items in iRODS by AVU, given a query constructed\n"
         "from a JSON input file.\n"
         "\n"
-        "    --acl         Print access control lists in output.\n"
-        "    --avu         Print AVU lists in output.\n"
-        "    --checksum    Print data object checksums in output.\n"
-        "    --coll        Limit search to collection metadata only.\n"
-        "    --file        The JSON file describing the query. Optional,\n"
-        "                  defaults to STDIN.\n"
-        "    --obj         Limit search to data object metadata only.\n"
-        "    --replicate   Report data object replicates.\n"
-        "    --silent      Silence error messages.\n"
-        "    --timestamp   Print timestamps in output.\n"
-        "    --unbuffered  Flush print operations for each JSON object.\n"
-        "    --unsafe      Permit unsafe relative iRODS paths.\n"
-        "    --verbose     Print verbose messages to STDERR.\n"
-        "    --version     Print the version number and exit.\n"
-        "    --zone        The zone to search. Optional.\n";
+        "  --acl          Print access control lists in output.\n"
+        "  --avu          Print AVU lists in output.\n"
+        "  --checksum     Print data object checksums in output.\n"
+        "  --connect-time The duration in seconds after which a connection\n"
+        "                 to iRODS will be refreshed (closed and reopened\n"
+        "                 between JSON documents) to allow iRODS server\n"
+        "                 resources to be released. Optional, defaults to\n"
+        "                 10 minutes.\n"
+        "  --coll         Limit search to collection metadata only.\n"
+        "  --file         The JSON file describing the query. Optional,\n"
+        "                 defaults to STDIN.\n"
+        "  --obj          Limit search to data object metadata only.\n"
+        "  --replicate    Report data object replicates.\n"
+        "  --silent       Silence error messages.\n"
+        "  --timestamp    Print timestamps in output.\n"
+        "  --unbuffered   Flush print operations for each JSON object.\n"
+        "  --unsafe       Permit unsafe relative iRODS paths.\n"
+        "  --verbose      Print verbose messages to STDERR.\n"
+        "  --version      Print the version number and exit.\n"
+        "  --zone         The zone to search. Optional.\n";
 
     if (help_flag) {
         printf("%s\n",help);
@@ -165,8 +189,9 @@ int main(int argc, char *argv[]) {
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
 
-    operation_args_t args = { .flags     = flags,
-                              .zone_name = zone_name };
+    operation_args_t args = { .flags            = flags,
+                              .zone_name        = zone_name,
+                              .max_connect_time = max_connect_time };
 
     int status = do_operation(input, baton_json_metaquery_op, &args);
     if (input != stdin) fclose(input);
