@@ -6,19 +6,14 @@
 # DESCRIPTION
 #
 #   This macro searches for the header files and libraries of an iRODS
-#   (https://irods.org) installation.  If --with-irods is specified
-#   without argument, or as --with-irods=yes, a packaged (.deb or
-#   .rpm) installation is assumed and the default system paths will be
-#   searched.  If --with-irods=DIR is specified, a run-in-place iRODS
-#   installation will be searched for in DIR.  If --without-irods is
-#   specified, any iRODS installations present will be ignored.
+#   (https://irods.org) installation. To use, add to configure.ac
 #
-#   The system header and library paths will be used for run-in-place
-#   iRODS installation dependencies, in preference to the those
-#   dependencies provided by iRODS in its 'externals' directory
-#   because the latter cannot be determined reliably.
+#     AX_WITH_IRODS
 #
-#   The iRODS versions are supported are 3.3.x and >= 4.1.8.
+#   If your iRODS header files and libraries are in a non-standard
+#   location, you will need to set CPPFLAGS and LDFLAGS appropriately.
+#
+#   The iRODS versions are supported are >= 4.1.8 and >= 4.2.x
 #
 #   The macro defines the symbol HAVE_IRODS if the library is found
 #   and the following output variables are set with AC_SUBST:
