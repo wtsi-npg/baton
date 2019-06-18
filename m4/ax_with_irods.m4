@@ -51,6 +51,9 @@ AC_DEFUN([AX_WITH_IRODS], [
    IRODS_LDFLAGS=
    IRODS_LIBS=
 
+   irods_4_1_found=
+   irods_4_2_found=
+
    saved_CPPFLAGS="$CPPFLAGS"
    saved_LDFLAGS="$LDFLAGS"
    saved_LIBS="$LIBS"
@@ -81,9 +84,13 @@ AC_DEFUN([AX_WITH_IRODS], [
       [AC_MSG_ERROR([iRODS 3.x series is no longer supported])],
       AC_MSG_RESULT([no]))
 
+   CPPFLAGS="$saved_CPPFLAGS"
+   LDFLAGS="$saved_LDFLAGS"
+   LIBS="$saved_LIBS"
+
    AC_MSG_CHECKING([for iRODS >=4.1.8, <4.2.x])
 
-   CPPFLAGS="-I/usr/include/irods $CPPFLAGS"
+   # This is a non-standard location used by the RENCI iRODS 4.1 package
    LDFLAGS="-L/usr/lib/irods/externals $LDFLAGS"
    LIBS="-lstdc++ -ljansson \
          -lboost_program_options -lboost_filesystem \
@@ -117,6 +124,7 @@ AC_DEFUN([AX_WITH_IRODS], [
         IRODS_CPPFLAGS="$CPPFLAGS"
         IRODS_LDFLAGS="$LDFLAGS"
         IRODS_LIBS="$LIBS"
+        irods_4_1_found="yes"
       ],
       AC_MSG_RESULT([no]))
 
@@ -126,7 +134,6 @@ AC_DEFUN([AX_WITH_IRODS], [
 
    AC_MSG_CHECKING([for iRODS >=4.2.x])
 
-   CPPFLAGS="-I/usr/include/irods $CPPFLAGS"
    LIBS="-lstdc++ $LIBS"
 
    AC_RUN_IFELSE([AC_LANG_PROGRAM([
@@ -149,9 +156,9 @@ AC_DEFUN([AX_WITH_IRODS], [
          IRODS_CPPFLAGS="$CPPFLAGS"
          IRODS_LDFLAGS="$LDFLAGS"
          IRODS_LIBS="$LIBS"
+         irods_4_2_found="yes"
        ],
        AC_MSG_RESULT([no]))
-
 
    CPPFLAGS="$saved_CPPFLAGS"
    LDFLAGS="$saved_LDFLAGS"
@@ -160,6 +167,16 @@ AC_DEFUN([AX_WITH_IRODS], [
    unset saved_CPPFLAGS
    unset saved_LDFLAGS
    unset saved_LIBS
+
+   # Exit if iRODS is not found
+   if test "$irods_4_1_found" != "yes" && test "$irods_4_2_found" != "yes"; then
+     AC_MSG_ERROR([unable to find iRODS 4.1 or 4.2])
+   fi
+
+   # Use iRODS 4.2 if somehow both are present
+   if test "$irods_4_1_found" = "yes" && test "$irods_4_2_found" = "yes"; then
+     AC_MSG_WARN([Found both iRODS 4.1 and 4.2; using 4.2])
+   fi
 
    AC_SUBST([IRODS_CPPFLAGS])
    AC_SUBST([IRODS_LDFLAGS])
