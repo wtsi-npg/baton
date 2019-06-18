@@ -114,10 +114,10 @@ AC_ARG_WITH([test-resource],
    [AC_MSG_NOTICE([using the default iRODS test resource])
     TEST_RESOURCE="testResc"])
 
-AX_WITH_IRODS
-
 AC_CHECK_LIB([jansson], [json_unpack], [],
              [AC_MSG_ERROR([unable to find libjansson])])
+
+AX_WITH_IRODS
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([src/baton.h])
