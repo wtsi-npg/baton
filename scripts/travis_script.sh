@@ -1,18 +1,23 @@
 #!/bin/bash
 
-set -e -u -x
+set -e -x
 
-IRODS_RIP_DIR=${IRODS_RIP_DIR:+$IRODS_RIP_DIR}
+. ~/miniconda/etc/profile.d/conda.sh
+conda activate travis
 
-IRODS_HOME=
-baton_irods_conf="--with-test-resource=testResc --with-irods"
+echo "irods" | script -q -c "iinit" /dev/null
+ienv
+ils
 
-if [ -n "$IRODS_RIP_DIR" ]
-then
-    export IRODS_HOME="$IRODS_RIP_DIR/iRODS"
-    baton_irods_conf="--with-test-resource=testResc --with-irods=$IRODS_HOME"
-fi
+CONDA_ENV=/home/travis/miniconda/envs/travis
+CPPFLAGS="-I$CONDA_ENV/include -I$CONDA_ENV/include/irods"
+LDFLAGS="-L$CONDA_ENV/lib -L$CONDA_ENV/lib/irods/externals"
 
 autoreconf -fi
-./configure ${baton_irods_conf}
-make distcheck DISTCHECK_CONFIGURE_FLAGS="${baton_irods_conf}"
+
+./configure --with-test-resource=testResc \
+            CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS"
+
+export LD_LIBRARY_PATH="$CONDA_ENV/lib"
+
+make distcheck DISTCHECK_CONFIGURE_FLAGS="--with-test-resource=testResc CPPFLAGS=\"$CPPFLAGS\" LDFLAGS=\"$LDFLAGS\""

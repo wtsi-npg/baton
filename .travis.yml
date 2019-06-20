@@ -1,20 +1,15 @@
+sudo: required
+
+services:
+  - docker
 
 language: c
 
 compiler: gcc
 
-addons:
-  postgresql: "9.3"
-
 env:
   global:
-    - PGVERSION="9.3"
-    - JANSSON_VERSION="2.9"
     - CK_DEFAULT_TIMEOUT=20
-    - DISPOSABLE_IRODS_VERSION="1.3"
-    - WTSI_NPG_GITHUB_URL=https://github.com/wtsi-npg
-  matrix:
-    - IRODS_VERSION=4.1.10 PG_PLUGIN_VERSION=1.10 PLATFORM=ubuntu12
 
 before_install:
   # workaround for iRODS buffer overflow
@@ -23,13 +18,13 @@ before_install:
   - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts > /tmp/hosts
   - sudo mv /tmp/hosts /etc/hosts
   - cat /etc/hosts # optionally check the content *after*
+  - docker pull wsinpg/ub-16.04-irods-4.2
+  - docker run -d -p 1247:1247 wsinpg/ub-16.04-irods-4.2
+  - docker ps -a
   - ./scripts/travis_before_install.sh
 
 install:
   - ./scripts/travis_install.sh
 
 script:
-  - export PATH=$IRODS_RIP_DIR/iRODS/clients/icommands/bin:$PATH
-  - ienv
-  - ils
   - ./scripts/travis_script.sh
