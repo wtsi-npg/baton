@@ -69,6 +69,11 @@ AC_DEFUN([AX_WITH_IRODS], [
    AC_CHECK_LIB([ssl], [SSL_get_error], [],
                 [AC_MSG_ERROR([unable to find libssl])])
 
+   dnl Save these values now the AC_CHECK_LIBs are run
+   saved_CPPFLAGS="$CPPFLAGS"
+   saved_LDFLAGS="$LDFLAGS"
+   saved_LIBS="$LIBS"
+
    AC_MSG_CHECKING([for iRODS >=3.3.x])
    AC_RUN_IFELSE([AC_LANG_PROGRAM([
           #include <string.h>
