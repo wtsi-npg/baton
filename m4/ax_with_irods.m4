@@ -6,19 +6,14 @@
 # DESCRIPTION
 #
 #   This macro searches for the header files and libraries of an iRODS
-#   (https://irods.org) installation.  If --with-irods is specified
-#   without argument, or as --with-irods=yes, a packaged (.deb or
-#   .rpm) installation is assumed and the default system paths will be
-#   searched.  If --with-irods=DIR is specified, a run-in-place iRODS
-#   installation will be searched for in DIR.  If --without-irods is
-#   specified, any iRODS installations present will be ignored.
+#   (https://irods.org) installation. To use, add to configure.ac
 #
-#   The system header and library paths will be used for run-in-place
-#   iRODS installation dependencies, in preference to the those
-#   dependencies provided by iRODS in its 'externals' directory
-#   because the latter cannot be determined reliably.
+#     AX_WITH_IRODS
 #
-#   The iRODS versions are supported are 3.3.x and >= 4.1.8.
+#   If your iRODS header files and libraries are in a non-standard
+#   location, you will need to set CPPFLAGS and LDFLAGS appropriately.
+#
+#   The iRODS versions are supported are >= 4.1.8 and >= 4.2.x
 #
 #   The macro defines the symbol HAVE_IRODS if the library is found
 #   and the following output variables are set with AC_SUBST:
@@ -36,7 +31,7 @@
 #
 # LICENSE
 #
-# Copyright (C) 2016, Genome Research Ltd.
+# Copyright (C) 2016, 2019 Genome Research Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,154 +51,139 @@ AC_DEFUN([AX_WITH_IRODS], [
    IRODS_LDFLAGS=
    IRODS_LIBS=
 
+   irods_4_1_found=
+   irods_4_2_found=
+
    saved_CPPFLAGS="$CPPFLAGS"
    saved_LDFLAGS="$LDFLAGS"
    saved_LIBS="$LIBS"
 
-   AC_ARG_WITH([irods],
-       [AS_HELP_STRING([--with-irods[[=DIR]]], [Enable iRODS support])], [
-           AS_IF([test "x$with_irods" != "xno"], [
+   AC_CHECK_LIB([rt], [timer_create])
+   AC_CHECK_LIB([m], [log10])
+   AC_CHECK_LIB([dl], [dlopen])
+   AC_CHECK_LIB([pthread], [pthread_kill])
+   AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
 
-               AC_CHECK_LIB([rt], [timer_create])
-               AC_CHECK_LIB([m], [log10])
-               AC_CHECK_LIB([dl], [dlopen])
-               AC_CHECK_LIB([pthread], [pthread_kill])
-               AC_CHECK_LIB([gssapi_krb5], [gss_acquire_cred])
-               AC_CHECK_LIB([jansson], [json_unpack], [],
-                  [AC_MSG_ERROR([unable to find libjannson])])
+   AC_CHECK_LIB([crypto], [EVP_EncryptUpdate], [],
+                [AC_MSG_ERROR([unable to find libcrypto])])
+   AC_CHECK_LIB([ssl], [SSL_get_error], [],
+                [AC_MSG_ERROR([unable to find libssl])])
 
-               IRODS4_LIBS="-lboost_program_options -lboost_filesystem \
--lboost_regex -lboost_chrono -lboost_thread -lboost_system"
+   dnl Save these values now the AC_CHECK_LIBs are run
+   saved_CPPFLAGS="$CPPFLAGS"
+   saved_LDFLAGS="$LDFLAGS"
+   saved_LIBS="$LIBS"
 
-               AS_IF([test "x$with_irods" = "xyes"], [
-                   AC_MSG_CHECKING([for packaged iRODS])
+   AC_MSG_CHECKING([for iRODS >=3.3.x])
+   AC_RUN_IFELSE([AC_LANG_PROGRAM([
+          #include <string.h>
+          #include <rodsVersion.h>
+        ], [
+          #if defined (RODS_REL_VERSION)
+          return strncmp("rods3.3", RODS_REL_VERSION, 7);
+          #else
+          exit(-1);
+          #endif
+        ])
+      ],
+      [AC_MSG_ERROR([iRODS 3.x series is no longer supported])],
+      AC_MSG_RESULT([no]))
 
-                   CPPFLAGS="-I/usr/include/irods $CPPFLAGS"
-                   LDFLAGS="-L/usr/lib/irods/externals $LDFLAGS"
+   CPPFLAGS="$saved_CPPFLAGS"
+   LDFLAGS="$saved_LDFLAGS"
+   LIBS="$saved_LIBS"
 
-                   AC_RUN_IFELSE([AC_LANG_PROGRAM([
-                        #include <rodsVersion.h>
-                      ], [
-                        #if IRODS_VERSION_INTEGER >= 4001008
-                        return 0;
-                        #else
-                        exit(-1);
-                        #endif
-                      ])
-                   ], [
-                       AC_MSG_RESULT([yes])
-                       AC_DEFINE([HAVE_IRODS], [1], [iRODS >= 4.1.8])
+   AC_MSG_CHECKING([for iRODS >=4.1.8, <4.2.x])
 
-                       LDFLAGS="$IRODS4_RIP_LDFLAGS $LDFLAGS"
-                       LIBS="$IRODS4_LIBS $LIBS -lstdc++"
+   # This is a non-standard location used by the RENCI iRODS 4.1 package
+   LDFLAGS="-L/usr/lib/irods/externals $LDFLAGS"
+   LIBS="-lstdc++ -ljansson \
+         -lboost_program_options -lboost_filesystem \
+         -lboost_regex -lboost_chrono -lboost_thread -lboost_system \
+         $LIBS"
 
-                       AC_CHECK_LIB([crypto], [EVP_EncryptUpdate], [],
-                          [AC_MSG_ERROR([unable to find libcrypto])])
+   AC_RUN_IFELSE([AC_LANG_PROGRAM([
+          #include <rodsVersion.h>
+        ], [
+          #if   IRODS_VERSION_INTEGER >= 4002000
+          exit(-1)
+          #elif IRODS_VERSION_INTEGER >= 4001008
+          return 0;
+          #else
+          exit(-1);
+          #endif
+        ])
+      ], [
+        AC_MSG_RESULT([yes])
+        AC_DEFINE([HAVE_IRODS], [1], [iRODS >=4.1.8, <4.2.x])
 
-                       AC_CHECK_LIB([ssl], [SSL_get_error], [],
-                          [AC_MSG_ERROR([unable to find libssl])])
+        AC_CHECK_LIB([RodsAPIs], [getRodsEnv], [],
+                     [AC_MSG_ERROR([unable to find libRodsAPIs])],
+                     [-lirods_client_plugins])
 
-                       AC_CHECK_LIB([RodsAPIs], [getRodsEnv], [],
-                          [AC_MSG_ERROR([unable to find libRodsAPIs])],
-                          [-lirods_client_plugins])
+        AC_CHECK_LIB([irods_client_plugins],
+                     [operation_rule_execution_manager_factory], [],
+                     [AC_MSG_ERROR([unable to find libirods_client_plugins])],
+                     [-lRodsAPIs])
 
-                       AC_CHECK_LIB([irods_client_plugins],
-                          [operation_rule_execution_manager_factory], [],
-                          [AC_MSG_ERROR([unable to find libirods_client_plugins])],
-                          [-lRodsAPIs])
-                   ], [
-                       AC_MSG_RESULT([no])
-                   ])
-               ], [
-                   IRODS_HOME="$with_irods"
+        IRODS_CPPFLAGS="$CPPFLAGS"
+        IRODS_LDFLAGS="$LDFLAGS"
+        IRODS_LIBS="$LIBS"
+        irods_4_1_found="yes"
+      ],
+      AC_MSG_RESULT([no]))
 
-                   IRODS_RIP_CPPFLAGS="-I$IRODS_HOME/lib/api/include \
--I$IRODS_HOME/lib/core/include -I$IRODS_HOME/lib/md5/include \
--I$IRODS_HOME/lib/sha1/include -I$IRODS_HOME/server/core/include \
--I$IRODS_HOME/server/drivers/include -I$IRODS_HOME/server/icat/include \
--I$IRODS_HOME/server/re/include"
+   CPPFLAGS="$saved_CPPFLAGS"
+   LDFLAGS="$saved_LDFLAGS"
+   LIBS="$saved_LIBS"
 
-                   IRODS3_RIP_LDFLAGS="-L$IRODS_HOME/lib/core/obj"
-                   IRODS4_RIP_LDFLAGS="-L$IRODS_HOME/lib/core/obj \
--L$IRODS_HOME/lib/development_libraries"
+   AC_MSG_CHECKING([for iRODS >=4.2.x])
 
-                   CPPFLAGS="$IRODS_RIP_CPPFLAGS $CPPFLAGS"
+   LIBS="-lstdc++ $LIBS"
 
-                   AC_MSG_CHECKING([for iRODS 3.3.x])
-                   AC_RUN_IFELSE([AC_LANG_PROGRAM([
-                        #include <string.h>
-                        #include <rodsVersion.h>
-                      ], [
-                        #if defined (RODS_REL_VERSION)
-                        return strncmp("rods3.3", RODS_REL_VERSION, 7);
-                        #else
-                        exit(-1);
-                        #endif
-                      ])
-                   ], [
-                       AC_MSG_RESULT([yes])
-                       AC_DEFINE([HAVE_IRODS], [1], [iRODS 3.3.x])
+   AC_RUN_IFELSE([AC_LANG_PROGRAM([
+           #include <rodsVersion.h>
+         ], [
+           #if IRODS_VERSION_INTEGER >= 4002000
+           return 0
+           #else
+           exit(-1);
+           #endif
+         ])
+       ], [
+         AC_MSG_RESULT([yes])
+         AC_DEFINE([HAVE_IRODS], [1], [iRODS >=4.2.x])
 
-                       LDFLAGS="$IRODS3_RIP_LDFLAGS $LDFLAGS"
+         AC_CHECK_LIB([irods_client], [getRodsEnv], [],
+                     [AC_MSG_ERROR([unable to find libirods_client])],
+                     [-lirods_common])
 
-                       AC_CHECK_LIB([RodsAPIs], [getRodsEnv], [],
-                          [AC_MSG_ERROR([unable to find libRodsAPIs])])
-                   ], [
-                       AC_MSG_RESULT([no])
-                   ])
+         IRODS_CPPFLAGS="$CPPFLAGS"
+         IRODS_LDFLAGS="$LDFLAGS"
+         IRODS_LIBS="$LIBS"
+         irods_4_2_found="yes"
+       ],
+       AC_MSG_RESULT([no]))
 
-                   AC_MSG_CHECKING([for iRODS >= 4.1.8])
-                   AC_RUN_IFELSE([AC_LANG_PROGRAM([
-                        #include <rodsVersion.h>
-                      ], [
-                        #if IRODS_VERSION_INTEGER >= 4001008
-                        return 0;
-                        #else
-                        exit(-1);
-                        #endif
-                      ])
-                   ], [
-                       AC_MSG_RESULT([yes])
-                       AC_DEFINE([HAVE_IRODS], [1], [iRODS >= 4.1.8])
+   CPPFLAGS="$saved_CPPFLAGS"
+   LDFLAGS="$saved_LDFLAGS"
+   LIBS="$saved_LIBS"
 
-                       LDFLAGS="$IRODS4_RIP_LDFLAGS $LDFLAGS"
-                       LIBS="$IRODS4_LIBS $LIBS -lstdc++"
+   unset saved_CPPFLAGS
+   unset saved_LDFLAGS
+   unset saved_LIBS
 
-                       AC_CHECK_LIB([crypto], [EVP_EncryptUpdate], [],
-                          [AC_MSG_ERROR([unable to find libcrypto])])
+   # Exit if iRODS is not found
+   if test "$irods_4_1_found" != "yes" && test "$irods_4_2_found" != "yes"; then
+     AC_MSG_ERROR([unable to find iRODS 4.1 or 4.2])
+   fi
 
-                       AC_CHECK_LIB([ssl], [SSL_get_error], [],
-                          [AC_MSG_ERROR([unable to find libssl])])
+   # Use iRODS 4.2 if somehow both are present
+   if test "$irods_4_1_found" = "yes" && test "$irods_4_2_found" = "yes"; then
+     AC_MSG_WARN([Found both iRODS 4.1 and 4.2; using 4.2])
+   fi
 
-                       AC_CHECK_LIB([RodsAPIs], [getRodsEnv], [],
-                          [AC_MSG_ERROR([unable to find libRodsAPIs])],
-                          [-lirods_client_plugins])
-
-                       AC_CHECK_LIB([irods_client_plugins],
-                          [operation_rule_execution_manager_factory], [],
-                          [AC_MSG_ERROR([unable to find libirods_client_plugins])],
-                          [-lRodsAPIs])
-                   ], [
-                       AC_MSG_RESULT([no])
-                   ])
-               ])
-
-               IRODS_CPPFLAGS="$CPPFLAGS"
-               IRODS_LDFLAGS="$LDFLAGS"
-               IRODS_LIBS="$LIBS"
-
-               CPPFLAGS="$saved_CPPFLAGS"
-               LDFLAGS="$saved_LDFLAGS"
-               LIBS="$saved_LIBS"
-
-               unset saved_CPPFLAGS
-               unset saved_LDFLAGS
-               unset saved_LIBS
-
-               AC_SUBST([IRODS_HOME])
-               AC_SUBST([IRODS_CPPFLAGS])
-               AC_SUBST([IRODS_LDFLAGS])
-               AC_SUBST([IRODS_LIBS])
-           ])
-   ])
+   AC_SUBST([IRODS_CPPFLAGS])
+   AC_SUBST([IRODS_LDFLAGS])
+   AC_SUBST([IRODS_LIBS])
 ])

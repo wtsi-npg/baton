@@ -21,7 +21,7 @@ LT_INIT
 AC_CONFIG_MACRO_DIR([m4])
 
 LT_LIB_CURRENT=0
-LT_LIB_REVISION=0
+LT_LIB_REVISION=1
 LT_LIB_AGE=0
 AC_SUBST(LT_LIB_CURRENT)
 AC_SUBST(LT_LIB_REVISION)
@@ -113,6 +113,9 @@ AC_ARG_WITH([test-resource],
     TEST_RESOURCE="$with_test_resource"],
    [AC_MSG_NOTICE([using the default iRODS test resource])
     TEST_RESOURCE="testResc"])
+
+AC_CHECK_LIB([jansson], [json_unpack], [],
+             [AC_MSG_ERROR([unable to find libjansson])])
 
 AX_WITH_IRODS
 

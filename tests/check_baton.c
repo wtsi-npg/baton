@@ -2450,13 +2450,6 @@ START_TEST(test_regression_github_issue140) {
     ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path_out,
                                        flags, &resolve_error), EXIST_ST);
 
-    json_t *expected =
-      json_pack("[{s:o, s:i, s:b}]",
-                // Assume the new copy is replicate 0 on default resource
-                JSON_CHECKSUM_KEY,         json_null(),
-                JSON_REPLICATE_NUMBER_KEY, 0,
-                JSON_REPLICATE_STATUS_KEY, 1);
-
     baton_error_t error;
     json_t *results = list_replicates(conn, &rods_path, &error);
 
@@ -2467,25 +2460,15 @@ START_TEST(test_regression_github_issue140) {
     json_t *result;
     json_array_foreach(results, index, result) {
         ck_assert(json_is_object(result));
-        // We don't know what the location value will be for a test
-        // run because it's an iRODS resource server hostname.
         ck_assert(json_object_get(result, JSON_LOCATION_KEY));
-        // Remove it once tested so that we can easily check the other
-        // values together.
-        if (json_object_get(result, JSON_LOCATION_KEY)) {
-            json_object_del(result, JSON_LOCATION_KEY);
-        }
-
         ck_assert(json_object_get(result, JSON_RESOURCE_KEY));
-        if (json_object_get(result, JSON_RESOURCE_KEY)) {
-            json_object_del(result, JSON_RESOURCE_KEY);
-        }
+        ck_assert(json_object_get(result, JSON_REPLICATE_STATUS_KEY));
+        ck_assert(json_object_get(result, JSON_CHECKSUM_KEY));
+        ck_assert(json_equal(json_object_get(result, JSON_CHECKSUM_KEY),
+                             json_null()));
     }
 
-    ck_assert_int_eq(json_equal(results, expected), 1);
-
     json_decref(results);
-    json_decref(expected);
 
     if (conn) rcDisconnect(conn);
 }
