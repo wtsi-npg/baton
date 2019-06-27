@@ -8,10 +8,13 @@ compiler: gcc
 env:
   global:
     - CK_DEFAULT_TIMEOUT=20
+  matrix:
+    - DOCKER_IMAGE=wsinpg/ub-16.04-irods-4.2:latest
+    - DOCKER_IMAGE=wsinpg/ub-12.04-irods-4.1:latest
 
 before_install:
-  - docker pull wsinpg/ub-16.04-irods-4.2
-  - docker run -d -p 1247:1247 wsinpg/ub-16.04-irods-4.2
+  - docker pull "$DOCKER_IMAGE"
+  - docker run -d -p 1247:1247 "$DOCKER_IMAGE"
   - docker ps -a
   - ./scripts/travis_before_install.sh
 
