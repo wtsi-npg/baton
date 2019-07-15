@@ -20,4 +20,4 @@ autoreconf -fi
 
 export LD_LIBRARY_PATH="$CONDA_ENV/lib"
 
-make distcheck DISTCHECK_CONFIGURE_FLAGS="--with-test-resource=testResc CPPFLAGS=\"$CPPFLAGS\" LDFLAGS=\"$LDFLAGS\""
+make distcheck DISTCHECK_CONFIGURE_FLAGS="--with-test-resource=demoResc CPPFLAGS=\"$CPPFLAGS\" LDFLAGS=\"$LDFLAGS\""
