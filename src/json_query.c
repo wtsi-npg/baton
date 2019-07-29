@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016 Genome Research Ltd. All
+ * Copyright (C) 2013, 2014, 2015, 2016, 2019 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -846,7 +846,7 @@ genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
             goto error;
         }
 
-        char *raw_timestamp = parse_timestamp(iso_timestamp, ISO8601_FORMAT);
+        char *raw_timestamp = parse_timestamp(iso_timestamp, RFC3339_FORMAT);
         if (!raw_timestamp) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid timestamp at position %d of %d, "
@@ -1034,12 +1034,12 @@ json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
             if (error->code != 0) goto error;
 
             json_t *iso_created =
-                make_timestamp(JSON_CREATED_KEY, created, ISO8601_FORMAT,
+                make_timestamp(JSON_CREATED_KEY, created, RFC3339_FORMAT,
                                repl_num, error);
             if (error->code != 0) goto error;
 
             json_t *iso_modified =
-                make_timestamp(JSON_MODIFIED_KEY, modified, ISO8601_FORMAT,
+                make_timestamp(JSON_MODIFIED_KEY, modified, RFC3339_FORMAT,
                                repl_num, error);
             if (error->code != 0) goto error;
 

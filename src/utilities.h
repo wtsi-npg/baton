@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2019 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +27,7 @@
 #define MAX_STR_LEN (1024 * 1024 * 1024)
 
 #define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
+#define RFC3339_FORMAT "%Y-%m-%dT%H:%M:%SZ"
 
 int str_starts_with(const char *str, const char *prefix, size_t max_len);
 

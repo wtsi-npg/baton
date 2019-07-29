@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -96,6 +96,8 @@
 // baton operations
 #define JSON_TARGET_KEY            "target"
 #define JSON_RESULT_KEY            "result"
+#define JSON_SINGLE_RESULT_KEY     "single"
+#define JSON_MULTIPLE_RESULT_KEY   "multiple"
 #define JSON_OP_KEY                "operation"
 #define JSON_OP_SHORT_KEY          "op"
 
@@ -317,6 +319,17 @@ int add_replicates(json_t *object, json_t *replicates, baton_error_t *error);
 
 int add_checksum(json_t *object, json_t *checksum, baton_error_t *error);
 
+/**
+ * Modify a JSON object by adding a property whose value is the result
+ * of an operation. The property key will depend on the type of of the
+ * value.
+ *
+ * @param[object]            A JSON object.
+ * @param[result]            A JSON object.
+ * @param[out] error         An error report struct.
+ *
+ * @return A JSON array on success, NULL on error./
+ */
 int add_result(json_t *object, json_t *result, baton_error_t *error);
 
 int add_error_report(json_t *target, baton_error_t *error);
