@@ -156,8 +156,13 @@ The ``baton`` programs are:
 
 * `baton-do`_
 
-  Perform a mixture of list, chmod, get, put, metamod or metaquery
-  ``baton`` operations specified by arguments supplied as JSON.
+  Perform a mixture of "list", "chmod", "get", "put", "metamod" and
+  "metaquery" ``baton`` operations specified by arguments supplied as
+  JSON.
+
+  ``baton-do`` supports additional operations currently unavailable in
+  the other programs, namely: "remove" (remove a data object), "mkdir"
+  and "rmdir" (create and remove collections, optionally recursively).
 
 All of the programs are designed to accept a stream of JSON objects,
 one for each operation on a collection or data object. After each

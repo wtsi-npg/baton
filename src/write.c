@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014, 2015, 2017, 2018 Genome Research Ltd. All
+ * Copyright (C) 2014, 2015, 2017, 2018, 2019 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -190,4 +190,105 @@ size_t write_chunk(rcComm_t *conn, char *buffer, data_obj_file_t *data_obj,
 
 error:
     return num_written;
+}
+
+int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+                      baton_error_t *error) {
+    collInp_t coll_create_in;
+    int status;
+
+    init_baton_error(error);
+
+    memset(&coll_create_in, 0, sizeof coll_create_in);
+
+    snprintf(coll_create_in.collName, MAX_NAME_LEN, "%s", rods_path->outPath);
+    if (flags & RECURSIVE) {
+        logmsg(DEBUG, "Creating collection '%s' recursively",
+               rods_path->outPath);
+        addKeyVal(&coll_create_in.condInput, RECURSIVE_OPR__KW, "");
+    }
+
+    status = rcCollCreate(conn, &coll_create_in);
+    if (status < 0) {
+        char *err_subname;
+        const char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to put create collection: '%s' error %d %s",
+                        rods_path->outPath, status, err_name);
+        goto error;
+    }
+
+    return error->code;
+
+error:
+    return error->code;
+}
+
+int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+                       baton_error_t *error) {
+    dataObjInp_t obj_rm_in;
+    int status;
+    flags = flags;
+
+    init_baton_error(error);
+
+    memset(&obj_rm_in, 0, sizeof obj_rm_in);
+
+    logmsg(DEBUG, "Removing data object '%s'", rods_path->outPath);
+    snprintf(obj_rm_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
+
+    addKeyVal(&obj_rm_in.condInput, FORCE_FLAG_KW, "");
+
+    status = rcDataObjUnlink(conn, &obj_rm_in);
+    if (status < 0) {
+        char *err_subname;
+        const char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to remove data object: '%s' error %d %s",
+                        rods_path->outPath, status, err_name);
+        goto error;
+    }
+
+    return error->code;
+
+error:
+    return error->code;
+}
+
+int remove_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+                      baton_error_t *error) {
+    collInp_t col_rm_in;
+    int status;
+    int verbose = 0;
+
+    init_baton_error(error);
+
+    memset(&col_rm_in, 0, sizeof col_rm_in);
+
+    logmsg(DEBUG, "Removing collection '%s'", rods_path->outPath);
+    snprintf(col_rm_in.collName, MAX_NAME_LEN, "%s", rods_path->outPath);
+
+    if (flags & RECURSIVE) {
+        logmsg(DEBUG, "Enabling recursive removal of '%s'", rods_path->outPath);
+        addKeyVal(&col_rm_in.condInput, RECURSIVE_OPR__KW, "");
+    }
+    if (flags & FORCE) {
+        logmsg(DEBUG, "Enabling forced removal of '%s'", rods_path->outPath);
+        addKeyVal(&col_rm_in.condInput, FORCE_FLAG_KW, "");
+    }
+
+    status = rcRmColl(conn, &col_rm_in, verbose);
+    if (status < 0) {
+        char *err_subname;
+        const char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status,
+                        "Failed to remove collection: '%s' error %d %s",
+                        rods_path->outPath, status, err_name);
+        goto error;
+    }
+
+    return error->code;
+
+error:
+    return error->code;
 }

@@ -109,6 +109,9 @@
 #define JSON_METAQUERY_OP          "metaquery"
 #define JSON_PUT_OP                "put"
 #define JSON_MOVE_OP               "move"
+#define JSON_RM_OP                 "remove"
+#define JSON_MKCOLL_OP             "mkdir"
+#define JSON_RMCOLL_OP             "rmdir"
 
 #define JSON_OP_ARGS_KEY           "arguments"
 #define JSON_OP_ARGS_SHORT_KEY     "args"
