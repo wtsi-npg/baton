@@ -363,6 +363,11 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                                operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
     char *path     = NULL;
+    if (!represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot checksum a non-data-object");
+        goto error;
+    }
 
     path = json_to_path(target, error);
     if (error->code != 0) goto error;
@@ -502,8 +507,14 @@ error:
 json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                             operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
+    char *path = NULL;
+    if (!represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot write a data object given a non-data-object");
+        goto error;
+    }
 
-    char *path = json_to_path(target, error);
+    path = json_to_path(target, error);
     if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
@@ -613,8 +624,15 @@ json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
                          json_t *target, operation_args_t *args,
                          baton_error_t *error) {
     json_t *result = NULL;
+    char *path = NULL;
 
-    char *path = json_to_path(target, error);
+    if (!represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot remove a non-data-object");
+        goto error;
+    }
+
+    path = json_to_path(target, error);
     if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
@@ -635,15 +653,20 @@ error:
     if (path) free(path);
 
     return result;
-
 }
 
 json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
                              json_t *target, operation_args_t *args,
                              baton_error_t *error) {
     json_t *result = NULL;
+    char *path = NULL;
+    if (represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot make a collection given a data object");
+        goto error;
+    }
 
-    char *path = json_to_collection_path(target, error);
+    path = json_to_collection_path(target, error);
     if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
@@ -670,8 +693,14 @@ json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
                              json_t *target, operation_args_t *args,
                              baton_error_t *error) {
     json_t *result = NULL;
+    char *path = NULL;
+    if (represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot remove a collection given a data object");
+        goto error;
+    }
 
-    char *path = json_to_collection_path(target, error);
+    path = json_to_collection_path(target, error);
     if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
