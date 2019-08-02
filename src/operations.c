@@ -453,6 +453,8 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
+    result = target;
+
     return result;
 
 error:
