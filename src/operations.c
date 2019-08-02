@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2017, 2018 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2017, 2018, 2019 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -642,7 +643,7 @@ json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
                              baton_error_t *error) {
     json_t *result = NULL;
 
-    char *path = json_to_path(target, error);
+    char *path = json_to_collection_path(target, error);
     if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
@@ -670,7 +671,7 @@ json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
                              baton_error_t *error) {
     json_t *result = NULL;
 
-    char *path = json_to_path(target, error);
+    char *path = json_to_collection_path(target, error);
     if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
