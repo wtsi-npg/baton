@@ -170,6 +170,11 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     const char *op = get_operation(envelope, error);
     if (error->code != 0) goto error;
 
+    if (!op) {
+        set_baton_error(error, -1, "No baton operation given");
+        goto error;
+    }
+
     json_t *target = get_operation_target(envelope, error);
     if (error->code != 0) goto error;
 
@@ -379,10 +384,15 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
     if (error->code != 0) goto error;
 
-    result = checksum_data_obj(conn, &rods_path, flags, error);
+    json_t *checksum = checksum_data_obj(conn, &rods_path, flags, error);
+    if (error->code != 0) goto error;
+
+    add_checksum(target, checksum, error);
     if (error->code != 0) goto error;
 
     if (path) free(path);
+
+    result = target;
 
     return result;
 
