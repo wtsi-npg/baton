@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -179,7 +179,56 @@ error:
 
 json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
                       baton_error_t *error) {
-    return checksum_data_obj(conn, rods_path, 0, error);
+    genQueryInp_t *query_in = NULL;
+    json_t *results         = NULL;
+
+    init_baton_error(error);
+
+    if (rods_path->objState == NOT_EXIST_ST) {
+        set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
+                        "Path '%s' does not exist "
+                        "(or lacks access permission)", rods_path->outPath);
+        goto error;
+    }
+
+    if (rods_path->objType != DATA_OBJ_T) {
+        set_baton_error(error, USER_INPUT_PATH_ERR,
+                        "Failed to get the checksum of '%s' as it is "
+                        "not a data object",  rods_path->outPath);
+        goto error;
+    }
+
+    query_format_in_t obj_format =
+        { .num_columns = 3,
+          .columns     = { COL_COLL_NAME, COL_DATA_NAME,
+                           COL_D_DATA_CHECKSUM },
+          .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
+                           JSON_CHECKSUM_KEY } };
+
+    query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
+                                obj_format.columns);
+    query_in = prepare_obj_list(query_in, rods_path, NULL);
+
+    results = do_query(conn, query_in, obj_format.labels, error);
+    if (error->code != 0) goto error;
+
+    if (json_array_size(results) != 1) {
+        set_baton_error(error, -1, "Expected 1 data object result but found %d",
+                        json_array_size(results));
+        goto error;
+    }
+
+    json_t *obj = json_array_get(results, 0);
+    json_t *checksum = json_incref(json_object_get(obj, JSON_CHECKSUM_KEY));
+    json_decref(results);
+
+    return checksum;
+
+error:
+    if (query_in) free_query_input(query_in);
+    if (results)  json_decref(results);
+
+    return NULL;
 }
 
 json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
@@ -306,11 +355,33 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
     genQueryInp_t *query_in = NULL;
     json_t *results         = NULL;
 
+    // There are two options for showing permissions in iRODS; either
+    // with groups expanded into their constituent users, or without.
+    //
+    // As of iRODS 4.2.5, ils uses the former for collections and the
+    // latter for data objects.
+    //
+    // i.e. a data object readable by public would show as
+    //
+    //     public#testZone:read
+    //
+    // while a collections readable by public would show as
+    //
+    //     irods#testZone:own irods#testZone:read object
+    //     john#testZone:read object alice#testZone:read object
+    //
+    // where irods, john and alice are the members of "public".
+
+    // This reports groups unexpanded (substuting COL_DATA_USER_NAME
+    // for COL_USER_NAME reports constituent users):
     query_format_in_t obj_format =
         { .num_columns = 3,
           .columns     = { COL_USER_NAME, COL_USER_ZONE,
                            COL_DATA_ACCESS_NAME },
           .labels      = { JSON_OWNER_KEY, JSON_ZONE_KEY, JSON_LEVEL_KEY } };
+
+    // This reports constituent users (substituing COL_USER_NAME
+    // for COL_COLL_USER_NAME causes incorrect reporting)
     query_format_in_t col_format =
         { .num_columns = 3,
           .columns     = { COL_COLL_USER_NAME, COL_COLL_USER_ZONE,

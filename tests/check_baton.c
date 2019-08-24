@@ -2082,6 +2082,10 @@ START_TEST(test_put_data_obj) {
                       flags, &result_error);
     ck_assert_int_eq(result_error.code, 0);
 
+    baton_error_t checksum_error;
+    checksum_data_obj(conn, &result_obj_path, flags, &checksum_error);
+    ck_assert_int_eq(checksum_error.code, 0);
+
     baton_error_t list_error;
     json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
                                &list_error);
