@@ -239,6 +239,7 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     }
     else if (str_equals(op, JSON_CHECKSUM_OP, MAX_STR_LEN)) {
         result = baton_json_checksum_op(env, conn, target, &args_copy, error);
+        if (error->code != 0) goto error;
 
         if (args_copy.flags & PRINT_CHECKSUM) {
             result = add_checksum_json_object(conn, result, error);
@@ -266,6 +267,7 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         else {
             result = baton_json_put_op(env, conn, target, &args_copy, error);
         }
+        if (error->code != 0) goto error;
 
         if (args_copy.flags & PRINT_CHECKSUM) {
             result = add_checksum_json_object(conn, result, error);
