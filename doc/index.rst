@@ -788,6 +788,13 @@ Options
    Silence error messages.
 
 .. program:: baton-do
+.. option:: --no-error
+
+   Do not report iRODS errors by exiting with a non-zero error code. In
+   this mode errors are reported only in-band of the JSON messages
+   written to STDOUT.
+            
+.. program:: baton-do
 .. option:: --unbuffered
 
   Flush output after each JSON object is processed.
