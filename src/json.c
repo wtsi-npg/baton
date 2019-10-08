@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -764,7 +764,12 @@ json_t *make_timestamp(const char* key, const char *value, const char *format,
             goto error;
         }
 
-        json_object_set_new(result, JSON_REPLICATE_KEY, json_integer(repl));
+        if (json_object_set_new(result, JSON_REPLICATE_KEY,
+                                json_integer(repl)) < 0) {
+            set_baton_error(error, -1,"Failed to pack replicate %s",
+                            replicate);
+            goto error;
+        };
     }
 
     free(formatted);
@@ -858,11 +863,11 @@ int add_timestamps(json_t *object, const char *created, const char *modified,
     }
 
     iso_created = make_timestamp(JSON_CREATED_KEY, created,
-                                 ISO8601_FORMAT, replicate, error);
+                                 RFC3339_FORMAT, replicate, error);
     if (error->code != 0) goto error;
 
     iso_modified = make_timestamp(JSON_MODIFIED_KEY, modified,
-                                  ISO8601_FORMAT, replicate, error);
+                                  RFC3339_FORMAT, replicate, error);
     if (error->code != 0) goto error;
 
     timestamps = json_pack("[o, o]", iso_created, iso_modified);
@@ -987,7 +992,24 @@ int add_result(json_t *object, json_t *result, baton_error_t *error) {
         goto error;
     }
 
-    return json_object_set_new(object, JSON_RESULT_KEY, result);
+    const char *key;
+    if (json_is_object(result)) {
+        key = JSON_SINGLE_RESULT_KEY;
+    } else if (json_is_array(result)) {
+        key = JSON_MULTIPLE_RESULT_KEY;
+    } else {
+        set_baton_error(error, -1, "Failed to add result data: "
+                        "result not a JSON object or array");
+        goto error;
+    }
+
+    json_t *holder = json_object();
+    if (json_object_set_new(holder, key, result) < 0) {
+        set_baton_error(error, -1, "Failed to add result data holder");
+        goto error;
+
+    }
+    return json_object_set_new(object, JSON_RESULT_KEY, holder);
 
 error:
     return error->code;

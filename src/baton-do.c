@@ -29,6 +29,7 @@
 
 static int debug_flag         = 0;
 static int help_flag          = 0;
+static int no_error_flag      = 0;
 static int silent_flag        = 0;
 static int single_server_flag = 0;
 static int unbuffered_flag    = 0;
@@ -52,6 +53,7 @@ int main(int argc, char *argv[]) {
             // Flag options
             {"debug",         no_argument, &debug_flag,         1},
             {"help",          no_argument, &help_flag,          1},
+            {"no-error",      no_argument, &no_error_flag,      1},
             {"silent",        no_argument, &silent_flag,        1},
             {"single-server", no_argument, &single_server_flag, 1},
             {"unbuffered",    no_argument, &unbuffered_flag,    1},
@@ -128,6 +130,9 @@ int main(int argc, char *argv[]) {
         "                    10 minutes.\n"
         "    --file          The JSON file describing the operations.\n"
         "                    Optional, defaults to STDIN.\n"
+        "    --no-error      Do not return a non-zero exit code on iRODS\n"
+        "                    errors. Errors will still be reported in-band\n"
+        "                    as JSON responses.\n"
         "    --silent        Silence error messages.\n"
         "    --single-server Only connect to a single iRODS server\n"
         "    --unbuffered    Flush print operations for each JSON object.\n"
@@ -168,7 +173,7 @@ int main(int argc, char *argv[]) {
     int status = do_operation(input, baton_json_dispatch_op, &args);
     if (input != stdin) fclose(input);
 
-    if (status != 0) exit_status = 5;
+    if (status != 0 && !no_error_flag) exit_status = 5;
 
     exit(exit_status);
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2014, 2019 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ void log_impl(int line, const char *file, char const *function,
         struct tm tm;
         gmtime_r(&t, &tm);
 
-        int status = strftime(buffer, sizeof buffer, ISO8601_FORMAT, &tm);
+        int status = strftime(buffer, sizeof buffer, RFC3339_FORMAT, &tm);
         if (status == 0) {
             fprintf(stderr, "Failed to format timestamp '%s': error %d %s",
                     buffer, errno, strerror(errno));

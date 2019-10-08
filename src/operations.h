@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -172,6 +172,18 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn,
 json_t *baton_json_move_op(rodsEnv *env, rcComm_t *conn,
                            json_t *target, operation_args_t *args,
                            baton_error_t *error);
+
+json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
+                         json_t *target, operation_args_t *args,
+                         baton_error_t *error);
+
+json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
+                             json_t *target, operation_args_t *args,
+                             baton_error_t *error);
+
+json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
+                             json_t *target, operation_args_t *args,
+                             baton_error_t *error);
 
 int check_str_arg(const char *arg_name, const char *arg_value,
                   size_t arg_size, baton_error_t *error);

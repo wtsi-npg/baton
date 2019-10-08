@@ -496,6 +496,8 @@ json_t *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
     dataObjInp_t obj_chk_in;
     int status;
 
+    init_baton_error(error);
+
     memset(&obj_chk_in, 0, sizeof obj_chk_in);
     obj_chk_in.openFlags = O_RDONLY;
 

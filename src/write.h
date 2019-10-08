@@ -73,4 +73,13 @@ size_t write_chunk(rcComm_t *conn, char *buffer, data_obj_file_t *obj_file,
 size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
                       size_t buffer_size, int flags, baton_error_t *error);
 
+int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+                      baton_error_t *error);
+
+int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+                      baton_error_t *error);
+
+int remove_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+                      baton_error_t *error);
+
 #endif // _BATON_WRITE_H

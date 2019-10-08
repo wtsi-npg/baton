@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1178,7 +1178,7 @@ START_TEST(test_search_metadata_tps_obj) {
     const char *raw_created = get_created_timestamp(first_tps, &ts_error);
     ck_assert_int_eq(ts_error.code, 0);
 
-    char *iso_created = format_timestamp(raw_created, ISO8601_FORMAT);
+    char *iso_created = format_timestamp(raw_created, RFC3339_FORMAT);
 
     // Should not find any results for data objects created before the
     // root collection of the test data was created
@@ -1767,7 +1767,7 @@ START_TEST(test_contains_avu) {
 END_TEST
 
 // Can we test for JSON representation of a collection?
-START_TEST(test_represents_collection) {
+START_TEST(test_represents_coll) {
     json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
     json_t *obj = json_pack("{s:s, s:s}",
                             JSON_COLLECTION_KEY,  "foo",
@@ -1782,7 +1782,7 @@ START_TEST(test_represents_collection) {
 END_TEST
 
 // Can we test for JSON representation of a data object?
-START_TEST(test_represents_data_object) {
+START_TEST(test_represents_data_obj) {
     json_t *col = json_pack("{s:s}", JSON_COLLECTION_KEY, "foo");
     json_t *obj = json_pack("{s:s, s:s}",
                             JSON_COLLECTION_KEY,  "foo",
@@ -1797,7 +1797,7 @@ START_TEST(test_represents_data_object) {
 END_TEST
 
 // Can we test for JSON representation of a directory?
-START_TEST(test_represents_directory) {
+START_TEST(test_represents_dir) {
     json_t *dir  = json_pack("{s:s}", JSON_DIRECTORY_KEY, "foo");
     json_t *file = json_pack("{s:s, s:s}",
                              JSON_DIRECTORY_KEY, "foo",
@@ -2082,6 +2082,10 @@ START_TEST(test_put_data_obj) {
                       flags, &result_error);
     ck_assert_int_eq(result_error.code, 0);
 
+    baton_error_t checksum_error;
+    checksum_data_obj(conn, &result_obj_path, flags, &checksum_error);
+    ck_assert_int_eq(checksum_error.code, 0);
+
     baton_error_t list_error;
     json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
                                &list_error);
@@ -2111,6 +2115,116 @@ START_TEST(test_put_data_obj) {
     unlink(template);
 
     if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we remove a data object
+START_TEST(test_remove_data_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+
+    rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    int resolve_status =
+        resolve_rods_path(conn, &env, &rods_path, obj_path,
+                          flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, 0);
+    ck_assert_int_eq(resolve_status, EXIST_ST);
+    ck_assert_int_eq(rods_path.objType, DATA_OBJ_T);
+
+    baton_error_t remove_error;
+    int remove_status =
+        remove_data_object(conn, &rods_path, flags, &remove_error);
+    ck_assert_int_eq(remove_error.code, 0);
+    ck_assert_int_eq(remove_status, 0);
+
+    resolve_status =
+        resolve_rods_path(conn, &env, &rods_path, obj_path,
+                          flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, 0);
+    ck_assert_int_ne(resolve_status, EXIST_ST);
+    ck_assert_int_ne(rods_path.objType, DATA_OBJ_T);
+}
+END_TEST
+
+// Can we create a collection?
+START_TEST(test_create_coll) {
+    option_flags flags = RECURSIVE;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char coll_path[MAX_PATH_LEN];
+    snprintf(coll_path, MAX_PATH_LEN, "%s/a/b/c", rods_root);
+
+    rodsPath_t rods_coll_path;
+    baton_error_t resolve_error;
+    int resolve_status =
+        resolve_rods_path(conn, &env, &rods_coll_path, coll_path,
+                          flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, 0);
+    ck_assert_int_ne(rods_coll_path.objType, COLL_OBJ_T); // Not present
+
+    baton_error_t create_error;
+    int create_status =
+        create_collection(conn, &rods_coll_path, flags, &create_error);
+    ck_assert_int_eq(create_error.code, 0);
+    ck_assert_int_eq(create_status, 0);
+
+    resolve_rods_path(conn, &env, &rods_coll_path, coll_path,
+                      flags, &resolve_error);
+
+    ck_assert_int_eq(rods_coll_path.objType, COLL_OBJ_T); // Created
+}
+END_TEST
+
+// Can we remove a collection?
+START_TEST(test_remove_coll) {
+    option_flags flags = RECURSIVE;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char coll_path[MAX_PATH_LEN];
+    snprintf(coll_path, MAX_PATH_LEN, "%s/a/b/c", rods_root);
+
+    rodsPath_t rods_coll_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_coll_path, coll_path,
+                      flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, 0);
+
+    baton_error_t create_error;
+    int create_status =
+        create_collection(conn, &rods_coll_path, flags, &create_error);
+    ck_assert_int_eq(create_error.code, 0);
+    ck_assert_int_eq(create_status, 0);
+
+    resolve_rods_path(conn, &env, &rods_coll_path, coll_path,
+                      flags, &resolve_error);
+    ck_assert_int_eq(rods_coll_path.objType, COLL_OBJ_T); // Present
+
+    baton_error_t remove_error;
+    int remove_status =
+        remove_collection(conn, &rods_coll_path, flags, &remove_error);
+    ck_assert_int_eq(remove_error.code, 0);
+    ck_assert_int_eq(remove_status, 0);
+
+    resolve_rods_path(conn, &env, &rods_coll_path, coll_path,
+                      flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, 0);
+    ck_assert_int_ne(rods_coll_path.objType, COLL_OBJ_T); // Not present
 }
 END_TEST
 
@@ -2543,14 +2657,17 @@ Suite *baton_suite(void) {
     tcase_add_test(read_write, test_ingest_data_obj);
     tcase_add_test(read_write, test_write_data_obj);
     tcase_add_test(read_write, test_put_data_obj);
+    tcase_add_test(read_write, test_remove_data_obj);
+    tcase_add_test(read_write, test_create_coll);
+    tcase_add_test(read_write, test_remove_coll);
 
     TCase *json = tcase_create("json");
     tcase_add_unchecked_fixture(json, setup, teardown);
     tcase_add_checked_fixture(json, basic_setup, basic_teardown);
 
-    tcase_add_test(json, test_represents_collection);
-    tcase_add_test(json, test_represents_data_object);
-    tcase_add_test(json, test_represents_directory);
+    tcase_add_test(json, test_represents_coll);
+    tcase_add_test(json, test_represents_data_obj);
+    tcase_add_test(json, test_represents_dir);
     tcase_add_test(json, test_represents_file);
     tcase_add_test(json, test_json_to_path);
     tcase_add_test(json, test_json_to_local_path);

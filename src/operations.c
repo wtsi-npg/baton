@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2017, 2018 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2017, 2018, 2019 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -169,6 +170,11 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     const char *op = get_operation(envelope, error);
     if (error->code != 0) goto error;
 
+    if (!op) {
+        set_baton_error(error, -1, "No baton operation given");
+        goto error;
+    }
+
     json_t *target = get_operation_target(envelope, error);
     if (error->code != 0) goto error;
 
@@ -179,7 +185,9 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         option_flags flags = args_copy.flags;
         if (op_acl_p(args))           flags = flags | PRINT_ACL;
         if (op_avu_p(args))           flags = flags | PRINT_AVU;
-        if (op_checksum_p(args))      flags = flags | PRINT_CHECKSUM;
+        if (op_checksum_p(args))      flags = flags |
+                                          CALCULATE_CHECKSUM |
+                                          PRINT_CHECKSUM;
         if (op_contents_p(args))      flags = flags | PRINT_CONTENTS;
         if (op_replicate_p(args))     flags = flags | PRINT_REPLICATE;
         if (op_size_p(args))          flags = flags | PRINT_SIZE;
@@ -224,44 +232,59 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         }
     }
 
+    logmsg(DEBUG, "Dispatching to operation '%s'", op);
+
     if (str_equals(op, JSON_CHMOD_OP, MAX_STR_LEN)) {
-        logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_chmod_op(env, conn, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_CHECKSUM_OP, MAX_STR_LEN)) {
-        logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_checksum_op(env, conn, target, &args_copy, error);
+        if (error->code != 0) goto error;
+
+        if (args_copy.flags & PRINT_CHECKSUM) {
+            result = add_checksum_json_object(conn, result, error);
+            if (error->code != 0) goto error;
+        }
     }
     else if (str_equals(op, JSON_LIST_OP, MAX_STR_LEN)) {
-        logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_list_op(env, conn, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_METAMOD_OP, MAX_STR_LEN)) {
-        logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_metamod_op(env, conn, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_METAQUERY_OP, MAX_STR_LEN)) {
-        logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_metaquery_op(env, conn, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_GET_OP, MAX_STR_LEN)) {
-        logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_get_op(env, conn, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_PUT_OP, MAX_STR_LEN)) {
-        logmsg(DEBUG, "Dispatching to operation '%s'", op);
         if (args_copy.flags & SINGLE_SERVER) {
-            logmsg(DEBUG,
-                   "Single-server mode, falling back to operation 'write'");
+            logmsg(DEBUG, "Single-server mode, falling back "
+                   "to operation 'write'");
             result = baton_json_write_op(env, conn, target, &args_copy, error);
         }
         else {
             result = baton_json_put_op(env, conn, target, &args_copy, error);
         }
+        if (error->code != 0) goto error;
+
+        if (args_copy.flags & PRINT_CHECKSUM) {
+            result = add_checksum_json_object(conn, result, error);
+            if (error->code != 0) goto error;
+        }
     }
     else if (str_equals(op, JSON_MOVE_OP, MAX_STR_LEN)) {
-        logmsg(DEBUG, "Dispatching to operation '%s'", op);
         result = baton_json_move_op(env, conn, target, &args_copy, error);
+    }
+    else if (str_equals(op, JSON_RM_OP, MAX_STR_LEN)) {
+        result = baton_json_rm_op(env, conn, target, &args_copy, error);
+    }
+    else if (str_equals(op, JSON_MKCOLL_OP, MAX_STR_LEN)) {
+        result = baton_json_mkcoll_op(env, conn, target, &args_copy, error);
+    }
+    else if (str_equals(op, JSON_RMCOLL_OP, MAX_STR_LEN)) {
+        result = baton_json_rmcoll_op(env, conn, target, &args_copy, error);
     }
     else {
         set_baton_error(error, -1, "Invalid baton operation '%s'", op);
@@ -333,6 +356,8 @@ json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
+    result = target;
+
     return result;
 
 error:
@@ -345,6 +370,11 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                                operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
     char *path     = NULL;
+    if (!represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot checksum a non-data-object");
+        goto error;
+    }
 
     path = json_to_path(target, error);
     if (error->code != 0) goto error;
@@ -356,10 +386,15 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     resolve_rods_path(conn, env, &rods_path, path, flags, error);
     if (error->code != 0) goto error;
 
-    result = checksum_data_obj(conn, &rods_path, flags, error);
+    json_t *checksum = checksum_data_obj(conn, &rods_path, flags, error);
+    if (error->code != 0) goto error;
+
+    add_checksum(target, checksum, error);
     if (error->code != 0) goto error;
 
     if (path) free(path);
+
+    result = target;
 
     return result;
 
@@ -430,6 +465,8 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
+    result = target;
+
     return result;
 
 error:
@@ -484,8 +521,14 @@ error:
 json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                             operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
+    char *path = NULL;
+    if (!represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot write a data object given a non-data-object");
+        goto error;
+    }
 
-    char *path = json_to_path(target, error);
+    path = json_to_path(target, error);
     if (error->code != 0) goto error;
 
     rodsPath_t rods_path;
@@ -551,6 +594,8 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         goto error;
     }
 
+    result = target;
+
     if (path) free(path);
 
     return result;
@@ -578,6 +623,109 @@ json_t *baton_json_move_op(rodsEnv *env, rcComm_t *conn, json_t *target,
 
     move_rods_path(conn, &rods_path, new_path, error);
     if (error->code != 0) goto error;
+
+    if (path) free(path);
+
+    return result;
+
+error:
+    if (path) free(path);
+
+    return result;
+}
+
+json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
+                         json_t *target, operation_args_t *args,
+                         baton_error_t *error) {
+    json_t *result = NULL;
+    char *path = NULL;
+
+    if (!represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot remove a non-data-object");
+        goto error;
+    }
+
+    path = json_to_path(target, error);
+    if (error->code != 0) goto error;
+
+    rodsPath_t rods_path;
+    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Removing data object '%s'", path);
+    remove_data_object(conn, &rods_path, args->flags, error);
+    if (error->code != 0) goto error;
+
+    result = target;
+
+    if (path) free(path);
+
+    return result;
+
+error:
+    if (path) free(path);
+
+    return result;
+}
+
+json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
+                             json_t *target, operation_args_t *args,
+                             baton_error_t *error) {
+    json_t *result = NULL;
+    char *path = NULL;
+    if (represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot make a collection given a data object");
+        goto error;
+    }
+
+    path = json_to_collection_path(target, error);
+    if (error->code != 0) goto error;
+
+    rodsPath_t rods_path;
+    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Creating collection '%s'", path);
+    create_collection(conn, &rods_path, args->flags, error);
+    if (error->code != 0) goto error;
+
+    result = target;
+
+    if (path) free(path);
+
+    return result;
+
+error:
+    if (path) free(path);
+
+    return result;
+}
+
+json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
+                             json_t *target, operation_args_t *args,
+                             baton_error_t *error) {
+    json_t *result = NULL;
+    char *path = NULL;
+    if (represents_data_object(target)) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "cannot remove a collection given a data object");
+        goto error;
+    }
+
+    path = json_to_collection_path(target, error);
+    if (error->code != 0) goto error;
+
+    rodsPath_t rods_path;
+    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    if (error->code != 0) goto error;
+
+    logmsg(DEBUG, "Removing collection '%s'", path);
+    remove_collection(conn, &rods_path, args->flags, error);
+    if (error->code != 0) goto error;
+
+    result = target;
 
     if (path) free(path);
 

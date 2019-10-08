@@ -23,3 +23,6 @@ install:
 
 script:
   - ./scripts/travis_script.sh
+
+after_failure:
+  - cat ./baton*/_build/tests/check_baton.log
