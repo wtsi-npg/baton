@@ -1,4 +1,49 @@
-        [1.2.0]
+	[2.0.0]
+
+	This release includes changes to the JSON returned by baton-do
+	that are not backwardly compatible.
+
+	Ensured that all operations return a JSON document describing the
+	target, even in cases where the target was deleted.
+
+	JSON object and JSON array results now appear under distinct
+	keys to allow automatic unmarshalling by Go.
+
+	Timestamps are now formatted as RFC3339, which is the default for
+	Go unmarshalling.
+
+	Added support for iRODS 4.2, ended full support for iRODS 3.x.
+
+	Added a --connect-time CLI option to limit connection duration.
+
+	Added a --no-error CLI option to baton-do
+
+	Added a remove data object operation.
+
+	Added a create and remove collection option (with recursion).
+
+	Added the ability to optionally create and return checksums on put.
+
+	Added stricter checks on the incoming JSON to help identify errors.
+
+	Switched to using Conda for baton dependencies during tests.
+
+	Switched to using iRODS running in Docker for tests.
+
+	Refactored the list_checksum function to avoid updating the
+	checksum.
+
+	Bugfix: Fixed bug where settings from AC_CHECK_LIBs were reset.
+
+	Bugfix: Use json_to_collection_path for collection operations.
+
+	Bugfix: Added missing error initialisation and missing error
+	code checks.
+
+	Bugfix: Handle paths and file names named '0' correctly in the
+	Perl wrapper script.
+
+	[1.2.0]
 
 	Bugfix: Ensure args_copy.path is defined during error handling.
 
@@ -35,9 +80,9 @@
 
 	[0.17.1]
 
-	relink with iRODS 4.1.10
+	Relink with iRODS 4.1.10
 
-	use disposable-irods 1.2
+	Use disposable-irods 1.2
 
 	[0.17.0]
 
