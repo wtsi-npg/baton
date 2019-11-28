@@ -35,7 +35,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
     while (!feof(input)) {
         size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
-        json_t *item = json_loadf(input, jflags, &load_error);
+        json_t *item = json_loadf(input, jflags, &load_error); // JSON alloc
 
         if (!item) {
             if (!feof(input)) {
@@ -70,15 +70,17 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
         json_t *result = fn(env, conn, item, args, &error);
         if (error.code != 0) {
             // On error, add an error report to the input JSON as a
-            // property and print the input JSON
+            // property and print the input JSON. A NULL result should
+            // always be an error.
             error_count++;
             add_error_value(item, &error);
             print_json(item);
         }
         else {
-            if (has_operation(item) && has_operation_target(item) && result) {
+            if (has_operation(item) && has_operation_target(item)) {
                 // It's an envelope, so we add the result to the input
-                // JSON as a property and print the input JSON
+                // JSON as a property and print the input JSON, The
+                // result will be freed as part of the input JSON.
                 baton_error_t rerror;
                 add_result(item, result, &rerror);
                 if (rerror.code != 0) {
@@ -89,17 +91,12 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
                 }
                 print_json(item);
             }
-            else if (result) {
+            else {
                 // There is no envelope and there is some result JSON,
-                // so we print the result JSON
+                // so we print the result JSON. The result is not
+                // freed as part of the input JSON, so we free it here.
                 print_json(result);
                 json_decref(result);
-            }
-            else {
-                // There is no envelope and it's a void operation
-                // giving no result JSON, so we print the input JSON
-                // instead
-                print_json(item);
             }
         }
 
@@ -107,7 +104,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
 
         (*item_count)++;
 
-        json_decref(item);
+        json_decref(item); // JSON free
 
         time_t now = time(0);
         double duration = difftime(now, connect_time);
@@ -321,6 +318,7 @@ json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -353,15 +351,21 @@ json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         if (error->code != 0) goto error;
     }
 
+    result = json_deep_copy(target);
+    if (!result) {
+        set_baton_error(error, -1, "Internal error: failed to deep-copy "
+                        "result for %s", path);
+        goto error;
+    }
+
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
-
-    result = target;
 
     return result;
 
 error:
     if (path) free(path);
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return result;
 }
@@ -392,13 +396,20 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     add_checksum(target, checksum, error);
     if (error->code != 0) goto error;
 
-    if (path) free(path);
+    result = json_deep_copy(target);
+    if (!result) {
+        set_baton_error(error, -1, "Internal error: failed to deep-copy "
+                        "result for %s", path);
+        goto error;
+    }
 
-    result = target;
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
+    if (path) free(path);
 
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -462,14 +473,20 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         if (error->code != 0) goto error;
     }
 
+    result = json_deep_copy(target);
+    if (!result) {
+        set_baton_error(error, -1, "Internal error: failed to deep-copy "
+                        "result for %s", path);
+        goto error;
+    }
+
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
-
-    result = target;
 
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -513,6 +530,7 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -560,11 +578,13 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         goto error;
     }
 
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -594,13 +614,20 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         goto error;
     }
 
-    result = target;
+    result = json_deep_copy(target);
+    if (!result) {
+        set_baton_error(error, -1, "Internal error: failed to deep-copy "
+                        "result for %s", path);
+        goto error;
+    }
 
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -624,11 +651,20 @@ json_t *baton_json_move_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     move_rods_path(conn, &rods_path, new_path, error);
     if (error->code != 0) goto error;
 
+    result = json_deep_copy(target);
+    if (!result) {
+        set_baton_error(error, -1, "Internal error: failed to deep-copy "
+                        "result for %s", path);
+        goto error;
+    }
+
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -657,13 +693,20 @@ json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
     remove_data_object(conn, &rods_path, args->flags, error);
     if (error->code != 0) goto error;
 
-    result = target;
+    result = json_deep_copy(target);
+    if (!result) {
+        set_baton_error(error, -1, "Internal error: failed to deep-copy "
+                        "result for %s", path);
+        goto error;
+    }
 
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -691,13 +734,20 @@ json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
     create_collection(conn, &rods_path, args->flags, error);
     if (error->code != 0) goto error;
 
-    result = target;
+    result = json_deep_copy(target);
+    if (!result) {
+        set_baton_error(error, -1, "Internal error: failed to deep-copy "
+                        "result for %s", path);
+        goto error;
+    }
 
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
@@ -725,13 +775,20 @@ json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
     remove_collection(conn, &rods_path, args->flags, error);
     if (error->code != 0) goto error;
 
-    result = target;
+    result = json_deep_copy(target);
+    if (!result) {
+        set_baton_error(error, -1, "Internal error: failed to deep-copy "
+                        "result for %s", path);
+        goto error;
+    }
 
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
 
 error:
+    if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (path) free(path);
 
     return result;
