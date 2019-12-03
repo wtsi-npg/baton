@@ -1,0 +1,31 @@
+name: C/C++ CI
+
+on: [push]
+
+jobs:
+  build:
+    env:
+      CONDA_USER_ID: 9001
+      CONDA_USER: conda
+      CONDA_GROUP_ID: 32001
+      CONDA_INSTALL_DIR: /opt/conda
+      CONDA_HOME: /home/conda
+      CONDA_BLD_PATH: /home/conda/artefacts
+
+    runs-on: ubuntu-latest
+    services:
+      irods-service:
+        image: docker://wsinpg/ub-12.04-irods-4.1:latest
+        ports:
+          - 1247:1247
+
+    container:
+      image: docker://wsinpg/ub-12.04-conda:latest
+      options: --entrypoint scripts/docker-entrypoint.sh
+
+    steps:    
+      - uses: actions/checkout@v1
+      - name: Setup Conda
+        run: ./scripts/setup_conda.sh
+      - name: Build baton
+        run: ./scripts/build_baton.sh

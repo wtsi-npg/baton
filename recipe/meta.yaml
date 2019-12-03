@@ -1,0 +1,35 @@
+package:
+  name: baton
+  version: {{ environ.get('GIT_DESCRIBE_TAG', '') }}
+
+about:
+  home: https://github.com/wtsi-npg/baton
+  license: GPL2
+  summary: Client programs and API for use with iRODS (Integrated Rule-Oriented Data System).
+
+build:
+  number: {{ environ.get('GIT_DESCRIBE_NUMBER', '0') }}
+
+source:
+  path: ../
+
+requirements:
+  build:
+    - {{ compiler("c") }}
+    - autoconf
+    - automake
+    - irods-icommands
+    - libtool
+    - make
+    - perl
+    - pkg-config
+  host:
+    - check
+    - irods-dev ==4.1.12
+    - libjansson-dev
+    - libssl-dev
+    - sphinx
+  run:
+    - irods-plugins ==4.1.12
+    - libjansson
+    - libssl
