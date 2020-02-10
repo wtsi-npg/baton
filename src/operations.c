@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2017, 2018, 2019 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2017, 2018, 2019, 2020 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
