@@ -1,3 +1,8 @@
+	[Upcoming]
+
+	Bugfix: fixed segfault when operations require a path and none
+	supplied
+
 	[2.0.1]
 
 	Bugfix: corrected cases where we simply returned the target JSON
