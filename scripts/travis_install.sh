@@ -2,11 +2,7 @@
 
 set -e -u -x
 
-sudo -H pip install --upgrade pip
-sudo -H pip install 'sphinx==1.3.1'
-sudo -H pip install 'breathe==3.2.0'
-
-wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-4.5.11-Linux-x86_64.sh -O ~/miniconda.sh
+wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-4.6.14-Linux-x86_64.sh -O ~/miniconda.sh
 
 /bin/bash ~/miniconda.sh -b -p ~/miniconda
 ~/miniconda/bin/conda clean -tipsy
@@ -16,9 +12,14 @@ echo "conda activate base" >> ~/.bashrc
 . ~/miniconda/etc/profile.d/conda.sh
 conda activate base
 conda config --set auto_update_conda False
-conda config --add channels https://dnap.cog.sanger.ac.uk/npg/conda/devel/generic/
+
 conda create -y -n travis
 conda activate travis
+conda install -y python
+pip install sphinx==2.4.0
+
+conda config --add channels https://dnap.cog.sanger.ac.uk/npg/conda/devel/generic/
+
 conda install -y libjansson-dev
 conda install -y irods-dev
 conda install -y irods-icommands

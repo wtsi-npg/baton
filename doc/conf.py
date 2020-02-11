@@ -32,7 +32,6 @@ import os
 extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
-    'breathe'
 ]
 
 breathe_projects = {
@@ -53,7 +52,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'baton'
-copyright = '2013-2014, Genome Research Ltd.'
+copyright = '2013,2014,2015,2016,2017,2018,2019,2020 Genome Research Ltd.'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
