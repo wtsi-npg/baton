@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2020 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ static rcComm_t *rods_connect(rodsEnv *env){
     // TODO: add option for NO_RECONN vs. RECONN_TIMEOUT
     conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
                      env->rodsZone, NO_RECONN, &errmsg);
-    if (!conn) goto error;
+    if (!conn) goto finally;
 
     int sigstatus = sigaction(SIGPIPE, &saction, NULL);
     if (sigstatus != 0) {
@@ -87,9 +87,7 @@ static rcComm_t *rods_connect(rodsEnv *env){
         exit(1);
     }
 
-    return conn;
-
-error:
+finally:
     return conn;
 }
 
@@ -172,7 +170,6 @@ error:
 int init_rods_path(rodsPath_t *rods_path, char *inpath) {
     if (!rods_path) return USER__NULL_INPUT_ERR;
 
-    memset(rods_path, 0, sizeof (rodsPath_t));
     char *dest = rstrcpy(rods_path->inPath, inpath, MAX_NAME_LEN);
     if (!dest) return USER_PATH_EXCEEDS_MAX;
 
@@ -301,11 +298,11 @@ int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
                             "Failed to move '%s' as it is "
                             "neither data object nor collection",
                             rods_path->outPath);
-            goto error;
+            goto finally;
     }
 
     check_str_arg("path", new_path, MAX_NAME_LEN, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     char *src = rstrcpy(obj_rename_in.srcDataObjInp.objPath,
                         rods_path->outPath, MAX_NAME_LEN);
@@ -313,7 +310,7 @@ int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
         set_baton_error(error, USER_PATH_EXCEEDS_MAX,
                         "iRODS source path '%s' is too long (exceeds %d",
                         rods_path->outPath, MAX_NAME_LEN);
-        goto error;
+        goto finally;
     }
 
     char *dest = rstrcpy(obj_rename_in.destDataObjInp.objPath,
@@ -322,7 +319,7 @@ int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
         set_baton_error(error, USER_PATH_EXCEEDS_MAX,
                         "iRODS destination path '%s' is too long (exceeds %d",
                         rods_path->outPath, MAX_NAME_LEN);
-        goto error;
+        goto finally;
     }
 
     status = rcDataObjRename(conn, &obj_rename_in);
@@ -332,12 +329,9 @@ int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
         set_baton_error(error, status,
                         "Failed to rename '%s' to '%s': %d %s",
                         src, dest, status, err_name);
-        goto error;
     }
 
-    return error->code;
-
-error:
+finally:
     return error->code;
 }
 
@@ -350,25 +344,25 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
     if (!json_is_object(object)) {
         set_baton_error(error, -1, "Failed to resolve the iRODS collection: "
                         "target not a JSON object");
-        goto error;
+        goto finally;
     }
     if (!has_collection(object)) {
         set_baton_error(error, -1, "Failed to resolve the iRODS collection: "
                         "target has no collection property");
-        goto error;
+        goto finally;
     }
 
     rodsPath_t rods_path;
     const char *unresolved = get_collection_value(object, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     logmsg(DEBUG, "Attempting to resolve collection '%s'", unresolved);
 
     collection = json_to_collection_path(object, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     resolve_rods_path(conn, env, &rods_path, collection, flags, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     logmsg(DEBUG, "Resolved collection '%s' to '%s'", unresolved,
            rods_path.outPath);
@@ -377,14 +371,11 @@ int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
     json_object_del(object, JSON_COLLECTION_SHORT_KEY);
 
     add_collection(object, rods_path.outPath, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
-    if (collection) free(collection);
 
-    return error->code;
-
-error:
+finally:
     if (collection) free(collection);
 
     return error->code;
@@ -614,7 +605,7 @@ int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
 
     zone = get_access_zone(access, error);
     owner = get_access_owner(access, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     if (zone) {
         snprintf(owner_specifier, sizeof owner_specifier, "%s#%s",
@@ -626,14 +617,12 @@ int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
 
     level = get_access_level(access, error);
     snprintf(access_level, sizeof access_level, "%s", level);
-    if (error->code != 0) goto error;
-
+    if (error->code != 0) goto finally;
 
     modify_permissions(conn, rods_path, recurse, owner_specifier,
                        access_level, error);
-    return error->code;
 
-error:
+finally:
     return error->code;
 }
 
@@ -741,12 +730,10 @@ int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
 
         free(str);
 
-        if (error->code != 0) goto error;
+        if (error->code != 0) goto finally;
     }
 
-    return error->code;
-
-error:
+finally:
     return error->code;
 }
 
@@ -760,25 +747,25 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     init_baton_error(error);
 
     const char *attr = get_avu_attribute(avu, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     const char *value = get_avu_value(avu, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     const char *units = get_avu_units(avu, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     attr_tmp = copy_str(attr, MAX_STR_LEN);
     if (!attr_tmp) {
         set_baton_error(error, errno,
                         "Failed to allocate memory for attribute");
-        goto error;
+        goto finally;
     }
 
     value_tmp = copy_str(value, MAX_STR_LEN);
     if (!value_tmp) {
         set_baton_error(error, errno, "Failed to allocate memory value");
-        goto error;
+        goto finally;
     }
 
     // Units are optional
@@ -787,20 +774,14 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
         if (!units_tmp) {
             set_baton_error(error, errno,
                             "Failed to allocate memory for units");
-            goto error;
+            goto finally;
         }
     }
 
     modify_metadata(conn, rods_path, operation,
                     attr_tmp, value_tmp, units_tmp, error);
 
-    if (attr_tmp)  free(attr_tmp);
-    if (value_tmp) free(value_tmp);
-    if (units_tmp) free(units_tmp);
-
-    return error->code;
-
-error:
+finally:
     if (attr_tmp)  free(attr_tmp);
     if (value_tmp) free(value_tmp);
     if (units_tmp) free(units_tmp);
