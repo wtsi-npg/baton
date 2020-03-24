@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2017, 2018, 2019 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2014, 2015, 2017, 2018, 2019, 2020 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -90,18 +90,18 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
     if (buffer_size == 0) {
         set_baton_error(error, -1, "Invalid buffer_size argument %u",
                         buffer_size);
-        goto error;
+        goto finally;
     }
 
     buffer = calloc(buffer_size +1, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
-        goto error;
+        goto finally;
     }
 
     obj = open_data_obj(conn, rods_path, O_WRONLY, flags, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
 
     unsigned char digest[16];
     MD5_CTX context;
@@ -116,7 +116,7 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
         if (error->code != 0) {
             logmsg(ERROR, "Failed to write to '%s': error %d %s",
                    obj->path, error->code, error->message);
-            goto error;
+            goto finally;
         }
         num_written += nw;
 
@@ -134,13 +134,13 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
         set_baton_error(error, status,
                         "Failed to close data object: '%s' error %d %s",
                         obj->path, status, err_name);
-        goto error;
+        goto finally;
     }
 
     if (num_read != num_written) {
         set_baton_error(error, -1, "Read %zu bytes but wrote %zu bytes ",
                         "to '%s'", num_read, num_written, obj->path);
-        goto error;
+        goto finally;
     }
 
     if (!validate_md5_last_read(conn, obj)) {
@@ -151,12 +151,7 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
     logmsg(NOTICE, "Wrote %zu bytes to '%s' having MD5 %s",
            num_written, obj->path, obj->md5_last_read);
 
-    if (obj)    free_data_obj(obj);
-    if (buffer) free(buffer);
-
-    return num_written;
-
-error:
+finally:
     if (obj)    free_data_obj(obj);
     if (buffer) free(buffer);
 
@@ -181,14 +176,12 @@ size_t write_chunk(rcComm_t *conn, char *buffer, data_obj_file_t *data_obj,
         set_baton_error(error, num_written,
                         "Failed to write %zu bytes to '%s': %s",
                         len, data_obj->path, err_name);
-        goto error;
+        goto finally;
     }
 
     logmsg(DEBUG, "Wrote %d bytes to '%s'", num_written, data_obj->path);
 
-    return num_written;
-
-error:
+finally:
     return num_written;
 }
 
@@ -215,12 +208,8 @@ int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
         set_baton_error(error, status,
                         "Failed to put create collection: '%s' error %d %s",
                         rods_path->outPath, status, err_name);
-        goto error;
     }
 
-    return error->code;
-
-error:
     return error->code;
 }
 
@@ -246,12 +235,8 @@ int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
         set_baton_error(error, status,
                         "Failed to remove data object: '%s' error %d %s",
                         rods_path->outPath, status, err_name);
-        goto error;
     }
 
-    return error->code;
-
-error:
     return error->code;
 }
 
@@ -284,11 +269,7 @@ int remove_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
         set_baton_error(error, status,
                         "Failed to remove collection: '%s' error %d %s",
                         rods_path->outPath, status, err_name);
-        goto error;
     }
 
-    return error->code;
-
-error:
     return error->code;
 }

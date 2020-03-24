@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014, 2015, 2017, 2018 Genome Research Ltd. All
+ * Copyright (C) 2014, 2015, 2017, 2018, 2020 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -233,14 +233,12 @@ size_t read_chunk(rcComm_t *conn, data_obj_file_t *data_obj, char *buffer,
         set_baton_error(error, num_read,
                         "Failed to read up to %zu bytes from '%s': %s",
                         len, data_obj->path, err_name);
-        goto error;
+        goto finally;
     }
 
     logmsg(DEBUG, "Read %d bytes from '%s'", num_read, data_obj->path);
 
-    return num_read;
-
-error:
+finally:
     return num_read;
 }
 
@@ -255,14 +253,14 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
     if (buffer_size == 0) {
         set_baton_error(error, -1, "Invalid buffer_size argument %u",
                         buffer_size);
-        goto error;
+        goto finally;
     }
 
     buffer = calloc(buffer_size +1, sizeof (char));
     if (!buffer) {
         logmsg(ERROR, "Failed to allocate memory: error %d %s",
                errno, strerror(errno));
-        goto error;
+        goto finally;
     }
 
     unsigned char digest[16];
@@ -279,7 +277,7 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
         if (status < 0) {
             logmsg(ERROR, "Failed to write to stream: error %d %s",
                    errno, strerror(errno));
-            goto error;
+            goto finally;
         }
         nw = nr;
         num_written += nw;
@@ -294,7 +292,7 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
     if (num_read != num_written) {
         set_baton_error(error, -1, "Read %zu bytes from '%s' but wrote "
                         "%zu bytes ", num_read, data_obj->path, num_written);
-        goto error;
+        goto finally;
     }
 
     if (!validate_md5_last_read(conn, data_obj)) {
@@ -305,11 +303,7 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
     logmsg(NOTICE, "Wrote %zu bytes from '%s' to stream having MD5 %s",
            num_written, data_obj->path, data_obj->md5_last_read);
 
-    if (buffer) free(buffer);
-
-    return num_written;
-
-error:
+finally:
     if (buffer) free(buffer);
 
     return num_written;
@@ -402,7 +396,7 @@ int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
     if (buffer_size == 0) {
         set_baton_error(error, -1, "Invalid buffer_size argument %zu",
                         buffer_size);
-        goto error;
+        goto finally;
     }
 
     logmsg(DEBUG, "Writing '%s' to '%s'", rods_path->outPath, local_path);
@@ -412,7 +406,7 @@ int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
         set_baton_error(error, USER_INPUT_PATH_ERR,
                         "Cannot write the contents of '%s' because "
                         "it is not a data object", rods_path->outPath);
-        goto error;
+        goto finally;
     }
 
     stream = fopen(local_path, "w");
@@ -420,23 +414,20 @@ int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
         set_baton_error(error, errno,
                         "Failed to open '%s' for writing: error %d %s",
                         local_path, errno, strerror(errno));
-        goto error;
+        goto finally;
     }
 
     get_data_obj_stream(conn, rods_path, stream, buffer_size, error);
     int status = fclose(stream);
 
-    if (error->code != 0) goto error;
+    if (error->code != 0) goto finally;
     if (status != 0) {
         set_baton_error(error, errno,
                         "Failed to close '%s': error %d %s",
                         local_path, errno, strerror(errno));
-        goto error;
     }
 
-    return error->code;
-
-error:
+finally:
     return error->code;
 }
 
@@ -589,17 +580,14 @@ int validate_md5_last_read(rcComm_t *conn, data_obj_file_t *data_obj) {
 
     char *md5 = NULL;
     int status = rcDataObjChksum(conn, &obj_md5_in, &md5);
-    if (status < 0) goto error;
+    if (status < 0) goto finally;
 
     logmsg(DEBUG, "Comparing last read MD5 of '%s' with expected MD5 of '%s'",
            data_obj->md5_last_read, md5);
 
     status = str_equals_ignore_case(data_obj->md5_last_read, md5, 32);
-    free(md5);
 
-    return status;
-
-error:
+finally:
     if (md5) free(md5);
 
     return status;

@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2020 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -158,7 +159,7 @@ size_t parse_size(const char *str) {
     if (errno != 0) {
         logmsg(ERROR, "Failed recognise '%s' as a number: error %d %s",
                str, errno, strerror(errno));
-        goto error;
+        goto finally;
     }
 
     if (end == str) {
@@ -170,9 +171,7 @@ size_t parse_size(const char *str) {
 
     logmsg(DEBUG, "Parsed size of %", value);
 
-    return value;
-
-error:
+finally:
     return value;
 }
 

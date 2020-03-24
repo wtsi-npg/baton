@@ -1,0 +1,14 @@
+{
+   <iRODS addKeyVal>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:addKeyVal
+}
+{
+   <iRODS initPackedOutput>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:initPackedOutput
+}
