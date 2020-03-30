@@ -1,15 +1,17 @@
 	[Upcoming]
 
-	Bugfix: fixed segfault when operations require a path and none
-	supplied
+	Bugfix: exit non-zero when the iRODS plugins cannot be located.
+
+	Bugfix: fix segfault when operations require a path and none
+	supplied.
 
 	[2.0.1]
 
-	Bugfix: corrected cases where we simply returned the target JSON
-	as an operation result. A result should always be a freshly
-	created JSON struct so that the caller knows how to free it.
+	Bugfix: correct cases where we simply returned the target JSON as
+	an operation result. A result should always be a freshly created
+	JSON struct so that the caller knows how to free it.
 
-	Bugfix: added checks to free rods_path.rodsObjStat
+	Bugfix: add checks to free rods_path.rodsObjStat
 	consistently. Although valgrind didn't find errors with the
 	existing checks, they were not applied consistently.
 
@@ -27,51 +29,51 @@
 	Timestamps are now formatted as RFC3339, which is the default for
 	Go unmarshalling.
 
-	Added support for iRODS 4.2, ended full support for iRODS 3.x.
+	Add support for iRODS 4.2, ended full support for iRODS 3.x.
 
-	Added a --connect-time CLI option to limit connection duration.
+	Add a --connect-time CLI option to limit connection duration.
 
-	Added a --no-error CLI option to baton-do
+	Add a --no-error CLI option to baton-do
 
-	Added a remove data object operation.
+	Add a remove data object operation.
 
-	Added a create and remove collection option (with recursion).
+	Add a create and remove collection option (with recursion).
 
-	Added the ability to optionally create and return checksums on put.
+	Add the ability to optionally create and return checksums on put.
 
-	Added stricter checks on the incoming JSON to help identify errors.
+	Add stricter checks on the incoming JSON to help identify errors.
 
-	Switched to using Conda for baton dependencies during tests.
+	Switch to using Conda for baton dependencies during tests.
 
-	Switched to using iRODS running in Docker for tests.
+	Switch to using iRODS running in Docker for tests.
 
-	Refactored the list_checksum function to avoid updating the
+	Refactor the list_checksum function to avoid updating the
 	checksum.
 
-	Bugfix: Fixed bug where settings from AC_CHECK_LIBs were reset.
+	Bugfix: fix bug where settings from AC_CHECK_LIBs were reset.
 
-	Bugfix: Use json_to_collection_path for collection operations.
+	Bugfix: use json_to_collection_path for collection operations.
 
-	Bugfix: Added missing error initialisation and missing error
+	Bugfix: add missing error initialisation and missing error
 	code checks.
 
-	Bugfix: Handle paths and file names named '0' correctly in the
+	Bugfix: handle paths and file names named '0' correctly in the
 	Perl wrapper script.
 
 	[1.2.0]
 
 	Bugfix: ensure args_copy.path is defined during error handling.
 
-	Added --wlock command line argument to baton-put and baton-do,
+	Add --wlock command line argument to baton-put and baton-do,
 	enabling server-side advisory locking.
 
-	Fixed llvm build warnings (Joshua Randall).
+	Fix llvm build warnings (Joshua Randall).
 
 	Documentation updates.
 
 	[1.1.0]
 
-	Added --single-server CLI option to allow the user to prevent
+	Add --single-server CLI option to allow the user to prevent
 	direct access to resource servers when uploading files.
 
 	[1.0.1]
@@ -82,13 +84,13 @@
 
 	This release includes C API changes that are not backwards compatible.
 
-	Added the baton-put command-line program.
+	Add the baton-put command-line program.
 
-	Added baton-do command-line program.
+	Add baton-do command-line program.
 
-	Added new move and checksum operations.
+	Add new move and checksum operations.
 
-	Deprecated baton-metasuper program.
+	Deprecate baton-metasuper program.
 
 	Use FindBin in baton wrapper script.
 
@@ -102,7 +104,7 @@
 
 	Bugfix: Check for errors when closing data objects.
 
-	Added --version CLI argument to baton Perl script.
+	Add --version CLI argument to baton Perl script.
 
 	Allow baton to report the location of files in compound resources.
 
@@ -116,12 +118,12 @@
 
 	[0.16.3]
 
-	Added support for user#zone syntax in permissions.
+	Add support for user#zone syntax in permissions.
 
-	Added baton-specificquery program (contributed by Joshua
+	Add baton-specificquery program (contributed by Joshua
 	C. Randall <jcrandall@alum.mit.edu>).
 
-	Added new autoconf macro ax_with_irods.
+	Add new autoconf macro ax_with_irods.
 
 	Test on iRODS 4.1.8.
 
@@ -138,17 +140,17 @@
 
 	Bugfix: baton-metamod was missing its --unsafe CLI option.
 
-	Now reports data object resource and location for replicates when
+	Report data object resource and location for replicates when
 	the --replicate option is used.
 
-	Improved error messages.
+	Improve error messages.
 
 	[0.15.0]
 
-	Added a --checksum option to the CLI of baton-list and
+	Add a --checksum option to the CLI of baton-list and
 	baton-metaquery which allows data object checksums to be reported.
 
-	Added reporting of a user's or group's zone to results obtained
+	Add reporting of a user's or group's zone to results obtained
 	when querying permissions.
 
 	Support for iRODS 4.0.x discontinued.
@@ -157,18 +159,18 @@
 
 	Bugfix: fixed queries on ACLs across zones returning no results.
 
-	Added support for iRODS 4.1.x. Support for 4.0.x is temporarily
+	Add support for iRODS 4.1.x. Support for 4.0.x is temporarily
 	suspended until after the release of iRODS 4.1.0.
 
-	Added a safe mode requiring the use of absolute iRODS paths. This
+	Add a safe mode requiring the use of absolute iRODS paths. This
 	is the default and may be disabled by using the --unsafe command
 	line argument.
 
-	Added a convenience Perl script 'baton' to generate baton-format
+	Add a convenience Perl script 'baton' to generate baton-format
 	JSON for input to the C programs (as an alternative to using
 	'jq').
 
-	Added libtool version information to the shared library.
+	Add libtool version information to the shared library.
 
 	[0.13.0]
 
@@ -178,17 +180,17 @@
 
 	[0.12.0]
 
-	Added support for the 'NOT LIKE' and 'IN' query
+	Add support for the 'NOT LIKE' and 'IN' query
 	operators. Contribution from Joshua Randall.
 
-	Added --with-irods=/path/to/irods option to the configure script.
+	Add --with-irods=/path/to/irods option to the configure script.
 
 	[0.11.1]
 
-	Added a --buffer-size option to baton-get. This enables the data
+	Add a --buffer-size option to baton-get. This enables the data
 	transfer buffer size to be set by the user.
 
 	[0.11.0]
 
-	Added baton-get program to allow data to be downloaded as files
+	Add baton-get program to allow data to be downloaded as files
 	or inline JSON.
