@@ -188,4 +188,7 @@ json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
 int check_str_arg(const char *arg_name, const char *arg_value,
                   size_t arg_size, baton_error_t *error);
 
+int check_str_arg_permit_empty(const char *arg_name, const char *arg_value,
+                  size_t arg_size, baton_error_t *error);
+
 #endif // _BATON_OPERATIONS_H

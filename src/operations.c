@@ -753,3 +753,23 @@ int check_str_arg(const char *arg_name, const char *arg_value,
 finally:
     return error->code;
 }
+
+int check_str_arg_permit_empty(const char *arg_name, const char *arg_value,
+                  size_t arg_size, baton_error_t *error) {
+    if (!arg_value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was null", arg_name);
+        goto finally;
+    }
+
+    size_t len = strnlen(arg_value, MAX_STR_LEN);
+    size_t term_len = len + 1;
+
+    if (term_len > arg_size) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "%s exceeded the maximum length of %d characters",
+                        arg_name, arg_size);
+    }
+
+finally:
+    return error->code;
+}
