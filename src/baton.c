@@ -640,7 +640,9 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     check_str_arg("attr_value", attr_value, MAX_STR_LEN, error);
     if (error->code != 0) goto error;
 
-    // attr_units may be empty or NULL
+    // attr_units may be empty but should not be NULL
+    check_str_arg_permit_empty("attr_units", attr_units, MAX_STR_LEN, error);
+    if (error->code != 0) goto error;
 
     if (rods_path->objState == NOT_EXIST_ST) {
         set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
@@ -769,13 +771,12 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     }
 
     // Units are optional
-    if (units) {
-        units_tmp = copy_str(units, MAX_STR_LEN);
-        if (!units_tmp) {
-            set_baton_error(error, errno,
-                            "Failed to allocate memory for units");
-            goto finally;
-        }
+    if (!units) { units = ""; }
+    units_tmp = copy_str(units, MAX_STR_LEN);
+    if (!units_tmp) {
+        set_baton_error(error, errno,
+                        "Failed to allocate memory for units");
+        goto finally;
     }
 
     modify_metadata(conn, rods_path, operation,
