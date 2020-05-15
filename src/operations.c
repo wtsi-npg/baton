@@ -26,11 +26,12 @@
 #include "operations.h"
 
 static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
-                        operation_args_t *args, int *item_count) {
+                        operation_args_t *args,
+                        int *item_count, int *error_count) {
     time_t connect_time = 0;
     int       reconnect = 0; // Set to 1 when reconnecting
     rcComm_t *conn      = NULL;
-    int error_count     = 0;
+    int        status   = 0;
 
     while (!feof(input)) {
         size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
@@ -49,14 +50,17 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
         if (!json_is_object(item)) {
             logmsg(ERROR, "Item %d in stream was not a JSON object; skipping",
                    item_count);
-            error_count++;
+            (*error_count)++;
             json_decref(item);
             continue;
         }
 
         if (!conn) {
             conn = rods_login(env);
-            if (!conn) goto finally;
+            if (!conn) {
+                status = 1;
+                goto finally;
+            }
 
             if (reconnect == 0) {
                 logmsg(INFO, "Connected to iRODS");
@@ -72,7 +76,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
             // On error, add an error report to the input JSON as a
             // property and print the input JSON. A NULL result should
             // always be an error.
-            error_count++;
+            (*error_count)++;
             add_error_value(item, &error);
             print_json(item);
         }
@@ -87,7 +91,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
                     logmsg(ERROR, "Failed to add error report to item %d "
                            "in stream. Error code %d: %s", item_count,
                            rerror.code, rerror.message);
-                    error_count++;
+                    (*error_count)++;
                 }
                 print_json(item);
             }
@@ -121,7 +125,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
 finally:
     if (conn) rcDisconnect(conn);
 
-    return error_count;
+    return status;
 }
 
 int do_operation(FILE *input, baton_json_op fn, operation_args_t *args) {
@@ -132,7 +136,9 @@ int do_operation(FILE *input, baton_json_op fn, operation_args_t *args) {
 
     if (!input) goto error;
 
-    error_count = iterate_json(input, &env, fn, args, &item_count);
+    int status = iterate_json(input, &env, fn, args, &item_count, &error_count);
+    if (status != 0) goto error;
+
     if (error_count > 0) {
         logmsg(WARN, "Processed %d items with %d errors",
                item_count, error_count);
