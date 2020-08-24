@@ -1,5 +1,11 @@
 	[Upcoming]
 
+	Bugfix: Added a workaround for iRODS bug ###. The workaround
+	requires creating a new connection for every put operation when
+	baton is re-using a connection for multiple operations. The
+	workaround will be active only if baton is compiled with iRODS
+	versions 4.2.7 or 4.2.8.
+
 	Bugfix: exit non-zero when the iRODS plugins cannot be located.
 
 	Bugfix: fix segfault when operations require a path and none
