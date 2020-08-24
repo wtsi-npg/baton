@@ -15,9 +15,8 @@ LDFLAGS="-L$CONDA_ENV/lib -L$CONDA_ENV/lib/irods/externals"
 
 autoreconf -fi
 
-./configure --with-test-resource=testResc \
-            CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS"
+./configure "$CONFIGURE_ARGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS"
 
 export LD_LIBRARY_PATH="$CONDA_ENV/lib"
 
-make distcheck DISTCHECK_CONFIGURE_FLAGS="--with-test-resource=demoResc CPPFLAGS=\"$CPPFLAGS\" LDFLAGS=\"$LDFLAGS\""
+make distcheck DISTCHECK_CONFIGURE_FLAGS="$CONFIGURE_ARGS CPPFLAGS=\"$CPPFLAGS\" LDFLAGS=\"$LDFLAGS\""

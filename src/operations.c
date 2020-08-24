@@ -71,8 +71,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
             connect_time = time(0);
         }
 
-#if IRODS_VERSION_INTEGER && (IRODS_VERSION_INTEGER == 4002007 || \
-                              IRODS_VERSION_INTEGER == 4002008)
+#ifdef ENABLE_PUT_WORKAROUND
 	// If a put operation or dispatch to a put operation are
 	// requested, reconnect first.
 	int drop_conn = 0;
@@ -103,7 +102,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
 	}
 #endif
 
-        baton_error_t error;
+	baton_error_t error;
         json_t *result = fn(env, conn, item, args, &error);
         if (error.code != 0) {
             // On error, add an error report to the input JSON as a

@@ -10,9 +10,10 @@ compiler: gcc
 env:
   global:
     - CK_DEFAULT_TIMEOUT=20
-  matrix:
-    - DOCKER_IMAGE=wsinpg/ub-16.04-irods-4.2:latest
-    - DOCKER_IMAGE=wsinpg/ub-12.04-irods-4.1:latest
+  jobs:
+    - DOCKER_IMAGE=wsinpg/ub-16.04-irods-4.2:latest CONFIGURE_ARGS="--with-test-resource=testResc --enable-put-workaround"
+    - DOCKER_IMAGE=wsinpg/ub-16.04-irods-4.2:latest CONFIGURE_ARGS="--with-test-resource=testResc"
+    - DOCKER_IMAGE=wsinpg/ub-12.04-irods-4.1:latest CONFIGURE_ARGS="--with-test-resource=testResc"
 
 before_install:
   - docker pull "$DOCKER_IMAGE"

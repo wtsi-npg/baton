@@ -103,6 +103,7 @@ AS_IF(
 AM_CONDITIONAL(COVERAGE_ENABLED, [test "x${coverage_enabled}" = "xyes"])
 dnl End Lcov
 
+dnl Begin test resource
 TEST_RESOURCE=testResc
 AC_SUBST([TEST_RESOURCE])
 
@@ -113,6 +114,26 @@ AC_ARG_WITH([test-resource],
     TEST_RESOURCE="$with_test_resource"],
    [AC_MSG_NOTICE([using the default iRODS test resource])
     TEST_RESOURCE="testResc"])
+dnl End test resource
+
+dnl Begin put workaround
+dnl See for https://github.com/irods/irods/issues/5072
+wo_url="https://github.com/irods/irods/issues/5072"
+
+AC_ARG_ENABLE([put-workaround],
+  [AS_HELP_STRING([--enable-put-workaround],
+    [Enable workaround for ${wo_url} (default is no)])],
+  [put_workaround_enabled=${enableval}], [put_workaround_enabled=no])
+
+AS_IF([test "x${put_workaround_enabled}" = "xyes"],
+  [AC_MSG_NOTICE([enabled workaround for ${wo_url}])]
+  [AC_DEFINE([ENABLE_PUT_WORKAROUND],
+     [],
+     "Workaround for ${wo_url}")],
+  [])
+AM_CONDITIONAL(PUT_WORKAROUND_ENABLED,
+               [test "x${put_workaround_enabled}" = "xyes"])
+dnl End put workaround
 
 AC_CHECK_LIB([jansson], [json_unpack], [],
              [AC_MSG_ERROR([unable to find libjansson])])
