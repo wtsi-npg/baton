@@ -1,5 +1,12 @@
 	[Upcoming]
 
+	Bugfix: Added a workaround for iRODS issue
+	https://github.com/irods/irods/issues/5072. The workaround
+	requires creating a new connection for every put operation when
+	baton is re-using a connection for multiple operations. The
+	workaround will be active only if baton is compiled the configure
+	flag --enable-put-workaround.
+
 	Bugfix: exit non-zero when the iRODS plugins cannot be located.
 
 	Bugfix: fix segfault when operations require a path and none

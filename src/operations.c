@@ -31,6 +31,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
     time_t connect_time = 0;
     int       reconnect = 0; // Set to 1 when reconnecting
     rcComm_t *conn      = NULL;
+    int drop_conn_count = 0;
     int        status   = 0;
 
     while (!feof(input)) {
@@ -70,7 +71,38 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
             connect_time = time(0);
         }
 
-        baton_error_t error;
+#ifdef ENABLE_PUT_WORKAROUND
+	// If a put operation or dispatch to a put operation are
+	// requested, reconnect first.
+	int drop_conn = 0;
+	if (fn == baton_json_put_op) {
+	  drop_conn = 1;
+	}
+	else if (fn == baton_json_dispatch_op) {
+	  baton_error_t error;
+	  const char *op = get_operation(item, &error);
+	  // Ignore any error here because there are already checks
+	  // for a valid operation string the dispatch function. We
+	  // only want to know about the successful case at this
+	  // point, so that we can decide if we have a put operation
+	  // and thus need to reconnect first.
+	  if (error.code == 0 && (str_equals(op, JSON_PUT_OP, MAX_STR_LEN))) {
+	    drop_conn = 1;
+	  }
+	}
+
+	if (drop_conn) {
+	  logmsg(INFO, "Reconnecting for put operation workaround");
+	  drop_conn_count++;
+	  rcComm_t *newConn = rods_login(env);
+	  if (!newConn) goto finally;
+
+	  rcDisconnect(conn);
+	  conn = newConn;
+	}
+#endif
+
+	baton_error_t error;
         json_t *result = fn(env, conn, item, args, &error);
         if (error.code != 0) {
             // On error, add an error report to the input JSON as a
@@ -113,7 +145,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
         time_t now = time(0);
         double duration = difftime(now, connect_time);
         if (args->max_connect_time > 0 && duration > args->max_connect_time) {
-            logmsg(INFO, "The connection to iRODS open for %d seconds, "
+            logmsg(INFO, "The connection to iRODS was open for %d seconds, "
                    "the maximum allowed is %d; closing the connection to "
                    "reopen a new one", duration, args->max_connect_time);
             rcDisconnect(conn);
@@ -121,6 +153,11 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
             reconnect = 1;
         }
     } // while
+
+    if (drop_conn_count > 0) {
+      logmsg(WARN, "Reconnected for put operations %d times",
+	     drop_conn_count);
+    }
 
 finally:
     if (conn) rcDisconnect(conn);
