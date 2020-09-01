@@ -1,5 +1,7 @@
 	[Upcoming]
 
+	[2.1.0]
+
 	Bugfix: Added a workaround for iRODS issue
 	https://github.com/irods/irods/issues/5072. The workaround
 	requires creating a new connection for every put operation when
