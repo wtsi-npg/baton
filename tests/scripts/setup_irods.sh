@@ -48,26 +48,8 @@ then
     exit $status
 fi
 
-# Make replicates of test data
-ilsresc $test_resc >&/dev/null
-status=$?
-
-if [[ $status -ne 0 ]]
-then
-    echo "Test resource '$test_resc' is missing. Aborting"
-    exit $E_RESC_MISSING
-fi
-
-irepl -r -R $test_resc $out_path
-status=$?
-
-if [[ $status -ne 0 ]]
-then
-    echo "Failed to irepl test data to '$test_resc'"
-    exit $status
-else
-    echo "Replicated test data to '$test_resc'"
-fi
+# Make replicates of test data; use a replication resource instead of
+# doing this manually.
 
 # Ensure checksums are up to date
 ichksum -r -a -K $out_path >&/dev/null

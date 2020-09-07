@@ -1,5 +1,7 @@
 	[Upcoming]
 
+	[2.1.0]
+
 	Bugfix: Added a workaround for iRODS issue
 	https://github.com/irods/irods/issues/5072. The workaround
 	requires creating a new connection for every put operation when
@@ -11,6 +13,15 @@
 
 	Bugfix: fix segfault when operations require a path and none
 	supplied.
+
+	Add iRODS 4.2.8 to the test matrix.
+
+	Check for both libirods_common and libirods_client for iRODS 4.2.x.
+
+	Use the available replication resource in the test server Docker
+	image, rather than manually irepl to another local resource.
+
+	Use check library from Conda, rather than building from source.
 
 	[2.0.1]
 

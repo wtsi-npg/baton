@@ -19,10 +19,12 @@ conda install -y python
 pip install sphinx==2.4.0
 
 conda config --add channels https://dnap.cog.sanger.ac.uk/npg/conda/devel/generic/
+conda config --append channels conda-forge
 
+conda install -y check
 conda install -y libjansson-dev
-conda install -y irods-dev
-conda install -y irods-icommands
+conda install -y irods-dev="$IRODS_VERSION"
+conda install -y irods-icommands="$IRODS_VERSION"
 
 mkdir -p ~/.irods
 cat <<EOF > ~/.irods/irods_environment.json
@@ -33,16 +35,7 @@ cat <<EOF > ~/.irods/irods_environment.json
     "irods_zone_name": "testZone",
     "irods_home": "/testZone/home/irods",
     "irods_plugins_home": "$HOME/miniconda/envs/travis/lib/irods/plugins/",
-    "irods_default_resource": "testResc"
+    "irods_default_resource": "replResc"
 }
 EOF
 
-# Check
-wget http://downloads.sourceforge.net/project/check/check/0.9.14/check-0.9.14.tar.gz -O /tmp/check-0.9.14.tar.gz
-tar xfz /tmp/check-0.9.14.tar.gz -C /tmp
-cd /tmp/check-0.9.14
-autoreconf -fi
-./configure ; make ; sudo make install
-
-cd $TRAVIS_BUILD_DIR
-sudo ldconfig
