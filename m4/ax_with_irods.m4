@@ -31,7 +31,7 @@
 #
 # LICENSE
 #
-# Copyright (C) 2016, 2019 Genome Research Ltd.
+# Copyright (C) 2016, 2019, 2020 Genome Research Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -154,7 +154,11 @@ AC_DEFUN([AX_WITH_IRODS], [
          AC_MSG_RESULT([yes])
          AC_DEFINE([HAVE_IRODS], [1], [iRODS >=4.2.x])
 
-         AC_CHECK_LIB([irods_client], [getRodsEnv], [],
+         AC_CHECK_LIB([irods_common], [getRodsEnv], [],
+                     [AC_MSG_ERROR([unable to find libirods_common])],
+                     [])
+
+         AC_CHECK_LIB([irods_client], [getRodsObjType], [],
                      [AC_MSG_ERROR([unable to find libirods_client])],
                      [-lirods_common])
 

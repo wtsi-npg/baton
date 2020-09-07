@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019 Genome
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Genome
  * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -855,7 +855,6 @@ START_TEST(test_list_replicates_obj) {
 
     baton_error_t error;
     json_t *results = list_replicates(conn, &rods_path, &error);
-
     ck_assert_int_eq(error.code, 0);
     ck_assert(json_is_array(results));
 
@@ -922,7 +921,6 @@ START_TEST(test_list_timestamps_obj) {
 
     baton_error_t error;
     json_t *timestamps = list_timestamps(conn, &rods_path, &error);
-
     ck_assert_int_eq(error.code, 0);
     ck_assert(json_is_array(timestamps));
 

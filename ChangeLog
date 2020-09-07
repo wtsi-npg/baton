@@ -14,6 +14,15 @@
 	Bugfix: fix segfault when operations require a path and none
 	supplied.
 
+	Add iRODS 4.2.8 to the test matrix.
+
+	Check for both libirods_common and libirods_client for iRODS 4.2.x.
+
+	Use the available replication resource in the test server Docker
+	image, rather than manually irepl to another local resource.
+
+	Use check library from Conda, rather than building from source.
+
 	[2.0.1]
 
 	Bugfix: correct cases where we simply returned the target JSON as
