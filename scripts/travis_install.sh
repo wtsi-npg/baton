@@ -15,7 +15,7 @@ conda config --set auto_update_conda False
 
 conda create -y -n travis
 conda activate travis
-conda install -y python
+conda install -y python=3.8
 pip install sphinx==2.4.0
 
 conda config --add channels https://dnap.cog.sanger.ac.uk/npg/conda/devel/generic/
