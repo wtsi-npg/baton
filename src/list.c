@@ -212,8 +212,6 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
     results = do_query(conn, query_in, obj_format.labels, error);
     if (error->code != 0) goto error;
 
-    free_query_input(query_in);
-
     if (json_array_size(results) != 1) {
         set_baton_error(error, -1, "Expected 1 data object result but found %d",
                         json_array_size(results));
@@ -223,6 +221,7 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *obj = json_array_get(results, 0);
     json_t *checksum = json_incref(json_object_get(obj, JSON_CHECKSUM_KEY));
 
+    free_query_input(query_in);
     if (results) json_decref(results);
 
     return checksum;

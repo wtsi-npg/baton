@@ -1,5 +1,8 @@
 	[Upcoming]
 
+	Bugfix: double free for query input when listing checksums of a
+	dataobject that has inconsistent checksums.
+
 	[2.1.0]
 
 	Bugfix: Added a workaround for iRODS issue
@@ -11,8 +14,7 @@
 
 	Bugfix: exit non-zero when the iRODS plugins cannot be located.
 
-	Bugfix: fix segfault when operations require a path and none
-	supplied.
+	Bugfix: segfault when operations require a path and none supplied.
 
 	Add iRODS 4.2.8 to the test matrix.
 
