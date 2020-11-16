@@ -7,23 +7,21 @@ language: c
 
 compiler: gcc
 
-_iRODS_4_2_8: &iRODS_4_2_8
-  env: DOCKER_IMAGE=wsinpg/ub-18.04-irods-4.2.8:latest IRODS_VERSION="4.2.8" CONFIGURE_ARGS="--with-test-resource=replResc"
-
 env:
   global:
     - CK_DEFAULT_TIMEOUT=20
 
+_iRODS_4_2_8: &iRODS_4_2_8
+  env: DOCKER_IMAGE=wsinpg/ub-18.04-irods-4.2.8:latest IRODS_VERSION="4.2.8" CONFIGURE_ARGS="--with-test-resource=replResc"
+
 jobs:
   include:
-    - env: DOCKER_IMAGE=wsinpg/ub-12.04-irods-4.1:latest IRODS_VERSION="4.1.12" CONFIGURE_ARGS="--with-test-resource=replResc"
     - env: DOCKER_IMAGE=wsinpg/ub-16.04-irods-4.2.7:latest IRODS_VERSION="4.2.7" CONFIGURE_ARGS="--with-test-resource=replResc --enable-put-workaround"
     - env: DOCKER_IMAGE=wsinpg/ub-16.04-irods-4.2.7:latest IRODS_VERSION="4.2.7" CONFIGURE_ARGS="--with-test-resource=replResc"
     - <<: *iRODS_4_2_8
 
   allow_failures:
     - <<: *iRODS_4_2_8
-
 
 before_install:
   - docker pull "$DOCKER_IMAGE"

@@ -1,5 +1,7 @@
 	[Upcoming]
 
+	Remove iRODS 4.1.12 from the test matrix.
+
 	Bugfix: double free for query input when listing checksums of a
 	dataobject that has inconsistent checksums.
 
