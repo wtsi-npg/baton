@@ -147,8 +147,11 @@ rcComm_t *rods_login(rodsEnv *env) {
     }
 
 #if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
+#if IRODS_VERSION_INTEGER >= (4*1000000 + 2*1000 + 8)
+    load_client_api_plugins();
+#else
     init_client_api_table();
-
+#endif
     status = clientLogin(conn, "", "");
 #else
     status = clientLogin(conn);
