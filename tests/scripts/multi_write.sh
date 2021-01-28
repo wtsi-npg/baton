@@ -18,12 +18,8 @@ while [ $i -lt 10 ] ; do
 		echo "baton did not run, please check that you have initialised iRODS"
 
 	echo $json | baton-put &
-	process=$!
-	kill -STOP $process
-
 	echo $json | baton-put &
-	kill -CONT $process
-	wait $process
+	wait $!
 	((i++))
 done
 
