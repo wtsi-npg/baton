@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2016, 2017, 2018 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2014, 2015, 2016, 2017, 2018, 2021 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,6 +46,12 @@ typedef struct data_obj_file {
 
 /**
  * Open a data object for reading or writing.
+ *
+ * This function calls rcDataobjCreate when creating a new data
+ * object. Both rcDataobjCreate (and rcDataObjWrite) have an optional
+ * parameter for setting the target resource, but none for setting a
+ * default resource, unlike rcDataObjPut. If that parameter were
+ * available, it would be added to this function.
  *
  * @param[in]  conn       An open iRODS connection.
  * @param[in]  rods_path  An iRODS data object path.
@@ -117,8 +123,8 @@ int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
 int get_data_obj_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
                         size_t buffer_size, baton_error_t *error);
 
-json_t *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
-                          option_flags flags, baton_error_t *error);
+char *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
+                        option_flags flags, baton_error_t *error);
 
 void set_md5_last_read(data_obj_file_t *obj_file, unsigned char digest[16]);
 

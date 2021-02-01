@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2017, 2018, 2019, 2020 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2014, 2015, 2017, 2018, 2019, 2020, 2021 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,13 +19,16 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
+#include <checksum.hpp>
+
 #include "config.h"
 #include "compat_checksum.h"
 #include "write.h"
 
-int put_data_obj(rcComm_t *conn, const char *path, rodsPath_t *rods_path,
-                 int flags, baton_error_t *error) {
-    char *tmpname = NULL;
+int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
+                 char *default_resource, char *checksum, int flags,
+		 baton_error_t *error) {
+    char *tmpname  = NULL;
     dataObjInp_t obj_open_in;
     int status;
 
@@ -36,7 +39,7 @@ int put_data_obj(rcComm_t *conn, const char *path, rodsPath_t *rods_path,
     logmsg(DEBUG, "Opening data object '%s'", rods_path->outPath);
     snprintf(obj_open_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
 
-    tmpname = copy_str(path, MAX_STR_LEN);
+    tmpname = copy_str(local_path, MAX_STR_LEN);
 
     obj_open_in.openFlags  = O_WRONLY;
     obj_open_in.createMode = 0750;
@@ -46,15 +49,64 @@ int put_data_obj(rcComm_t *conn, const char *path, rodsPath_t *rods_path,
     // size.
     obj_open_in.dataSize   = 0;
 
-    if (flags & CALCULATE_CHECKSUM) {
-        logmsg(DEBUG, "Calculating checksum server-side for '%s'",
+    if ((flags & VERIFY_CHECKSUM) && (flags & CALCULATE_CHECKSUM)) {
+        set_baton_error(error, USER_INPUT_OPTION_ERR,
+                        "Cannot both verify and update the checksum "
+                        "when putting data object '%s'", rods_path->outPath);
+        goto error;
+    }
+
+    if (flags & VERIFY_CHECKSUM) {
+	char chksum[NAME_LEN];
+
+	if (checksum) {
+	    snprintf(chksum, NAME_LEN, "%s", checksum);
+	    logmsg(DEBUG, "Using supplied local checksum '%s' for '%s'",
+		   chksum, rods_path->outPath);
+	}
+	else {	
+	    // The hash scheme must be defined for rcChksumLocFile, but if
+	    // it is zero length, rcChksumLocFile falls back to the value
+	    // in the client environment. There's no advantage in our
+	    // passing in a value that we have read from the client
+	    // environment.
+	    char* default_scheme = "";
+	    status = chksumLocFile(tmpname, chksum, default_scheme);
+	    if (status != 0) {
+		char *err_subname;
+		const char *err_name = rodsErrorName(status, &err_subname);
+		set_baton_error(error, status,
+				"Failed calculate a local checksum for: '%s' "
+				"error %d %s", rods_path->outPath, status,
+				err_name);
+		goto error;
+	    }
+	    logmsg(DEBUG, "Calculated a local checksum '%s' for '%s'",
+		   chksum, rods_path->outPath);
+	}
+	
+        logmsg(DEBUG, "Server will verify '%s' after put",
+	       rods_path->outPath);
+        addKeyVal(&obj_open_in.condInput, VERIFY_CHKSUM_KW, chksum);
+    }
+    else if (flags & CALCULATE_CHECKSUM) {
+        logmsg(DEBUG, "Server will calculate checksum for '%s'",
                rods_path->outPath);
         addKeyVal(&obj_open_in.condInput, REG_CHKSUM_KW, "");
     }
+
     if (flags & WRITE_LOCK) {
       logmsg(DEBUG, "Enabling put write lock for '%s'", rods_path->outPath);
       addKeyVal(&obj_open_in.condInput, LOCK_TYPE_KW, WRITE_LOCK_TYPE);
     }
+    if (default_resource) {
+        logmsg(DEBUG, "Using '%s' as the default iRODS resource",
+               default_resource);
+        addKeyVal(&obj_open_in.condInput, DEF_RESC_NAME_KW, default_resource);
+    }
+
+    // Always force put over any existing data in order to amke puts
+    // idempotent.
     addKeyVal(&obj_open_in.condInput, FORCE_FLAG_KW, "");
 
     status = rcDataObjPut(conn, &obj_open_in, tmpname);

@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019, 2021 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,7 +55,9 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
     if (error->code != 0) goto error;
 
     if (json_array_size(results) != 1) {
-        set_baton_error(error, -1, "Expected 1 data object result but found %d",
+        set_baton_error(error, -1, "Expected 1 data object result but "
+                        "found %d. This occurs when the object replicates "
+                        "have different sizes in the iRODS database.",
                         json_array_size(results));
         goto error;
     }
@@ -115,7 +117,8 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                 logmsg(TRACE, "Identified '%s/%s' as a data object",
                        coll_entry.collName, coll_entry.dataName);
                 entry = data_object_parts_to_json(coll_entry.collName,
-                                                  coll_entry.dataName, error);
+                                                  coll_entry.dataName,
+                                                  error);
                 if (error->code != 0) goto query_error;
 
                 if (flags & PRINT_SIZE) {
@@ -213,7 +216,9 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
     if (error->code != 0) goto error;
 
     if (json_array_size(results) != 1) {
-        set_baton_error(error, -1, "Expected 1 data object result but found %d",
+        set_baton_error(error, -1, "Expected 1 data object result but "
+                        "found %d. This occurs when the object replicates "
+                        "have different checksum values in the iRODS database",
                         json_array_size(results));
         goto error;
     }

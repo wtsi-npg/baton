@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019 Genome
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021 Genome
  * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -73,22 +73,24 @@ typedef enum {
     PRINT_CHECKSUM     = 1 << 11,
     /** Calculate checksums for data objects */
     CALCULATE_CHECKSUM = 1 << 12,
+    /** Verify checksums for data objects */
+    VERIFY_CHECKSUM    = 1 << 13,
     /** Add an AVU */
-    ADD_AVU            = 1 << 13,
+    ADD_AVU            = 1 << 14,
     /** Remove an AVU */
-    REMOVE_AVU         = 1 << 14,
+    REMOVE_AVU         = 1 << 15,
     /** Recursive operation on collections */
-    RECURSIVE          = 1 << 15,
+    RECURSIVE          = 1 << 16,
     /** Save files */
-    SAVE_FILES         = 1 << 16,
+    SAVE_FILES         = 1 << 17,
     /** Flush output */
-    FLUSH              = 1 << 17,
+    FLUSH              = 1 << 18,
     /** Force an operation */
-    FORCE              = 1 << 18,
+    FORCE              = 1 << 19,
     /** Avoid any operations that contact servers other than rodshost */
-    SINGLE_SERVER      = 1 << 19,
+    SINGLE_SERVER      = 1 << 20,
     /** Use advisory write lock on server */
-    WRITE_LOCK         = 1 << 20
+    WRITE_LOCK         = 1 << 21
 } option_flags;
 
 typedef struct operation_args {

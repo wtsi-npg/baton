@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Genome
- * Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021
+ * Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -314,7 +314,7 @@ START_TEST(test_resolve_rods_path) {
     ck_assert_str_eq(rods_path.outPath, path);
     ck_assert_int_eq(rods_path.objType, COLL_OBJ_T);
 
-    char *invalid_path = '\0';
+    char *invalid_path = "";
     rodsPath_t inv_rods_path;
     baton_error_t invalid_path_error;
     ck_assert(resolve_rods_path(conn, &env, &inv_rods_path, invalid_path,
@@ -2052,6 +2052,7 @@ START_TEST(test_put_data_obj) {
     option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
+    char *md5 = "4efe0c1befd6f6ac4621cbdb13241246";
 
     char file_path[MAX_PATH_LEN];
     snprintf(file_path, MAX_PATH_LEN, "%s/%s/lorem_10k.txt",
@@ -2070,7 +2071,9 @@ START_TEST(test_put_data_obj) {
 
     baton_error_t put_error;
     int put_status =
-        put_data_obj(conn, file_path, &rods_obj_path, 0, &put_error);
+        put_data_obj(conn, file_path, &rods_obj_path, TEST_RESOURCE, md5,
+		     flags | VERIFY_CHECKSUM,
+		     &put_error);
     ck_assert_int_eq(put_error.code, 0);
     ck_assert_int_eq(put_status, 0);
 
@@ -2080,18 +2083,13 @@ START_TEST(test_put_data_obj) {
                       flags, &result_error);
     ck_assert_int_eq(result_error.code, 0);
 
-    baton_error_t checksum_error;
-    checksum_data_obj(conn, &result_obj_path, flags, &checksum_error);
-    ck_assert_int_eq(checksum_error.code, 0);
-
     baton_error_t list_error;
     json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
                                &list_error);
     ck_assert_int_eq(list_error.code, 0);
     json_t *checksum = json_object_get(result, JSON_CHECKSUM_KEY);
     ck_assert(json_is_string(checksum));
-    ck_assert_str_eq(json_string_value(checksum),
-                     "4efe0c1befd6f6ac4621cbdb13241246");
+    ck_assert_str_eq(json_string_value(checksum), md5);
     json_decref(result);
 
     // Get the data object to temp file
@@ -2112,7 +2110,81 @@ START_TEST(test_put_data_obj) {
     fclose(tmp);
     unlink(template);
 
+    baton_error_t bad_checksum_error;
+    int bad_checksum_status =
+        put_data_obj(conn, file_path, &rods_obj_path, TEST_RESOURCE,
+		     "dummy_bad_checksum",
+		     flags | VERIFY_CHECKSUM,
+		     &bad_checksum_error);
+    ck_assert_int_eq(bad_checksum_error.code, USER_CHKSUM_MISMATCH);
+    ck_assert_int_eq(bad_checksum_status, USER_CHKSUM_MISMATCH);
+
     if (conn) rcDisconnect(conn);
+}
+END_TEST
+
+// Can we checksum a data object?
+START_TEST(test_checksum_data_obj) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char file_path[MAX_PATH_LEN];
+    snprintf(file_path, MAX_PATH_LEN, "%s/%s/lorem_10k.txt",
+             TEST_ROOT, TEST_DATA_PATH);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/test_checksum_data_obj.txt",
+	     rods_root);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                      flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, 0);
+
+    baton_error_t put_error;
+    int put_status = put_data_obj(conn, file_path, &rods_obj_path,
+				  TEST_RESOURCE, NULL, flags, &put_error);
+    ck_assert_int_eq(put_error.code, 0);
+    ck_assert_int_eq(put_status, 0);
+
+    rodsPath_t result_obj_path;
+    baton_error_t result_error;
+    resolve_rods_path(conn, &env, &result_obj_path, obj_path,
+                      flags, &result_error);
+    ck_assert_int_eq(result_error.code, 0);
+
+    baton_error_t list_error;
+    json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
+			       &list_error);
+    ck_assert_int_eq(list_error.code, 0);
+    json_t *checksum = json_object_get(result, JSON_CHECKSUM_KEY);
+
+    ck_assert_ptr_eq(checksum, NULL);
+    json_decref(result);
+
+    baton_error_t flag_conflict_error;
+    checksum_data_obj(conn, &result_obj_path,
+		      flags | CALCULATE_CHECKSUM | VERIFY_CHECKSUM,
+		      &flag_conflict_error);
+    ck_assert_int_ne(flag_conflict_error.code, 0);
+
+    baton_error_t checksum_error;
+    checksum_data_obj(conn, &result_obj_path, flags, &checksum_error);
+    ck_assert_int_eq(checksum_error.code, 0);
+
+    result = list_path(conn, &result_obj_path, PRINT_CHECKSUM, &list_error);
+    ck_assert_int_eq(list_error.code, 0);
+    checksum = json_object_get(result, JSON_CHECKSUM_KEY);
+
+    ck_assert(json_is_string(checksum));
+    ck_assert_str_eq(json_string_value(checksum),
+                     "4efe0c1befd6f6ac4621cbdb13241246");
+    json_decref(result);    
 }
 END_TEST
 
@@ -2170,6 +2242,7 @@ START_TEST(test_create_coll) {
         resolve_rods_path(conn, &env, &rods_coll_path, coll_path,
                           flags, &resolve_error);
     ck_assert_int_eq(resolve_error.code, 0);
+    ck_assert_int_ne(resolve_status, EXIST_ST);
     ck_assert_int_ne(rods_coll_path.objType, COLL_OBJ_T); // Not present
 
     baton_error_t create_error;
@@ -2513,7 +2586,7 @@ START_TEST(test_regression_github_issue137) {
 
         baton_error_t error;
         json_t *results = search_metadata(conn, query, NULL, flags, &error);
-        ck_assert_msg(error.code == 0, operators[i]);
+        ck_assert_msg(error.code == 0, "failed: %s", operators[i]);
 
         json_decref(query);
         json_decref(results);
@@ -2636,6 +2709,7 @@ Suite *baton_suite(void) {
     tcase_add_test(metadata, test_list_metadata_coll);
     tcase_add_test(metadata, test_contains_avu);
     tcase_add_test(metadata, test_add_metadata_missing_path);
+    tcase_add_test(metadata, test_add_metadata_obj);
     tcase_add_test(metadata, test_remove_metadata_obj);
     tcase_add_test(metadata, test_add_json_metadata_obj);
     tcase_add_test(metadata, test_remove_json_metadata_obj);
@@ -2655,6 +2729,7 @@ Suite *baton_suite(void) {
     tcase_add_test(read_write, test_ingest_data_obj);
     tcase_add_test(read_write, test_write_data_obj);
     tcase_add_test(read_write, test_put_data_obj);
+    tcase_add_test(read_write, test_checksum_data_obj);
     tcase_add_test(read_write, test_remove_data_obj);
     tcase_add_test(read_write, test_create_coll);
     tcase_add_test(read_write, test_remove_coll);
