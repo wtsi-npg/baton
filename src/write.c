@@ -105,7 +105,7 @@ int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
         addKeyVal(&obj_open_in.condInput, DEF_RESC_NAME_KW, default_resource);
     }
 
-    // Always force put over any existing data in order to amke puts
+    // Always force put over any existing data in order to make puts
     // idempotent.
     addKeyVal(&obj_open_in.condInput, FORCE_FLAG_KW, "");
 
