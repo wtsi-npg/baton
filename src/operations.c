@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017, 2018, 2019, 2020 Genome Research Ltd. All
+ * Copyright (C) 2017, 2018, 2019, 2020, 2021 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -72,37 +72,37 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
         }
 
 #ifdef ENABLE_PUT_WORKAROUND
-	// If a put operation or dispatch to a put operation are
-	// requested, reconnect first.
-	int drop_conn = 0;
-	if (fn == baton_json_put_op) {
-	  drop_conn = 1;
-	}
-	else if (fn == baton_json_dispatch_op) {
-	  baton_error_t error;
-	  const char *op = get_operation(item, &error);
-	  // Ignore any error here because there are already checks
-	  // for a valid operation string the dispatch function. We
-	  // only want to know about the successful case at this
-	  // point, so that we can decide if we have a put operation
-	  // and thus need to reconnect first.
-	  if (error.code == 0 && (str_equals(op, JSON_PUT_OP, MAX_STR_LEN))) {
-	    drop_conn = 1;
-	  }
-	}
+        // If a put operation or dispatch to a put operation are
+        // requested, reconnect first.
+        int drop_conn = 0;
+        if (fn == baton_json_put_op) {
+          drop_conn = 1;
+        }
+        else if (fn == baton_json_dispatch_op) {
+          baton_error_t error;
+          const char *op = get_operation(item, &error);
+          // Ignore any error here because there are already checks
+          // for a valid operation string the dispatch function. We
+          // only want to know about the successful case at this
+          // point, so that we can decide if we have a put operation
+          // and thus need to reconnect first.
+          if (error.code == 0 && (str_equals(op, JSON_PUT_OP, MAX_STR_LEN))) {
+            drop_conn = 1;
+          }
+        }
 
-	if (drop_conn) {
-	  logmsg(INFO, "Reconnecting for put operation workaround");
-	  drop_conn_count++;
-	  rcComm_t *newConn = rods_login(env);
-	  if (!newConn) goto finally;
+        if (drop_conn) {
+          logmsg(INFO, "Reconnecting for put operation workaround");
+          drop_conn_count++;
+          rcComm_t *newConn = rods_login(env);
+          if (!newConn) goto finally;
 
-	  rcDisconnect(conn);
-	  conn = newConn;
-	}
+          rcDisconnect(conn);
+          conn = newConn;
+        }
 #endif
 
-	baton_error_t error;
+        baton_error_t error;
         json_t *result = fn(env, conn, item, args, &error);
         if (error.code != 0) {
             // On error, add an error report to the input JSON as a
@@ -156,7 +156,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
 
     if (drop_conn_count > 0) {
       logmsg(WARN, "Reconnected for put operations %d times",
-	     drop_conn_count);
+             drop_conn_count);
     }
 
 finally:
@@ -223,6 +223,9 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         if (op_avu_p(args))           flags = flags | PRINT_AVU;
         if (op_checksum_p(args))      flags = flags |
                                           CALCULATE_CHECKSUM |
+                                          PRINT_CHECKSUM;
+        if (op_verify_p(args))        flags = flags |
+                                          VERIFY_CHECKSUM |
                                           PRINT_CHECKSUM;
         if (op_contents_p(args))      flags = flags | PRINT_CONTENTS;
         if (op_replicate_p(args))     flags = flags | PRINT_REPLICATE;
@@ -397,7 +400,9 @@ finally:
 
 json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                                operation_args_t *args, baton_error_t *error) {
-    json_t *result = NULL;
+    json_t *result    = NULL;
+    char  *checksum   = NULL;
+    json_t *jchecksum = NULL;
     rodsPath_t rods_path;
     memset(&rods_path, 0, sizeof (rodsPath_t));
 
@@ -414,12 +419,13 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     }
 
     option_flags flags = args->flags;
-    flags = flags | CALCULATE_CHECKSUM;
-
-    json_t *checksum = checksum_data_obj(conn, &rods_path, flags, error);
+    checksum = checksum_data_obj(conn, &rods_path, flags, error);
     if (error->code != 0) goto finally;
 
-    add_checksum(target, checksum, error);
+    jchecksum = checksum_to_json(checksum, error);
+    if (error->code != 0) goto finally;
+
+    add_checksum(target, jchecksum, error);
     if (error->code != 0) goto finally;
 
     result = json_deep_copy(target);
@@ -430,6 +436,8 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
 
 finally:
     if (path) free(path);
+    if (checksum) free(checksum);
+    if (jchecksum) json_decref(jchecksum);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return result;
@@ -596,8 +604,10 @@ finally:
 
 json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                           operation_args_t *args, baton_error_t *error) {
-    json_t *result = NULL;
-    char *file     = NULL;
+    json_t *result     = NULL;
+    char *file         = NULL;
+    char *def_resource = NULL;
+    char *checksum     = NULL;
     rodsPath_t rods_path;
     memset(&rods_path, 0, sizeof (rodsPath_t));
 
@@ -610,8 +620,19 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     file = json_to_local_path(target, error);
     if (error->code != 0) goto finally;
 
-    int status = put_data_obj(conn, file, &rods_path, args->flags, error);
+    if (strnlen(env->rodsDefResource, NAME_LEN) > 0) {
+        def_resource = env->rodsDefResource;
+        logmsg(DEBUG, "Using default iRODS resource '%s'", def_resource);
+    }
 
+    if (has_checksum(target)) {
+        checksum = json_to_checksum(target, error);
+        if (error->code != 0) goto finally;
+        logmsg(DEBUG, "Using supplied checksum '%s'", checksum);
+    }
+
+    int status = put_data_obj(conn, file, &rods_path, def_resource,
+                              checksum, args->flags, error);
     if (error->code != 0) goto finally;
     if (status != 0) {
         set_baton_error(error, errno,
@@ -627,6 +648,7 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     }
 
 finally:
+    if (checksum) free(checksum);
     if (path) free(path);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (file) free(file);

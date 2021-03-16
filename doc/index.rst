@@ -8,7 +8,7 @@ Welcome to ``baton``'s documentation
 ====================================
 
 baton \|bəˈtän|
-	*noun, A short stick or staff or something resembling one.*
+   *noun, A short stick or staff or something resembling one.*
 
 Client programs and API for use with `iRODS <http://www.irods.org>`_
 (Integrated Rule-Oriented Data System).
@@ -116,7 +116,7 @@ stream of JSON objects on standard output i.e.
 
 .. code-block:: sh
 
-   { object 1 }  { object 2 }  ...  { object n } 
+   { object 1 }  { object 2 }  ...  { object n }
 
 
 The JSON stream may be in a single file (the filename given on the
@@ -392,6 +392,13 @@ Options
    minutes.
 
 .. program:: baton-put
+.. option:: --checksum
+
+   Calculate and register, but don't verify, a checksum on the server
+   side (like the ``-k`` option of ``iput``). This option is
+   incompatible with ``--verify``
+
+.. program:: baton-put
 .. option:: --file <file name>
 
   A JSON file describing the data objects and collections. Optional,
@@ -421,6 +428,13 @@ Options
 .. option:: --verbose
 
   Print verbose messages to STDERR.
+
+.. program:: baton-put
+.. option:: --verify
+
+  Calculate and register a server-side checksum and verify the
+  uploaded data object against a client-side calculated checksum (like
+  the ``-K`` option of ``iput``).
 
 .. program:: baton-put
 .. option:: --version
@@ -793,7 +807,7 @@ Options
    Do not report iRODS errors by exiting with a non-zero error code. In
    this mode errors are reported only in-band of the JSON messages
    written to STDOUT.
-            
+
 .. program:: baton-do
 .. option:: --unbuffered
 

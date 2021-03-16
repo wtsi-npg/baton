@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2016, 2017, 2018 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2014, 2015, 2016, 2017, 2018, 2021 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,18 +30,27 @@
 /**
  * Write to a data object from a local file using the put protocol.
  *
- * @param[in]  conn        An open iRODS connection.
- * @param[in]  obj_file    A local file name.
- * @param[in]  rods_path   An iRODS data object path.
- * @param[in]  flags       CALCULATE_CHECKSUM to calculate a checksum on
-                           the server side. WRITE_LOCK to use an advisory
-                           lock server-side. Optional.
- * @param[out] error       An error report struct.
+ * @param[in]  conn             An open iRODS connection.
+ * @param[in]  local_path       A local file path.
+ * @param[in]  rods_path        An iRODS data object path.
+ * @param[in]  default_resource An iRODS resource name. Optional, may be NULL.
+ * @param[in]  checksum         A checksum against which to verify the data
+ *                              on the server side. Optional, if not provided
+ *                              a checksum will be calculated on the client
+ *                              side.
+ * @param[in]  flags            CALCULATE_CHECKSUM to calculate and register a
+ *                              checksum on the server side, VERIFY_CHECKSUM to
+ *                              calculate and register a checksum on the server
+ *                              side and verify against a client side checksum,
+ *                              WRITE_LOCK to use an advisory lock on the
+ *                              server side. Optional.
+ * @param[out] error            An error report struct.
  *
  * @return The number of bytes copied in total.
  */
 int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
-                 int flags, baton_error_t *error);
+                 char *default_resource, char *checksum, int flags,
+		 baton_error_t *error);
 
 /**
  * Write bytes from a buffer into a data object.

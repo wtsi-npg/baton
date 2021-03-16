@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2017, 2018, 2020 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2014, 2015, 2017, 2018, 2020, 2021 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -479,11 +479,9 @@ error:
     return error->code;
 }
 
-json_t *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
-                          option_flags flags, baton_error_t *error) {
-    char *checksum_str = NULL;
-    json_t *checksum   = NULL;
-
+char *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
+                        option_flags flags, baton_error_t *error) {
+    char *checksum = NULL;
     dataObjInp_t obj_chk_in;
     int status;
 
@@ -523,7 +521,20 @@ json_t *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
             goto error;
     }
 
-    if (flags & CALCULATE_CHECKSUM) {
+    if ((flags & VERIFY_CHECKSUM) && (flags & CALCULATE_CHECKSUM)) {
+        set_baton_error(error, USER_INPUT_OPTION_ERR,
+                        "Cannot both verify and update the checksum "
+                        "of data object '%s' ", rods_path->outPath);
+        goto error;
+    }
+
+    if (flags & VERIFY_CHECKSUM) {
+	logmsg(DEBUG, "Verifying checksums of all replicates "
+               "of data object '%s'", rods_path->outPath);
+	// This operates on all replicas without requiring CHKSUM_ALL_KW
+        addKeyVal(&obj_chk_in.condInput, VERIFY_CHKSUM_KW, "");
+    }
+    else if (flags & CALCULATE_CHECKSUM) {
         logmsg(DEBUG, "Calculating checksums of all replicates "
                "of data object '%s'", rods_path->outPath);
         addKeyVal(&obj_chk_in.condInput, CHKSUM_ALL_KW, "");
@@ -535,7 +546,7 @@ json_t *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
         }
     }
 
-    status = rcDataObjChksum(conn, &obj_chk_in, &checksum_str);
+    status = rcDataObjChksum(conn, &obj_chk_in, &checksum);
     clearKeyVal(&obj_chk_in.condInput);
 
     if (status < 0) {
@@ -547,20 +558,10 @@ json_t *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
-    checksum = json_pack("s", checksum_str);
-    if (!checksum) {
-        set_baton_error(error, -1, "Failed to pack checksum '%s' as JSON",
-                        checksum_str);
-        goto error;
-    }
-
-    if (checksum_str) free(checksum_str);
-
     return checksum;
 
 error:
-    if (checksum_str) free(checksum_str);
-    if (checksum) json_decref(checksum);
+    if (checksum) free(checksum);
 
     return NULL;
 }

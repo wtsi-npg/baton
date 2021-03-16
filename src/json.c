@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017, 2019 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019, 2021 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -388,6 +388,13 @@ const char *get_modified_timestamp(json_t *object, baton_error_t *error) {
                             JSON_MODIFIED_SHORT_KEY, error);
 }
 
+const char *get_checksum(json_t *object, baton_error_t *error) {
+    init_baton_error(error);
+
+    return get_opt_string_value(object, "checksum", JSON_CHECKSUM_KEY,
+                                NULL, error);
+}
+
 const char *get_replicate_num(json_t *object, baton_error_t *error) {
     init_baton_error(error);
 
@@ -606,6 +613,10 @@ int op_checksum_p(json_t *operation_args) {
     return json_is_true(json_object_get(operation_args, JSON_OP_CHECKSUM));
 }
 
+int op_verify_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_VERIFY));
+}
+
 int op_force_p(json_t *operation_args) {
     return json_is_true(json_object_get(operation_args, JSON_OP_FORCE));
 }
@@ -666,6 +677,15 @@ const char *get_op_path(json_t *operation_args, baton_error_t *error) {
 
     return get_string_value(operation_args, "operation path",
                             JSON_OP_PATH, NULL, error);
+}
+
+int has_checksum(json_t *object) {
+    baton_error_t error;
+
+    init_baton_error(&error); // Ignore error
+
+    return get_opt_string_value(object, "checksum", JSON_CHECKSUM_KEY,
+                                NULL, &error) != NULL;
 }
 
 int has_collection(json_t *object) {
@@ -1015,6 +1035,24 @@ error:
     return error->code;
 }
 
+json_t *checksum_to_json(char *checksum, baton_error_t *error) {
+    json_t *chksum   = NULL;
+
+    chksum = json_pack("s", checksum);
+    if (!chksum) {
+        set_baton_error(error, -1, "Failed to pack checksum '%s' as JSON",
+                        checksum);
+        goto error;
+    }
+
+    return chksum;
+
+error:
+    if (chksum) json_decref(chksum);
+
+    return NULL;
+}
+
 json_t *data_object_parts_to_json(const char *coll_name,
                                   const char *data_name,
                                   baton_error_t *error) {
@@ -1092,6 +1130,29 @@ json_t *collection_path_to_json(const char *path, baton_error_t *error) {
     return result;
 
 error:
+    return NULL;
+}
+
+char *json_to_checksum(json_t *object, baton_error_t *error) {
+    char *checksum = NULL;
+
+    init_baton_error(error);
+
+    const char *chksum = get_checksum(object, error);
+    if (error->code != 0) goto error;
+
+    checksum = copy_str(chksum, NAME_LEN);
+    if (!checksum) {
+        set_baton_error(error, errno, "Failed to copy string '%s'",
+                        chksum);
+        goto error;
+    }
+
+    return checksum;
+
+error:
+    if (checksum) free(checksum);
+
     return NULL;
 }
 

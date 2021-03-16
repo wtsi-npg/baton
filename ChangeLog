@@ -1,6 +1,20 @@
 	[Upcoming]
 
-	Remove iRODS 4.1.12 from the test matrix.
+	Add a --verify flag to baton-put and "verify" to baton-do "put"
+	operations. This validates the uploaded file against a checksum
+	provided by the client. The client should provide a default
+	checksum algorithm, otherwise it will fall back to iRODS' default.
+	The checksum and verify options are mutually exclusive.
+
+	No longer force checksum re-caculation in baton_json_checksum_op.
+
+	Change signature of put_data_obj to add iRODS default resource.
+
+	Change option_flags enum order.
+
+	Change return type of checksum_data_obj.
+	
+  Remove iRODS 4.1.12 from the test matrix.
 
 	Bugfix: double free for query input when listing checksums of a
 	dataobject that has inconsistent checksums.

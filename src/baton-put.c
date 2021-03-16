@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2017, 2019 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2017, 2019, 2021 Genome Research Ltd. All rights
+ * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +28,7 @@
 #include "baton.h"
 
 static int checksum_flag      = 0;
+static int verify_flag        = 0;
 static int debug_flag         = 0;
 static int help_flag          = 0;
 static int silent_flag        = 0;
@@ -60,17 +62,18 @@ int main(int argc, char *argv[]) {
             {"unbuffered",    no_argument, &unbuffered_flag,    1},
             {"unsafe",        no_argument, &unsafe_flag,        1},
             {"verbose",       no_argument, &verbose_flag,       1},
+            {"verify",        no_argument, &verify_flag,        1},
             {"version",       no_argument, &version_flag,       1},
             {"wlock",         no_argument, &wlock_flag,         1},
             // Indexed options
-            {"connect-time", required_argument, NULL, 'c'},
+            {"connect-time",  required_argument, NULL, 'c'},
             {"buffer-size",   required_argument, NULL, 'b'},
             {"file",          required_argument, NULL, 'f'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "b:f:",
+        int c = getopt_long_only(argc, argv, "c:b:f:",
                                  long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -112,6 +115,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (checksum_flag)      flags = flags | CALCULATE_CHECKSUM;
+    if (verify_flag)        flags = flags | VERIFY_CHECKSUM;
     if (single_server_flag) flags = flags | SINGLE_SERVER;
     if (unsafe_flag)        flags = flags | UNSAFE_RESOLVE;
     if (unbuffered_flag)    flags = flags | FLUSH;
@@ -122,8 +126,9 @@ int main(int argc, char *argv[]) {
         "\n"
         "Synopsis\n"
         "\n"
-        "    baton-put [--connect-time <n>] [--file <JSON file>] [--silent]\n"
-        "              [--unbuffered] [--unsafe]\n"
+        "    baton-put [--checksum|--verify] [--connect-time <n>]\n"
+        "              [--file <JSON file>]\n"
+        "              [--silent] [--unbuffered] [--unsafe]\n"
         "              [--verbose] [--version] [--wlock]\n"
         "\n"
         "Description\n"
@@ -131,7 +136,8 @@ int main(int argc, char *argv[]) {
         "  JSON input file.\n"
         ""
         "  --buffer-size   Set the transfer buffer size.\n"
-        "  --checksum      Calculate a checksum on the server side.\n"
+        "  --checksum      Calculate and register a checksum on the server\n"
+        "                  side.\n"
         "  --connect-time  The duration in seconds after which a connection\n"
         "                  to iRODS will be refreshed (closed and reopened\n"
         "                  between JSON documents) to allow iRODS server\n"
@@ -144,6 +150,9 @@ int main(int argc, char *argv[]) {
         "  --unbuffered    Flush print operations for each JSON object.\n"
         "  --unsafe        Permit unsafe relative iRODS paths.\n"
         "  --verbose       Print verbose messages to STDERR.\n"
+        "  --verify        Calculate and register a checksum on the server\n"
+        "                  side and verify against a locally-calculated\n"
+        "                  checksum\n"
         "  --version       Print the version number and exit.\n"
         "  --wlock         Enable server-side advisory write locking.\n"
         "                  Optional, defaults to false.\n";
