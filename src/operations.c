@@ -426,7 +426,11 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (error->code != 0) goto finally;
 
     add_checksum(target, jchecksum, error);
-    if (error->code != 0) goto finally;
+    if (error->code != 0) {
+	// Only free this on error. On success, it becomes owned by target
+	json_decref(jchecksum);
+	goto finally;
+    }
 
     result = json_deep_copy(target);
     if (!result) {
@@ -437,7 +441,6 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
 finally:
     if (path) free(path);
     if (checksum) free(checksum);
-    if (jchecksum) json_decref(jchecksum);
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return result;
