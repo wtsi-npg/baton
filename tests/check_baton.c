@@ -2659,6 +2659,51 @@ START_TEST(test_regression_github_issue140) {
 }
 END_TEST
 
+// baton-do sometimes fails to print a document for the checksum
+// operation. Investigating this led to finding an error where
+// checksum JSON was overzealously freed. Fixing that also appeared to
+// fix the bug, but I'm not 100% sure it is the root cause.
+START_TEST(test_regression_github_issue242) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+    char obj_path_in[MAX_PATH_LEN];
+    snprintf(obj_path_in, MAX_PATH_LEN, "%s/f1.txt", rods_root);
+    char obj_path_out[MAX_PATH_LEN];
+    snprintf(obj_path_out, MAX_PATH_LEN, "%s/f1.txt.no_checksum", rods_root);
+
+    // A Plain `icp' will create a copy having no checksum
+    char command[MAX_COMMAND_LEN];
+    snprintf(command, MAX_COMMAND_LEN, "icp %s %s", obj_path_in, obj_path_out);
+
+    int ret = system(command);
+    if (ret != 0) raise(SIGTERM);
+
+    rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path_out,
+                                       flags, &resolve_error), EXIST_ST);
+
+    json_t *target = json_pack("{s:s, s:s}",
+			       JSON_COLLECTION_KEY,  rods_root,
+			       JSON_DATA_OBJECT_KEY, "f1.txt.no_checksum");
+    operation_args_t args = { .flags            = 0,
+                              .buffer_size      =  1024 * 64 * 16 * 2,
+                              .zone_name        = "testZone",
+                              .max_connect_time = DEFAULT_MAX_CONNECT_TIME};
+
+    baton_error_t error;
+    json_t *result = baton_json_checksum_op(&env, conn, target, &args, &error);
+    ck_assert_int_eq(error.code, 0);
+    ck_assert(json_is_object(result));
+    ck_assert(json_object_get(result, JSON_CHECKSUM_KEY));
+    ck_assert(json_equal(json_object_get(result, JSON_CHECKSUM_KEY),
+			 json_string("d41d8cd98f00b204e9800998ecf8427e")));
+}
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -2770,6 +2815,7 @@ Suite *baton_suite(void) {
     tcase_add_test(regression, test_regression_github_issue83);
     tcase_add_test(regression, test_regression_github_issue137);
     tcase_add_test(regression, test_regression_github_issue140);
+    tcase_add_test(regression, test_regression_github_issue242);
 
     suite_add_tcase(suite, utilities);
     suite_add_tcase(suite, basic);
