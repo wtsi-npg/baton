@@ -2116,8 +2116,18 @@ START_TEST(test_put_data_obj) {
 		     "dummy_bad_checksum",
 		     flags | VERIFY_CHECKSUM,
 		     &bad_checksum_error);
-    ck_assert_int_eq(bad_checksum_error.code, USER_CHKSUM_MISMATCH);
-    ck_assert_int_eq(bad_checksum_status, USER_CHKSUM_MISMATCH);
+
+    // Work around iRODS bug
+    // https://github.com/irods/irods/issues/5400 in versions to 4.2.8
+    if (IRODS_VERSION_MAJOR == 4 &&
+	IRODS_VERSION_MINOR == 2 &&
+	IRODS_VERSION_PATCHLEVEL < 9) {
+	fprintf(stderr, "Skipping put_data_obj bad checksum test on iRODS %d.%d.%d",
+		IRODS_VERSION_MAJOR, IRODS_VERSION_MINOR, IRODS_VERSION_PATCHLEVEL);
+    } else {
+	ck_assert_int_eq(bad_checksum_error.code, USER_CHKSUM_MISMATCH);
+	ck_assert_int_eq(bad_checksum_status, USER_CHKSUM_MISMATCH);
+    }
 
     if (conn) rcDisconnect(conn);
 }

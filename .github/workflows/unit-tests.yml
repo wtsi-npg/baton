@@ -75,13 +75,14 @@ jobs:
               "irods_user_name": "irods",
               "irods_zone_name": "testZone",
               "irods_home": "/testZone/home/irods",
-              "irods_default_resource": "testResc"
+              "irods_default_resource": "replResc"
           }
           EOF
 
           echo "irods" | script -q -c "iinit" /dev/null
           ienv
           ils
+          ilsresc
 
       - name: "Build and test baton"
         run: |
@@ -92,10 +93,17 @@ jobs:
           
           CPPFLAGS="-I$CONDA_ENV/include -I$CONDA_ENV/include/irods"
           LDFLAGS="-L$CONDA_ENV/lib -L$CONDA_ENV/lib/irods/externals"
+          PKG_CONFIG_PATH="$CONDA_ENV/lib/pkgconfig"
           
           autoreconf -i
-          ./configure CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS"
+          ./configure CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
 
           export LD_LIBRARY_PATH="$CONDA_ENV/lib"
 
+          make check
           make distcheck DISTCHECK_CONFIGURE_FLAGS="CPPFLAGS=\"$CPPFLAGS\" LDFLAGS=\"$LDFLAGS\""
+
+      - name: "Show test log"
+        if: ${{ failure() }}
+        run: |
+          find "$GITHUB_WORKSPACE" -name \*.log -exec cat {} \;
