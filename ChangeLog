@@ -1,5 +1,9 @@
 	[Upcoming]
 
+	[3.0.1]
+
+	Bugfix: free memory correctly after the "checksum" operation.
+
 	[3.0.0]
 
 	Add a --verify flag to baton-put and "verify" to baton-do "put"
