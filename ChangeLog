@@ -2,6 +2,14 @@
 
 	[3.0.1]
 
+	Skip the test that always fails on iRODS <4.2.9 due to iRODS bug
+	https://github.com/irods/irods/issues/5400.
+
+	Default to replResc resource in the iRODS environment file.
+	Print test log on failure.
+
+	Bugfix: Set PKG_CONFIG_PATH to allow configure to find libcheck.
+
 	Bugfix: free memory correctly after the "checksum" operation.
 
 	[3.0.0]
@@ -20,7 +28,7 @@
 
 	Change return type of checksum_data_obj.
 
-        Remove iRODS 4.1.12 from the test matrix.
+	Remove iRODS 4.1.12 from the test matrix.
 
 	Bugfix: double free for query input when listing checksums of a
 	dataobject that has inconsistent checksums.
