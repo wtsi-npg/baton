@@ -2072,8 +2072,8 @@ START_TEST(test_put_data_obj) {
     baton_error_t put_error;
     int put_status =
         put_data_obj(conn, file_path, &rods_obj_path, TEST_RESOURCE, md5,
-		     flags | VERIFY_CHECKSUM,
-		     &put_error);
+                     flags | VERIFY_CHECKSUM,
+                     &put_error);
     ck_assert_int_eq(put_error.code, 0);
     ck_assert_int_eq(put_status, 0);
 
@@ -2113,20 +2113,20 @@ START_TEST(test_put_data_obj) {
     baton_error_t bad_checksum_error;
     int bad_checksum_status =
         put_data_obj(conn, file_path, &rods_obj_path, TEST_RESOURCE,
-		     "dummy_bad_checksum",
-		     flags | VERIFY_CHECKSUM,
-		     &bad_checksum_error);
+                     "dummy_bad_checksum",
+                     flags | VERIFY_CHECKSUM,
+                     &bad_checksum_error);
 
     // Work around iRODS bug
     // https://github.com/irods/irods/issues/5400 in versions to 4.2.8
     if (IRODS_VERSION_MAJOR == 4 &&
-	IRODS_VERSION_MINOR == 2 &&
-	IRODS_VERSION_PATCHLEVEL < 9) {
-	fprintf(stderr, "Skipping put_data_obj bad checksum test on iRODS %d.%d.%d",
-		IRODS_VERSION_MAJOR, IRODS_VERSION_MINOR, IRODS_VERSION_PATCHLEVEL);
+        IRODS_VERSION_MINOR == 2 &&
+        IRODS_VERSION_PATCHLEVEL < 9) {
+        fprintf(stderr, "Skipping put_data_obj bad checksum test on iRODS %d.%d.%d",
+                IRODS_VERSION_MAJOR, IRODS_VERSION_MINOR, IRODS_VERSION_PATCHLEVEL);
     } else {
-	ck_assert_int_eq(bad_checksum_error.code, USER_CHKSUM_MISMATCH);
-	ck_assert_int_eq(bad_checksum_status, USER_CHKSUM_MISMATCH);
+        ck_assert_int_eq(bad_checksum_error.code, USER_CHKSUM_MISMATCH);
+        ck_assert_int_eq(bad_checksum_status, USER_CHKSUM_MISMATCH);
     }
 
     if (conn) rcDisconnect(conn);
@@ -2148,7 +2148,7 @@ START_TEST(test_checksum_data_obj) {
 
     char obj_path[MAX_PATH_LEN];
     snprintf(obj_path, MAX_PATH_LEN, "%s/test_checksum_data_obj.txt",
-	     rods_root);
+             rods_root);
 
     rodsPath_t rods_obj_path;
     baton_error_t resolve_error;
@@ -2158,7 +2158,7 @@ START_TEST(test_checksum_data_obj) {
 
     baton_error_t put_error;
     int put_status = put_data_obj(conn, file_path, &rods_obj_path,
-				  TEST_RESOURCE, NULL, flags, &put_error);
+                                  TEST_RESOURCE, NULL, flags, &put_error);
     ck_assert_int_eq(put_error.code, 0);
     ck_assert_int_eq(put_status, 0);
 
@@ -2170,7 +2170,7 @@ START_TEST(test_checksum_data_obj) {
 
     baton_error_t list_error;
     json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
-			       &list_error);
+                               &list_error);
     ck_assert_int_eq(list_error.code, 0);
     json_t *checksum = json_object_get(result, JSON_CHECKSUM_KEY);
 
@@ -2179,12 +2179,13 @@ START_TEST(test_checksum_data_obj) {
 
     baton_error_t flag_conflict_error;
     checksum_data_obj(conn, &result_obj_path,
-		      flags | CALCULATE_CHECKSUM | VERIFY_CHECKSUM,
-		      &flag_conflict_error);
+                      flags | CALCULATE_CHECKSUM | VERIFY_CHECKSUM,
+                      &flag_conflict_error);
     ck_assert_int_ne(flag_conflict_error.code, 0);
 
     baton_error_t checksum_error;
-    checksum_data_obj(conn, &result_obj_path, flags, &checksum_error);
+    checksum_data_obj(conn, &result_obj_path, flags | CALCULATE_CHECKSUM,
+                      &checksum_error);
     ck_assert_int_eq(checksum_error.code, 0);
 
     result = list_path(conn, &result_obj_path, PRINT_CHECKSUM, &list_error);
@@ -2194,7 +2195,7 @@ START_TEST(test_checksum_data_obj) {
     ck_assert(json_is_string(checksum));
     ck_assert_str_eq(json_string_value(checksum),
                      "4efe0c1befd6f6ac4621cbdb13241246");
-    json_decref(result);    
+    json_decref(result);
 }
 END_TEST
 
@@ -2403,7 +2404,7 @@ START_TEST(test_irods_get_sql_for_specific_alias_with_alias) {
 
     ck_assert_ptr_ne(sql, NULL);
     ck_assert_str_eq(sql,
-		     "SELECT DISTINCT Data.data_id AS data_id FROM R_DATA_MAIN Data WHERE CAST(Data.modify_ts AS INT) > CAST(? AS INT) AND CAST(Data.modify_ts AS INT) <= CAST(? AS INT)");
+                     "SELECT DISTINCT Data.data_id AS data_id FROM R_DATA_MAIN Data WHERE CAST(Data.modify_ts AS INT) > CAST(? AS INT) AND CAST(Data.modify_ts AS INT) <= CAST(? AS INT)");
 
     if (conn) rcDisconnect(conn);
 }
@@ -2698,8 +2699,8 @@ START_TEST(test_regression_github_issue242) {
                                        flags, &resolve_error), EXIST_ST);
 
     json_t *target = json_pack("{s:s, s:s}",
-			       JSON_COLLECTION_KEY,  rods_root,
-			       JSON_DATA_OBJECT_KEY, "f1.txt.no_checksum");
+                               JSON_COLLECTION_KEY,  rods_root,
+                               JSON_DATA_OBJECT_KEY, "f1.txt.no_checksum");
     operation_args_t args = { .flags            = 0,
                               .buffer_size      =  1024 * 64 * 16 * 2,
                               .zone_name        = "testZone",
@@ -2711,7 +2712,7 @@ START_TEST(test_regression_github_issue242) {
     ck_assert(json_is_object(result));
     ck_assert(json_object_get(result, JSON_CHECKSUM_KEY));
     ck_assert(json_equal(json_object_get(result, JSON_CHECKSUM_KEY),
-			 json_string("d41d8cd98f00b204e9800998ecf8427e")));
+                         json_string("d41d8cd98f00b204e9800998ecf8427e")));
 }
 
 Suite *baton_suite(void) {

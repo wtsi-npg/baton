@@ -18,14 +18,16 @@ jobs:
 
     strategy:
       matrix:
-        experimental: [false]
         include:
           - irods: "4.2.7"
             server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
             experimental: false
           - irods: "4.2.8"
             server_image: "wsinpg/ub-18.04-irods-4.2.8:latest"
-            experimental: true
+            experimental: false
+          - irods: "4.2.9"
+            experimental: false
+            server_image: "wsinpg/ub-18.04-irods-4.2.9:latest"
 
     services:
       irods:

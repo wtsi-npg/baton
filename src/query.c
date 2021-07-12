@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015 Genome Research Ltd. All rights
- * reserved.
+ * Copyright (C) 2013, 2014, 2015, 2021 Genome Research Ltd. All
+ * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@
 void log_rods_errstack(log_level level, rError_t *error) {
     int len = error->len;
     for (int i = 0; i < len; i++) {
-	    rErrMsg_t *errmsg = error->errMsg[i];
+        rErrMsg_t *errmsg = error->errMsg[i];
         logmsg(level, "Level %d: %s", i, errmsg->msg);
     }
 }
@@ -113,7 +113,7 @@ void free_query_input(genQueryInp_t *query_in) {
         free(query_in->condInput.keyWord);
     }
 
-	if (query_in->condInput.value != NULL) {
+    if (query_in->condInput.value != NULL) {
         free(query_in->condInput.value);
     }
 
@@ -154,7 +154,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
             snprintf(expr, expr_size, "%s %s", operator, value);
         } else {
             snprintf(expr, expr_size, "%s '%s'", operator, value);
-	}
+        }
 
         logmsg(DEBUG, "Made string %d of %d: op: %s value: %s, len %d, "
                "total len %d [%s]",
@@ -210,8 +210,6 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
     else {
         add_query_conds(query_in, num_conds, (query_cond_t []) { cn, dn });
     }
-
-    limit_to_newest_repl(query_in);
 
     free(path1);
     free(path2);
@@ -364,7 +362,20 @@ genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
 }
 
 genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in) {
+    return limit_to_good_repl(query_in);
+}
+
+genQueryInp_t *limit_to_good_repl(genQueryInp_t *query_in) {
+    // See https://github.com/irods/irods/issues/5730
+    //
+    // The #define used in iRODS 4.2.8 and earlier has been replaced
+    // with an enum member with the same value.
+#if IRODS_VERSION_INTEGER <= (4*1000000 + 2*1000 + 8)
     int col_selector = NEWLY_CREATED_COPY;
+#else
+    int col_selector = GOOD_REPLICA;
+#endif
+
     int num_digits = (col_selector == 0) ? 1 : log10(col_selector) + 1;
 
     char buf[num_digits + 1];

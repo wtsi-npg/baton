@@ -40,20 +40,16 @@ iRODS compatibility:
 
 - Compatible with iRODS 4.1.x and 4.2.x
 
-  Only iRODS 4.x is supported on the main branch. If you use iRODS
-  3.x, please refer to the "irods-3-lts" branch which will provide
-  continued support for iRODS 3.x users to recieve backported
-  bugfixes, but will not see new features. No releases will be created
-  from the irods-3-lts branch - you will need to build from source.
-
-- Not compatible with iRODS 4.0.1 and 4.0.2 (which lack required API
-  functions with C linkage).
-
+  baton version  Compatible iRODS versions
+    2.0.x          4.1.x - 4.2.7
+    2.1.x          4.1.x - 4.2.7
+    3.0.x          4.2.7 - 4.2.8
+    3.1.x          4.2.7 - 4.2.9
 
 Installation:
 
-1. Install iRODS 4.x and the baton dependencies (Jansson) as described
-   in their documentation.
+1. Install iRODS >=4.1 and the baton dependencies (Jansson) as
+   described in their documentation.
 
 2. If you have cloned the baton git repository, run autoconf to
    generate the configure script:
