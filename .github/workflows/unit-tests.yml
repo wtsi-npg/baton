@@ -22,12 +22,32 @@ jobs:
           - irods: "4.2.7"
             server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
             experimental: false
+          - irods: "4.2.7"
+            server_image: "wsinpg/ub-18.04-irods-4.2.8:latest"
+            experimental: true
+          - irods: "4.2.7"
+            server_image: "wsinpg/ub-18.04-irods-4.2.9:latest"
+            experimental: true
+
+          - irods: "4.2.8"
+            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
+            experimental: true
           - irods: "4.2.8"
             server_image: "wsinpg/ub-18.04-irods-4.2.8:latest"
             experimental: false
-          - irods: "4.2.9"
-            experimental: false
+          - irods: "4.2.8"
             server_image: "wsinpg/ub-18.04-irods-4.2.9:latest"
+            experimental: true
+
+          - irods: "4.2.9"
+            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
+            experimental: true
+          - irods: "4.2.9"
+            server_image: "wsinpg/ub-18.04-irods-4.2.8:latest"
+            experimental: true
+          - irods: "4.2.9"
+            server_image: "wsinpg/ub-18.04-irods-4.2.9:latest"
+            experimental: false
 
     services:
       irods:
@@ -35,7 +55,7 @@ jobs:
         ports:
           - 1247:1247
           - 20000-20199:20000-20199
-  
+
     steps:
       - uses: actions/checkout@v2
 
@@ -92,11 +112,11 @@ jobs:
 
           # Is there an environment variable for this?
           CONDA_ENV="/home/runner/conda/envs/$CONDA_TEST_ENVIRONMENT"
-          
+
           CPPFLAGS="-I$CONDA_ENV/include -I$CONDA_ENV/include/irods"
           LDFLAGS="-L$CONDA_ENV/lib -L$CONDA_ENV/lib/irods/externals"
           PKG_CONFIG_PATH="$CONDA_ENV/lib/pkgconfig"
-          
+
           autoreconf -i
           ./configure CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
 
