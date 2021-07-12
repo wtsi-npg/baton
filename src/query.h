@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016 Genome Research Ltd. All
+ * Copyright (C) 2013, 2014, 2015, 2016, 2021 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -58,13 +58,15 @@
 
 typedef struct query_format_in {
     /** Return data for the latest replicate only */
-    unsigned int latest;
+    unsigned int latest __attribute((deprecated("this flag is redundant")));
     /** The number of columns to return */
     unsigned num_columns;
     /** The ICAT columns to return */
     const int columns[MAX_NUM_COLUMNS];
     /** The labels to use for the returned column values */
     const char *labels[MAX_NUM_COLUMNS];
+    /** Return data for good replicates only */
+    unsigned int good_repl;
 } query_format_in_t;
 
 typedef struct query_cond {
@@ -252,6 +254,12 @@ void free_squery_input(specificQueryInp_t *squery_in);
 
 void free_specific_labels(query_format_in_t *format);
 
+__attribute__((deprecated("use limit_to_good_repl instead")))
 genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in);
+
+genQueryInp_t *limit_to_good_repl(genQueryInp_t *query_in);
+
+genQueryInp_t *add_select_modifier(genQueryInp_t *query_in, int column,
+                                   int modifier);
 
 #endif // _BATON_QUERY_H

@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2019 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2019, 2021 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -293,9 +293,9 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
     if (error->code != 0) goto error;
 
-    // Report latest replicate only
-    if (format->latest) {
-        query_in = limit_to_newest_repl(query_in);
+    // Report good replicates only
+    if (format->good_repl) {
+        query_in = limit_to_good_repl(query_in);
     }
 
     // ACL is optional

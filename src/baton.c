@@ -403,14 +403,14 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
                                JSON_SIZE_KEY },
-              .latest      = 1 };
+              .good_repl   = 1 };
     }
     else {
         obj_format = &(query_format_in_t)
             { .num_columns = 2,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY },
-              .latest      = 0 };
+              .good_repl   = 0 };
     }
 
     init_baton_error(error);
