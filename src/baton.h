@@ -32,6 +32,8 @@
 #include "read.h"
 #include "write.h"
 
+#define MAX_VERSION_STR_LEN 512
+
 #define MAX_CLIENT_NAME_LEN 512
 
 #define DEFAULT_MAX_CONNECT_TIME 600
@@ -90,6 +92,25 @@ int declare_client_name(const char *name);
  * @return An open connection to the iRODS server or NULL on error.
  */
 rcComm_t *rods_login(rodsEnv *env);
+
+/**
+ * Return a newly allocated "dotted-triple" iRODS version string of
+ * the client. The caller is responsible for freeing the string.
+ *
+ * @return A version string.
+ */
+char* get_client_version();
+
+/**
+ * Return a newly allocated "dotted-triple" iRODS version string of the
+ * server. The caller is responsible for freeing the string.
+ *
+ * @param[in]  conn         An open iRODS connection.
+ * @param[out] error        An error report struct.
+ *
+ * @return A version string.
+ */
+char* get_server_version(rcComm_t *conn, baton_error_t *error);
 
 /**
  * Initialise an iRODS path by copying a string into its inPath.

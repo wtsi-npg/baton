@@ -294,6 +294,29 @@ START_TEST(test_init_rods_path) {
 }
 END_TEST
 
+// Can we get client and server version strings?
+START_TEST(test_get_version) {
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char expected[MAX_VERSION_STR_LEN];
+    snprintf(expected, MAX_VERSION_STR_LEN, "%d.%d.%d",
+	     IRODS_VERSION_MAJOR, IRODS_VERSION_MINOR, IRODS_VERSION_PATCHLEVEL);
+
+    char *client_version = get_client_version();
+    ck_assert_str_eq(client_version, expected);
+    if (client_version) free(client_version);
+
+    baton_error_t version_error;
+    char *server_version = get_server_version(conn, &version_error);
+    ck_assert_int_eq(version_error.code, 0);
+    ck_assert_ptr_ne(server_version, NULL);
+    if (server_version) free(server_version);
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 // Can we resolve a real path?
 START_TEST(test_resolve_rods_path) {
     option_flags flags = 0;
@@ -2118,16 +2141,20 @@ START_TEST(test_put_data_obj) {
                      &bad_checksum_error);
 
     // Work around iRODS bug
-    // https://github.com/irods/irods/issues/5400 in versions to 4.2.8
-    if (IRODS_VERSION_MAJOR == 4 &&
-        IRODS_VERSION_MINOR == 2 &&
-        IRODS_VERSION_PATCHLEVEL < 9) {
+    // https://github.com/irods/irods/issues/5400 in versions up to
+    // (and including) 4.2.8. For this test to pass, the server must
+    // be >= 4.2.9
+    baton_error_t version_error;
+    char* version = get_server_version(conn, &version_error);
+    if (str_equals(version, "4.2.7", MAX_VERSION_STR_LEN) ||
+	str_equals(version, "4.2.8", MAX_VERSION_STR_LEN)) {
         fprintf(stderr, "Skipping put_data_obj bad checksum test on iRODS %d.%d.%d",
                 IRODS_VERSION_MAJOR, IRODS_VERSION_MINOR, IRODS_VERSION_PATCHLEVEL);
     } else {
         ck_assert_int_eq(bad_checksum_error.code, USER_CHKSUM_MISMATCH);
         ck_assert_int_eq(bad_checksum_status, USER_CHKSUM_MISMATCH);
     }
+    free(version);
 
     if (conn) rcDisconnect(conn);
 }
@@ -2734,6 +2761,7 @@ Suite *baton_suite(void) {
     tcase_add_unchecked_fixture(basic, setup, teardown);
     tcase_add_checked_fixture(basic, basic_setup, basic_teardown);
 
+    tcase_add_test(basic, test_get_version);
     tcase_add_test(basic, test_rods_login);
     tcase_add_test(basic, test_is_irods_available);
     tcase_add_test(basic, test_init_rods_path);
