@@ -22,6 +22,8 @@
 
 #include <errno.h>
 #include <libgen.h>
+#include <math.h>
+#include <regex.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -127,6 +129,85 @@ int declare_client_name(const char *prog_path) {
              PACKAGE_NAME, prog_name, VERSION);
 
     return setenv(SP_OPTION, client_name, 1);
+}
+
+char* get_client_version() {
+    int ver [3] = { IRODS_VERSION_MAJOR,
+                    IRODS_VERSION_MINOR,
+                    IRODS_VERSION_PATCHLEVEL };
+
+    int total_chars = 0;
+    for (int i = 0; i < 3; i++) {
+        int num_digits = (ver[i] == 0) ? 1 : log10(ver[i]) + 1;
+        total_chars += num_digits;
+    }
+
+    total_chars += 2; // Two dots
+
+    char *version = calloc(total_chars + 1, sizeof (char));
+    snprintf(version, total_chars + 1, "%d.%d.%d", ver[0], ver[1], ver[2]);
+
+    return version;
+}
+
+char* get_server_version(rcComm_t *conn, baton_error_t *error) {
+    const char *ver_re_str = "([0-9]+\\.[0-9]+\\.[0-9]+)$";
+    int ver_re_idx = 0;
+    regex_t ver_re;
+    regmatch_t ver_match[ver_re_idx + 1];
+
+    int restatus;
+    char remsg[MAX_ERROR_MESSAGE_LEN];
+
+    miscSvrInfo_t *server_info;
+    char *version = NULL;
+
+    init_baton_error(error);
+
+    restatus = regcomp(&ver_re, ver_re_str, REG_EXTENDED | REG_ICASE);
+    if (restatus != 0) {
+        regerror(restatus, &ver_re, remsg, MAX_ERROR_MESSAGE_LEN);
+        set_baton_error(error, restatus, "Could not compile regex: '%s': %s",
+                        ver_re_str, remsg);
+        goto error;
+    }
+
+    int status = rcGetMiscSvrInfo(conn, &server_info);
+    if (status < 0) {
+        char *err_subname;
+        const char *err_name = rodsErrorName(status, &err_subname);
+        set_baton_error(error, status, "Failed get server information: %d %s",
+                        status, err_name);
+        goto error;
+    }
+
+    const char *ver = server_info->relVersion;
+    restatus = regexec(&ver_re, ver, 1, ver_match, 0);
+    if (!restatus) {
+        int start = ver_match[ver_re_idx].rm_so;
+        int   end = ver_match[ver_re_idx].rm_eo;
+        int len   = end + 1 - start;
+        version = calloc(len, sizeof (char));
+        strncpy(version, ver + start, len);
+    }
+    else if (restatus == REG_NOMATCH) {
+        set_baton_error(error, restatus, "Failed to match server version: '%s'",
+                        ver);
+        goto error;
+    }
+    else {
+        regerror(restatus, &ver_re, remsg, MAX_ERROR_MESSAGE_LEN);
+        set_baton_error(error, restatus,
+                        "Failed to match server version: '%s': %s", ver, remsg);
+        goto error;
+    }
+
+    return version;
+
+error:
+    regfree(&ver_re);
+    if (version) free(version);
+    return NULL;
 }
 
 rcComm_t *rods_login(rodsEnv *env) {
@@ -403,14 +484,14 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
                                JSON_SIZE_KEY },
-              .latest      = 1 };
+              .good_repl   = 1 };
     }
     else {
         obj_format = &(query_format_in_t)
             { .num_columns = 2,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY },
-              .latest      = 0 };
+              .good_repl   = 0 };
     }
 
     init_baton_error(error);

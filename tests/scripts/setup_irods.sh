@@ -52,7 +52,7 @@ fi
 # doing this manually.
 
 # Ensure checksums are up to date
-ichksum -r -a -K $out_path >&/dev/null
+ichksum -r -a -f $out_path >&/dev/null
 status=$?
 
 if [[ $status -ne 0 ]]
