@@ -521,7 +521,12 @@ char *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
             goto error;
     }
 
-    if ((flags & VERIFY_CHECKSUM) && (flags & CALCULATE_CHECKSUM)) {
+    if (!(flags & VERIFY_CHECKSUM) && !(flags & CALCULATE_CHECKSUM)) {
+	logmsg(DEBUG, "No checksum operation specified for '%s', defaulting "
+	       "to calculating a checksum",  rods_path->outPath);
+	flags = flags | CALCULATE_CHECKSUM;
+    }
+    else if ((flags & VERIFY_CHECKSUM) && (flags & CALCULATE_CHECKSUM)) {
         set_baton_error(error, USER_INPUT_OPTION_ERR,
                         "Cannot both verify and update the checksum "
                         "of data object '%s' ", rods_path->outPath);
