@@ -23,30 +23,14 @@ jobs:
             server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
             experimental: false
           - irods: "4.2.7"
-            server_image: "wsinpg/ub-18.04-irods-4.2.8:latest"
-            experimental: true
-          - irods: "4.2.7"
-            server_image: "wsinpg/ub-18.04-irods-4.2.9:latest"
+            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
             experimental: true
 
-          - irods: "4.2.8"
+          - irods: "4.2.10"
             server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
             experimental: true
-          - irods: "4.2.8"
-            server_image: "wsinpg/ub-18.04-irods-4.2.8:latest"
-            experimental: false
-          - irods: "4.2.8"
-            server_image: "wsinpg/ub-18.04-irods-4.2.9:latest"
-            experimental: true
-
-          - irods: "4.2.9"
-            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
-            experimental: true
-          - irods: "4.2.9"
-            server_image: "wsinpg/ub-18.04-irods-4.2.8:latest"
-            experimental: true
-          - irods: "4.2.9"
-            server_image: "wsinpg/ub-18.04-irods-4.2.9:latest"
+          - irods: "4.2.10"
+            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
             experimental: false
 
     services:
