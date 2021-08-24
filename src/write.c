@@ -19,7 +19,14 @@
  * @author Keith James <kdj@sanger.ac.uk>
  */
 
-#include <checksum.hpp>
+// Workaround for the accidental removal of client-side checksum API
+// from iRODS in iRODS 4.1.x https://github.com/irods/irods/issues/5731
+
+#if IRODS_VERSION_INTEGER <= (4*1000000 + 2*1000 + 9)
+int chksumLocFile( const char *fileName, char *chksumStr, const char* );
+#else
+#include <checksum.h>
+#endif
 
 #include "config.h"
 #include "compat_checksum.h"
@@ -64,7 +71,7 @@ int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
 	    logmsg(DEBUG, "Using supplied local checksum '%s' for '%s'",
 		   chksum, rods_path->outPath);
 	}
-	else {	
+	else {
 	    // The hash scheme must be defined for rcChksumLocFile, but if
 	    // it is zero length, rcChksumLocFile falls back to the value
 	    // in the client environment. There's no advantage in our
