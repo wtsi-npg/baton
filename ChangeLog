@@ -1,5 +1,33 @@
 	[Upcoming]
 
+	[3.1.0]
+
+	Add support for iRODS 4.2.10. Remove iRODS 4.2.8 and 4.2.9 from
+	tests.
+
+	Remove conda-forge from Conda channels used to build and run.
+
+	Add get_client_version and get_server_version functions.
+
+	Use get_server_version to allow checksum verification tests to be
+	skipped on older servers which do not support it.
+
+	iRODS 4.2.9 makes some API changes which are accommodated here, while
+	retaining backward compatibility with previous 4.x versions.
+
+	The most significant change is the addition of the ability to select
+	"good" replicates i.e. at-rest on the server. Previously we were able
+	only to select "newly created" replicates i.e. those which were not
+	stale, but which could be in-flight. This change in iRODS was made
+	possible by adding object locking to the server.
+
+	The API features for the old-style "newly created" replicates are
+	marked as deprecated and redirect to API for "good" replicates on
+	iRODS >= 4.2.9.
+
+	Add default of creating checksums to checksum_data_obj if no operation
+	is specified.
+
 	[3.0.1]
 
 	Skip the test that always fails on iRODS <4.2.9 due to iRODS bug
