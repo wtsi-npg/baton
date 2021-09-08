@@ -231,6 +231,8 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         if (op_replicate_p(args))     flags = flags | PRINT_REPLICATE;
         if (op_size_p(args))          flags = flags | PRINT_SIZE;
         if (op_timestamp_p(args))     flags = flags | PRINT_TIMESTAMP;
+        if (op_raw_p(args))           flags = flags | PRINT_RAW;
+        if (op_save_p(args))          flags = flags | SAVE_FILES;
         if (op_recurse_p(args))       flags = flags | RECURSIVE;
         if (op_force_p(args))         flags = flags | FORCE;
         if (op_collection_p(args))    flags = flags | SEARCH_COLLECTIONS;
@@ -427,9 +429,9 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
 
     add_checksum(target, jchecksum, error);
     if (error->code != 0) {
-	// Only free this on error. On success, it becomes owned by target
-	json_decref(jchecksum);
-	goto finally;
+        // Only free this on error. On success, it becomes owned by target
+        json_decref(jchecksum);
+        goto finally;
     }
 
     result = json_deep_copy(target);
@@ -535,10 +537,22 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     logmsg(DEBUG, "Using a 'get' buffer size of %zu bytes", bsize);
 
     if (args->flags & SAVE_FILES) {
+        result = json_deep_copy(target);
+        if (!result) {
+            set_baton_error(error, errno,
+                            "Failed to allocate memory for result");
+            goto finally;
+        }
         get_data_obj_file(conn, &rods_path, file, bsize, error);
         if (error->code != 0) goto finally;
     }
     else if (args->flags & PRINT_RAW) {
+        result = json_deep_copy(target);
+        if (!result) {
+            set_baton_error(error, errno,
+                            "Failed to allocate memory for result");
+            goto finally;
+        }
         get_data_obj_stream(conn, &rods_path, stdout, bsize, error);
         if (error->code != 0) goto finally;
     }
