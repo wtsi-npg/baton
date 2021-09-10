@@ -1036,7 +1036,14 @@ error:
 }
 
 json_t *checksum_to_json(char *checksum, baton_error_t *error) {
-    json_t *chksum   = NULL;
+    json_t *chksum = NULL;
+
+    // The checksum can legitimately be null if a file has been put
+    // without the checksum option set E.g. This is the default
+    // behaviour of iput to a vanilla server.
+    if (!checksum) {
+        return json_null();
+    }
 
     chksum = json_pack("s", checksum);
     if (!chksum) {
