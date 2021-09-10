@@ -175,6 +175,9 @@ int main(int argc, char *argv[]) {
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
+    if (!input) {
+        exit(1);
+    }
 
     operation_args_t args = { .flags            = flags,
                               .buffer_size      = default_buffer_size,

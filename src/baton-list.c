@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017, 2019 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019, 2021 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -173,6 +173,9 @@ int main(int argc, char *argv[]) {
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
+    if (!input) {
+        exit(1);
+    }
 
     operation_args_t args = { .flags            = flags,
                               .max_connect_time = max_connect_time };

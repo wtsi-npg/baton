@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017 Genome Research Ltd. All
+ * Copyright (C) 2013, 2014, 2015, 2017, 2021 Genome Research Ltd. All
  * rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -118,6 +118,10 @@ int main(int argc, char *argv[]) {
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
+    if (!input) {
+        exit(1);
+    }
+
     int status = do_supersede_metadata(input, oflags);
 
     if (status != 0) exit_status = 5;

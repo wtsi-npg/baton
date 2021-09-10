@@ -1,6 +1,6 @@
 /**
- * Copyright (c) 2013, 2014, 2015, 2016, 2017 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (c) 2013, 2014, 2015, 2016, 2017, 2021 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -118,6 +118,10 @@ int main(int argc, char *argv[]) {
 
     declare_client_name(argv[0]);
     input = maybe_stdin(json_file);
+    if (!input) {
+        exit(1);
+    }
+
     int status = do_search_specific(input, zone_name);
     if (status != 0) exit_status = 5;
 
