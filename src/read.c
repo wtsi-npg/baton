@@ -233,6 +233,7 @@ size_t read_chunk(rcComm_t *conn, data_obj_file_t *data_obj, char *buffer,
         set_baton_error(error, num_read,
                         "Failed to read up to %zu bytes from '%s': %s",
                         len, data_obj->path, err_name);
+        num_read = 0;
         goto finally;
     }
 
