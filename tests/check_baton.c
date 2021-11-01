@@ -112,12 +112,16 @@ static void basic_teardown() {
     char rods_root[MAX_PATH_LEN];
     set_current_rods_root(TEST_COLL, rods_root);
 
-    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s",
+    rodsEnv env;
+    int ret = getRodsEnv(&env);
+    if (ret != 0) raise(SIGTERM);
+
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s %s %s",
              TEST_ROOT, TEARDOWN_SCRIPT,
-             rods_root);
+             env.rodsUserName, rods_root);
 
     printf("Data teardown: %s\n", command);
-    int ret = system(command);
+    ret = system(command);
 
     if (ret != 0) raise(SIGINT);
 }
@@ -2741,6 +2745,56 @@ START_TEST(test_regression_github_issue242) {
     ck_assert(json_equal(json_object_get(result, JSON_CHECKSUM_KEY),
                          json_string("d41d8cd98f00b204e9800998ecf8427e")));
 }
+END_TEST
+
+START_TEST(test_regression_github_issue252) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/lorem_1k.txt", rods_root);
+
+    rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    ck_assert_int_eq(resolve_rods_path(conn, &env, &rods_path, obj_path,
+                                       flags, &resolve_error), EXIST_ST);
+
+    // Remove read access to trigger the bug
+    char ichmod_r[MAX_COMMAND_LEN];
+    snprintf(ichmod_r, MAX_COMMAND_LEN, "ichmod null %s %s",
+             env.rodsUserName, obj_path);
+
+    int ret = system(ichmod_r);
+    ck_assert_msg(ret == 0, ichmod_r);
+
+    baton_error_t sver_error;
+    char *server_version = get_server_version(conn, &sver_error);
+    ck_assert_int_eq(sver_error.code, 0);
+
+    baton_error_t open_error;
+    data_obj_file_t *obj = open_data_obj(conn, &rods_path,
+                                         O_RDONLY, 0, &open_error);
+
+    // iRODS 4.2.7 lets you "open" a data object you can't read, but you
+    // can't get bytes from it, giving the following error
+    if (str_equals(server_version, "4.2.7", MAX_STR_LEN)) {
+        baton_error_t slurp_error;
+        slurp_data_obj(conn, obj, 512, &slurp_error);
+
+        // Furthermore, iRODS 4.2.7 gives the inappropriate error
+        // -190000 SYS_FILE_DESC_OUT_OF_RANGE if it gets this far.
+        ck_assert_int_eq(slurp_error.code, -19000);
+        ck_assert_int_eq(close_data_obj(conn, obj), -19000);
+    } else {
+        ck_assert_int_eq(open_error.code, -818000);
+    }
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
 
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
@@ -2855,6 +2909,7 @@ Suite *baton_suite(void) {
     tcase_add_test(regression, test_regression_github_issue137);
     tcase_add_test(regression, test_regression_github_issue140);
     tcase_add_test(regression, test_regression_github_issue242);
+    tcase_add_test(regression, test_regression_github_issue252);
 
     suite_add_tcase(suite, utilities);
     suite_add_tcase(suite, basic);
