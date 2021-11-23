@@ -243,6 +243,11 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
+    status = apply_signal_handler(conn);
+
+    if (status != 0) {
+        goto error;
+    }
     return conn;
 
 error:
