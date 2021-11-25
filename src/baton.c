@@ -69,23 +69,14 @@ static rcComm_t *rods_connect(rodsEnv *env){
     rcComm_t *conn = NULL;
     rErrMsg_t errmsg;
 
-    // Override the signal handler installed by the iRODS client
-    // library (all versions up to 4.1.7, inclusive) because it
-    // detects the signal and leaves the program running in a tight
-    // loop. Here we ignore SIGPIPE and fail on read/write.
-    struct sigaction saction;
-    saction.sa_handler = SIG_IGN;
-    saction.sa_flags   = 0;
-    sigemptyset(&saction.sa_mask);
-
     // TODO: add option for NO_RECONN vs. RECONN_TIMEOUT
     conn = rcConnect(env->rodsHost, env->rodsPort, env->rodsUserName,
                      env->rodsZone, NO_RECONN, &errmsg);
+
     if (!conn) goto finally;
 
-    int sigstatus = sigaction(SIGPIPE, &saction, NULL);
+    int sigstatus = apply_signal_handler(conn);
     if (sigstatus != 0) {
-        logmsg(FATAL, "Failed to set the iRODS client SIGPIPE handler");
         exit(1);
     }
 
@@ -243,11 +234,6 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
-    status = apply_signal_handler(conn);
-
-    if (status != 0) {
-        goto error;
-    }
     return conn;
 
 error:

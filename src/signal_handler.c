@@ -27,9 +27,9 @@ rcComm_t *conn = NULL;
 int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGSEGV, SIGBUS, 0};
 
 void handle_signal(int signal){
-    logmsg(ERROR, "Signal %i received", signal);
+    logmsg(FATAL, "Signal %i (%s) received", signal, strsignal(signal));
     if (conn) {
-        logmsg(ERROR, "Disconnecting from iRODS");
+        logmsg(FATAL, "Disconnecting from iRODS");
         rcDisconnect(conn);
     }
     exit (signal);
@@ -37,11 +37,30 @@ void handle_signal(int signal){
 
 int apply_signal_handler(rcComm_t *connection) {
     conn = connection;
+
+    struct sigaction saction;
+    saction.sa_handler = &handle_signal;
+    saction.sa_flags = 0;
+    sigemptyset(&saction.sa_mask);
+    int sigstatus;
+
+    // Exit gracefully on fatal signals
     for (int i = 0; signals[i] != 0; i++) {
-        if (signal(signals[i], handle_signal) == SIG_ERR) {
-            logmsg(ERROR, "Failed to apply handler for signal: %d", signals[i]);
+        sigstatus = sigaction(signals[i], &saction, NULL);
+        if (sigstatus != 0) {
+            logmsg(FATAL, "Failed to set the iRODS client handler for signal %s", strsignal(signals[i]));
             return -1;
         }
     }
+
+    // Ignore SIGPIPE
+    saction.sa_handler = SIG_IGN;
+    sigstatus = sigaction(SIGPIPE, &saction, NULL);
+    if (sigstatus != 0) {
+        logmsg(FATAL, "Failed to set the iRODS client SIGPIPE handler");
+        return -1;
+    }
+    raise(SIGPIPE);
+
     return 0;
 }
