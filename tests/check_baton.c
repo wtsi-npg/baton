@@ -688,6 +688,21 @@ START_TEST(test_make_query_input) {
 }
 END_TEST
 
+// Does the signal handler run
+START_TEST(test_signal_handler) {
+    #define HANDLER_TEST
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+    char  * path = "/";
+    rodsPath_t rods_path;
+    baton_error_t resolve_error;
+    raise(SIGINT);
+    ck_assert(conn == NULL);
+    #undef HANDLER_TEST
+}
+END_TEST
+
 // Do we fail to list the ACL of a non-existent path?
 START_TEST(test_list_permissions_missing_path) {
     option_flags flags = 0;
@@ -2821,7 +2836,8 @@ Suite *baton_suite(void) {
     tcase_add_test(basic, test_init_rods_path);
     tcase_add_test(basic, test_resolve_rods_path);
     tcase_add_test(basic, test_make_query_input);
-
+    tcase_add_test(basic, test_signal_handler);
+    
     TCase *path = tcase_create("path");
     tcase_add_unchecked_fixture(path, setup, teardown);
     tcase_add_checked_fixture(path, basic_setup, basic_teardown);

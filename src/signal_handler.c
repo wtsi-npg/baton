@@ -23,16 +23,26 @@
 
 #include <signal.h>
 
+#ifdef  HANDLER_TEST
+#define EXIT mock_exit
+#else
+#define EXIT exit
+#endif
+
 rcComm_t *conn = NULL;
 int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGSEGV, SIGBUS, 0};
+
+
+int mock_exit(int exit_code) {return exit_code;}
 
 void handle_signal(int signal){
     logmsg(FATAL, "Signal %i (%s) received", signal, strsignal(signal));
     if (conn) {
         logmsg(FATAL, "Disconnecting from iRODS");
         rcDisconnect(conn);
+        conn = NULL;
     }
-    exit (signal);
+    EXIT (signal);
 }
 
 int apply_signal_handler(rcComm_t *connection) {
@@ -60,7 +70,6 @@ int apply_signal_handler(rcComm_t *connection) {
         logmsg(FATAL, "Failed to set the iRODS client SIGPIPE handler");
         return -1;
     }
-    raise(SIGPIPE);
 
     return 0;
 }
