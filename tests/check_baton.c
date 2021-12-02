@@ -690,7 +690,7 @@ END_TEST
 
 // Does the signal handler run
 START_TEST(test_signal_handler) {
-    #define HANDLER_TEST
+    test_handler();
     option_flags flags = 0;
     rodsEnv env;
     rcComm_t *conn = rods_login(&env);
@@ -699,7 +699,6 @@ START_TEST(test_signal_handler) {
     baton_error_t resolve_error;
     raise(SIGINT);
     ck_assert(conn == NULL);
-    #undef HANDLER_TEST
 }
 END_TEST
 

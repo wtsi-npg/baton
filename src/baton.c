@@ -75,7 +75,7 @@ static rcComm_t *rods_connect(rodsEnv *env){
 
     if (!conn) goto finally;
 
-    int sigstatus = apply_signal_handler(conn);
+    int sigstatus = apply_signal_handler(&conn);
     if (sigstatus != 0) {
         exit(1);
     }

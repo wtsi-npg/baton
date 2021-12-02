@@ -23,29 +23,25 @@
 
 #include <signal.h>
 
-#ifdef  HANDLER_TEST
-#define EXIT mock_exit
-#else
-#define EXIT exit
-#endif
-
-rcComm_t *conn = NULL;
+rcComm_t **conn = NULL;
 int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGSEGV, SIGBUS, 0};
+int test = 0;
 
-
-int mock_exit(int exit_code) {return exit_code;}
+void test_handler() {test=1;} // for testing the signal handler
 
 void handle_signal(int signal){
     logmsg(FATAL, "Signal %i (%s) received", signal, strsignal(signal));
     if (conn) {
         logmsg(FATAL, "Disconnecting from iRODS");
-        rcDisconnect(conn);
-        conn = NULL;
+        rcDisconnect(*conn);
+        *conn = NULL;
     }
-    EXIT (signal);
+    if (test == 0) {
+      exit(signal);
+    }
 }
 
-int apply_signal_handler(rcComm_t *connection) {
+int apply_signal_handler(rcComm_t **connection) {
     conn = connection;
 
     struct sigaction saction;

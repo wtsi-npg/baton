@@ -21,5 +21,6 @@
 
 #include <rodsClient.h>
 
+void test_handler();
 void handle_signal(int signal);
-int apply_signal_handler(rcComm_t *connection);
+int apply_signal_handler(rcComm_t **connection);
