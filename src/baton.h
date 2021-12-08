@@ -30,7 +30,6 @@
 #include "list.h"
 #include "log.h"
 #include "read.h"
-#include "signal_handler.h"
 #include "write.h"
 
 #define MAX_VERSION_STR_LEN 512

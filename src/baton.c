@@ -32,6 +32,7 @@
 
 #include "config.h"
 #include "baton.h"
+#include "signal_handler.h"
 
 static const char *metadata_op_name(metadata_op op) {
     const char *name;
@@ -75,7 +76,7 @@ static rcComm_t *rods_connect(rodsEnv *env){
 
     if (!conn) goto finally;
 
-    int sigstatus = apply_signal_handler(&conn);
+    int sigstatus = apply_signal_handler();
     if (sigstatus != 0) {
         exit(1);
     }

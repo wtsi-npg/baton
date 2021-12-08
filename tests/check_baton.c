@@ -30,6 +30,9 @@
 #include "../src/log.h"
 #include "../src/read.h"
 #include "../src/compat_checksum.h"
+#include "../src/signal_handler.h"
+
+int exit_flag;
 
 static int MAX_COMMAND_LEN = 1024;
 static int MAX_PATH_LEN    = 4096;
@@ -685,20 +688,6 @@ START_TEST(test_make_query_input) {
     ck_assert_int_eq(query_input->sqlCondInp.len, 0);
 
     free_query_input(query_input);
-}
-END_TEST
-
-// Does the signal handler run
-START_TEST(test_signal_handler) {
-    test_handler();
-    option_flags flags = 0;
-    rodsEnv env;
-    rcComm_t *conn = rods_login(&env);
-    char  * path = "/";
-    rodsPath_t rods_path;
-    baton_error_t resolve_error;
-    raise(SIGINT);
-    ck_assert(conn == NULL);
 }
 END_TEST
 
@@ -2547,6 +2536,20 @@ START_TEST(test_search_specific_with_valid_setup) {
 }
 END_TEST
 
+START_TEST(test_exit_flag_on_sigint) {
+    apply_signal_handler();
+    raise(SIGINT);
+    ck_assert(exit_flag == 2);
+}
+END_TEST
+
+START_TEST(test_exit_flag_on_sigterm) {
+    apply_signal_handler();
+    raise(SIGTERM);
+    ck_assert(exit_flag == 3);
+}
+END_TEST
+
 // Having metadata on an item of (a = x, a = y), a search for "a = x"
 // gives correct results, as does a search for "a = y". However,
 // searching for "a = x and a = y" does not (nothing is returned).
@@ -2835,7 +2838,6 @@ Suite *baton_suite(void) {
     tcase_add_test(basic, test_init_rods_path);
     tcase_add_test(basic, test_resolve_rods_path);
     tcase_add_test(basic, test_make_query_input);
-    tcase_add_test(basic, test_signal_handler);
     
     TCase *path = tcase_create("path");
     tcase_add_unchecked_fixture(path, setup, teardown);
@@ -2916,6 +2918,12 @@ Suite *baton_suite(void) {
     tcase_add_test(specific_query,
                    test_search_specific_with_valid_setup);
 
+    TCase *signal_handler = tcase_create("signal_handler");
+    tcase_add_unchecked_fixture(signal_handler, setup, teardown);
+    tcase_add_checked_fixture(signal_handler, basic_setup, basic_teardown);
+    tcase_add_test(signal_handler, test_exit_flag_on_sigint);
+    tcase_add_test(signal_handler, test_exit_flag_on_sigterm);
+
     TCase *regression = tcase_create("regression");
     tcase_add_unchecked_fixture(regression, setup, teardown);
     tcase_add_checked_fixture(regression, basic_setup, basic_teardown);
@@ -2933,6 +2941,7 @@ Suite *baton_suite(void) {
     suite_add_tcase(suite, read_write);
     suite_add_tcase(suite, json);
     suite_add_tcase(suite, specific_query);
+    suite_add_tcase(suite, signal_handler);
     suite_add_tcase(suite, regression);
 
     return suite;

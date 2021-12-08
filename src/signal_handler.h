@@ -19,8 +19,6 @@
  * @author Michael Kubiak <mk35@sanger.ac.uk>
  */
 
-#include <rodsClient.h>
-
-void test_handler();
+extern int exit_flag;
 void handle_signal(int signal);
-int apply_signal_handler(rcComm_t **connection);
+int apply_signal_handler();

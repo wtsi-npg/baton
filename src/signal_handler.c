@@ -19,30 +19,34 @@
  * @author Michael Kubiak <mk35@sanger.ac.uk>
  */
 
+#include "signal_handler.h"
 #include "baton.h"
 
 #include <signal.h>
 
-rcComm_t **conn = NULL;
-int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGSEGV, SIGBUS, 0};
-int test = 0;
-
-void test_handler() {test=1;} // for testing the signal handler
+int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGPIPE, 0};
+int exit_flag;
 
 void handle_signal(int signal){
-    logmsg(FATAL, "Signal %i (%s) received", signal, strsignal(signal));
-    if (conn) {
-        logmsg(FATAL, "Disconnecting from iRODS");
-        rcDisconnect(*conn);
-        *conn = NULL;
-    }
-    if (test == 0) {
-      exit(signal);
-    }
+  switch (signal) {
+  case SIGINT:
+    exit_flag = 2;
+    break;
+  case SIGTERM:
+  case SIGUSR1:
+  case SIGUSR2:
+    exit_flag = 3;
+    break;
+  case SIGPIPE:
+    exit_flag = 4;
+    break;
+  default:
+    exit_flag = 1;
+  }
 }
 
-int apply_signal_handler(rcComm_t **connection) {
-    conn = connection;
+int apply_signal_handler() {
+    exit_flag = 0;
 
     struct sigaction saction;
     saction.sa_handler = &handle_signal;
@@ -57,14 +61,6 @@ int apply_signal_handler(rcComm_t **connection) {
             logmsg(FATAL, "Failed to set the iRODS client handler for signal %s", strsignal(signals[i]));
             return -1;
         }
-    }
-
-    // Ignore SIGPIPE
-    saction.sa_handler = SIG_IGN;
-    sigstatus = sigaction(SIGPIPE, &saction, NULL);
-    if (sigstatus != 0) {
-        logmsg(FATAL, "Failed to set the iRODS client SIGPIPE handler");
-        return -1;
     }
 
     return 0;
