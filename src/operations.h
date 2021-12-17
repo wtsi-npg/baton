@@ -27,6 +27,7 @@
 #include <jansson.h>
 
 #include "config.h"
+#include "signal_handler.h"
 
 /**
  *  @enum metadata_op
@@ -131,7 +132,8 @@ typedef json_t *(*baton_json_op) (rodsEnv *env,
  * @param[in]  zone_name    Zone name, char * (optional).
  * @param[in]  buffer_size  Data transfer buffer, size_t (optional).
  *
- * @return 0 on success, iRODS error code on failure.
+ * @return 0 on success, error code on failure. The error code is suitable
+ * for use as an exit code for the program calling do_operation.
  */
 int do_operation(FILE *input, baton_json_op fn, operation_args_t *args);
 

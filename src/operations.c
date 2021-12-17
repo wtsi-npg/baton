@@ -34,7 +34,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
     int drop_conn_count = 0;
     int        status   = 0;
 
-    while (!feof(input)) {
+    while (!exit_flag && !feof(input)) {
         size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *item = json_loadf(input, jflags, &load_error); // JSON alloc
@@ -154,6 +154,12 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
         }
     } // while
 
+    if (exit_flag) {
+      status = exit_flag;
+      logmsg(WARN, "Exiting on signal with code %d", exit_flag);
+      goto finally;
+    }
+    
     if (drop_conn_count > 0) {
       logmsg(WARN, "Reconnected for put operations %d times",
              drop_conn_count);
@@ -168,30 +174,35 @@ finally:
 int do_operation(FILE *input, baton_json_op fn, operation_args_t *args) {
     int item_count  = 0;
     int error_count = 0;
-
+    int status      = 0;
+    
     rodsEnv env;
 
-    if (!input) goto error;
+    if (!input) {
+      status = 1;
+      goto error;
+    }
 
-    int status = iterate_json(input, &env, fn, args, &item_count, &error_count);
+    status = iterate_json(input, &env, fn, args, &item_count, &error_count);
     if (status != 0) goto error;
 
     if (error_count > 0) {
         logmsg(WARN, "Processed %d items with %d errors",
                item_count, error_count);
+	status = 1;
     }
     else {
         logmsg(DEBUG, "Processed %d items with %d errors",
                item_count, error_count);
     }
 
-    return error_count;
+    return status;
 
 error:
     logmsg(ERROR, "Processed %d items with %d errors",
            item_count, error_count);
 
-    return 1;
+    return status;
 }
 
 json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
