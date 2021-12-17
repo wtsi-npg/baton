@@ -2546,7 +2546,7 @@ END_TEST
 START_TEST(test_exit_flag_on_sigterm) {
     apply_signal_handler();
     raise(SIGTERM);
-    ck_assert(exit_flag == 3);
+    ck_assert(exit_flag == 5);
 }
 END_TEST
 

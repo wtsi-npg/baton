@@ -24,7 +24,7 @@
 
 #include <signal.h>
 
-int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGPIPE, 0};
+int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGUSR1, SIGUSR2, SIGPIPE, 0};
 int exit_flag;
 
 void handle_signal(int signal){
@@ -32,13 +32,19 @@ void handle_signal(int signal){
   case SIGINT:
     exit_flag = 2;
     break;
+  case SIGQUIT:
+    exit_flag = 3;
+    break;
+  case SIGHUP:
+    exit_flag = 4;
+    break;
   case SIGTERM:
   case SIGUSR1:
   case SIGUSR2:
-    exit_flag = 3;
+    exit_flag = 5;
     break;
   case SIGPIPE:
-    exit_flag = 4;
+    exit_flag = 6;
     break;
   default:
     exit_flag = 1;
