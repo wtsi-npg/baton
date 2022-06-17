@@ -203,11 +203,11 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
     }
 
     query_format_in_t obj_format =
-        { .num_columns = 3,
+        { .num_columns = 4,
           .columns     = { COL_COLL_NAME, COL_DATA_NAME,
-                           COL_D_DATA_CHECKSUM },
+                           COL_D_DATA_CHECKSUM, COL_D_REPL_STATUS },
           .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
-                           JSON_CHECKSUM_KEY } };
+                           JSON_CHECKSUM_KEY, JSON_REPLICATE_STATUS_KEY } };
 
     query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
                                 obj_format.columns);
@@ -215,6 +215,18 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
 
     results = do_query(conn, query_in, obj_format.labels, error);
     if (error->code != 0) goto error;
+
+    size_t result_size = json_array_size(results);
+    if( result_size > 1 ){
+        for( int i = result_size - 1; i >= 0; i--){
+            json_t *obj = json_array_get(results, i);
+            char *repl_status;
+            json_unpack(json_object_get(obj, JSON_REPLICATE_STATUS_KEY), "s", &repl_status);
+            if (atoi(repl_status) != 1){
+                json_array_remove(results, i);
+            }
+        }
+    }
 
     if (json_array_size(results) != 1) {
         set_baton_error(error, -1, "Expected 1 data object result but "
