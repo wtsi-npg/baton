@@ -48,6 +48,8 @@ static char *SQL_SETUP_SCRIPT    = "scripts/setup_sql.sh";
 static char *TEARDOWN_SCRIPT     = "scripts/teardown_irods.sh";
 static char *SQL_TEARDOWN_SCRIPT = "scripts/teardown_sql.sh";
 
+static char *BAD_REPLICA_SCRIPT = "scripts/create_stale_replica.sh";
+
 static void set_current_rods_root(char *in, char *out) {
     rodsEnv rodsEnv;
 
@@ -2233,6 +2235,71 @@ START_TEST(test_checksum_data_obj) {
 }
 END_TEST
 
+// Can we checksum an object, ignoring stale replicas
+START_TEST(test_checksum_ignore_stale) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char file_path[MAX_PATH_LEN];
+    snprintf(file_path, MAX_PATH_LEN, "%s/%s/lorem_10k.txt",
+             TEST_ROOT, TEST_DATA_PATH);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    char obj_name[38] = "test_checksum_obj_with_bad_replica.txt";
+    char obj_path[MAX_PATH_LEN];
+    snprintf(obj_path, MAX_PATH_LEN, "%s/%s",
+             rods_root, obj_name);
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                      flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, 0);
+
+    baton_error_t put_error;
+    int put_status = put_data_obj(conn, file_path, &rods_obj_path,
+                                  TEST_RESOURCE, NULL, flags, &put_error);
+    ck_assert_int_eq(put_error.code, 0);
+    ck_assert_int_eq(put_status, 0);
+
+    rodsPath_t result_obj_path;
+    baton_error_t result_error;
+    resolve_rods_path(conn, &env, &result_obj_path, obj_path,
+                      flags, &result_error);
+    ck_assert_int_eq(result_error.code, 0);
+
+    char command[MAX_COMMAND_LEN];
+    // change checksum of replica 1 without marking stale
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s -c %s -d %s -a", TEST_ROOT,
+             BAD_REPLICA_SCRIPT, rods_root, obj_name);
+
+    int ret = system(command);
+    if (ret != 0) raise(SIGTERM);
+
+    baton_error_t wrong_checksum_error;
+    json_t *result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
+                               &wrong_checksum_error);
+    ck_assert_int_ne(wrong_checksum_error.code, 0);
+
+    // mark replica 1 as stale
+    snprintf(command, MAX_COMMAND_LEN, "%s/%s -c %s -d %s -s", TEST_ROOT,
+             BAD_REPLICA_SCRIPT, rods_root, obj_name);
+
+    ret = system(command);
+    if (ret != 0) raise(SIGTERM);
+
+    baton_error_t stale_replica_error;
+    result = list_path(conn, &result_obj_path, PRINT_CHECKSUM,
+                       &stale_replica_error);
+    ck_assert_int_eq(stale_replica_error.code, 0);
+
+    json_decref(result);
+
+}
+
 // Can we remove a data object
 START_TEST(test_remove_data_obj) {
     option_flags flags = 0;
@@ -2885,6 +2952,7 @@ Suite *baton_suite(void) {
     tcase_add_test(read_write, test_write_data_obj);
     tcase_add_test(read_write, test_put_data_obj);
     tcase_add_test(read_write, test_checksum_data_obj);
+    tcase_add_test(read_write, test_checksum_ignore_stale);
     tcase_add_test(read_write, test_remove_data_obj);
     tcase_add_test(read_write, test_create_coll);
     tcase_add_test(read_write, test_remove_coll);
