@@ -48,7 +48,7 @@ static char *SQL_SETUP_SCRIPT    = "scripts/setup_sql.sh";
 static char *TEARDOWN_SCRIPT     = "scripts/teardown_irods.sh";
 static char *SQL_TEARDOWN_SCRIPT = "scripts/teardown_sql.sh";
 
-static char *BAD_REPLICA_SCRIPT = "scripts/create_stale_replica.sh";
+static char *BAD_REPLICA_SCRIPT = "scripts/make_bad_replica.sh";
 
 static void set_current_rods_root(char *in, char *out) {
     rodsEnv rodsEnv;
@@ -2261,7 +2261,7 @@ START_TEST(test_checksum_ignore_stale) {
 
     baton_error_t put_error;
     int put_status = put_data_obj(conn, file_path, &rods_obj_path,
-                                  TEST_RESOURCE, NULL, flags, &put_error);
+                                  _RESOURCE, NULL, flags, &put_error);
     ck_assert_int_eq(put_error.code, 0);
     ck_assert_int_eq(put_status, 0);
 
