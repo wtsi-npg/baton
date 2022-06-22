@@ -51,8 +51,9 @@ jobs:
 
 
     services:
-      irods-server:
+      irods:
         image: ${{ matrix.server_image }}
+        options: --name irods-server
         ports:
           - 1247:1247
           - 20000-20199:20000-20199
