@@ -109,7 +109,7 @@ fi
 if [[ -n $corrupt ]] ; then
     log "  - corrupt data \n"
     fs_path=$(ils -L $coll/$obj | grep /var/lib/irods | sed "$(($repl_num+1))q;d" | sed -e 's/.*generic   //g')
-    docker exec -u root "$irods_container" bash -c "echo 'This file is corrupted' > $fs_path"
+    docker exec -u root "$irods_container" bash -c "echo 'This file is corrupted' > $fs_path" || exit 1;
     op=2
 fi
 
@@ -120,7 +120,7 @@ fi
 
 
 if [[ $op -eq 1 ]]; then
-    docker exec -u root "$irods_container" sudo -u irods psql -d ICAT -c "UPDATE r_data_main d SET $updates FROM r_coll_main c WHERE d.coll_id = c.coll_id AND d.DATA_NAME='$obj' AND c.COLL_NAME='$coll' AND d.DATA_REPL_NUM='$repl_num';"    
+    docker exec -u root "$irods_container" sudo -u irods psql -d ICAT -c "UPDATE r_data_main d SET $updates FROM r_coll_main c WHERE d.coll_id = c.coll_id AND d.DATA_NAME='$obj' AND c.COLL_NAME='$coll' AND d.DATA_REPL_NUM='$repl_num';" || exit 1
 fi
 
 
