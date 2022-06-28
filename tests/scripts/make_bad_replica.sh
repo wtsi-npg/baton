@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -eo pipefail
+
 usage() {
     cat 1>&2 <<EOF 
 

@@ -2283,6 +2283,7 @@ START_TEST(test_checksum_ignore_stale) {
     json_decref(result);
 
 }
+END_TEST
 
 // Can we remove a data object
 START_TEST(test_remove_data_obj) {
