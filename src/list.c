@@ -212,6 +212,7 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
     query_in = make_query_input(SEARCH_MAX_ROWS, obj_format.num_columns,
                                 obj_format.columns);
     query_in = prepare_obj_list(query_in, rods_path, NULL);
+    query_in = limit_to_good_repl(query_in);
 
     results = do_query(conn, query_in, obj_format.labels, error);
     if (error->code != 0) goto error;
