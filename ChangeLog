@@ -1,5 +1,20 @@
 	[Upcoming]
 
+	[3.2.0]
+
+	Fix a segfault when the file specified by the -f/--file option was
+	absent.
+
+	Fix null checksum handling. A JSON null value can legitimately be
+	returned on checksum verification e.g. where the server has not
+	created a checksum for the data object.
+
+	Fix for the baton-do "get" operation; the "raw" and "save" options were
+	not being passed.
+
+	Fix for the baton-do "get" operation; the JSON sub-document
+	decsribing the result was not being returned.
+
 	[3.1.0]
 
 	Add support for iRODS 4.2.10. Remove iRODS 4.2.8 and 4.2.9 from
