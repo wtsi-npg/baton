@@ -6,14 +6,16 @@
 
 E_ARGS_MISSING=3
 
-in_path=$1
+owner="$1"
+in_path="$2"
 
-if [[ $# < 1 ]]
+if [[ $# < 2 ]]
 then
-    echo "Insufficient command line arguments; expected 1"
+    echo "Insufficient command line arguments; expected 2"
     exit $E_ARGS_MISSING
 fi
 
-irm -rf $in_path
+ichmod -r own "$owner" "$in_path"
+irm -rf "$in_path"
 
 exit

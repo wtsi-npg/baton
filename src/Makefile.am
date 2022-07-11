@@ -27,6 +27,7 @@ libbaton_include_HEADERS = baton.h \
                            operations.h \
                            query.h \
                            read.h \
+                           signal_handler.h \
                            utilities.h \
                            write.h
 
@@ -40,6 +41,7 @@ libbaton_la_SOURCES = baton.c \
                       operations.c \
                       query.c \
                       read.c \
+                      signal_handler.c \
                       utilities.c \
                       write.c
 

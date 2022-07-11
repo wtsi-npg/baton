@@ -25,6 +25,9 @@ jobs:
           - irods: "4.2.7"
             server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
             experimental: true
+          - irods: "4.2.7"
+            server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
+            experimental: true
 
           - irods: "4.2.10"
             server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
@@ -32,10 +35,28 @@ jobs:
           - irods: "4.2.10"
             server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
             experimental: false
+          - irods: "4.2.10"
+            server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
+            experimental: true
+
+          - irods: "4.2.11"
+            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
+            experimental: true
+          - irods: "4.2.11"
+            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
+            experimental: true
+          - irods: "4.2.11"
+            server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
+            experimental: false
+
 
     services:
       irods:
         image: ${{ matrix.server_image }}
+        options: --name irods-server # A consistent container name is necessary
+                                     # to allow creation of bad replicas.
+                                     # 'irods-server' is the default container
+                                     # name in the bad replica script
         ports:
           - 1247:1247
           - 20000-20199:20000-20199

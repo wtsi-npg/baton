@@ -1,5 +1,18 @@
 	[Upcoming]
 
+	[3.3.0]
+
+	Fix ability to list the checksum of an object with a bad replica.
+
+	Add iRODS 4.2.11 to test matrix.
+
+	Improve signal handling so that iRODS connections are closed
+	before exiting.
+
+	Fix a segfault caused by irods error values being returned as if
+	they were the number of bytes read when a user did not have
+	permission to get an object.
+
 	[3.2.0]
 
 	Fix a segfault when the file specified by the -f/--file option was
