@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * @file operation.c
- * @author Keith James <kdj@sanger.ac.uk>
+ * @author Keith James <kdj@sanger.ac.uk>, Rob Davies <rmd@sanger.ac.uk>
  */
 
 #include "config.h"
@@ -25,34 +25,43 @@
 #include "baton.h"
 #include "operations.h"
 
+// Mutex protecting the connection and the run_timeout_thread flag
+pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 // The connection used by iterate_json and connection_timeout
 rcComm_t *connection;
-// Mutex protecting the connection
-pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-// While true, the client will refresh the connection
-int connection_timeout_flag = 1;
+// While true, the client will continue to run the timeout thread
+int run_timeout_thread = 1;
+// Condition variable to exit the timeout thread when work is complete
+pthread_cond_t watchdog_cond = PTHREAD_COND_INITIALIZER;
 
 // Refresh the connection every timeout seconds
 void *connection_timeout(void *timeout) {
     int tsec = *((int *) timeout);
 
-    struct timespec t;
-    t.tv_sec = tsec;
-    t.tv_nsec = 0;
+    struct timespec abs_timeout;
 
-    while (connection_timeout_flag) {
-        nanosleep(&t, NULL);
+    pthread_mutex_lock(&conn_mutex);
+    while (run_timeout_thread) {
+        clock_gettime(CLOCK_REALTIME, &abs_timeout);
+        abs_timeout.tv_sec += tsec;
 
-        logmsg(DEBUG, "Connection timeout of %d seconds reached", tsec);
-        pthread_mutex_lock(&conn_mutex);
-        if (connection) {
-            rcDisconnect(connection);
-            connection = NULL;
-            logmsg(DEBUG, "Closed the connection after timeout reached");
+        int status;
+        do {
+            status = pthread_cond_timedwait(&watchdog_cond, &conn_mutex,
+                                            &abs_timeout);
+        } while (status == EINTR);
+        
+        if (status == ETIMEDOUT) {
+            if (connection) {
+                rcDisconnect(connection);
+                connection = NULL;
+                logmsg(NOTICE, "Closed the iRODS connection after a timeout "
+                       "of %d seconds", tsec);
+            }
         }
-        pthread_mutex_unlock(&conn_mutex);
     }
+    pthread_mutex_unlock(&conn_mutex);
+
     return 0;
 }
 
@@ -61,11 +70,19 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
                         int *item_count, int *error_count) {
     int status  = 0;
     int timeout = args->max_connect_time;
-    
     pthread_t tid;
-    status = pthread_create(&tid, NULL, &connection_timeout, &timeout);
-    if (status != 0) {
-        logmsg(ERROR, "Failed to start connection management thread: %d", status);
+    int thread_status = -1;
+
+    if (timeout < 10) {
+        logmsg(ERROR, "The connection timeout (--connect-time argument) "
+               "must be >=10 seconds");
+        status = 1;
+        goto finally;
+    }
+
+    thread_status = pthread_create(&tid, NULL, &connection_timeout, &timeout);
+    if (thread_status != 0) {
+        logmsg(ERROR, "Failed to start connection management thread: %d", thread_status);
         goto finally;
     }
 
@@ -91,8 +108,9 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
         }
 
         pthread_mutex_lock(&conn_mutex); // Lock before connecting and executing a job
+        logmsg(DEBUG, "Work to do, lock obtained");
         if (!connection) {
-            logmsg(DEBUG, "Opening a new connection");
+            logmsg(NOTICE, "Opening a new iRODS connection");
             connection = rods_login(env);
             if (!connection) {
                 status = 1;
@@ -104,6 +122,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
         baton_error_t error;
         json_t *result = fn(env, connection, item, args, &error);
         pthread_mutex_unlock(&conn_mutex); // Unlock before processing the result
+        logmsg(DEBUG, "Work done, lock released");
 
         if (error.code != 0) {
             // On error, add an error report to the input JSON as a
@@ -151,15 +170,23 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
     }
 
 finally:
-    connection_timeout_flag = 0;
-    
     pthread_mutex_lock(&conn_mutex);
+    run_timeout_thread = 0;
+    pthread_cond_signal(&watchdog_cond); // Unblock the thread waiting on cond
+
     if (connection) {
         rcDisconnect(connection);
         connection = NULL;
-        logmsg(DEBUG, "Closed the connection on exit")
+        logmsg(NOTICE, "Closed the connection on exit")
     }
     pthread_mutex_unlock(&conn_mutex);
+
+    if (thread_status == 0) {
+        status = pthread_join(tid, NULL);
+        if (status != 0) {
+            logmsg(ERROR, "Timout thread failed to join: %s", strerror(status));
+        }
+    }
 
     return status;
 }

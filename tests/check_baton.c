@@ -2444,9 +2444,10 @@ START_TEST(test_do_operation) {
     json_dumpf(obj1, json_tmp, 0);
     json_dumpf(obj2, json_tmp, 0);
 
-    operation_args_t args = { .flags       = flags,
-                              .buffer_size = buffer_size,
-                              .zone_name   = zone_name };
+    operation_args_t args = { .flags            = flags,
+                              .buffer_size      = buffer_size,
+                              .zone_name        = zone_name,
+                              .max_connect_time = 10 };
 
     for (int i = 0; i < num_ops; i++) {
         rewind(json_tmp);
