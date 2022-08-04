@@ -1,5 +1,10 @@
 	[Upcoming]
 
+	[4.0.0]
+
+	Improve connection management by closing the connection while
+	waiting for the next JSON document and reopening when required.
+
 	[3.3.0]
 
 	Fix ability to list the checksum of an object with a bad replica.
