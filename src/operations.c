@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2017, 2018, 2019, 2020, 2021 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2017, 2018, 2019, 2020, 2021, 2022 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * @file operation.c
- * @author Keith James <kdj@sanger.ac.uk>
+ * @author Keith James <kdj@sanger.ac.uk>, Rob Davies <rmd@sanger.ac.uk>
  */
 
 #include "config.h"
@@ -25,14 +25,66 @@
 #include "baton.h"
 #include "operations.h"
 
+// Mutex protecting the connection and the run_timeout_thread flag
+pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
+// The connection used by iterate_json and connection_timeout
+rcComm_t *connection;
+// While true, the client will continue to run the timeout thread
+int run_timeout_thread = 1;
+// Condition variable to exit the timeout thread when work is complete
+pthread_cond_t watchdog_cond = PTHREAD_COND_INITIALIZER;
+
+// Refresh the connection every timeout seconds
+void *connection_timeout(void *timeout) {
+    int tsec = *((int *) timeout);
+
+    struct timespec abs_timeout;
+
+    pthread_mutex_lock(&conn_mutex);
+    while (run_timeout_thread) {
+        clock_gettime(CLOCK_REALTIME, &abs_timeout);
+        abs_timeout.tv_sec += tsec;
+
+        int status;
+        do {
+            status = pthread_cond_timedwait(&watchdog_cond, &conn_mutex,
+                                            &abs_timeout);
+        } while (status == EINTR);
+        
+        if (status == ETIMEDOUT) {
+            if (connection) {
+                rcDisconnect(connection);
+                connection = NULL;
+                logmsg(NOTICE, "Closed the iRODS connection after a timeout "
+                       "of %d seconds", tsec);
+            }
+        }
+    }
+    pthread_mutex_unlock(&conn_mutex);
+
+    return 0;
+}
+
 static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
                         operation_args_t *args,
                         int *item_count, int *error_count) {
-    time_t connect_time = 0;
-    int       reconnect = 0; // Set to 1 when reconnecting
-    rcComm_t *conn      = NULL;
-    int drop_conn_count = 0;
-    int        status   = 0;
+    int status  = 0;
+    int timeout = args->max_connect_time;
+    pthread_t tid;
+    int thread_status = -1;
+
+    if (timeout < 10) {
+        logmsg(ERROR, "The connection timeout (--connect-time argument) "
+               "must be >=10 seconds");
+        status = 1;
+        goto finally;
+    }
+
+    thread_status = pthread_create(&tid, NULL, &connection_timeout, &timeout);
+    if (thread_status != 0) {
+        logmsg(ERROR, "Failed to start connection management thread: %d", thread_status);
+        goto finally;
+    }
 
     while (!exit_flag && !feof(input)) {
         size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
@@ -44,7 +96,6 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
                 logmsg(ERROR, "JSON error at line %d, column %d: %s",
                        load_error.line, load_error.column, load_error.text);
             }
-
             continue;
         }
 
@@ -56,54 +107,23 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
             continue;
         }
 
-        if (!conn) {
-            conn = rods_login(env);
-            if (!conn) {
+        pthread_mutex_lock(&conn_mutex); // Lock before connecting and executing a job
+        logmsg(DEBUG, "Work to do, lock obtained");
+        if (!connection) {
+            logmsg(NOTICE, "Opening a new iRODS connection");
+            connection = rods_login(env);
+            if (!connection) {
                 status = 1;
+                pthread_mutex_unlock(&conn_mutex);
                 goto finally;
             }
-
-            if (reconnect == 0) {
-                logmsg(INFO, "Connected to iRODS");
-            } else {
-                logmsg(INFO, "Re-connected to iRODS");
-            }
-            connect_time = time(0);
         }
-
-#ifdef ENABLE_PUT_WORKAROUND
-        // If a put operation or dispatch to a put operation are
-        // requested, reconnect first.
-        int drop_conn = 0;
-        if (fn == baton_json_put_op) {
-          drop_conn = 1;
-        }
-        else if (fn == baton_json_dispatch_op) {
-          baton_error_t error;
-          const char *op = get_operation(item, &error);
-          // Ignore any error here because there are already checks
-          // for a valid operation string the dispatch function. We
-          // only want to know about the successful case at this
-          // point, so that we can decide if we have a put operation
-          // and thus need to reconnect first.
-          if (error.code == 0 && (str_equals(op, JSON_PUT_OP, MAX_STR_LEN))) {
-            drop_conn = 1;
-          }
-        }
-
-        if (drop_conn) {
-          logmsg(INFO, "Reconnecting for put operation workaround");
-          drop_conn_count++;
-          rcComm_t *newConn = rods_login(env);
-          if (!newConn) goto finally;
-
-          rcDisconnect(conn);
-          conn = newConn;
-        }
-#endif
 
         baton_error_t error;
-        json_t *result = fn(env, conn, item, args, &error);
+        json_t *result = fn(env, connection, item, args, &error);
+        pthread_mutex_unlock(&conn_mutex); // Unlock before processing the result
+        logmsg(DEBUG, "Work done, lock released");
+
         if (error.code != 0) {
             // On error, add an error report to the input JSON as a
             // property and print the input JSON. A NULL result should
@@ -141,17 +161,6 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
         (*item_count)++;
 
         json_decref(item); // JSON free
-
-        time_t now = time(0);
-        double duration = difftime(now, connect_time);
-        if (args->max_connect_time > 0 && duration > args->max_connect_time) {
-            logmsg(INFO, "The connection to iRODS was open for %d seconds, "
-                   "the maximum allowed is %d; closing the connection to "
-                   "reopen a new one", duration, args->max_connect_time);
-            rcDisconnect(conn);
-            conn      = NULL;
-            reconnect = 1;
-        }
     } // while
 
     if (exit_flag) {
@@ -159,14 +168,25 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
       logmsg(WARN, "Exiting on signal with code %d", exit_flag);
       goto finally;
     }
-    
-    if (drop_conn_count > 0) {
-      logmsg(WARN, "Reconnected for put operations %d times",
-             drop_conn_count);
-    }
 
 finally:
-    if (conn) rcDisconnect(conn);
+    pthread_mutex_lock(&conn_mutex);
+    run_timeout_thread = 0;
+    pthread_cond_signal(&watchdog_cond); // Unblock the thread waiting on cond
+
+    if (connection) {
+        rcDisconnect(connection);
+        connection = NULL;
+        logmsg(NOTICE, "Closed the connection on exit")
+    }
+    pthread_mutex_unlock(&conn_mutex);
+
+    if (thread_status == 0) {
+        status = pthread_join(tid, NULL);
+        if (status != 0) {
+            logmsg(ERROR, "Timout thread failed to join: %s", strerror(status));
+        }
+    }
 
     return status;
 }
@@ -189,7 +209,7 @@ int do_operation(FILE *input, baton_json_op fn, operation_args_t *args) {
     if (error_count > 0) {
         logmsg(WARN, "Processed %d items with %d errors",
                item_count, error_count);
-	status = 1;
+	    status = 1;
     }
     else {
         logmsg(DEBUG, "Processed %d items with %d errors",

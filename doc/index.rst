@@ -40,6 +40,8 @@ iRODS:
 * Simplified API over the iRODS general query API to ease construction
   of new custom queries.
 
+* Automatic release of iRODS connections when idle (see the ``--connect-time``
+  command line option).
 
 .. toctree::
    :maxdepth: 2
@@ -226,7 +228,7 @@ Options
 .. program:: baton-chmod
 .. option:: --unsafe
 
-  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.2.x
 
 .. program:: baton-chmod
 .. option:: --verbose
