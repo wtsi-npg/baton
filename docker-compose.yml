@@ -9,6 +9,7 @@ services:
 
   baton:  
     image: baton
+    platform: linux/amd64
     build:
       context: .
       dockerfile: ./Dockerfile
