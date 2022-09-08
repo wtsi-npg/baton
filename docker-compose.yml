@@ -1,0 +1,21 @@
+services:
+  irods-server:
+    container_name: irods-server
+    image: "wsinpg/ub-18.04-irods-${IRODS_VERSION:-4.2.11}:${DOCKER_TAG:-latest}"
+    restart: always
+    ports:
+      - "1247:1247"
+      - "20000-20199:20000-20199"
+
+  baton:  
+    image: baton
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    volumes:
+      - "${PWD}:/code"
+    environment:
+      IRODS_ENVIRONMENT_FILE: "/code/tests/.irods/irods_environment.json"
+    depends_on:
+      - irods-server

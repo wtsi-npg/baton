@@ -96,6 +96,17 @@ Installation:
    make clean install
 
 
+Development:
+
+To set up a development environment in Docker, use the provided
+docker-compose.yml and corresponding Dockerfile. These create a Linux
+C development and testing environment with an accompanying iRODS server.
+The recommended way to use this is by remote development in the container
+using VSCode. VSCode's manual explains how to do this, see:
+
+    https://code.visualstudio.com/docs/remote/containers
+
+
 Synopsis:
 
 For full details of the JSON accepted and returned by the programs in
