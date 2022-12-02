@@ -2689,6 +2689,8 @@ START_TEST(test_regression_github_issue137) {
     char *operators[] = { "=", "like", "not like", ">", "<",
                           "n>", "n<", ">=", "<=", "n>=", "n<=" };
 
+    int num_failed = 0;
+    int err_code = 0;
     for (size_t i = 0; i < 11; i++) {
         json_t *avu = json_pack("{s:s, s:s, s:s}",
                                 JSON_ATTRIBUTE_KEY, "numattr1",
@@ -2698,11 +2700,17 @@ START_TEST(test_regression_github_issue137) {
 
         baton_error_t error;
         json_t *results = search_metadata(conn, query, NULL, flags, &error);
-        ck_assert_msg(error.code == 0, "failed: %s", operators[i]);
+        if (error.code != 0) {
+            num_failed++;
+            fprintf(stderr, "operator test failed for '%s' with code %d\n", 
+            operators[i], error.code);
+        }
 
         json_decref(query);
         json_decref(results);
     }
+
+    ck_assert_msg(num_failed ==0, "failed %d operator tests", num_failed);
 
     // Test 'in' here
     json_t *avu = json_pack("{s:s, s:[s], s:s}",

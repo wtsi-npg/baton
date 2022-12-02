@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }} # Experimental builds may fail
 
     defaults:
@@ -19,36 +19,18 @@ jobs:
     strategy:
       matrix:
         include:
+          # iRODS 4.2.7 clients vs 4.2.7 server
           - irods: "4.2.7"
             server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
             experimental: false
-          - irods: "4.2.7"
-            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
-            experimental: true
+          # iRODS 4.2.11 clients vs 4.2.7 server
           - irods: "4.2.7"
             server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
             experimental: true
-
-          - irods: "4.2.10"
-            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
-            experimental: true
-          - irods: "4.2.10"
-            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
-            experimental: false
-          - irods: "4.2.10"
-            server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
-            experimental: true
-
-          - irods: "4.2.11"
-            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
-            experimental: true
-          - irods: "4.2.11"
-            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
-            experimental: true
+          # iRODS 4.2.11 clients vs 4.2.11 server
           - irods: "4.2.11"
             server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
             experimental: false
-
 
     services:
       irods:
@@ -70,6 +52,7 @@ jobs:
 
       - name: "Configure Miniconda"
         run: |
+          conda update -n base -c defaults conda
           conda config --prepend pkgs_dirs "$HOME/conda/pkgs"
           conda config --prepend envs_dirs "$HOME/conda/envs"
 
