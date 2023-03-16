@@ -13,18 +13,18 @@ jobs:
         include:
           # iRODS 4.2.11 clients on bionic
           - irods: "4.2.11"
-            build_image: "wsinpg/ub-18.04-irods-clients-dev-4.2.11:latest"
-            server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
+            build_image: "ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.2.11:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-18.04-irods-4.2.11:latest"
             experimental: false
           # iRODS 4.3.0 clients on bionic
           - irods: "4.3.0"
-            build_image: "wsinpg/ub-18.04-irods-clients-dev-4.3.0:latest"
-            server_image: "wsinpg/ub-18.04-irods-4.3.0:latest"
+            build_image: "ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.3.0:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-18.04-irods-4.3.0:latest"
             experimental: true
           # iRODS 4.3.0 clients on focal
           - irods: "4.3.0"
-            build_image: "wsinpg/ub-20.04-irods-clients-dev-4.3.0:latest"
-            server_image: "wsinpg/ub-18.04-irods-4.3.0:latest"
+            build_image: "ghcr.io/wtsi-npg/ub-20.04-irods-clients-dev-4.3.0:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-18.04-irods-4.3.0:latest"
             experimental: true
 
     container:
