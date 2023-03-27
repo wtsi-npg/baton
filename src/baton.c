@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2020 Genome Research
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2020, 2023 Genome Research
  * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -560,7 +560,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     return results;
 
 error:
-    logmsg(ERROR, error->message);
+    logmsg(ERROR, "%s", error->message);
 
     if (results)      json_decref(results);
     if (collections)  json_decref(collections);
@@ -589,7 +589,7 @@ json_t *search_specific(rcComm_t *conn, json_t *query, char *zone_name,
     return results;
 
 error:
-    logmsg(ERROR, error->message);
+    logmsg(ERROR, "%s", error->message);
 
     if (results) json_decref(results);
 
@@ -658,11 +658,11 @@ int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
 
 error:
     if (conn->rError) {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
         log_rods_errstack(ERROR, conn->rError);
     }
     else {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
     }
 
     return error->code;
@@ -775,11 +775,11 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
 
 error:
     if (conn->rError) {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
         log_rods_errstack(ERROR, conn->rError);
     }
     else {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
     }
 
     return error->code;
