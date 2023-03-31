@@ -1,6 +1,6 @@
 /**
  * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021,
- * 2022 Genome Research Ltd. All rights reserved.
+ * 2022, 2023 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2868,6 +2868,34 @@ START_TEST(test_regression_github_issue252) {
 }
 END_TEST
 
+START_TEST(test_regression_github_issue267) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    // A data object named literally "%s.txt" (but which doesn't exist)
+    char* obj_path =" /testZone/%s.txt";
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                      flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, -1);
+
+    flags = SEARCH_OBJECTS;
+
+    baton_error_t error;
+    // This segfaulted before being fixed
+    json_t *results = list_path(conn, &rods_obj_path, flags, &error);
+    ck_assert_int_eq(error.code, -317000); // USER_INPUT_PATH_ERR
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -2989,6 +3017,7 @@ Suite *baton_suite(void) {
     tcase_add_test(regression, test_regression_github_issue140);
     tcase_add_test(regression, test_regression_github_issue242);
     tcase_add_test(regression, test_regression_github_issue252);
+    tcase_add_test(regression, test_regression_github_issue267);
 
     suite_add_tcase(suite, utilities);
     suite_add_tcase(suite, basic);

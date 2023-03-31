@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019, 2021 Genome
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019, 2021, 2023 Genome
  * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -171,11 +171,11 @@ query_error:
 
 error:
     if (conn->rError) {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
         log_rods_errstack(ERROR, conn->rError);
     }
     else {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
     }
 
     return NULL;
@@ -354,7 +354,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
 
 error:
     if (result) json_decref(result);
-    logmsg(ERROR, error->message);
+    logmsg(ERROR, "%s", error->message);
 
     return NULL;
 }
