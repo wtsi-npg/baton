@@ -1,5 +1,10 @@
 	[Upcoming]
 
+	[4.0.1]
+
+	Fix missing format string in logging which caused a segfault when
+	log message arugments contained a printf placeholder.
+
 	[4.0.0]
 
 	Improve connection management by closing the connection while
