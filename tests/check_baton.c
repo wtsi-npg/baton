@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021
- * Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021,
+ * 2022, 2023 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,8 +47,6 @@ static char *SQL_SETUP_SCRIPT    = "scripts/setup_sql.sh";
 
 static char *TEARDOWN_SCRIPT     = "scripts/teardown_irods.sh";
 static char *SQL_TEARDOWN_SCRIPT = "scripts/teardown_sql.sh";
-
-static char *BAD_REPLICA_SCRIPT  = "scripts/make_bad_replica.sh";
 
 static void set_current_rods_root(char *in, char *out) {
     rodsEnv rodsEnv;
@@ -2257,9 +2255,7 @@ START_TEST(test_checksum_ignore_stale) {
 
     char command[MAX_COMMAND_LEN];
     // change checksum of replica 1 without marking stale
-    snprintf(command, MAX_COMMAND_LEN, "%s/%s -c %s -d %s -a", TEST_ROOT,
-             BAD_REPLICA_SCRIPT, rods_root, obj_name);
-
+    snprintf(command, MAX_COMMAND_LEN, "iquest --sql setObjectChecksumInvalid %s %s 1", rods_root, obj_name);
     int ret = system(command);
     if (ret != 0) raise(SIGTERM);
 
@@ -2269,9 +2265,7 @@ START_TEST(test_checksum_ignore_stale) {
     ck_assert_int_ne(wrong_checksum_error.code, 0);
 
     // mark replica 1 as stale
-    snprintf(command, MAX_COMMAND_LEN, "%s/%s -c %s -d %s -s", TEST_ROOT,
-             BAD_REPLICA_SCRIPT, rods_root, obj_name);
-
+    snprintf(command, MAX_COMMAND_LEN, "iquest --sql setObjectReplStale %s %s 1", rods_root, obj_name);
     ret = system(command);
     if (ret != 0) raise(SIGTERM);
 
@@ -2689,6 +2683,8 @@ START_TEST(test_regression_github_issue137) {
     char *operators[] = { "=", "like", "not like", ">", "<",
                           "n>", "n<", ">=", "<=", "n>=", "n<=" };
 
+    int num_failed = 0;
+    int err_code = 0;
     for (size_t i = 0; i < 11; i++) {
         json_t *avu = json_pack("{s:s, s:s, s:s}",
                                 JSON_ATTRIBUTE_KEY, "numattr1",
@@ -2698,11 +2694,17 @@ START_TEST(test_regression_github_issue137) {
 
         baton_error_t error;
         json_t *results = search_metadata(conn, query, NULL, flags, &error);
-        ck_assert_msg(error.code == 0, "failed: %s", operators[i]);
+        if (error.code != 0) {
+            num_failed++;
+            fprintf(stderr, "operator test failed for '%s' with code %d\n", 
+            operators[i], error.code);
+        }
 
         json_decref(query);
         json_decref(results);
     }
+
+    ck_assert_msg(num_failed ==0, "failed %d operator tests", num_failed);
 
     // Test 'in' here
     json_t *avu = json_pack("{s:s, s:[s], s:s}",
@@ -2866,6 +2868,34 @@ START_TEST(test_regression_github_issue252) {
 }
 END_TEST
 
+START_TEST(test_regression_github_issue267) {
+    option_flags flags = 0;
+    rodsEnv env;
+    rcComm_t *conn = rods_login(&env);
+
+    char rods_root[MAX_PATH_LEN];
+    set_current_rods_root(TEST_COLL, rods_root);
+
+    // A data object named literally "%s.txt" (but which doesn't exist)
+    char* obj_path =" /testZone/%s.txt";
+
+    rodsPath_t rods_obj_path;
+    baton_error_t resolve_error;
+    resolve_rods_path(conn, &env, &rods_obj_path, obj_path,
+                      flags, &resolve_error);
+    ck_assert_int_eq(resolve_error.code, -1);
+
+    flags = SEARCH_OBJECTS;
+
+    baton_error_t error;
+    // This segfaulted before being fixed
+    json_t *results = list_path(conn, &rods_obj_path, flags, &error);
+    ck_assert_int_eq(error.code, -317000); // USER_INPUT_PATH_ERR
+
+    if (conn) rcDisconnect(conn);
+}
+END_TEST
+
 Suite *baton_suite(void) {
     Suite *suite = suite_create("baton");
 
@@ -2987,6 +3017,7 @@ Suite *baton_suite(void) {
     tcase_add_test(regression, test_regression_github_issue140);
     tcase_add_test(regression, test_regression_github_issue242);
     tcase_add_test(regression, test_regression_github_issue252);
+    tcase_add_test(regression, test_regression_github_issue267);
 
     suite_add_tcase(suite, utilities);
     suite_add_tcase(suite, basic);

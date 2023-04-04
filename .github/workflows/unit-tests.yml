@@ -4,99 +4,55 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
+
     continue-on-error: ${{ matrix.experimental }} # Experimental builds may fail
-
-    defaults:
-      run:
-        shell: bash -l -e -o pipefail {0}
-
-    env:
-      WSI_CONDA_CHANNEL: "https://dnap.cog.sanger.ac.uk/npg/conda/devel/generic"
-      CONDA_TEST_ENVIRONMENT: "testenv"
-      CK_DEFAULT_TIMEOUT: 20
 
     strategy:
       matrix:
         include:
-          - irods: "4.2.7"
-            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
+          # iRODS 4.2.11 clients on bionic
+          - irods: "4.2.11"
+            build_image: "ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.2.11:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-18.04-irods-4.2.11:latest"
             experimental: false
-          - irods: "4.2.7"
-            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
+          # iRODS 4.3.0 clients on bionic
+          - irods: "4.3.0"
+            build_image: "ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.3.0:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-18.04-irods-4.3.0:latest"
             experimental: true
-          - irods: "4.2.7"
-            server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
+          # iRODS 4.3.0 clients on focal
+          - irods: "4.3.0"
+            build_image: "ghcr.io/wtsi-npg/ub-20.04-irods-clients-dev-4.3.0:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-18.04-irods-4.3.0:latest"
             experimental: true
 
-          - irods: "4.2.10"
-            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
-            experimental: true
-          - irods: "4.2.10"
-            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
-            experimental: false
-          - irods: "4.2.10"
-            server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
-            experimental: true
-
-          - irods: "4.2.11"
-            server_image: "wsinpg/ub-16.04-irods-4.2.7:latest"
-            experimental: true
-          - irods: "4.2.11"
-            server_image: "wsinpg/ub-18.04-irods-4.2.10:latest"
-            experimental: true
-          - irods: "4.2.11"
-            server_image: "wsinpg/ub-18.04-irods-4.2.11:latest"
-            experimental: false
-
+    container:
+      image: ${{ matrix.build_image }}
 
     services:
-      irods:
+      irods-server:
         image: ${{ matrix.server_image }}
-        options: --name irods-server # A consistent container name is necessary
-                                     # to allow creation of bad replicas.
-                                     # 'irods-server' is the default container
-                                     # name in the bad replica script
         ports:
-          - 1247:1247
-          - 20000-20199:20000-20199
+          - "1247:1247"
+          - "20000-20199:20000-20199"
+        options: >-
+          --health-cmd "nc -z -v localhost 1247"
+          --health-start-period 30s
+          --health-interval 10s
+          --health-timeout 20s
+          --health-retries 6
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: "Initialize Miniconda"
-        run: |
-          echo 'source $CONDA/etc/profile.d/conda.sh' >> "$HOME/.bash_profile"
-
-      - name: "Configure Miniconda"
-        run: |
-          conda config --prepend pkgs_dirs "$HOME/conda/pkgs"
-          conda config --prepend envs_dirs "$HOME/conda/envs"
-
-          conda config --set auto_update_conda False
-          conda config --prepend channels "$WSI_CONDA_CHANNEL"
-          conda info
-
-      - name: "Install iRODS clients"
-        run: |
-          conda create -y -n "$CONDA_TEST_ENVIRONMENT"
-          conda install -y -n "$CONDA_TEST_ENVIRONMENT" python=3.9
-          conda install -y -n "$CONDA_TEST_ENVIRONMENT" sphinx=2.4
-
-          conda install -y -n "$CONDA_TEST_ENVIRONMENT" check
-          conda install -y -n "$CONDA_TEST_ENVIRONMENT" libjansson-dev
-          conda install -y -n "$CONDA_TEST_ENVIRONMENT" "irods-dev ==${{ matrix.irods }}"
-
-          conda install -y -n "$CONDA_TEST_ENVIRONMENT" "irods-icommands ==${{ matrix.irods }}"
+      - name: Checkout
+        uses: actions/checkout@v3
 
       - name: "Configure iRODS clients"
         run: |
-          conda activate "$CONDA_TEST_ENVIRONMENT"
-
           mkdir -p "$HOME/.irods"
           cat <<'EOF' > "$HOME/.irods/irods_environment.json"
           {
-              "irods_host": "localhost",
+              "irods_host": "irods-server",
               "irods_port": 1247,
               "irods_user_name": "irods",
               "irods_zone_name": "testZone",
@@ -105,29 +61,24 @@ jobs:
           }
           EOF
 
+          # Without this, Actions refuses the connection between the containers:
+          nc -z -v irods-server 1247
+
           echo "irods" | script -q -c "iinit" /dev/null
           ienv
           ils
           ilsresc
 
       - name: "Build and test baton"
+        env:
+          CK_DEFAULT_TIMEOUT: 20 
         run: |
-          conda activate "$CONDA_TEST_ENVIRONMENT"
+          # Avoid git exiting when Actions runs this:
+          git config --global --add safe.directory "$PWD"
 
-          # Is there an environment variable for this?
-          CONDA_ENV="/home/runner/conda/envs/$CONDA_TEST_ENVIRONMENT"
-
-          CPPFLAGS="-I$CONDA_ENV/include -I$CONDA_ENV/include/irods"
-          LDFLAGS="-L$CONDA_ENV/lib -L$CONDA_ENV/lib/irods/externals"
-          PKG_CONFIG_PATH="$CONDA_ENV/lib/pkgconfig"
-
-          autoreconf -i
-          ./configure CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
-
-          export LD_LIBRARY_PATH="$CONDA_ENV/lib"
-
-          make check
-          make distcheck DISTCHECK_CONFIGURE_FLAGS="CPPFLAGS=\"$CPPFLAGS\" LDFLAGS=\"$LDFLAGS\""
+          autoreconf -fi
+          ./configure
+          make distcheck
 
       - name: "Show test log"
         if: ${{ failure() }}

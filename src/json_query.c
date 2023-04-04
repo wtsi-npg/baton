@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2019, 2021 Genome Research
+ * Copyright (C) 2013, 2014, 2015, 2016, 2019, 2021, 2023 Genome Research
  * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -473,11 +473,11 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
 
 error:
     if (conn->rError) {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
         log_rods_errstack(ERROR, conn->rError);
     }
     else {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
     }
 
     if (query_out) free_query_output(query_out);
@@ -572,11 +572,11 @@ json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
 
 error:
     if (conn->rError) {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
         log_rods_errstack(ERROR, conn->rError);
     }
     else {
-        logmsg(ERROR, error->message);
+        logmsg(ERROR, "%s", error->message);
     }
 
     if (query_out) free_query_output(query_out);
@@ -1369,4 +1369,3 @@ error:
 
     return NULL;
 }
-

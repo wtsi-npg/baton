@@ -186,8 +186,8 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
     if (!path1) goto error;
     if (!path2) goto error;
 
-    strncpy(path1, path, len);
-    strncpy(path2, path, len);
+    snprintf(path1, len, "%s", path);
+    snprintf(path2, len, "%s", path);
 
     char *coll_name = dirname(path1);
     char *data_name = basename(path2);
@@ -282,8 +282,8 @@ genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
     if (!path1) goto error;
     if (!path2) goto error;
 
-    strncpy(path1, path, len);
-    strncpy(path2, path, len);
+    snprintf(path1, len, "%s", path);
+    snprintf(path2, len, "%s", path);
 
     char *coll_name = dirname(path1);
     char *data_name = basename(path2);
