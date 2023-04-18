@@ -17,16 +17,16 @@ ENV LANG=en_GB.UTF-8 \
     LANGUAGE=en_GB \
     LC_ALL=en_GB.UTF-8
 
-ENV IRODS_VERSION=4.2.11-1~bionic
+ENV IRODS_VERSION=4.2.11
 
 RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - && \
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
     tee /etc/apt/sources.list.d/renci-irods.list && \
     apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    irods-dev="$IRODS_VERSION" \
-    irods-runtime="$IRODS_VERSION" \
-    irods-icommands="$IRODS_VERSION"
+    irods-dev="${IRODS_VERSION}-1~$(lsb_release -sc)" \
+    irods-runtime="${IRODS_VERSION}-1~$(lsb_release -sc)" \
+    irods-icommands="${IRODS_VERSION}-1~$(lsb_release -sc)"
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \

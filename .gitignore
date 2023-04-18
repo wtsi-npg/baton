@@ -18,7 +18,6 @@ ltmain.sh
 missing
 stamp-h1
 test-driver
-Makefile
 Makefile.in
 baton.pc
 GPATH

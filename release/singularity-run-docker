@@ -1,0 +1,22 @@
+#!/bin/bash
+#
+# Running this script will start an instance of the container, if one is not 
+# already running, and then execute the command in the instance.
+#
+# Cleaning up unwanted instances afterwards is outside the scope of this script.
+set -euo pipefail
+
+DOCKER_REGISTRY=${DOCKER_REGISTRY:?required, but not set}
+DOCKER_USER=${DOCKER_USER:?required, but not set}
+DOCKER_IMAGE=${DOCKER_IMAGE:?required, but was not set}
+DOCKER_TAG=${DOCKER_TAG:?required, but not set}
+
+# Colons and slashes are not allowed in Singularity instance names
+instance="$DOCKER_REGISTRY--$DOCKER_USER--$DOCKER_IMAGE--$DOCKER_TAG"
+
+if ! singularity instance list | grep "$instance" 2>&1 >/dev/null ; then
+    singularity instance start \
+        "docker://$DOCKER_REGISTRY/$DOCKER_USER/$DOCKER_IMAGE:$DOCKER_TAG" "$instance" 2>&1 >/dev/null
+fi
+
+singularity exec "instance://$instance" "$@"

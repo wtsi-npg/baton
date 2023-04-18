@@ -1,0 +1,13 @@
+{
+    "package": "baton",
+    "executable": [
+        "baton-chmod",
+        "baton-do",
+        "baton-get",
+        "baton-list",
+        "baton-metamod",
+        "baton-metaquery",
+        "baton-put",
+        "baton-specificquery"
+    ]
+}
