@@ -44,7 +44,7 @@ jobs:
           --health-retries 6
 
     steps:
-      - name: Checkout
+      - name: "Checkout"
         uses: actions/checkout@v3
 
       - name: "Configure iRODS clients"
@@ -73,9 +73,9 @@ jobs:
         env:
           CK_DEFAULT_TIMEOUT: 20 
         run: |
-          # Avoid git exiting when Actions runs this:
+          # Avoid git exiting when Actions runs
           git config --global --add safe.directory "$PWD"
-
+          
           autoreconf -fi
           ./configure
           make distcheck

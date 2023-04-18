@@ -1,0 +1,112 @@
+
+name: "Create release"
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        shell: bash -l -e -o pipefail {0}
+
+    container:
+      image: "ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.2.11:latest"
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: "Fetch Tags"
+        # Workaround for https://github.com/actions/checkout/issues/290
+        run: |
+          # Avoid git exiting when Actions runs
+          git config --global --add safe.directory "$PWD"
+          
+          git fetch --tags --force
+
+      - name: "Build Package"
+        run: |
+          # Avoid git exiting when Actions runs
+          git config --global --add safe.directory "$PWD"
+
+          autoreconf -fi
+          ./configure
+          make dist
+
+      - name: "Upload artifact"
+        uses: actions/upload-artifact@v3
+        with:
+          name: baton-release-tarball
+          path: "baton-*.tar.gz"
+
+  release:
+    runs-on: ubuntu-latest
+    
+    needs: "build"
+    
+    defaults:
+      run:
+        shell: bash -l -e -o pipefail {0}
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: "Fetch Tags"
+        # Workaround for https://github.com/actions/checkout/issues/290
+        run: |
+          # Avoid git exiting when Actions runs
+          git config --global --add safe.directory "$PWD"
+          
+          git fetch --tags --force
+
+      - name: "Get release variables"
+        run: |
+          echo 'RELEASE_VERSION='$(git describe --always --tags) >> $GITHUB_ENV
+          echo 'MASTER_SHA='$(git rev-parse origin/master) >> $GITHUB_ENV
+
+      - name: "Download artifact"
+        uses: actions/download-artifact@v3
+        with:
+          name: baton-release-tarball
+
+      - name: "Create Release"
+        uses: ncipollo/release-action@v1.12.0
+        with:
+          name: ${{ env.RELEASE_VERSION }}
+          prerelease: ${{ !(github.sha == env.MASTER_SHA) }}
+          artifacts: "baton-*.tar.gz"
+          removeArtifacts: true
+          artifactErrorsFailBuild: true
+          generateReleaseNotes: true
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v2
+        with:
+          install: true
+
+      - name: "Login to Docker registry"
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Build and push Docker image"
+        run: |
+          cd release
+          make GITHUB_ACTIONS=${GITHUB_ACTIONS} GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
+
+          docker image prune --force
+          docker images
+
+          make push GITHUB_ACTIONS=${GITHUB_ACTIONS} GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}

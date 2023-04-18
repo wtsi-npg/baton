@@ -1,0 +1,179 @@
+#!/bin/bash
+#
+# Copyright (C) 2023 Genome Research Ltd. All rights reserved.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Author: Keith James <kdj@sanger.ac.uk>
+
+set -euo pipefail
+
+usage() {
+    cat 1>&2 << EOF
+Install singularity proxy wrappers for the executables listed in a
+container's manifest to a nominated directory.
+
+Usage: $0 [-h] [-i <Docker image name>]
+    [-m <JSON manifest path>]
+    [-p <wrapper install prefix>]
+    [-r <Docker registry name>]
+    [-t <Docker image tag>]
+    [-u <Docker user name>] [-v] <operation>
+
+Operation may be one of:
+  list     Print the manifest to STDOUT and exit.
+  install  Install wrappers to the location given by the install
+           prefix (-p option). Wrappers are installed to a directory
+           "\$prefix/bin", which is created if not already present.
+
+Options:
+
+ -h  Print usage and exit.
+ -i  Docker image name. Required, defaults to the value of the
+     environment variable "\$DOCKER_IMAGE" ("$DOCKER_IMAGE").
+ -m  Manifest file path. Optional, defaults to the value of the
+     environment variable \$MANIFEST_PATH ("$MANIFEST_PATH").
+ -p  Install prefix. Optional, defaults to the value of the
+     environment variable \$PREFIX ("$PREFIX").
+ -r  Docker registry name. Optional, defaults to the value of the 
+     environment variable \$DOCKER_REGISTRY ("$DOCKER_REGISTRY").
+ -t  Docker image tag. Optional, defaults to the value of the
+     environment variable \$DOCKER_TAG ("$DOCKER_TAG").
+ -u  Docker user name. Optional, defaults to the value of the
+     environment variable \$DOCKER_USER ("$DOCKER_USER").
+ -v  Print verbose messages.
+EOF
+}
+
+# Print an application manifest
+print_manifest() {
+    jq . "$MANIFEST_PATH"
+}
+
+# Write a bash script wrapping an application in a Docker container
+write_wrapper() {
+    local dir="$1"
+    local exe="$2"
+
+    if [ -z "$DOCKER_IMAGE" ] ; then
+        usage
+        echo -e "\nERROR:\n  A Docker image name is required"
+        exit 4
+    fi
+
+cat << EOF > "$dir/$exe"
+#!/bin/bash
+
+set -e
+
+export DOCKER_REGISTRY="$DOCKER_REGISTRY"
+export DOCKER_USER="$DOCKER_USER"
+export DOCKER_IMAGE="$DOCKER_IMAGE"
+export DOCKER_TAG="$DOCKER_TAG"
+
+# TODO: Add other environment variables that will, if set at install
+# time, be permanently set in the installed wrapper. E.g. a candidate
+# is SINGULARITY_CACHEDIR.
+
+"\$(dirname "\${BASH_SOURCE[0]}")/singularity-run-docker" "$exe" "\$@"
+EOF
+
+chmod +x "$dir/$exe"
+}
+
+# Install wrappers for every application in a container's application manifest
+install_wrappers() {
+    local dir="$PREFIX/bin"
+    install -d "$dir"
+    cp /usr/local/bin/singularity-run-docker "$PREFIX/bin"
+
+    for exe in "${wrappers[@]}" ; do
+        write_wrapper "$dir" "$exe"
+    done
+}
+
+DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}
+DOCKER_USER=${DOCKER_USER:-wtsi-npg}
+DOCKER_IMAGE=${DOCKER_IMAGE:-""}
+DOCKER_TAG=${DOCKER_TAG:-latest}
+
+PREFIX=${PREFIX:-/opt/wtsi-npg}
+MANIFEST_PATH=${MANIFEST_PATH:-"$PREFIX/etc/manifest.json"}
+
+while getopts "hi:m:p:r:t:u:v" option; do
+    case "$option" in
+        h)
+            usage
+            exit 0
+            ;;
+        i)
+            DOCKER_IMAGE="$OPTARG"
+            ;;
+        m)
+            MANIFEST_PATH="$OPTARG"
+            ;;
+        p)
+            PREFIX="$OPTARG"
+            ;;
+        r)
+            DOCKER_REGISTRY="$OPTARG"
+            ;;
+        t)
+            DOCKER_TAG="$OPTARG"
+            ;;
+        u)
+            DOCKER_USER="$OPTARG"
+            ;;
+        v)
+            set -x
+            ;;
+        *)
+            usage
+            echo -e "\nERROR:\n  Invalid option"
+            exit 4
+            ;;
+    esac
+done
+
+shift $((OPTIND -1))
+
+declare -a wrappers
+if [ ! -e "$MANIFEST_PATH" ] ; then
+    echo -e "\nERROR:\n  The manifest of executables at '$MANIFEST_PATH' does not exist"
+    exit 4
+fi
+
+wrappers=($(jq -j '.executable[] + " "' "$MANIFEST_PATH"))
+
+OPERATION="$@"
+if [ -z "$OPERATION" ] ; then
+    usage
+    echo -e "\nERROR:\n  An operation argument is required"
+    exit 4
+fi
+
+case "$OPERATION" in
+    list)
+        print_manifest
+        exit 0
+        ;;
+    install)
+        install_wrappers
+        ;;
+    *)
+        usage
+        echo -e "\nERROR:\n  Invalid wrapper operation '$OPERATION'"
+        exit 4
+        ;;
+esac
