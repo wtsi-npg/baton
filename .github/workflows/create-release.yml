@@ -90,21 +90,16 @@ jobs:
           generateReleaseNotes: true
     
     outputs:
-      isRelease: ${{ github.sha == env.MASTER_SHA }}
+      isRelease: ${{ (github.sha == env.MASTER_SHA) }}
 
   deploy:
     runs-on: ubuntu-latest
     
     needs: [build, release]
     
-    if: ${{ needs.release.outputs.isRelease }}
+    if: ${{ needs.release.outputs.isRelease == "false" }}  # Actions coerces bool to string
 
     steps:
-      - name: "Show needs context"
-        env:
-          NEEDS_CONTEXT: ${{ toJson(needs) }}
-        run: echo "$NEEDS_CONTEXT"
-
       - name: "Checkout code"
         uses: actions/checkout@v3
         with:
