@@ -100,10 +100,10 @@ jobs:
     if: ${{ needs.release.outputs.isRelease }}
 
     steps:
-      - name: "Show GitHub context"
+      - name: "Show needs context"
         env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
+          NEEDS_CONTEXT: ${{ toJson(needs) }}
+        run: echo "$NEEDS_CONTEXT"
 
       - name: "Checkout code"
         uses: actions/checkout@v3
