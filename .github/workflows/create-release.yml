@@ -97,7 +97,7 @@ jobs:
     
     needs: [build, release]
     
-    if: ${{ needs.release.outputs.isRelease == "false" }}  # Actions coerces bool to string
+    if: needs.release.outputs.isRelease == 'false'  # Actions coerces boolean to string
 
     steps:
       - name: "Checkout code"
