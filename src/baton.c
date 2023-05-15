@@ -756,7 +756,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     named_args.attr_value = attr_value;
     named_args.attr_units = attr_units;
 
-    modAVUMetadataInp_t anon_args;
+    modAVUMetadataInp_t anon_args = {0};
     map_mod_args(&anon_args, &named_args);
 
     int status = rcModAVUMetadata(conn, &anon_args);
