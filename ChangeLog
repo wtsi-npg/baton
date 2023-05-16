@@ -1,5 +1,12 @@
 	[Upcoming]
 
+	[4.1.0]
+	
+	Add iRODS 4.2.12 to test matrix.
+	
+	Fix struct initialisation for metadata operations (affects iRODS
+	4.2.12).
+
 	[4.0.1]
 
 	Fix missing format string in logging which caused a segfault when
