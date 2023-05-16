@@ -6,6 +6,7 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
     apt-utils \
     ca-certificates \
     curl \
+    dirmngr \
     gpg \
     gpg-agent \
     lsb-release \
@@ -17,7 +18,7 @@ ENV LANG=en_GB.UTF-8 \
     LANGUAGE=en_GB \
     LC_ALL=en_GB.UTF-8
 
-ENV IRODS_VERSION=4.2.11
+ENV IRODS_VERSION=4.2.12
 
 RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - && \
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
@@ -28,20 +29,28 @@ RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - &
     irods-runtime="${IRODS_VERSION}-1~$(lsb_release -sc)" \
     irods-icommands="${IRODS_VERSION}-1~$(lsb_release -sc)"
 
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys "E1DD270288B4E6030699E45FA1715D88E1DF1F24" && \
+    echo "deb https://ppa.launchpadcontent.net/git-core/ppa/ubuntu $(lsb_release -sc) main" |\
+    tee /etc/apt/sources.list.d/git-core.list && \
+    apt-get update && \
+    apt-get install -q -y --no-install-recommends \
+    git
+
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
     autoconf \
     automake \
     build-essential \
     check \
+    cmake \
     gdb \
-    git \
     jq \
     lcov \
     less \
     libjansson-dev \
     libtool \
     pkg-config \
+    python3-sphinx \
     ssh \
     valgrind \
     unattended-upgrades && \

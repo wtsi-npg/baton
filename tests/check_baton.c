@@ -1377,7 +1377,6 @@ START_TEST(test_add_metadata_obj) {
 }
 END_TEST
 
-
 // Do we fail to add metadata to a non-existent path?
 START_TEST(test_add_metadata_missing_path) {
     option_flags flags = 0;
