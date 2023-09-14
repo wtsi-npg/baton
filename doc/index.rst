@@ -70,7 +70,7 @@ iRODS C API and requires a C compiler to build.
 
 .. code-block:: sh
 
-   ./configure
+   LDFLAGS="-Wl,-z,muldefs" ./configure
 
 
    If you have iRODS headers and libraries installed in a non-standard
@@ -80,7 +80,7 @@ iRODS C API and requires a C compiler to build.
 .. code-block:: sh
 
    CPPFLAGS="-I/path/to/irods/headers" \
-     LDFLAGS="-L/path/to/irods/libraries" ./configure
+     LDFLAGS="-Wl,-z,muldefs -L/path/to/irods/libraries" ./configure
 
 
 4. Compile

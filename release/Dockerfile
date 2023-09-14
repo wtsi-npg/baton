@@ -59,7 +59,7 @@ WORKDIR /code
 ENV CPPFLAGS="-I/usr/include/irods"
 
 RUN autoreconf -fi && \
-    ./configure && \
+    LDFLAGS="-Wl,-z,muldefs " ./configure && \
     make install && \
     ldconfig
 
@@ -94,7 +94,7 @@ ENV LANG=en_GB.UTF-8 \
 RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - && \
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
     tee /etc/apt/sources.list.d/renci-irods.list && \
-    apt-get update && \ 
+    apt-get update && \
     apt-get install -q -y --no-install-recommends \
     irods-runtime="${IRODS_VERSION}-1~$(lsb_release -sc)" \
     jq \
