@@ -47,6 +47,7 @@ iRODS compatibility:
     3.1.x          4.2.7 - 4.2.9
     3.2.x          4.2.7 - 4.2.11
     3.3.x          4.2.7 - 4.2.11
+    4.0.x          4.2.7 - 4.3.0
 
 Installation:
 
@@ -70,17 +71,17 @@ Installation:
    variables appropriately. E.g.
 
    CPPFLAGS="-I/path/to/irods/headers" \
-     LDFLAGS="-L/path/to/irods/libraries" ./configure
+     LDFLAGS="-Wl,-z,muldefs -L/path/to/irods/libraries" ./configure
 
 4. Compile
 
-   make CPPFLAGS="-I/path/to/irods/headers" LDFLAGS="-L/path/to/irods/libraries" 
+   make CPPFLAGS="-I/path/to/irods/headers" LDFLAGS="-L/path/to/irods/libraries"
 
    If you have iRODS headers and libraries installed in a non-standard
    place, you will need to set the CPPFLAGS and LDFLAGS environmment
    variables appropriately. E.g.
 
-   make 
+   make
 
 5. Optionally, run the test suite
 
@@ -117,7 +118,7 @@ Dependencies:
 
 iRODS   https://github.com/irods/irods
 
-        Versions 4.1.x, 4.2.x
+        Versions 4.1.x, 4.2.x 4.3.x
 
 Jansson https://github.com/akheron/jansson.git
 

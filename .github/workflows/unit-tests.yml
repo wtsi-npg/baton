@@ -76,11 +76,12 @@ jobs:
 
       - name: "Build and test baton"
         env:
-          CK_DEFAULT_TIMEOUT: 20 
+          CK_DEFAULT_TIMEOUT: 20
         run: |
           # Avoid git exiting when Actions runs
           git config --global --add safe.directory "$PWD"
-          
+
+          export LDFLAGS="-Wl,-z,muldefs"
           autoreconf -fi
           ./configure
           make distcheck
