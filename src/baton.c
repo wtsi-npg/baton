@@ -208,7 +208,7 @@ rcComm_t *rods_login(rodsEnv *env) {
 
     status = getRodsEnv(env);
     if (status < 0) {
-        logmsg(ERROR, "Failed to load your iRODS environment");
+        logmsg(ERROR, "Failed to load your iRODS environment: %d", status);
         goto error;
     }
 
@@ -231,7 +231,9 @@ rcComm_t *rods_login(rodsEnv *env) {
 #endif
 
     if (status < 0) {
-        logmsg(ERROR, "Failed to log in to iRODS");
+        char *err_subname;
+        const char *err_name = rodsErrorName(status, &err_subname);
+        logmsg(ERROR, "Failed to log in to iRODS: %d %s %s", status, err_name, err_subname);
         goto error;
     }
 

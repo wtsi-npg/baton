@@ -34,7 +34,7 @@ int chksumLocFile( const char *fileName, char *chksumStr, const char* );
 
 int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
                  char *default_resource, char *checksum, int flags,
-		 baton_error_t *error) {
+                 baton_error_t *error) {
     char *tmpname  = NULL;
     dataObjInp_t obj_open_in;
     int status;
@@ -163,8 +163,11 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
     if (error->code != 0) goto finally;
 
     unsigned char digest[16];
-    MD5_CTX context;
-    compat_MD5Init(&context);
+    EVP_MD_CTX *context = compat_MD5Init(error);
+    if (error->code != 0) {
+        logmsg(ERROR, error->message);
+        goto finally;
+    }
 
     size_t nr, nw;
     while ((nr = fread(buffer, 1, buffer_size, in)) > 0) {
@@ -179,11 +182,19 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
         }
         num_written += nw;
 
-        compat_MD5Update(&context, (unsigned char*) buffer, nr);
+        compat_MD5Update(context, (unsigned char*) buffer, nr, error);
+        if (error->code != 0) {
+            logmsg(ERROR, error->message);
+            goto finally;
+        }
         memset(buffer, 0, buffer_size);
     }
 
-    compat_MD5Final(digest, &context);
+    compat_MD5Final(digest, context, error);
+    if (error->code != 0) {
+        logmsg(ERROR, error->message);
+        goto finally;
+    }
     set_md5_last_read(obj, digest);
 
     int status = close_data_obj(conn, obj);
