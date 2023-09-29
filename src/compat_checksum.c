@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2015, 2023 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,42 +20,6 @@
 
 #include "compat_checksum.h"
 
-// #if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4003000
-// MD5_CONTEXT* compat_MD5Init(baton_error_t *error) {
-//     const EVP_MD *md = EVP_md5();
-
-//     MD5_CONTEXT *context = EVP_MD_CTX_new();
-//     if (context == NULL) {
-//          set_baton_error(error, -1, "Failed to create an MD5 context");
-//          return NULL;
-//     }
-
-//     if (!EVP_DigestInit_ex(context, md, NULL)) {
-//         EVP_MD_CTX_free(context);
-//         set_baton_error(error, -1, "Failed to initialize an MD5 context");
-//         return NULL;
-//     }
-
-//     return context;
-// }
-
-// void compat_MD5Update(MD5_CONTEXT *context, unsigned char *input,
-//                       unsigned int len, baton_error_t *error) {
-//     if (!EVP_DigestUpdate(context, input, len)) {
-//         EVP_MD_CTX_free(context);
-//         set_baton_error(error, -1, "Failed to update an MD5 context");
-//     }
-// }
-
-// void compat_MD5Final(unsigned char digest[16], MD5_CONTEXT *context,
-//                     baton_error_t *error) {
-//     uint len = 16;
-//     if (!EVP_DigestFinal_ex(context, digest, &len)) {
-//         EVP_MD_CTX_free(context);
-//         set_baton_error(error, -1, "Failed to finalise an MD5 context");
-//     }
-// }
-// #else
 EVP_MD_CTX* compat_MD5Init(baton_error_t *error) {
     const EVP_MD *md = EVP_md5();
 
@@ -90,4 +54,3 @@ void compat_MD5Final(unsigned char digest[16], EVP_MD_CTX *context,
         set_baton_error(error, -1, "Failed to finalise an MD5 context");
     }
 }
-// #endif
