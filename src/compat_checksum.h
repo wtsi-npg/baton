@@ -22,30 +22,28 @@
 #define _BATON_COMPAT_CHECKSUM_H
 
 #include <rodsVersion.h>
+#include <openssl/opensslv.h>
 
 #include "config.h"
+#include "error.h"
 
-#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
-#include <openssl/md5.h>
+// OpenSSL 1.0
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define MD5_NEW EVP_MD_CTX_create
+#define MD5_FREE EVP_MD_CTX_destroy
 #else
-#include "md5Checksum.h"
+#define MD5_NEW EVP_MD_CTX_new
+#define MD5_FREE EVP_MD_CTX_free
 #endif
 
-// iRODS 3.x shares the same checksum API as iRODS 4.0.x, while 4.1.x
-// uses openssl directly. Backwards compatibility was broken for the
-// iRODS checksum API in 4.1.0. Since baton needs to continue support
-// for both 3.3.1 and 4.1.x this compatability shim was introduced and
-// baton's support for iRODS 4.0.x discontinued. It's a long-winded way
-// of doing things, but it's very clear what's going on.
+#include <openssl/evp.h>
 
-// MD5_CTX is a symbol that clashes between iRODS 3.x/4.0.x MD5 and
-// OpenSSL MD5. We just use whichever is present, which the ifdefs
-// ensure will be the correct one.
+EVP_MD_CTX *compat_MD5Init(baton_error_t *error);
 
-void compat_MD5Init(MD5_CTX *context);
+void compat_MD5Update(EVP_MD_CTX *context, unsigned char *input, unsigned int len,
+                      baton_error_t *error);
 
-void compat_MD5Update(MD5_CTX *context, unsigned char *input, unsigned int len);
-
-void compat_MD5Final(unsigned char digest[16], MD5_CTX *context);
+void compat_MD5Final(unsigned char digest[16], EVP_MD_CTX *context,
+                     baton_error_t *error);
 
 #endif // _BATON_COMPAT_CHECKSUM_H

@@ -138,16 +138,20 @@ static int have_rodsadmin() {
 static void confirm_checksum(FILE *in, const char *expected_md5) {
     char buffer[1024];
     unsigned char digest[16];
+    baton_error_t error;
 
-    MD5_CTX context;
-    compat_MD5Init(&context);
+    init_baton_error(&error);
+    EVP_MD_CTX *context = compat_MD5Init(&error);
+    ck_assert_int_eq(error.code, 0);
 
     size_t nr;
     while ((nr = fread(buffer, 1, 1024, in)) > 0) {
-        compat_MD5Update(&context, (unsigned char *) buffer, nr);
+        compat_MD5Update(context, (unsigned char *) buffer, nr, &error);
+        ck_assert_int_eq(error.code, 0);
     }
 
-    compat_MD5Final(digest, &context);
+    compat_MD5Final(digest, context, &error);
+    ck_assert_int_eq(error.code, 0);
 
     char *md5 = calloc(33, sizeof (char));
     for (int i = 0; i < 16; i++) {

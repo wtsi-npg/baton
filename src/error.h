@@ -23,6 +23,8 @@
 
 #define MAX_ERROR_MESSAGE_LEN 1024
 
+#include <stddef.h>
+
 typedef struct baton_error {
     /** Error code */
     int code;

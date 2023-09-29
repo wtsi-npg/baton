@@ -265,9 +265,12 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
     }
 
     unsigned char digest[16];
-    MD5_CTX context;
-    compat_MD5Init(&context);
-
+    EVP_MD_CTX *context = compat_MD5Init(error);
+    if (error->code != 0) {
+        logmsg(ERROR, error->message);
+        goto finally;
+    }
+    
     size_t nr, nw;
     while ((nr = read_chunk(conn, data_obj, buffer, buffer_size, error)) > 0) {
         num_read += nr;
@@ -283,11 +286,20 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
         nw = nr;
         num_written += nw;
 
-        compat_MD5Update(&context, (unsigned char*) buffer, nr);
+        compat_MD5Update(context, (unsigned char*) buffer, nr, error);
+        if (error->code != 0) {
+            logmsg(ERROR, error->message);
+            goto finally;
+        }
         memset(buffer, 0, buffer_size);
     }
 
-    compat_MD5Final(digest, &context);
+    compat_MD5Final(digest, context, error);
+    if (error->code != 0) {
+        logmsg(ERROR, error->message);
+        goto finally;
+    }
+
     set_md5_last_read(data_obj, digest);
 
     if (num_read != num_written) {
@@ -325,8 +337,11 @@ char *slurp_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
     }
 
     unsigned char digest[16];
-    MD5_CTX context;
-    compat_MD5Init(&context);
+    EVP_MD_CTX *context = compat_MD5Init(error);
+    if (error->code != 0) {
+        logmsg(ERROR, error->message);
+        goto error;
+    }
 
     size_t capacity = buffer_size;
     size_t num_read = 0;
@@ -364,8 +379,17 @@ char *slurp_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
 
     logmsg(DEBUG, "Final capacity %zu, offset %zu", capacity, num_read);
 
-    compat_MD5Update(&context, (unsigned char *) content, num_read);
-    compat_MD5Final(digest, &context);
+    compat_MD5Update(context, (unsigned char *) content, num_read, error);
+    if (error->code != 0) {
+        logmsg(ERROR, error->message);
+        goto error;
+    }
+
+    compat_MD5Final(digest, context, error);
+    if (error->code != 0) {
+        logmsg(ERROR, error->message);
+        goto error;
+    }
     set_md5_last_read(data_obj, digest);
 
     if (!validate_md5_last_read(conn, data_obj)) {
