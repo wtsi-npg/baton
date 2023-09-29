@@ -40,11 +40,14 @@ jobs:
           ./configure
           make dist
 
-      - name: "Upload artifact"
+          dist_file=$(ls baton-*.tar.gz)
+          sha256sum "$dist_file" > "$dist_file".sha256
+
+      - name: "Upload artifacts"
         uses: actions/upload-artifact@v3
         with:
           name: baton-release-tarball
-          path: "baton-*.tar.gz"
+          path: "baton-*.tar.gz*"
 
   release:
     runs-on: ubuntu-latest
@@ -84,7 +87,7 @@ jobs:
         with:
           name: ${{ env.RELEASE_VERSION }}
           prerelease: ${{ !(github.sha == env.MASTER_SHA) }}
-          artifacts: "baton-*.tar.gz"
+          artifacts: "baton-*.tar.gz*"
           removeArtifacts: true
           artifactErrorsFailBuild: true
           generateReleaseNotes: true
