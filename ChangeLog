@@ -1,5 +1,13 @@
 	[Upcoming]
 
+	[4.2.0]
+
+	Add compatibility for OpenSSL across iRODS versions.
+
+	Add experimental build against iRODS 4.3-nightly.
+
+	Fix missing checksum file for the release tarball.
+
 	[4.1.0]
 	
 	Add iRODS 4.2.12 to test matrix.
