@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG BASE_IMAGE=ubuntu:bionic
+ARG BASE_IMAGE=ubuntu:18.04
 FROM $BASE_IMAGE as installer
 
 ARG IRODS_VERSION="4.2.11"

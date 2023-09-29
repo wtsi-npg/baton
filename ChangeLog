@@ -1,5 +1,16 @@
 	[Upcoming]
 
+	[4.2.0]
+
+	Add compatibility for OpenSSL across iRODS versions.
+
+	Add to the release Makefile Docker container builds for
+	iRODS 4.2.7, 4.2.11 and 4.2.12.
+
+	Add experimental CI build against iRODS 4.3-nightly.
+
+	Fix missing checksum file for the release tarball.
+
 	[4.1.0]
 	
 	Add iRODS 4.2.12 to test matrix.
