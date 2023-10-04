@@ -2707,7 +2707,7 @@ START_TEST(test_regression_github_issue137) {
         json_decref(results);
     }
 
-    ck_assert_msg(num_failed ==0, "failed %d operator tests", num_failed);
+    ck_assert_msg(num_failed == 0, "failed %d operator tests", num_failed);
 
     // Test 'in' here
     json_t *avu = json_pack("{s:s, s:[s], s:s}",
@@ -2843,7 +2843,7 @@ START_TEST(test_regression_github_issue252) {
              env.rodsUserName, obj_path);
 
     int ret = system(ichmod_r);
-    ck_assert_msg(ret == 0, ichmod_r);
+    ck_assert_msg(ret == 0, "ichmod null %s %s", env.rodsUserName, obj_path);
 
     baton_error_t sver_error;
     char *server_version = get_server_version(conn, &sver_error);
