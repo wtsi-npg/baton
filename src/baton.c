@@ -219,21 +219,22 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
-#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
-#if IRODS_VERSION_INTEGER >= (4*1000000 + 2*1000 + 8)
-    load_client_api_plugins();
-#else
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER < (4*1000000 + 1*1000 + 8)
     init_client_api_table();
-#endif
-    status = clientLogin(conn, "", "");
-#else
     status = clientLogin(conn);
+#else
+    load_client_api_plugins();
+    status = clientLogin(conn, 0, "");
 #endif
 
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);
-        logmsg(ERROR, "Failed to log in to iRODS: %d %s %s", status, err_name, err_subname);
+        for (int i = 0; i < conn->rError->len; i++) {
+            char *msg = conn->rError->errMsg[0]->msg;
+            logmsg(ERROR, "Failed to log in to iRODS: %d %s: %s", status, err_name, msg);
+        }
+
         goto error;
     }
 
