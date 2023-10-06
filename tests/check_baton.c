@@ -1758,7 +1758,7 @@ START_TEST(test_json_to_local_path) {
                               JSON_DATA_OBJECT_KEY, obj_name);
 
     baton_error_t error_path2;
-    ck_assert_str_eq(json_to_local_path(path1, &error_path2),
+    ck_assert_str_eq(json_to_local_path(path2, &error_path2),
                      "./file1.txt");
     ck_assert_int_eq(error_path2.code, 0);
     json_decref(path2);
@@ -1768,7 +1768,7 @@ START_TEST(test_json_to_local_path) {
                               JSON_DATA_OBJECT_KEY, obj_name);
 
     baton_error_t error_path3;
-    ck_assert_str_eq(json_to_local_path(path1, &error_path3),
+    ck_assert_str_eq(json_to_local_path(path3, &error_path3),
                      "./obj1.txt");
     ck_assert_int_eq(error_path3.code, 0);
     json_decref(path3);

@@ -467,26 +467,30 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
     json_t *data_objects = NULL;
     int status;
 
-    query_format_in_t *col_format = &(query_format_in_t)
+    query_format_in_t col_format =
         { .num_columns = 1,
           .columns     = { COL_COLL_NAME },
           .labels      = { JSON_COLLECTION_KEY } };
 
+    query_format_in_t obj_format_simple =
+        { .num_columns = 2,
+          .columns     = { COL_COLL_NAME, COL_DATA_NAME },
+          .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY },
+          .good_repl   = 0 };
+
+    query_format_in_t obj_format_size =
+        { .num_columns = 3,
+          .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
+          .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
+                           JSON_SIZE_KEY },
+          .good_repl   = 1 };
+
     query_format_in_t *obj_format;
     if (flags & PRINT_SIZE) {
-        obj_format = &(query_format_in_t)
-            { .num_columns = 3,
-              .columns     = { COL_COLL_NAME, COL_DATA_NAME, COL_DATA_SIZE },
-              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
-                               JSON_SIZE_KEY },
-              .good_repl   = 1 };
+        obj_format = &obj_format_size;
     }
     else {
-        obj_format = &(query_format_in_t)
-            { .num_columns = 2,
-              .columns     = { COL_COLL_NAME, COL_DATA_NAME },
-              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY },
-              .good_repl   = 0 };
+        obj_format = &obj_format_simple;
     }
 
     init_baton_error(error);
@@ -507,7 +511,7 @@ json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
 
     if (flags & SEARCH_COLLECTIONS) {
         logmsg(DEBUG, "Searching for collections ...");
-        collections = do_search(conn, zone_name, query, col_format,
+        collections = do_search(conn, zone_name, query, &col_format,
                                 prepare_col_avu_search, prepare_col_acl_search,
                                 prepare_col_cre_search, prepare_col_mod_search,
                                 error);
