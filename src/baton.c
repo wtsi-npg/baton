@@ -219,13 +219,13 @@ rcComm_t *rods_login(rodsEnv *env) {
         goto error;
     }
 
-#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER < (4*1000000 + 1*1000 + 8)
+#if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER < (4*1000000 + 2*1000 + 8)
     init_client_api_table();
-    status = clientLogin(conn);
 #else
     load_client_api_plugins();
-    status = clientLogin(conn, 0, "");
 #endif
+
+    status = clientLogin(conn, 0, "");
 
     if (status < 0) {
         char *err_subname;

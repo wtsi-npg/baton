@@ -12,10 +12,10 @@ jobs:
       matrix:
         include:
           # iRODS 4.2.7 clients on Ubuntu 16.04
-          # - irods: "4.2.7"
-          #   build_image: "ghcr.io/wtsi-npg/ub-16.04-irods-clients-dev-4.2.7:latest"
-          #   server_image: "ghcr.io/wtsi-npg/ub-16.04-irods-4.2.7:latest"
-          #   experimental: false
+          - irods: "4.2.7"
+            build_image: "ghcr.io/wtsi-npg/ub-16.04-irods-clients-dev-4.2.7:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-16.04-irods-4.2.7:latest"
+            experimental: false
           # iRODS 4.2.11 clients on Ubuntu 18.04
           - irods: "4.2.11"
             build_image: "ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.2.11:latest"
@@ -92,7 +92,7 @@ jobs:
           git config --global --add safe.directory "$PWD"
           
           autoreconf -fi
-          ./configure
+          ./configure --enable-address-sanitizer
           make distcheck
 
       - name: "Show test log"
