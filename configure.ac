@@ -103,6 +103,18 @@ AS_IF(
 AM_CONDITIONAL(COVERAGE_ENABLED, [test "x${coverage_enabled}" = "xyes"])
 dnl End Lcov
 
+dnl Begin address-sanitizer
+AC_ARG_VAR([ASAN], [Address sanitizer])
+
+AC_ARG_ENABLE([address-sanitizer],
+  [AS_HELP_STRING([--enable-address-sanitizer],
+    [Enable address-sanitizer (default is no)])],
+  [sanitizer_enabled=${enableval}], [sanitizer_enabled=no])
+
+AM_CONDITIONAL(SANITIZER_ENABLED, [test "x${sanitizer_enabled}" = "xyes"])  
+
+dnl End address-sanitizer
+
 dnl Begin test resource
 TEST_RESOURCE=testResc
 AC_SUBST([TEST_RESOURCE])

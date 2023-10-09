@@ -5,7 +5,7 @@
 # when testing your iRODS wrapper (e.g. perl-irods-wrap or extendo),
 # making sure that the real baton-do it not on your PATH.
 #
-#You can then run your iRODS wrapper tests (or even higher level tests
+# You can then run your iRODS wrapper tests (or even higher level tests
 # that use the wrapper), knowing that the baton code underneath is
 # being tested for memory leaks.
 #

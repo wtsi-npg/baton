@@ -3,6 +3,11 @@ AM_CPPFLAGS = -DTEST_ROOT='"$(top_srcdir)/tests"' -DTEST_RESOURCE='"$(TEST_RESOU
 AM_CFLAGS   = -Wall -Werror -Wextra -pedantic
 AM_LDFLAGS  = $(IRODS_LDFLAGS)
 
+if SANITIZER_ENABLED
+AM_CFLAGS += -fsanitize=address
+AM_LDFLAGS += -fsanitize=address
+endif
+
 TESTS = check_baton
 
 check_PROGRAMS = check_baton

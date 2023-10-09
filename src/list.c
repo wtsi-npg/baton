@@ -30,21 +30,24 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
     json_t *str_size;
     size_t num_size;
 
-    query_format_in_t *obj_format;
+    query_format_in_t obj_format_simple =
+            { .num_columns = 2,
+              .columns     = { COL_COLL_NAME, COL_DATA_NAME },
+              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY } };
 
-    if (flags & PRINT_SIZE) {
-        obj_format = &(query_format_in_t)
+    query_format_in_t obj_format_size =
             { .num_columns = 3,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME,
                                COL_DATA_SIZE },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
                                JSON_SIZE_KEY } };
+
+    query_format_in_t *obj_format;
+    if (flags & PRINT_SIZE) {
+        obj_format = &obj_format_size;
     }
     else {
-        obj_format = &(query_format_in_t)
-            { .num_columns = 2,
-              .columns     = { COL_COLL_NAME, COL_DATA_NAME },
-              .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY } };
+        obj_format = &obj_format_simple;
     }
 
     query_in = make_query_input(SEARCH_MAX_ROWS, obj_format->num_columns,

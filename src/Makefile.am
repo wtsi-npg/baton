@@ -11,6 +11,11 @@ else
 AM_CFLAGS = -Wall -Werror -Wextra -pedantic
 endif
 
+if SANITIZER_ENABLED
+AM_CFLAGS += -fsanitize=address
+AM_LDFLAGS += -fsanitize=address
+endif
+
 LT_VERSION_INFO=$(LT_LIB_CURRENT):$(LT_LIB_REVISION):$(LT_LIB_AGE)
 
 lib_LTLIBRARIES = libbaton.la

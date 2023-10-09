@@ -12,10 +12,10 @@ jobs:
       matrix:
         include:
           # iRODS 4.2.7 clients on Ubuntu 16.04
-          # - irods: "4.2.7"
-          #   build_image: "ghcr.io/wtsi-npg/ub-16.04-irods-clients-dev-4.2.7:latest"
-          #   server_image: "ghcr.io/wtsi-npg/ub-16.04-irods-4.2.7:latest"
-          #   experimental: false
+          - irods: "4.2.7"
+            build_image: "ghcr.io/wtsi-npg/ub-16.04-irods-clients-dev-4.2.7:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-16.04-irods-4.2.7:latest"
+            experimental: false
           # iRODS 4.2.11 clients on Ubuntu 18.04
           - irods: "4.2.11"
             build_image: "ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.2.11:latest"
@@ -86,14 +86,16 @@ jobs:
 
       - name: "Build and test baton"
         env:
-          CK_DEFAULT_TIMEOUT: 20 
+          CK_DEFAULT_TIMEOUT: 60
+          ASAN_OPTIONS: "detect_leaks=0"
+          LDFLAGS: ${{ matrix.irods == '4.3.0' && '-Wl,-z,muldefs' || '' }}
         run: |
           # Avoid git exiting when Actions runs
           git config --global --add safe.directory "$PWD"
-          
+
           autoreconf -fi
-          ./configure
-          make distcheck
+          ./configure --enable-address-sanitizer
+          make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-address-sanitizer LDFLAGS=\"$LDFLAGS\""
 
       - name: "Show test log"
         if: ${{ failure() }}
