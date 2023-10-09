@@ -88,13 +88,14 @@ jobs:
         env:
           CK_DEFAULT_TIMEOUT: 60
           ASAN_OPTIONS: "detect_leaks=0"
+          LDFLAGS: ${{ matrix.irods == '4.3.0' && '-Wl,-z,muldefs' || '' }}
         run: |
           # Avoid git exiting when Actions runs
           git config --global --add safe.directory "$PWD"
-          
+
           autoreconf -fi
           ./configure --enable-address-sanitizer
-          make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-address-sanitizer"
+          make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-address-sanitizer LDFLAGS=\"$LDFLAGS\""
 
       - name: "Show test log"
         if: ${{ failure() }}
