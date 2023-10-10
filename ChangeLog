@@ -1,5 +1,9 @@
 	[Upcoming]
 
+	[4.2.1]
+
+	Fix stack-use-after-scope bug identified by address-sanitizer.
+
 	[4.2.0]
 
 	Add compatibility for OpenSSL across iRODS versions.
