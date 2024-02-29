@@ -78,7 +78,7 @@ jobs:
           echo 'MASTER_SHA='$(git rev-parse origin/master) >> $GITHUB_ENV
 
       - name: "Download artifact"
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: baton-release-tarball
 
