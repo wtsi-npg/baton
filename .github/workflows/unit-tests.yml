@@ -46,9 +46,11 @@ jobs:
         ports:
           - "1247:1247"
           - "20000-20199:20000-20199"
+        volumes:
+          - /dev/shm:/dev/shm
         options: >-
           --health-cmd "nc -z -v localhost 1247"
-          --health-start-period 30s
+          --health-start-period 60s
           --health-interval 10s
           --health-timeout 20s
           --health-retries 6
