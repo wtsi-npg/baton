@@ -31,10 +31,10 @@ jobs:
             build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.1:latest"
             server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.1:latest"
             experimental: false
-          # iRODS 4.3-nightly on Ubuntu 22.04
-          - irods: "4.3-nightly"
-            build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3-nightly:latest"
-            server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3-nightly:latest"
+          # iRODS 4.3.2 clients on Ubuntu 22.04
+          - irods: "4.3.2"
+            build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.2:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.2:latest"
             experimental: true
 
     container:
