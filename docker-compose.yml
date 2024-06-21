@@ -12,10 +12,10 @@ services:
     platform: linux/amd64
     build:
       context: .
-      dockerfile: ./Dockerfile-ubuntu-18.04
+      dockerfile: ./Dockerfile.ubuntu-18.04-dev
     volumes:
-      - "${PWD}:/code"
+      - "${PWD}:/app"
     environment:
-      IRODS_ENVIRONMENT_FILE: "/code/tests/.irods/irods_environment.json"
+      IRODS_ENVIRONMENT_FILE: "/app/tests/.irods/irods_environment.json"
     depends_on:
       - irods-server
