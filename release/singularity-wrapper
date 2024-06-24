@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Copyright (C) 2023 Genome Research Ltd. All rights reserved.
 #
@@ -17,17 +17,27 @@
 #
 # Author: Keith James <kdj@sanger.ac.uk>
 
-set -euo pipefail
-
 usage() {
     cat 1>&2 << EOF
 Install singularity proxy wrappers for the executables listed in a
 container's manifest to a nominated directory.
 
-Usage: $0 [-h] [-i <Docker image name>]
-    [-m <JSON manifest path>]
+Two different types of wrapper are available which differ in how
+they run singularity. The default type uses "singularity run",
+while the alternative type uses "singularity exec".
+
+If the "exec" type is used, the wrapper can additionally be made
+to create a long-running service instance on first use and
+subsequently "exec" within that instance. 
+
+Usage: $0
+    [-e]
+    [-h]
+    [-i <Docker image name>]
+    [-m <manifest path>]
     [-p <wrapper install prefix>]
     [-r <Docker registry name>]
+    [-s]
     [-t <Docker image tag>]
     [-u <Docker user name>] [-v] <operation>
 
@@ -40,6 +50,8 @@ Operation may be one of:
 Options:
 
  -h  Print usage and exit.
+ -e  Use "singularity exec", rather than "singularity run" in the
+     generated wrappers.
  -i  Docker image name. Required, defaults to the value of the
      environment variable "\$DOCKER_IMAGE" ("$DOCKER_IMAGE").
  -m  Manifest file path. Optional, defaults to the value of the
@@ -48,6 +60,7 @@ Options:
      environment variable \$PREFIX ("$PREFIX").
  -r  Docker registry name. Optional, defaults to the value of the 
      environment variable \$DOCKER_REGISTRY ("$DOCKER_REGISTRY").
+ -s  Start a long-running service instance (implies use of exec).
  -t  Docker image tag. Optional, defaults to the value of the
      environment variable \$DOCKER_TAG ("$DOCKER_TAG").
  -u  Docker user name. Optional, defaults to the value of the
@@ -58,7 +71,7 @@ EOF
 
 # Print an application manifest
 print_manifest() {
-    jq . "$MANIFEST_PATH"
+    cat "$MANIFEST_PATH"
 }
 
 # Write a bash script wrapping an application in a Docker container
@@ -86,7 +99,7 @@ export DOCKER_TAG="$DOCKER_TAG"
 # time, be permanently set in the installed wrapper. E.g. a candidate
 # is SINGULARITY_CACHEDIR.
 
-"\$(dirname "\${BASH_SOURCE[0]}")/singularity-run-docker" "$exe" "\$@"
+"\$(dirname "\${BASH_SOURCE[0]}")/$singularity_wrap_impl" "$exe" "\$@"
 EOF
 
 chmod +x "$dir/$exe"
@@ -96,11 +109,11 @@ chmod +x "$dir/$exe"
 install_wrappers() {
     local dir="$PREFIX/bin"
     install -d "$dir"
-    cp /usr/local/bin/singularity-run-docker "$PREFIX/bin"
+    cp "/usr/local/bin/$singularity_wrap_impl" "$PREFIX/bin"
 
-    for exe in "${wrappers[@]}" ; do
+    while IFS= read -r exe; do
         write_wrapper "$dir" "$exe"
-    done
+    done < "$MANIFEST_PATH"
 }
 
 DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}
@@ -109,10 +122,15 @@ DOCKER_IMAGE=${DOCKER_IMAGE:-""}
 DOCKER_TAG=${DOCKER_TAG:-latest}
 
 PREFIX=${PREFIX:-/opt/wtsi-npg}
-MANIFEST_PATH=${MANIFEST_PATH:-"$PREFIX/etc/manifest.json"}
+MANIFEST_PATH=${MANIFEST_PATH:-"$PREFIX/etc/manifest.txt"}
 
-while getopts "hi:m:p:r:t:u:v" option; do
+singularity_wrap_impl="singularity-run-docker"
+
+while getopts "hei:m:p:r:st:u:v" option; do
     case "$option" in
+        e)
+            singularity_wrap_impl="singularity-exec-docker"
+            ;;
         h)
             usage
             exit 0
@@ -128,6 +146,9 @@ while getopts "hi:m:p:r:t:u:v" option; do
             ;;
         r)
             DOCKER_REGISTRY="$OPTARG"
+            ;;
+        s)
+            singularity_wrap_impl="singularity-service-docker"
             ;;
         t)
             DOCKER_TAG="$OPTARG"
@@ -148,22 +169,19 @@ done
 
 shift $((OPTIND -1))
 
-declare -a wrappers
 if [ ! -e "$MANIFEST_PATH" ] ; then
     echo -e "\nERROR:\n  The manifest of executables at '$MANIFEST_PATH' does not exist"
     exit 4
 fi
 
-wrappers=($(jq -j '.executable[] + " "' "$MANIFEST_PATH"))
-
-OPERATION="$@"
-if [ -z "$OPERATION" ] ; then
+operation="$1"
+if [ -z "$operation" ] ; then
     usage
     echo -e "\nERROR:\n  An operation argument is required"
     exit 4
 fi
 
-case "$OPERATION" in
+case "$operation" in
     list)
         print_manifest
         exit 0
@@ -173,7 +191,7 @@ case "$OPERATION" in
         ;;
     *)
         usage
-        echo -e "\nERROR:\n  Invalid wrapper operation '$OPERATION'"
+        echo -e "\nERROR:\n  Invalid wrapper operation '$operation'"
         exit 4
         ;;
 esac

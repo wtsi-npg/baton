@@ -1,12 +1,13 @@
 # syntax=docker/dockerfile:1
 
 ARG BASE_IMAGE=ubuntu:18.04
-FROM $BASE_IMAGE as installer
+FROM $BASE_IMAGE AS installer
 
 ARG IRODS_VERSION="4.2.11"
 
-RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections && \
-    apt-get update && \
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
     apt-utils \
     ca-certificates \
@@ -21,28 +22,28 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 
 ENV LANG=en_GB.UTF-8 \
     LANGUAGE=en_GB \
-    LC_ALL=en_GB.UTF-8
+    LC_ALL=en_GB.UTF-8 \
+    TZ=Etc/UTC
 
 RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - && \
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
-    tee /etc/apt/sources.list.d/renci-irods.list && \
-    apt-get update && \
+    tee /etc/apt/sources.list.d/renci-irods.list
+
+RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
     irods-dev="${IRODS_VERSION}-1~$(lsb_release -sc)" \
     irods-runtime="${IRODS_VERSION}-1~$(lsb_release -sc)"
 
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys "E1DD270288B4E6030699E45FA1715D88E1DF1F24" && \
     echo "deb https://ppa.launchpadcontent.net/git-core/ppa/ubuntu $(lsb_release -sc) main" |\
-    tee /etc/apt/sources.list.d/git-core.list && \
-    apt-get update && \
-    apt-get install -q -y --no-install-recommends \
-    git
+    tee /etc/apt/sources.list.d/git-core.list
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
     autoconf \
     automake \
     build-essential \
+    git \
     libtool \
     pkg-config \
     python3-sphinx \
@@ -52,9 +53,9 @@ RUN apt-get update && \
     liblzma-dev \
     zlib1g-dev
 
-COPY --from=source . /code
+COPY --from=source . /app
 
-WORKDIR /code
+WORKDIR /app
 
 ENV CPPFLAGS="-I/usr/include/irods"
 
@@ -67,14 +68,15 @@ FROM $BASE_IMAGE
 
 ARG DOCKER_IMAGE
 ARG DOCKER_TAG
-ARG IRODS_VERSION="4.2.11"
+ARG IRODS_VERSION
 
-ARG USER=baton
-ARG UID=1000
-ARG GID=$UID
+ARG APP_USER=appuser
+ARG APP_UID=1000
+ARG APP_GID=$APP_UID
 
-RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections && \
-    apt-get update && \
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
     apt-utils \
     ca-certificates \
@@ -89,12 +91,14 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 
 ENV LANG=en_GB.UTF-8 \
     LANGUAGE=en_GB \
-    LC_ALL=en_GB.UTF-8
+    LC_ALL=en_GB.UTF-8 \
+    TZ=Etc/UTC
 
 RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - && \
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
-    tee /etc/apt/sources.list.d/renci-irods.list && \
-    apt-get update && \ 
+    tee /etc/apt/sources.list.d/renci-irods.list
+
+RUN apt-get update && \ 
     apt-get install -q -y --no-install-recommends \
     irods-runtime="${IRODS_VERSION}-1~$(lsb_release -sc)" \
     jq \
@@ -110,23 +114,25 @@ RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - &
     apt-get clean -q -y && \
     rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
+
 # Copy the installed baton application
 COPY --from=installer /usr/local /usr/local
 
 # Copy the singularity-wrapper scripts
-COPY --from=installer /code/release/singularity-* /usr/local/bin
-COPY --from=installer /code/release/manifest.json /usr/local/etc/baton/manifest.json
+COPY --from=installer /app/release/singularity-* /usr/local/bin
+COPY --from=installer /app/release/manifest.txt /usr/local/etc/baton/manifest.txt
 
 # Configure the singularity-wrapper script
-ENV MANIFEST_PATH="/usr/local/etc/baton/manifest.json"
+ENV MANIFEST_PATH="/usr/local/etc/baton/manifest.txt"
 ENV DOCKER_IMAGE="$DOCKER_IMAGE"
 ENV DOCKER_TAG="$DOCKER_TAG"
 
 RUN ldconfig
 
-RUN groupadd --gid $GID $USER && \
-    useradd --uid $UID --gid $GID --shell /bin/bash --create-home $USER
+RUN groupadd --gid $APP_GID $APP_USER && \
+    useradd --uid $APP_UID --gid $APP_GID --shell /bin/bash --create-home $APP_USER
 
-USER $USER
+USER $APP_USER
 
 CMD ["/bin/bash"]
