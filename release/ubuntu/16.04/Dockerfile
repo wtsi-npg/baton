@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG BASE_IMAGE=ubuntu:16.04
+ARG BASE_IMAGE=ubuntu:xenial-20201014
 FROM $BASE_IMAGE AS installer
 
 ARG IRODS_VERSION="4.2.7"
