@@ -1,5 +1,7 @@
 	[Upcoming]
 
+	Added container label "vendor".
+
 	[4.2.1]
 
 	Fix stack-use-after-scope bug identified by address-sanitizer.
