@@ -41,6 +41,7 @@ ub-16.04-baton-irods-4.2.7.$(TAG): ubuntu/16.04/Dockerfile
 	--label org.opencontainers.image.revision=$(git_commit) \
 	--label org.opencontainers.image.version=$(TAG) \
 	--label org.opencontainers.image.created=$(NOW) \
+	--label org.opencontainers.image.vendor=npg.sanger.ac.uk \
 	--tag $(DOCKER_PREFIX)/ub-16.04-baton-irods-4.2.7:latest \
 	--tag $(DOCKER_PREFIX)/ub-16.04-baton-irods-4.2.7:$(TAG) --file $< .
 	touch $@
@@ -59,6 +60,7 @@ ub-18.04-baton-irods-4.2.11.$(TAG): ubuntu/18.04/Dockerfile
 	--label org.opencontainers.image.revision=$(git_commit) \
 	--label org.opencontainers.image.version=$(TAG) \
 	--label org.opencontainers.image.created=$(NOW) \
+	--label org.opencontainers.image.vendor=npg.sanger.ac.uk \
 	--tag $(DOCKER_PREFIX)/ub-18.04-baton-irods-4.2.11:latest \
 	--tag $(DOCKER_PREFIX)/ub-18.04-baton-irods-4.2.11:$(TAG) --file $< .
 	touch $@
@@ -77,6 +79,7 @@ ub-18.04-baton-irods-4.2.12.$(TAG): ubuntu/18.04/Dockerfile
 	--label org.opencontainers.image.revision=$(git_commit) \
 	--label org.opencontainers.image.version=$(TAG) \
 	--label org.opencontainers.image.created=$(NOW) \
+	--label org.opencontainers.image.vendor=npg.sanger.ac.uk \
 	--tag $(DOCKER_PREFIX)/ub-18.04-baton-irods-4.2.12:latest \
 	--tag $(DOCKER_PREFIX)/ub-18.04-baton-irods-4.2.12:$(TAG) --file $< .
 	touch $@
