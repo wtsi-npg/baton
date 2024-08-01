@@ -79,12 +79,12 @@ jobs:
       #     ilsresc
 
       - name: "Build and test baton"
-        uses: wtsi-npg/build-irods-client-action@v1.1.0
+        uses: kjsanger/build-irods-client-action@feature/add-image-param
         with:
           build-image:
             ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.2:latest
           build-script:
-            ./.github/workflows/build-tests.sh
+            .github/workflows/build-tests.sh
 
       - name: "Show test log"
         if: ${{ failure() }}
