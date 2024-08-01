@@ -37,9 +37,6 @@ jobs:
             server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.2:latest"
             experimental: true
 
-    container:
-      image: ${{ matrix.build_image }}
-
     services:
       irods-server:
         image: ${{ matrix.server_image }}
@@ -59,40 +56,35 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v4
 
-      - name: "Configure iRODS clients"
-        run: |
-          mkdir -p "$HOME/.irods"
-          cat <<'EOF' > "$HOME/.irods/irods_environment.json"
-          {
-              "irods_host": "irods-server",
-              "irods_port": 1247,
-              "irods_user_name": "irods",
-              "irods_zone_name": "testZone",
-              "irods_home": "/testZone/home/irods",
-              "irods_default_resource": "replResc"
-          }
-          EOF
+      # - name: "Configure iRODS clients"
+      #   run: |
+      #     mkdir -p "$HOME/.irods"
+      #     cat <<'EOF' > "$HOME/.irods/irods_environment.json"
+      #     {
+      #         "irods_host": "localhost",
+      #         "irods_port": 1247,
+      #         "irods_user_name": "irods",
+      #         "irods_zone_name": "testZone",
+      #         "irods_home": "/testZone/home/irods",
+      #         "irods_default_resource": "replResc"
+      #     }
+      #     EOF
 
-          # Without this, Actions refuses the connection between the containers:
-          nc -z -v irods-server 1247
+      #     # Without this, Actions refuses the connection between the containers:
+      #     nc -z -v localhost 1247
 
-          echo "irods" | script -q -c "iinit" /dev/null
-          ienv
-          ils
-          ilsresc
+      #     echo "irods" | script -q -c "iinit" /dev/null
+      #     ienv
+      #     ils
+      #     ilsresc
 
       - name: "Build and test baton"
-        env:
-          CK_DEFAULT_TIMEOUT: 60
-          ASAN_OPTIONS: "detect_leaks=0"
-          LDFLAGS: ${{ matrix.irods == '4.3.0' && '-Wl,-z,muldefs' || '' }}
-        run: |
-          # Avoid git exiting when Actions runs
-          git config --global --add safe.directory "$PWD"
-
-          autoreconf -fi
-          ./configure --enable-address-sanitizer
-          make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-address-sanitizer LDFLAGS=\"$LDFLAGS\""
+        uses: wtsi-npg/build-irods-client-action@v1.1.0
+        with:
+          build-image:
+            ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.2:latest
+          build-script:
+            ./.github/workflows/build-tests.sh
 
       - name: "Show test log"
         if: ${{ failure() }}
