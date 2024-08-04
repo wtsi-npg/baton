@@ -29,7 +29,7 @@ jobs:
           git fetch --tags --force
 
       - name: "Build Package"
-        uses: wtsi-npg/build-irods-client-action@v1.0.0
+        uses: wtsi-npg/build-irods-client-action@v1.1.0
         with:
           build-script:
             ./.github/workflows/build.sh
