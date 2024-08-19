@@ -85,6 +85,8 @@ jobs:
             ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.2:latest
           build-script:
             .github/workflows/build-tests.sh
+          network: 
+            ${{ job.services.irods-server.network }}
 
       - name: "Show test log"
         if: ${{ failure() }}
