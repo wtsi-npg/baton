@@ -79,7 +79,7 @@ jobs:
       #     ilsresc
 
       - name: "Build and test baton"
-        uses: kjsanger/build-irods-client-action@feature/add-image-param
+        uses: kjsanger/build-irods-client-action@fix/composite
         with:
           build-image:
             ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.2:latest
