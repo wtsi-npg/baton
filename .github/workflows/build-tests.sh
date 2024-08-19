@@ -23,8 +23,8 @@ ienv
 ils
 ilsresc
 
-export CK_DEFAULT_TIMEOUT: 60
-export ASAN_OPTIONS: "detect_leaks=0"
+export CK_DEFAULT_TIMEOUT=60
+export ASAN_OPTIONS="detect_leaks=0"
 # export LDFLAGS: ${{ matrix.irods == '4.3.0' && '-Wl,-z,muldefs' || '' }}
 
 autoreconf -fi

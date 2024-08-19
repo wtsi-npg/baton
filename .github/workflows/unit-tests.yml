@@ -56,36 +56,14 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v4
 
-      # - name: "Configure iRODS clients"
-      #   run: |
-      #     mkdir -p "$HOME/.irods"
-      #     cat <<'EOF' > "$HOME/.irods/irods_environment.json"
-      #     {
-      #         "irods_host": "localhost",
-      #         "irods_port": 1247,
-      #         "irods_user_name": "irods",
-      #         "irods_zone_name": "testZone",
-      #         "irods_home": "/testZone/home/irods",
-      #         "irods_default_resource": "replResc"
-      #     }
-      #     EOF
-
-      #     # Without this, Actions refuses the connection between the containers:
-      #     nc -z -v localhost 1247
-
-      #     echo "irods" | script -q -c "iinit" /dev/null
-      #     ienv
-      #     ils
-      #     ilsresc
-
       - name: "Build and test baton"
-        uses: kjsanger/build-irods-client-action@fix/composite
+        uses: wtsi-npg/build-irods-client-action@v1.1.1
         with:
           build-image:
-            ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.2:latest
+            ${{ matrix.build_image }}
           build-script:
             .github/workflows/build-tests.sh
-          network: 
+          docker-network:
             ${{ job.services.irods-server.network }}
 
       - name: "Show test log"
