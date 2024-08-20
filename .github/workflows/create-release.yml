@@ -29,10 +29,12 @@ jobs:
           git fetch --tags --force
 
       - name: "Build Package"
-        uses: wtsi-npg/build-irods-client-action@v1.0.0
+        uses: wtsi-npg/build-irods-client-action@v1.1.0
         with:
+          build-image:
+            ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.2.11:latest
           build-script:
-            ./.github/workflows/build.sh
+            ./.github/workflows/build-release.sh
 
       - name: "Upload artifacts"
         uses: actions/upload-artifact@v4
