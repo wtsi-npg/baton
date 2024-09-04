@@ -1,12 +1,1 @@
-.dockerignore
-.DS_Store
 .env
-.github
-.gitignore
-.vscode
-ChangeLog
-COPYING
-docker-compose.yml
-Dockerfile
-INSTALL
-README.md

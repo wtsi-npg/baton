@@ -32,10 +32,6 @@ RUN apt-get update && \
     irods-dev="${IRODS_VERSION}-0~$(lsb_release -sc)" \
     irods-runtime="${IRODS_VERSION}-0~$(lsb_release -sc)"
 
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys "E1DD270288B4E6030699E45FA1715D88E1DF1F24" && \
-    echo "deb https://ppa.launchpadcontent.net/git-core/ppa/ubuntu $(lsb_release -sc) main" |\
-    tee /etc/apt/sources.list.d/git-core.list
-
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
     autoconf \
