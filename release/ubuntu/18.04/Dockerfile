@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 
 ARG BASE_IMAGE=ubuntu:18.04
 FROM $BASE_IMAGE AS installer
@@ -58,10 +57,11 @@ COPY --from=source . /app
 WORKDIR /app
 
 ENV CPPFLAGS="-I/usr/include/irods"
+ENV CPU_COUNT=4
 
 RUN autoreconf -fi && \
     ./configure && \
-    make install && \
+    make -j ${CPU_COUNT} install && \
     ldconfig
 
 FROM $BASE_IMAGE

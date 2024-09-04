@@ -36,6 +36,11 @@ jobs:
             build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.2:latest"
             server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.2:latest"
             experimental: true
+          # iRODS 4.3.3 clients on Ubuntu 22.04
+          - irods: "4.3.3"
+            build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.3:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.3:latest"
+            experimental: true
 
     services:
       irods-server:

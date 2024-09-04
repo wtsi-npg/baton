@@ -1,20 +1,18 @@
-
-ARG BASE_IMAGE=ubuntu:16.04
+ARG BASE_IMAGE=ubuntu:22.04
 FROM $BASE_IMAGE AS installer
 
-ARG IRODS_VERSION="4.2.7"
+ARG IRODS_VERSION="4.3.2"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    apt-transport-https \
     apt-utils \
     ca-certificates \
     curl \
     dirmngr \
-    gnupg \
-    gnupg-agent \
+    gpg \
+    gpg-agent \
     lsb-release \
     locales && \
     locale-gen en_GB en_GB.UTF-8 && \
@@ -31,15 +29,15 @@ RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - &
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    irods-dev="${IRODS_VERSION}" \
-    irods-runtime="${IRODS_VERSION}"
+    irods-dev="${IRODS_VERSION}-0~$(lsb_release -sc)" \
+    irods-runtime="${IRODS_VERSION}-0~$(lsb_release -sc)"
 
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys "E1DD270288B4E6030699E45FA1715D88E1DF1F24" && \
     echo "deb https://ppa.launchpadcontent.net/git-core/ppa/ubuntu $(lsb_release -sc) main" |\
     tee /etc/apt/sources.list.d/git-core.list
 
-# libdeflate-dev is not available on Ubuntu 16.04
-RUN apt-get install -q -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -q -y --no-install-recommends \
     autoconf \
     automake \
     build-essential \
@@ -48,7 +46,8 @@ RUN apt-get install -q -y --no-install-recommends \
     pkg-config \
     python3-sphinx \
     libjansson-dev \
-    libcurl3-dev \
+    libbz2-dev \
+    libcurl4-openssl-dev \
     liblzma-dev \
     zlib1g-dev
 
@@ -78,13 +77,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    apt-transport-https \
     apt-utils \
     ca-certificates \
     curl \
     dirmngr \
-    gnupg \
-    gnupg-agent \
+    gpg \
+    gpg-agent \
     lsb-release \
     locales && \
     locale-gen en_GB en_GB.UTF-8 && \
@@ -99,12 +97,13 @@ RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - &
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
     tee /etc/apt/sources.list.d/renci-irods.list
 
-RUN apt-get update && \
+RUN apt-get update && \ 
     apt-get install -q -y --no-install-recommends \
-    irods-runtime="${IRODS_VERSION}" \
+    irods-runtime="${IRODS_VERSION}-0~$(lsb_release -sc)" \
     jq \
     libjansson4 \
-    libcurl3 \
+    libbz2-1.0 \
+    libcurl4 \
     liblzma5 \
     zlib1g \
     unattended-upgrades && \
