@@ -2,12 +2,15 @@
 *.l[oa]
 *.log
 *~
+.DS_Store
+.devcontainer
+.env
+.idea
+.vscode
 *.cache
 *.dSYM
 .deps
 .libs
-doc/_build
-tests/*.trs
 ar-lib
 compile
 config.*
@@ -25,6 +28,11 @@ GRTAGS
 GTAGS
 aclocal.m4
 configure
+ub-*-baton-irods-*
+Makefile
+doc/Makefile
+doc/_build
+doc/baton.1
 m4/libtool.m4
 m4/ltoptions.m4
 m4/ltsugar.m4
@@ -37,3 +45,5 @@ src/baton-metamod
 src/baton-metaquery
 src/baton-metasuper
 src/baton-specificquery
+tests/*.trs
+tests/Makefile
