@@ -28,15 +28,17 @@ jobs:
           
           git fetch --tags --force
 
-      - name: "Build Package"
+      - name: "Build source package"
         uses: wtsi-npg/build-irods-client-action@v1.1.1
         with:
           build-image:
+            # The image choice is somewhat flexible because this is creating a source package.
+            # The choice below favours being close to the current production environment.
             ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.2.11:latest
           build-script:
             ./.github/workflows/build-release.sh
 
-      - name: "Upload artifacts"
+      - name: "Upload source package"
         uses: actions/upload-artifact@v4
         with:
           name: baton-release-tarball
@@ -70,12 +72,12 @@ jobs:
           echo 'RELEASE_VERSION='$(git describe --always --tags) >> $GITHUB_ENV
           echo 'MASTER_SHA='$(git rev-parse origin/master) >> $GITHUB_ENV
 
-      - name: "Download artifact"
+      - name: "Download source package"
         uses: actions/download-artifact@v4
         with:
           name: baton-release-tarball
 
-      - name: "Create Release"
+      - name: "Create GitHub release"
         uses: ncipollo/release-action@v1.14.0
         with:
           name: ${{ env.RELEASE_VERSION }}

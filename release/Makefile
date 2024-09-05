@@ -37,7 +37,6 @@ ub-16.04-baton-irods-4.2.7.$(TAG): ubuntu/16.04/Dockerfile
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \
 	--build-arg IRODS_VERSION="4.2.7" \
-	--build-arg BATON_VERSION=$(BATON_VERSION) \
 	--label org.opencontainers.image.title="iRODS 4.2.7 baton client, Ubuntu 16.04" \
 	--label org.opencontainers.image.source=$(git_url) \
 	--label org.opencontainers.image.revision=$(git_commit) \
@@ -56,7 +55,6 @@ ub-18.04-baton-irods-4.2.11.$(TAG): ubuntu/18.04/Dockerfile
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \
 	--build-arg IRODS_VERSION="4.2.11" \
-	--build-arg BATON_VERSION=$(BATON_VERSION) \
 	--label org.opencontainers.image.title="iRODS 4.2.11 baton client, Ubuntu 18.04" \
 	--label org.opencontainers.image.source=$(git_url) \
 	--label org.opencontainers.image.revision=$(git_commit) \
@@ -75,7 +73,6 @@ ub-18.04-baton-irods-4.2.12.$(TAG): ubuntu/18.04/Dockerfile
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \
 	--build-arg IRODS_VERSION="4.2.12" \
-	--build-arg BATON_VERSION=$(BATON_VERSION) \
 	--label org.opencontainers.image.title="iRODS 4.2.12 baton client, Ubuntu 18.04" \
 	--label org.opencontainers.image.source=$(git_url) \
 	--label org.opencontainers.image.revision=$(git_commit) \
@@ -94,7 +91,6 @@ ub-22.04-baton-irods-4.3.2.$(TAG): ubuntu/22.04/Dockerfile
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \
 	--build-arg IRODS_VERSION="4.3.2" \
-	--build-arg BATON_VERSION=$(BATON_VERSION) \
 	--label org.opencontainers.image.title="iRODS 4.3.2 baton client, Ubuntu 22.04" \
 	--label org.opencontainers.image.source=$(git_url) \
 	--label org.opencontainers.image.revision=$(git_commit) \
@@ -113,7 +109,6 @@ ub-22.04-baton-irods-4.3.3.$(TAG): ubuntu/22.04/Dockerfile
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \
 	--build-arg IRODS_VERSION="4.3.3" \
-	--build-arg BATON_VERSION=$(BATON_VERSION) \
 	--label org.opencontainers.image.title="iRODS 4.3.3 baton client, Ubuntu 22.04" \
 	--label org.opencontainers.image.source=$(git_url) \
 	--label org.opencontainers.image.revision=$(git_commit) \
