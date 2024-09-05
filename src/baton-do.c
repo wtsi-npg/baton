@@ -27,16 +27,17 @@
 #include "config.h"
 #include "baton.h"
 
-static int debug_flag         = 0;
-static int help_flag          = 0;
-static int no_error_flag      = 0;
-static int silent_flag        = 0;
-static int single_server_flag = 0;
-static int unbuffered_flag    = 0;
-static int unsafe_flag        = 0;
-static int verbose_flag       = 0;
-static int version_flag       = 0;
-static int wlock_flag         = 0;
+static int debug_flag          = 0;
+static int help_flag           = 0;
+static int no_error_flag       = 0;
+static int server_version_flag = 0;
+static int silent_flag         = 0;
+static int single_server_flag  = 0;
+static int unbuffered_flag     = 0;
+static int unsafe_flag         = 0;
+static int verbose_flag        = 0;
+static int version_flag        = 0;
+static int wlock_flag          = 0;
 
 static size_t default_buffer_size = 1024 * 64 * 16 * 2;
 
@@ -51,16 +52,17 @@ int main(int argc, char *argv[]) {
     while (1) {
         static struct option long_options[] = {
             // Flag options
-            {"debug",         no_argument, &debug_flag,         1},
-            {"help",          no_argument, &help_flag,          1},
-            {"no-error",      no_argument, &no_error_flag,      1},
-            {"silent",        no_argument, &silent_flag,        1},
-            {"single-server", no_argument, &single_server_flag, 1},
-            {"unbuffered",    no_argument, &unbuffered_flag,    1},
-            {"unsafe",        no_argument, &unsafe_flag,        1},
-            {"verbose",       no_argument, &verbose_flag,       1},
-            {"version",       no_argument, &version_flag,       1},
-            {"wlock",         no_argument, &wlock_flag,         1},
+            {"debug",          no_argument, &debug_flag,          1},
+            {"help",           no_argument, &help_flag,           1},
+            {"no-error",       no_argument, &no_error_flag,       1},
+            {"server-version", no_argument, &server_version_flag, 1},
+            {"silent",         no_argument, &silent_flag,         1},
+            {"single-server",  no_argument, &single_server_flag,  1},
+            {"unbuffered",     no_argument, &unbuffered_flag,     1},
+            {"unsafe",         no_argument, &unsafe_flag,         1},
+            {"verbose",        no_argument, &verbose_flag,        1},
+            {"version",        no_argument, &version_flag,        1},
+            {"wlock",          no_argument, &wlock_flag,          1},
             // Indexed options
             {"connect-time",  required_argument, NULL, 'c'},
             {"file",          required_argument, NULL, 'f'},
@@ -123,25 +125,26 @@ int main(int argc, char *argv[]) {
         "    Performs remote operations as described in the JSON\n"
         "    input file.\n"
         "\n"
-        "    --connect-time  The duration in seconds after which a connection\n"
-        "                    to iRODS will be refreshed (closed and reopened\n"
-        "                    between JSON documents) to allow iRODS server\n"
-        "                    resources to be released. Optional, defaults to\n"
-        "                    10 minutes.\n"
-        "    --file          The JSON file describing the operations.\n"
-        "                    Optional, defaults to STDIN.\n"
-        "    --no-error      Do not return a non-zero exit code on iRODS\n"
-        "                    errors. Errors will still be reported in-band\n"
-        "                    as JSON responses.\n"
-        "    --silent        Silence error messages.\n"
-        "    --single-server Only connect to a single iRODS server\n"
-        "    --unbuffered    Flush print operations for each JSON object.\n"
-
-        "    --verbose       Print verbose messages to STDERR.\n"
-        "    --version       Print the version number and exit.\n"
-        "    --wlock         Enable server-side advisory write locking.\n"
-        "                    Optional, defaults to false.\n"
-        "    --zone          The zone to operate within. Optional.\n";
+        "    --connect-time   The duration in seconds after which a connection\n"
+        "                     to iRODS will be refreshed (closed and reopened\n"
+        "                     between JSON documents) to allow iRODS server\n"
+        "                     resources to be released. Optional, defaults to\n"
+        "                     10 minutes.\n"
+        "    --file           The JSON file describing the operations.\n"
+        "                     Optional, defaults to STDIN.\n"
+        "    --no-error       Do not return a non-zero exit code on iRODS\n"
+        "                     errors. Errors will still be reported in-band\n"
+        "                     as JSON responses.\n"
+        "    --server-version Print the version of the server and exit.\n"
+        "    --silent         Silence error messages.\n"
+        "    --single-server  Only connect to a single iRODS server\n"
+        "    --unbuffered     Flush print operations for each JSON object.\n"
+ 
+        "    --verbose        Print verbose messages to STDERR.\n"
+        "    --version        Print the version number and exit.\n"
+        "    --wlock          Enable server-side advisory write locking.\n"
+        "                     Optional, defaults to false.\n"
+        "    --zone           The zone to operate within. Optional.\n";
 
     if (help_flag) {
         printf("%s\n",help);
@@ -150,6 +153,17 @@ int main(int argc, char *argv[]) {
 
     if (version_flag) {
         printf("%s\n", VERSION);
+        exit(0);
+    }
+
+    if (server_version_flag) {
+        rodsEnv env;
+        baton_error_t error;
+        rcComm_t *connection = rods_login(&env);
+        char *server_version = get_server_version(connection, &error);
+        rcDisconnect(connection);
+        if (error.code != 0) exit(1);
+        printf("%s\n", server_version);
         exit(0);
     }
 
