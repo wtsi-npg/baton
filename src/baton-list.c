@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017, 2019, 2021 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019, 2021, 2024 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -134,25 +134,25 @@ int main(int argc, char *argv[]) {
         "    Lists data objects and collections described in a JSON\n"
         "    input file.\n"
         "\n"
-        "    --acl         Print access control lists in output.\n"
-        "    --avu         Print AVU lists in output.\n"
-        "    --checksum    Print data object checksums in output.\n"
-        "  --connect-time  The duration in seconds after which a connection\n"
-        "                  to iRODS will be refreshed (closed and reopened\n"
-        "                  between JSON documents) to allow iRODS server\n"
-        "                  resources to be released. Optional, defaults to\n"
-        "                  10 minutes.\n"
-        "    --contents    Print collection contents in output.\n"
-        "    --file        The JSON file describing the data objects and\n"
-        "                  collections. Optional, defaults to STDIN.\n"
-        "    --replicate   Print data object replicates.\n"
-        "    --silent      Silence warning messages.\n"
-        "    --size        Print data object sizes in output.\n"
-        "    --timestamp   Print timestamps in output.\n"
-        "    --unbuffered  Flush print operations for each JSON object.\n"
-        "    --unsafe      Permit unsafe relative iRODS paths.\n"
-        "    --verbose     Print verbose messages to STDERR.\n"
-        "    --version     Print the version number and exit.\n";
+        "    --acl           Print access control lists in output.\n"
+        "    --avu           Print AVU lists in output.\n"
+        "    --checksum      Print data object checksums in output.\n"
+        "    --connect-time  The duration in seconds after which a connection\n"
+        "                    to iRODS will be refreshed (closed and reopened\n"
+        "                    between JSON documents) to allow iRODS server\n"
+        "                    resources to be released. Optional, defaults to\n"
+        "                    10 minutes.\n"
+        "    --contents      Print collection contents in output.\n"
+        "    --file          The JSON file describing the data objects and\n"
+        "                    collections. Optional, defaults to STDIN.\n"
+        "    --replicate     Print data object replicates.\n"
+        "    --silent        Silence warning messages.\n"
+        "    --size          Print data object sizes in output.\n"
+        "    --timestamp     Print timestamps in output.\n"
+        "    --unbuffered    Flush print operations for each JSON object.\n"
+        "    --unsafe        Permit unsafe relative iRODS paths.\n"
+        "    --verbose       Print verbose messages to STDERR.\n"
+        "    --version       Print the version number and exit.\n";
 
     if (help_flag) {
         printf("%s\n",help);

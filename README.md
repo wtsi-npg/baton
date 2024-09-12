@@ -48,7 +48,7 @@ Compatible with iRODS 4.1.x, 4.2.x and 4.3.x
   | 3.1.x        | 4.2.7 - 4.2.9            |
   | 3.2.x        | 4.2.7 - 4.2.11           |
   | 3.3.x        | 4.2.7 - 4.2.11           |
-  | 4.2.x        | 4.2.7 - 4.3.1            |
+  | 4.2.x        | 4.2.7 - 4.3.3            |
 
 
 Note that building against iRODS 4.3.0 requires 
@@ -56,7 +56,7 @@ Note that building against iRODS 4.3.0 requires
     LDFLAGS="-Wl,-z,muldefs"
 
 due to https://github.com/irods/irods/issues/6448 (which is fixed
-in iRODS 4.3.1).
+in iRODS 4.3.1 and later).
 
 ## Installation:
 
