@@ -162,7 +162,10 @@ int main(int argc, char *argv[]) {
         rcComm_t *connection = rods_login(&env);
         char *server_version = get_server_version(connection, &error);
         rcDisconnect(connection);
-        if (error.code != 0) exit(1);
+        if (error.code != 0) {
+            logmsg(ERROR, "Failed to get server version");
+            exit(1);
+        }
         printf("%s\n", server_version);
         exit(0);
     }
