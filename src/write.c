@@ -83,7 +83,7 @@ int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
 		char *err_subname;
 		const char *err_name = rodsErrorName(status, &err_subname);
 		set_baton_error(error, status,
-				"Failed calculate a local checksum for: '%s' "
+				"Failed to calculate a local checksum for: '%s' "
 				"error %d %s", rods_path->outPath, status,
 				err_name);
 		goto error;
