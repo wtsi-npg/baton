@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017, 2019, 2021 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019, 2021, 2024 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -609,12 +609,16 @@ int op_avu_p(json_t *operation_args) {
     return json_is_true(json_object_get(operation_args, JSON_OP_AVU));
 }
 
-int op_checksum_p(json_t *operation_args) {
-    return json_is_true(json_object_get(operation_args, JSON_OP_CHECKSUM));
+int op_print_checksum_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_PRINT_CHECKSUM));
 }
 
-int op_verify_p(json_t *operation_args) {
-    return json_is_true(json_object_get(operation_args, JSON_OP_VERIFY));
+int op_calculate_checksum_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_CALCULATE_CHECKSUM));
+}
+
+int op_verify_checksum_p(json_t *operation_args) {
+    return json_is_true(json_object_get(operation_args, JSON_OP_VERIFY_CHECKSUM));
 }
 
 int op_force_p(json_t *operation_args) {

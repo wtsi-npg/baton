@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2017, 2018, 2019, 2020, 2021, 2022 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2017, 2018, 2019, 2020, 2021, 2022 , 2024 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -250,25 +250,22 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
         if (error->code != 0)  goto finally;
 
         option_flags flags = args_copy.flags;
-        if (op_acl_p(args))           flags = flags | PRINT_ACL;
-        if (op_avu_p(args))           flags = flags | PRINT_AVU;
-        if (op_checksum_p(args))      flags = flags |
-                                          CALCULATE_CHECKSUM |
-                                          PRINT_CHECKSUM;
-        if (op_verify_p(args))        flags = flags |
-                                          VERIFY_CHECKSUM |
-                                          PRINT_CHECKSUM;
-        if (op_contents_p(args))      flags = flags | PRINT_CONTENTS;
-        if (op_replicate_p(args))     flags = flags | PRINT_REPLICATE;
-        if (op_size_p(args))          flags = flags | PRINT_SIZE;
-        if (op_timestamp_p(args))     flags = flags | PRINT_TIMESTAMP;
-        if (op_raw_p(args))           flags = flags | PRINT_RAW;
-        if (op_save_p(args))          flags = flags | SAVE_FILES;
-        if (op_recurse_p(args))       flags = flags | RECURSIVE;
-        if (op_force_p(args))         flags = flags | FORCE;
-        if (op_collection_p(args))    flags = flags | SEARCH_COLLECTIONS;
-        if (op_object_p(args))        flags = flags | SEARCH_OBJECTS;
-        if (op_single_server_p(args)) flags = flags | SINGLE_SERVER;
+        if (op_acl_p(args))                 flags = flags | PRINT_ACL;
+        if (op_avu_p(args))                 flags = flags | PRINT_AVU;
+        if (op_print_checksum_p(args))      flags = flags | PRINT_CHECKSUM;
+        if (op_calculate_checksum_p(args))  flags = flags | CALCULATE_CHECKSUM | PRINT_CHECKSUM;
+        if (op_verify_checksum_p(args))     flags = flags | VERIFY_CHECKSUM    | PRINT_CHECKSUM;
+        if (op_contents_p(args))            flags = flags | PRINT_CONTENTS;
+        if (op_replicate_p(args))           flags = flags | PRINT_REPLICATE;
+        if (op_size_p(args))                flags = flags | PRINT_SIZE;
+        if (op_timestamp_p(args))           flags = flags | PRINT_TIMESTAMP;
+        if (op_raw_p(args))                 flags = flags | PRINT_RAW;
+        if (op_save_p(args))                flags = flags | SAVE_FILES;
+        if (op_recurse_p(args))             flags = flags | RECURSIVE;
+        if (op_force_p(args))               flags = flags | FORCE;
+        if (op_collection_p(args))          flags = flags | SEARCH_COLLECTIONS;
+        if (op_object_p(args))              flags = flags | SEARCH_OBJECTS;
+        if (op_single_server_p(args))       flags = flags | SINGLE_SERVER;
         args_copy.flags = flags;
 
         if (has_operation(args)) {
@@ -320,6 +317,12 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     }
     else if (str_equals(op, JSON_LIST_OP, MAX_STR_LEN)) {
         result = baton_json_list_op(env, conn, target, &args_copy, error);
+        if (error->code != 0) goto finally;
+
+        if (args_copy.flags & PRINT_CHECKSUM) {
+            result = add_checksum_json_object(conn, result, error);
+            if (error->code != 0) goto finally;
+        }
     }
     else if (str_equals(op, JSON_METAMOD_OP, MAX_STR_LEN)) {
         result = baton_json_metamod_op(env, conn, target, &args_copy, error);

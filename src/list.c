@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019, 2021, 2023 Genome
- * Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019, 2021, 2023,
+ * 2024 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -229,7 +229,14 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
     }
 
     json_t *obj = json_array_get(results, 0);
-    json_t *checksum = json_incref(json_object_get(obj, JSON_CHECKSUM_KEY));
+    json_t *c = json_object_get(obj, JSON_CHECKSUM_KEY);
+    json_t *checksum;
+    if (c != NULL) {
+        checksum = json_incref(c);
+    }
+    else {
+        checksum = json_null();
+    }
 
     free_query_input(query_in);
     if (results) json_decref(results);

@@ -2211,7 +2211,7 @@ START_TEST(test_checksum_data_obj) {
     ck_assert_int_eq(list_error.code, 0);
     json_t *checksum = json_object_get(result, JSON_CHECKSUM_KEY);
 
-    ck_assert_ptr_eq(checksum, NULL);
+    ck_assert(json_is_null(checksum));
     json_decref(result);
 
     baton_error_t flag_conflict_error;
