@@ -318,11 +318,6 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     else if (str_equals(op, JSON_LIST_OP, MAX_STR_LEN)) {
         result = baton_json_list_op(env, conn, target, &args_copy, error);
         if (error->code != 0) goto finally;
-
-        if (args_copy.flags & PRINT_CHECKSUM) {
-            result = add_checksum_json_object(conn, result, error);
-            if (error->code != 0) goto finally;
-        }
     }
     else if (str_equals(op, JSON_METAMOD_OP, MAX_STR_LEN)) {
         result = baton_json_metamod_op(env, conn, target, &args_copy, error);
