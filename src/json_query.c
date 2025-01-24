@@ -625,8 +625,12 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
                     json_t *jvalue = json_pack("s", value);
                     if (!jvalue) goto error;
 
-                    // TODO: check return value
-                    json_object_set_new(jrow, labels[i], jvalue);
+                    int set = json_object_set_new(jrow, labels[i], jvalue);
+                    if (set != 0) {
+                        logmsg(ERROR, "Failed to set column %d '%s' value '%s' ",
+                               i, labels[i], value);
+                        goto error;
+                    }
                 }
             }
         }
@@ -1260,7 +1264,7 @@ error:
     return NULL;
 }
 
-json_t *revmap_access_result(json_t *acl,  baton_error_t *error) {
+json_t *revmap_access_result(json_t *acl, baton_error_t *error) {
     size_t num_elts;
 
     init_baton_error(error);
