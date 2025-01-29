@@ -1254,7 +1254,7 @@ error:
 }
 
 void print_json_stream(json_t *json, FILE *stream) {
-    char *json_str = json_dumps(json, JSON_INDENT(0));
+    char *json_str = json_dumps(json, JSON_INDENT(0) | JSON_SORT_KEYS);
     if (json_str) {
         fprintf(stream, "%s\n", json_str);
         free(json_str);
@@ -1262,6 +1262,7 @@ void print_json_stream(json_t *json, FILE *stream) {
 
     return;
 }
+
 void print_json(json_t *json) {
     print_json_stream(json, stdout);
 

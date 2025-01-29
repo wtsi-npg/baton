@@ -1650,7 +1650,6 @@ START_TEST(test_modify_json_permissions_obj) {
     int found = 0;
     for (int i = 0; i < num_elts; i++) {
         json_t *elt = json_array_get(acl_with_zone, i);
-
         // Return value should equal the input
         ck_assert(json_is_object(elt));
         if (json_equal(perm_with_zone, elt)) found = 1;
