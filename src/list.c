@@ -438,13 +438,23 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
             // This specific query reports the groups without expansion. It is used by ils,
             // if available and is installed by default on iRODS servers.
             genQueryOut_t *query_out = NULL;
-            int status = queryCollAclSpecific(conn, rods_path->outPath, rods_path->outPath,
-                                              &query_out);
-            // The query returns 4 columns, the last being the user type (e.g. rodsgroup)
-            // but we only want the first 3, so temporarily decrement the attribute count
-            // to avoid reporting it.
-            query_out->attriCnt--;
 
+            // We don't use the queryCollAclSpecific function here because it leaks memory:
+            //
+            // int status = queryCollAclSpecific(conn, rods_path->outPath, rods_path->outPath,
+            //                                   &query_out);
+            //
+            // Instead call lower level rcSpecificQuery directly, avoiding the problem malloc.
+            specificQueryInp_t specificQueryInp;
+            memset(&specificQueryInp, 0, sizeof(specificQueryInp_t));
+            specificQueryInp.maxRows = MAX_SQL_ROWS;
+            specificQueryInp.continueInx = 0;
+            specificQueryInp.sql = "ShowCollAcls";
+            specificQueryInp.args[0] = rods_path->outPath;
+
+            addKeyVal(&specificQueryInp.condInput, ZONE_KW, rods_path->outPath);
+            logmsg(DEBUG, "Using zone hint '%s'", rods_path->outPath);
+            int status = rcSpecificQuery(conn, &specificQueryInp, &query_out);
             if (status < 0) {
                 set_baton_error(error, status,
                                 "Failed to query ACL on '%s': error %d",
@@ -452,11 +462,16 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
                 goto error;
             }
 
+            // The query returns 4 columns, the last being the user type (e.g. rodsgroup)
+            // but we only want the first 3, so temporarily decrement the attribute count
+            // to avoid reporting it.
+            query_out->attriCnt--;
             results = make_json_objects(query_out,
                  (const char *[]) { JSON_OWNER_KEY, JSON_ZONE_KEY, JSON_LEVEL_KEY });
-
             // Restore the attribute count before calling the free function.
             query_out->attriCnt++;
+
+            logmsg(DEBUG, "Obtained ACL data on '%s'", rods_path->outPath);
             free_query_output(query_out);
             break;
 
