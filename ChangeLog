@@ -1,10 +1,29 @@
 	[Upcoming]
 
-	Added container label "vendor".
+        [4.3.2]
+
+        Fix invalid error message when listing checksums across a collection.
+
+        [4.3.1]
+
+        Fix baton-list and baton-do list operation not printing null checksums.
+
+        Add server version option to baton-do.
+        
+        [4.3.0]
+
+        Fix the -dirty flag on the reported version when building with Docker
+
+        Add Docker builds for iRODS 4.3.2 and 4.3.3.
+
+        [4.2.2]
+
+        Add iRODS 4.3.1 Ubuntu 22.04 as a required test target.
 
 	[4.2.1]
 
 	Fix stack-use-after-scope bug identified by address-sanitizer.
+        Handle change to behaviour of iRODS' clientLogin function.
 
 	[4.2.0]
 
