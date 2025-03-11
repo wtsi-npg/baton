@@ -254,6 +254,7 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath) {
 
     rods_path->objType  = UNKNOWN_OBJ_T;
     rods_path->objState = UNKNOWN_ST;
+    rods_path->rodsObjStat = NULL;
 
     return 0;
 }
