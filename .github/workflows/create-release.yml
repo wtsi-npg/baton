@@ -1,4 +1,3 @@
-
 name: "Create release"
 
 on:
@@ -9,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     defaults:
       run:
         shell: bash -l -e -o pipefail {0}
@@ -25,7 +24,7 @@ jobs:
         run: |
           # Avoid git exiting when Actions runs
           git config --global --add safe.directory "$PWD"
-          
+
           git fetch --tags --force
 
       - name: "Build source package"
@@ -46,9 +45,9 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    
+
     needs: "build"
-    
+
     defaults:
       run:
         shell: bash -l -e -o pipefail {0}
@@ -64,7 +63,7 @@ jobs:
         run: |
           # Avoid git exiting when Actions runs
           git config --global --add safe.directory "$PWD"
-          
+
           git fetch --tags --force
 
       - name: "Get release variables"
@@ -86,15 +85,15 @@ jobs:
           removeArtifacts: true
           artifactErrorsFailBuild: true
           generateReleaseNotes: true
-    
+
     outputs:
       isRelease: ${{ github.sha == env.MASTER_SHA }}
 
   deploy:
     runs-on: ubuntu-latest
-    
+
     needs: [build, release]
-    
+
     # Workaround for https://github.com/actions/runner/issues/1483
     # Actions coerces boolean to string
     if: needs.release.outputs.isRelease == 'true'
@@ -110,7 +109,7 @@ jobs:
         run: |
           # Avoid git exiting when Actions runs
           git config --global --add safe.directory "$PWD"
-          
+
           git fetch --tags --force
 
       - name: "Set up Docker Buildx"
