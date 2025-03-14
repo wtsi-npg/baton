@@ -508,7 +508,6 @@ genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
 
 specificQueryInp_t *prepare_specific_query(specificQueryInp_t *squery_in,
                                            const char *sql, json_t *args) {
-
     size_t index;
     json_t *value;
 

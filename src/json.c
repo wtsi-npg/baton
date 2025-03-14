@@ -414,8 +414,8 @@ char *make_in_op_value(const json_t *avu, baton_error_t *error) {
 
     init_baton_error(error);
 
-    json_t *val_array = get_json_value(avu, "value", JSON_VALUE_KEY,
-                                      JSON_VALUE_SHORT_KEY, error);
+    const json_t *val_array = get_json_value(avu, "value", JSON_VALUE_KEY,
+                                             JSON_VALUE_SHORT_KEY, error);
     if (error->code != 0) goto error;
     if (!json_is_array(val_array)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
@@ -716,12 +716,12 @@ int has_modified_timestamp(const json_t *object) {
                               JSON_MODIFIED_SHORT_KEY);
 }
 
-int contains_avu(const json_t *avus, const json_t *avu) {
+int contains_avu(json_t *avus, json_t *avu) {
     int has_avu = 0;
 
     const size_t num_avus = json_array_size(avus);
     for (size_t i = 0; i < num_avus; i++) {
-        const json_t *x = json_array_get(avus, i);
+        json_t *x = json_array_get(avus, i);
         if (json_equal(x, avu)) {
             has_avu = 1;
             break;

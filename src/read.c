@@ -441,7 +441,7 @@ int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
     }
 
     get_data_obj_stream(conn, rods_path, stream, buffer_size, error);
-    int status = fclose(stream);
+    const int status = fclose(stream);
 
     if (error->code != 0) goto finally;
     if (status != 0) {
@@ -601,8 +601,7 @@ void set_md5_last_read(const data_obj_file_t *data_obj, unsigned char digest[16]
 }
 
 int validate_md5_last_read(rcComm_t *conn, const data_obj_file_t *data_obj) {
-    dataObjInp_t obj_md5_in;
-    memset(&obj_md5_in, 0, sizeof obj_md5_in);
+    dataObjInp_t obj_md5_in = {0};
 
     snprintf(obj_md5_in.objPath, MAX_NAME_LEN, "%s", data_obj->path);
 

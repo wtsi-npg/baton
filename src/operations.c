@@ -503,7 +503,7 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
-    json_t *avus = json_object_get(target, JSON_AVUS_KEY);
+    const json_t *avus = json_object_get(target, JSON_AVUS_KEY);
     if (!json_is_array(avus)) {
         set_baton_error(error, -1, "AVU data for %s is not in a JSON array",
                         path);

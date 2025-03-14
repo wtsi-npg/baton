@@ -450,7 +450,7 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
 
             addKeyVal(&specificQueryInp.condInput, ZONE_KW, rods_path->outPath);
             logmsg(DEBUG, "Using zone hint '%s'", rods_path->outPath);
-            int status = rcSpecificQuery(conn, &specificQueryInp, &query_out);
+            const int status = rcSpecificQuery(conn, &specificQueryInp, &query_out);
             if (status < 0) {
                 set_baton_error(error, status,
                                 "Failed to query ACL on '%s': error %d",

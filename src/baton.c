@@ -786,14 +786,14 @@ error:
 
 int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                                const metadata_op op,
-                               const json_t *candidate_avus, const json_t *reference_avus,
+                               const json_t *candidate_avus, json_t *reference_avus,
                                baton_error_t *error) {
     const char *op_name = metadata_op_name(op);
 
     init_baton_error(error);
 
     for (size_t i = 0; i < json_array_size(candidate_avus); i++) {
-        const json_t *candidate_avu = json_array_get(candidate_avus, i);
+        json_t *candidate_avu = json_array_get(candidate_avus, i);
         char *str = json_dumps(candidate_avu, JSON_DECODE_ANY);
 
         if (contains_avu(reference_avus, candidate_avu)) {

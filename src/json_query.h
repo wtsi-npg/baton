@@ -269,7 +269,7 @@ json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
 
 json_t *map_access_args(json_t *query, baton_error_t *error);
 
-json_t *revmap_access_result(json_t *access, baton_error_t *error);
+json_t *revmap_access_result(json_t *acl, baton_error_t *error);
 
 json_t *revmap_replicate_results(rcComm_t *conn, const json_t *results,
                                  baton_error_t *error);

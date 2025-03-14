@@ -65,7 +65,7 @@ typedef struct data_obj_file {
 data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
                                int open_flag, int flags, baton_error_t *error);
 
-int close_data_obj(rcComm_t *conn, const data_obj_file_t *obj_file);
+int close_data_obj(rcComm_t *conn, const data_obj_file_t *data_obj);
 
 void free_data_obj(data_obj_file_t *obj_file);
 

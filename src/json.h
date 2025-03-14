@@ -307,7 +307,7 @@ int has_created_timestamp(const json_t *object);
 
 int has_modified_timestamp(const json_t *object);
 
-int contains_avu(const json_t *avus, const json_t *avu);
+int contains_avu(json_t *avus, json_t *avu);
 
 int represents_collection(const json_t *object);
 

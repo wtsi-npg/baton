@@ -73,8 +73,8 @@ int main(const int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "c:v:f:",
-                                 long_options, &option_index);
+        const int c = getopt_long_only(argc, argv, "c:v:f:",
+                                       long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;

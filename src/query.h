@@ -201,7 +201,7 @@ genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
 
 genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
                                       const char *user,
-                                      const char *access_level);
+                                      const char *perm);
 
 genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,

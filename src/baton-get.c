@@ -47,7 +47,7 @@ static size_t max_buffer_size     = 1024 * 1024 * 1024;
 int main(const int argc, char *argv[]) {
     option_flags flags = 0;
     int exit_status = 0;
-    char *json_file = NULL;
+    const char *json_file = NULL;
     FILE *input     = NULL;
     size_t buffer_size = default_buffer_size;
     unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;

@@ -283,7 +283,7 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
  */
 int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
                                metadata_op op,
-                               const json_t *candidate_avus, const json_t *reference_avus,
+                               const json_t *candidate_avus, json_t *reference_avus,
                                baton_error_t *error);
 
 #endif // _BATON_H
