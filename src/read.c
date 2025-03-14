@@ -42,7 +42,7 @@ static char *do_slurp(rcComm_t *conn, rodsPath_t *rods_path,
     if (error->code != 0) goto error;
 
     char *content = slurp_data_obj(conn, obj_file, buffer_size, error);
-    int status = close_data_obj(conn, obj_file);
+    const int status = close_data_obj(conn, obj_file);
 
     if (error->code != 0) goto error;
     if (status < 0) {
@@ -198,7 +198,7 @@ error:
 
 int close_data_obj(rcComm_t *conn, const data_obj_file_t *data_obj) {
     logmsg(DEBUG, "Closing '%s'", data_obj->path);
-    int status = rcDataObjClose(conn, data_obj->open_obj);
+    const int status = rcDataObjClose(conn, data_obj->open_obj);
 
     return status;
 }

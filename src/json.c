@@ -414,10 +414,10 @@ char *make_in_op_value(const json_t *avu, baton_error_t *error) {
 
     init_baton_error(error);
 
-    json_t *valarray = get_json_value(avu, "value", JSON_VALUE_KEY,
+    json_t *val_array = get_json_value(avu, "value", JSON_VALUE_KEY,
                                       JSON_VALUE_SHORT_KEY, error);
     if (error->code != 0) goto error;
-    if (!json_is_array(valarray)) {
+    if (!json_is_array(val_array)) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid 'value' attribute: not a JSON array "
                         "(required for `in` condition)");
@@ -430,7 +430,7 @@ char *make_in_op_value(const json_t *avu, baton_error_t *error) {
 
     size_t index;
     json_t *value;
-    json_array_foreach(valarray, index, value) {
+    json_array_foreach(val_array, index, value) {
         if (!json_is_string(value)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid AVU value: not a JSON string "

@@ -390,13 +390,13 @@ genQueryInp_t *limit_to_good_repl(genQueryInp_t *query_in) {
 
 genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
                                       const char *user,
-                                      const char *access_level) {
+                                      const char *perm) {
     const query_cond_t un = { .column   = COL_USER_NAME,
                               .operator = SEARCH_OP_EQUALS,
                               .value    = user };
     const query_cond_t al = { .column   = COL_DATA_ACCESS_NAME,
                               .operator = SEARCH_OP_EQUALS,
-                              .value    = access_level };
+                              .value    = perm };
     const size_t num_conds = 2;
     return add_query_conds(query_in, num_conds,
                            (query_cond_t []) { un, al });
@@ -404,13 +404,13 @@ genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
 
 genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
                                       const char *user,
-                                      const char *access_level) {
+                                      const char *perm) {
     const query_cond_t un = { .column   = COL_USER_NAME,
                               .operator = SEARCH_OP_EQUALS,
                               .value    = user };
     const query_cond_t al = { .column   = COL_COLL_ACCESS_NAME,
                               .operator = SEARCH_OP_EQUALS,
-                              .value    = access_level };
+                              .value    = perm };
     const size_t num_conds = 2;
     return add_query_conds(query_in, num_conds,
                            (query_cond_t []) { un, al });
@@ -797,10 +797,10 @@ query_format_in_t *prepare_specific_labels(rcComm_t *conn,
     // does sql_or_alias begin with a SQL SELECT statement?
     unsigned int reti = regcomp(&select_s_re, select_s_re_str, REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
-        char remsg[MAX_ERROR_MESSAGE_LEN];
-        regerror(reti, &select_s_re, remsg, MAX_ERROR_MESSAGE_LEN);
+        char re_msg[MAX_ERROR_MESSAGE_LEN];
+        regerror(reti, &select_s_re, re_msg, MAX_ERROR_MESSAGE_LEN);
         logmsg(ERROR, "Could not compile regex: '%s': %s", select_s_re_str,
-               remsg);
+               re_msg);
         goto error;
     }
     reti = regexec(&select_s_re, sql_or_alias, 0, NULL, 0);

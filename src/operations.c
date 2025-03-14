@@ -87,7 +87,7 @@ static int iterate_json(FILE *input, rodsEnv *env, const baton_json_op fn,
     }
 
     while (!exit_flag && !feof(input)) {
-        size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
+        const size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *item = json_loadf(input, jflags, &load_error); // JSON alloc
 

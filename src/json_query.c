@@ -485,7 +485,7 @@ error:
 }
 
 json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
-                  query_format_in_t *format,
+                  query_format_in_t *labels,
                   baton_error_t *error) {
     genQueryOut_t *query_out = NULL;
     size_t chunk_num  = 0;
@@ -514,7 +514,7 @@ json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
             // Cargo-cult from iRODS clients; not sure this is useful
             squery_in->continueInx = query_out->continueInx;
 
-            json_t *chunk = make_json_objects(query_out, format->labels);
+            json_t *chunk = make_json_objects(query_out, labels->labels);
             if (!chunk) {
                 set_baton_error(error, -1,
                                 "Failed to convert query result to JSON: "
@@ -648,10 +648,10 @@ error:
 }
 
 genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
-                                       const json_t *mapped_acl,
+                                       const json_t *acl,
                                        const prepare_acl_search_cb prepare,
                                        baton_error_t *error) {
-    const size_t num_clauses = json_array_size(mapped_acl);
+    const size_t num_clauses = json_array_size(acl);
 
     init_baton_error(error);
 
@@ -667,7 +667,7 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
 
     size_t i;
     json_t *access;
-    json_array_foreach(mapped_acl, i, access) {
+    json_array_foreach(acl, i, access) {
         if (!json_is_object(access)) {
             set_baton_error(error, CAT_INVALID_ARGUMENT,
                             "Invalid permissions specification at position "
@@ -712,18 +712,18 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
         const char *attr_name = get_avu_attribute(avu, error);
         if (error->code != 0) goto error;
 
-        const char *oper = get_avu_operator(avu, error);
+        const char *op = get_avu_operator(avu, error);
         if (error->code != 0) goto error;
 
-        if (!oper) {
-            oper = SEARCH_OP_EQUALS;
+        if (!op) {
+            op = SEARCH_OP_EQUALS;
         }
 
-        const char *valid_oper = ensure_valid_operator(oper, error);
+        const char *valid_oper = ensure_valid_operator(op, error);
         if (error->code != 0) goto error;
 
         const char *attr_value;
-        if (str_equals_ignore_case(oper, SEARCH_OP_IN, MAX_STR_LEN)) {
+        if (str_equals_ignore_case(op, SEARCH_OP_IN, MAX_STR_LEN)) {
             // this is an IN query, parse value as JSON array instead of string
             attr_value = make_in_op_value(avu, error);
             if (error->code != 0) goto error;
@@ -752,7 +752,7 @@ error:
 
 specificQueryInp_t *prepare_json_specific_query(specificQueryInp_t *squery_in,
                                                 const json_t *specific,
-                                                prepare_specific_query_cb prepare,
+                                                const prepare_specific_query_cb prepare,
                                                 baton_error_t *error) {
     const char *sql = NULL;
     json_t *args = NULL;
@@ -1308,8 +1308,8 @@ json_t *revmap_replicate_results(rcComm_t *conn, const json_t *results,
         // Note: a replicate's checksum may be null in iRODS
 
 #if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
-        json_t *coll = json_object_get(result, JSON_COLLECTION_KEY);
-        json_t *hier = json_object_get(result, JSON_RESOURCE_HIER_KEY);
+        const json_t *coll = json_object_get(result, JSON_COLLECTION_KEY);
+        const json_t *hier = json_object_get(result, JSON_RESOURCE_HIER_KEY);
 
         const char *collection = json_string_value(coll);
         const char *hierarchy  = json_string_value(hier);

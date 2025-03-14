@@ -599,23 +599,23 @@ error:
 }
 
 int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                       const recursive_op recurse, char *owner_specifier,
-                       char *access_level, baton_error_t *error) {
+                       const recursive_op recurse, char *user_with_zone,
+                       char *perms, baton_error_t *error) {
     char user_name[NAME_LEN];
     char zone_name[NAME_LEN];
     modAccessControlInp_t mod_perms_in;
 
     init_baton_error(error);
 
-    check_str_arg("owner specifier", owner_specifier, MAX_STR_LEN, error);
+    check_str_arg("owner specifier", user_with_zone, MAX_STR_LEN, error);
     if (error->code != 0) goto error;
 
-    int status = parseUserName(owner_specifier, user_name, zone_name);
+    int status = parseUserName(user_with_zone, user_name, zone_name);
     if (status != 0) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Failed to chmod '%s' because of an invalid "
                         "owner format '%s'",
-                        rods_path->outPath, owner_specifier);
+                        rods_path->outPath, user_with_zone);
         goto error;
     }
 
@@ -623,18 +623,18 @@ int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
            user_name, zone_name);
 
     mod_perms_in.recursiveFlag = recurse;
-    mod_perms_in.accessLevel   = access_level;
+    mod_perms_in.accessLevel   = perms;
     mod_perms_in.userName      = user_name;
     mod_perms_in.zone          = zone_name;
     mod_perms_in.path          = rods_path->outPath;
 
-    if (!(str_equals_ignore_case(access_level,
+    if (!(str_equals_ignore_case(perms,
                                  ACCESS_LEVEL_NULL, MAX_STR_LEN) ||
-          str_equals_ignore_case(access_level,
+          str_equals_ignore_case(perms,
                                  ACCESS_LEVEL_OWN,  MAX_STR_LEN) ||
-          str_equals_ignore_case(access_level,
+          str_equals_ignore_case(perms,
                                  ACCESS_LEVEL_READ, MAX_STR_LEN) ||
-          str_equals_ignore_case(access_level,
+          str_equals_ignore_case(perms,
                                  ACCESS_LEVEL_WRITE, MAX_STR_LEN))) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Invalid permission level: expected one of "
@@ -648,12 +648,12 @@ int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
     if (status < 0) {
         set_baton_error(error, status, "Failed to modify permissions "
                         "of '%s' to '%s' for '%s'",
-                        rods_path->outPath, access_level, owner_specifier);
+                        rods_path->outPath, perms, user_with_zone);
         goto error;
     }
 
     logmsg(DEBUG, "Set permissions of '%s' to '%s' for '%s'",
-           rods_path->outPath, access_level, owner_specifier);
+           rods_path->outPath, perms, user_with_zone);
 
     return error->code;
 

@@ -196,11 +196,11 @@ genQueryInp_t *prepare_resc_list(genQueryInp_t *query_in,
                                  const char *zone_name);
 
 genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
-                                      const char *perm_id);
+                                      const char *user,
+                                      const char *perm);
 
 genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
+                                      const char *user,
                                       const char *access_level);
 
 genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
@@ -248,7 +248,8 @@ query_format_in_t *make_query_format_from_sql(const char *sql);
 const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
                                              const char *alias);
 
-query_format_in_t *prepare_specific_labels(rcComm_t *conn, const char *sql);
+query_format_in_t *prepare_specific_labels(rcComm_t *conn,
+                                           const char *sql_or_alias);
 
 void free_squery_input(specificQueryInp_t *squery_in);
 

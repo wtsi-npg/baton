@@ -73,35 +73,35 @@ void free_data_obj(data_obj_file_t *obj_file);
  * Read bytes from a data object into a buffer.
  *
  * @param[in]  conn       An open iRODS connection.
- * @param[in]  obj_file   A data object handle.
+ * @param[in]  data_obj   A data object handle.
  * @param[in]  buffer     A buffer to read into.
  * @param[in]  len        The number of bytes to read.
  * @param[out] error      An error report struct.
  *
  * @return The number of bytes actually read, which may be 0.
  */
-size_t read_chunk(rcComm_t *conn, const data_obj_file_t *obj_file,
+size_t read_chunk(rcComm_t *conn, const data_obj_file_t *data_obj,
                   char *buffer, size_t len, baton_error_t *error);
 
 /**
  * Read a data object and write to a stream.
  *
  * @param[in]  conn        An open iRODS connection.
- * @param[in]  obj_file    A data object handle.
+ * @param[in]  data_obj    A data object handle.
  * @param[in]  out         A file to write to.
  * @param[in]  buffer_size The number of bytes to copy at one time.
  * @param[out] error       An error report struct.
  *
  * @return The number of bytes copied in total.
  */
-size_t read_data_obj(rcComm_t *conn, const data_obj_file_t *obj_file, FILE *out,
+size_t read_data_obj(rcComm_t *conn, const data_obj_file_t *data_obj, FILE *out,
                      size_t buffer_size, baton_error_t *error);
 
 /**
  * Read a data object to a new byte string.
  *
  * @param[in]  conn        An open iRODS connection.
- * @param[in]  obj_file    A data object handle.
+ * @param[in]  data_obj    A data object handle.
  * @param[in]  buffer_size The number of bytes to copy at a time while filling
                            the new buffer.
  * @param[out] error       An error report struct.
@@ -109,7 +109,7 @@ size_t read_data_obj(rcComm_t *conn, const data_obj_file_t *obj_file, FILE *out,
  * @return A new byte string containing the entire data object, which must be
  *         freed by the caller.
  */
-char *slurp_data_obj(rcComm_t *conn, const data_obj_file_t *obj_file,
+char *slurp_data_obj(rcComm_t *conn, const data_obj_file_t *data_obj,
                      size_t buffer_size, baton_error_t *error);
 
 json_t *ingest_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
