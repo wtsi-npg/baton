@@ -60,6 +60,17 @@ RUN apt-get update && \
     unattended-upgrades && \
     unattended-upgrade -v
 
+ARG APP_USER=appuser
+ARG APP_UID=1000
+ARG APP_GID=$APP_UID
+
+RUN groupadd --gid $APP_GID $APP_USER && \
+    useradd --uid $APP_UID --gid $APP_GID --shell /bin/bash --create-home $APP_USER
+
+USER $APP_USER
+
+WORKDIR /app
+
 ENV CPPFLAGS="-I/usr/include/irods" \
     CK_DEFAULT_TIMEOUT=20
 
