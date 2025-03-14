@@ -200,7 +200,7 @@ void log_json_error(const log_level level, json_error_t *error) {
            error->text, error->line, error->column, error->position);
 }
 
-const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
+const char *ensure_valid_operator(const char *op, baton_error_t *error) {
     static size_t num_operators = 12;
     static char *operators[] = { SEARCH_OP_EQUALS,   SEARCH_OP_LIKE,
                                  SEARCH_OP_NOT_LIKE, SEARCH_OP_IN,
@@ -213,7 +213,7 @@ const char *ensure_valid_operator(const char *oper, baton_error_t *error) {
     size_t valid_index;
     int valid = 0;
     for (size_t i = 0; i < num_operators; i++) {
-        if (str_equals_ignore_case(oper, operators[i], MAX_STR_LEN)) {
+        if (str_equals_ignore_case(op, operators[i], MAX_STR_LEN)) {
             valid = 1;
             valid_index = i;
             break;

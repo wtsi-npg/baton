@@ -442,8 +442,7 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
             //                                   &query_out);
             //
             // Instead call lower level rcSpecificQuery directly, avoiding the problem malloc.
-            specificQueryInp_t specificQueryInp;
-            memset(&specificQueryInp, 0, sizeof(specificQueryInp_t));
+            specificQueryInp_t specificQueryInp = {0};
             specificQueryInp.maxRows = MAX_SQL_ROWS;
             specificQueryInp.continueInx = 0;
             specificQueryInp.sql = "ShowCollAcls";

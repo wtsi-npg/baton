@@ -246,30 +246,30 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     if (error->code != 0) goto finally;
 
     if (has_operation(envelope)) {
-        json_t *args = get_operation_args(envelope, error);
+        const json_t *jargs = get_operation_args(envelope, error);
         if (error->code != 0)  goto finally;
 
         option_flags flags = args_copy.flags;
-        if (op_acl_p(args))                 flags = flags | PRINT_ACL;
-        if (op_avu_p(args))                 flags = flags | PRINT_AVU;
-        if (op_print_checksum_p(args))      flags = flags | PRINT_CHECKSUM;
-        if (op_calculate_checksum_p(args))  flags = flags | CALCULATE_CHECKSUM | PRINT_CHECKSUM;
-        if (op_verify_checksum_p(args))     flags = flags | VERIFY_CHECKSUM    | PRINT_CHECKSUM;
-        if (op_contents_p(args))            flags = flags | PRINT_CONTENTS;
-        if (op_replicate_p(args))           flags = flags | PRINT_REPLICATE;
-        if (op_size_p(args))                flags = flags | PRINT_SIZE;
-        if (op_timestamp_p(args))           flags = flags | PRINT_TIMESTAMP;
-        if (op_raw_p(args))                 flags = flags | PRINT_RAW;
-        if (op_save_p(args))                flags = flags | SAVE_FILES;
-        if (op_recurse_p(args))             flags = flags | RECURSIVE;
-        if (op_force_p(args))               flags = flags | FORCE;
-        if (op_collection_p(args))          flags = flags | SEARCH_COLLECTIONS;
-        if (op_object_p(args))              flags = flags | SEARCH_OBJECTS;
-        if (op_single_server_p(args))       flags = flags | SINGLE_SERVER;
+        if (op_acl_p(jargs))                 flags = flags | PRINT_ACL;
+        if (op_avu_p(jargs))                 flags = flags | PRINT_AVU;
+        if (op_print_checksum_p(jargs))      flags = flags | PRINT_CHECKSUM;
+        if (op_calculate_checksum_p(jargs))  flags = flags | CALCULATE_CHECKSUM | PRINT_CHECKSUM;
+        if (op_verify_checksum_p(jargs))     flags = flags | VERIFY_CHECKSUM    | PRINT_CHECKSUM;
+        if (op_contents_p(jargs))            flags = flags | PRINT_CONTENTS;
+        if (op_replicate_p(jargs))           flags = flags | PRINT_REPLICATE;
+        if (op_size_p(jargs))                flags = flags | PRINT_SIZE;
+        if (op_timestamp_p(jargs))           flags = flags | PRINT_TIMESTAMP;
+        if (op_raw_p(jargs))                 flags = flags | PRINT_RAW;
+        if (op_save_p(jargs))                flags = flags | SAVE_FILES;
+        if (op_recurse_p(jargs))             flags = flags | RECURSIVE;
+        if (op_force_p(jargs))               flags = flags | FORCE;
+        if (op_collection_p(jargs))          flags = flags | SEARCH_COLLECTIONS;
+        if (op_object_p(jargs))              flags = flags | SEARCH_OBJECTS;
+        if (op_single_server_p(jargs))       flags = flags | SINGLE_SERVER;
         args_copy.flags = flags;
 
-        if (has_operation(args)) {
-            const char *arg = get_operation(args, error);
+        if (has_operation(jargs)) {
+            const char *arg = get_operation(jargs, error);
             if (error->code != 0) goto finally;
 
             logmsg(DEBUG, "Detected operation '%s'", op);
@@ -286,8 +286,8 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
             }
         }
 
-        if (has_op_path(args)) {
-            const char *path = get_op_path(args, error);
+        if (has_op_path(jargs)) {
+            const char *path = get_op_path(jargs, error);
             if (error->code != 0) goto finally;
 
             char *tmp = copy_str(path, MAX_STR_LEN);
@@ -369,12 +369,11 @@ finally:
 json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                            const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -391,12 +390,11 @@ finally:
 json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                             const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -434,12 +432,11 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     json_t *result    = NULL;
     char  *checksum   = NULL;
     json_t *jchecksum = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -498,12 +495,11 @@ finally:
 json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                               const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -528,7 +524,7 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     }
 
     for (size_t i = 0; i < json_array_size(avus); i++) {
-        json_t *avu = json_array_get(avus, i);
+        const json_t *avu = json_array_get(avus, i);
         modify_json_metadata(conn, &rods_path, operation, avu, error);
         if (error->code != 0) goto finally;
     }
@@ -550,12 +546,11 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                           const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
     char *file     = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -604,9 +599,7 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
-
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -654,12 +647,11 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     char *file         = NULL;
     char *def_resource = NULL;
     char *checksum     = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -705,12 +697,11 @@ finally:
 json_t *baton_json_move_op(rodsEnv *env, rcComm_t *conn, json_t *target,
                            const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -737,12 +728,11 @@ json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
                          json_t *target, const operation_args_t *args,
                          baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -773,12 +763,11 @@ json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
                              json_t *target, const operation_args_t *args,
                              baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_collection_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -809,12 +798,11 @@ json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
                              json_t *target, const operation_args_t *args,
                              baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_collection_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 

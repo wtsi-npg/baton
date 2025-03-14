@@ -39,7 +39,7 @@
 #include "query.h"
 #include "utilities.h"
 
-void log_rods_errstack(log_level level, const rError_t *error) {
+void log_rods_errstack(const log_level level, const rError_t *error) {
     const int len = error->len;
     for (int i = 0; i < len; i++) {
         rErrMsg_t *errmsg = error->errMsg[i];
@@ -97,13 +97,13 @@ void free_query_input(genQueryInp_t *query_in) {
     assert(query_in);
 
     // Free any strings allocated as query clause values
-    size_t sci_len = query_in->sqlCondInp.len;
+    const size_t sci_len = query_in->sqlCondInp.len;
     for (size_t i = 0; i < sci_len; i++) {
         free(query_in->sqlCondInp.value[i]);
     }
 
     // Free any key/value pairs, notably zone hints
-    size_t ci_len = query_in->condInput.len;
+    const size_t ci_len = query_in->condInput.len;
     for (size_t i = 0; i < ci_len; i++) {
         free(query_in->condInput.keyWord[i]);
         free(query_in->condInput.value[i]);

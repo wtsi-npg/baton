@@ -42,12 +42,12 @@ void log_json_error(log_level level, json_error_t *error);
 /**
  * Return a valid query operator, or return NULL and set error.
  *
- * @param[in]  operator  The candidate operator
+ * @param[in]  op        The candidate operator.
  * @param[in,out] error  An error report struct.
  *
  * @return A query operator guaranteed to be valid.
  */
-const char *ensure_valid_operator(const char *operator, baton_error_t *error);
+const char *ensure_valid_operator(const char *op, baton_error_t *error);
 
 /**
  * Execute a general query and obtain results as a JSON array of objects.

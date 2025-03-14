@@ -53,14 +53,14 @@ void handle_signal(const int signal){
 int apply_signal_handler() {
     exit_flag = 0;
 
-    struct sigaction saction;
-    saction.sa_handler = &handle_signal;
-    saction.sa_flags = 0;
-    sigemptyset(&saction.sa_mask);
+    struct sigaction sig_action;
+    sig_action.sa_handler = &handle_signal;
+    sig_action.sa_flags = 0;
+    sigemptyset(&sig_action.sa_mask);
 
     // Exit gracefully on fatal signals
     for (int i = 0; signals[i] != 0; i++) {
-        int sigstatus = sigaction(signals[i], &saction, NULL);
+        const int sigstatus = sigaction(signals[i], &sig_action, NULL);
         if (sigstatus != 0) {
             logmsg(FATAL, "Failed to set the iRODS client handler for signal %s", strsignal(signals[i]));
             return -1;

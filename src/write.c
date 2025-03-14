@@ -234,12 +234,11 @@ size_t write_chunk(rcComm_t *conn, char *buffer, const data_obj_file_t *data_obj
 
     data_obj->open_obj->len = len;
 
-    bytesBuf_t obj_write_in;
-    memset(&obj_write_in, 0, sizeof obj_write_in);
+    bytesBuf_t obj_write_in = {0};
     obj_write_in.buf = buffer;
     obj_write_in.len = len;
 
-    int num_written = rcDataObjWrite(conn, data_obj->open_obj, &obj_write_in);
+    const int num_written = rcDataObjWrite(conn, data_obj->open_obj, &obj_write_in);
     if (num_written < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(num_written, &err_subname);
@@ -255,13 +254,10 @@ finally:
     return num_written;
 }
 
-int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+int create_collection(rcComm_t *conn, rodsPath_t *rods_path, const int flags,
                       baton_error_t *error) {
-    collInp_t coll_create_in;
-
     init_baton_error(error);
-
-    memset(&coll_create_in, 0, sizeof coll_create_in);
+    collInp_t coll_create_in = {0};
 
     snprintf(coll_create_in.collName, MAX_NAME_LEN, "%s", rods_path->outPath);
     if (flags & RECURSIVE) {
@@ -270,7 +266,7 @@ int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
         addKeyVal(&coll_create_in.condInput, RECURSIVE_OPR__KW, "");
     }
 
-    int status = rcCollCreate(conn, &coll_create_in);
+    const int status = rcCollCreate(conn, &coll_create_in);
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);
@@ -282,14 +278,12 @@ int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
     return error->code;
 }
 
-int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, const int flags,
                        baton_error_t *error) {
-    dataObjInp_t obj_rm_in;
-    flags = flags;
+    int dummy = flags; dummy++;
 
     init_baton_error(error);
-
-    memset(&obj_rm_in, 0, sizeof obj_rm_in);
+    dataObjInp_t obj_rm_in = {0};
 
     logmsg(DEBUG, "Removing data object '%s'", rods_path->outPath);
     snprintf(obj_rm_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
@@ -311,9 +305,7 @@ int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
 int remove_collection(rcComm_t *conn, rodsPath_t *rods_path, const int flags,
                       baton_error_t *error) {
     init_baton_error(error);
-
-    collInp_t col_rm_in;
-    memset(&col_rm_in, 0, sizeof col_rm_in);
+    collInp_t col_rm_in = {0};
 
     logmsg(DEBUG, "Removing collection '%s'", rods_path->outPath);
     snprintf(col_rm_in.collName, MAX_NAME_LEN, "%s", rods_path->outPath);

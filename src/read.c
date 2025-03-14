@@ -126,12 +126,11 @@ data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
                                const int open_flag, const int flags,
                                baton_error_t *error) {
     data_obj_file_t *data_obj = NULL;
-    dataObjInp_t obj_open_in;
+
     int descriptor;
 
     init_baton_error(error);
-
-    memset(&obj_open_in, 0, sizeof obj_open_in);
+    dataObjInp_t obj_open_in = {0};
 
     logmsg(DEBUG, "Opening data object '%s'", rods_path->outPath);
     snprintf(obj_open_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
@@ -219,8 +218,7 @@ size_t read_chunk(rcComm_t *conn, const data_obj_file_t *data_obj, char *buffer,
 
     data_obj->open_obj->len = len;
 
-    bytesBuf_t obj_read_out;
-    memset(&obj_read_out, 0, sizeof obj_read_out);
+    bytesBuf_t obj_read_out = {0};
     obj_read_out.buf = buffer;
     obj_read_out.len = len;
 
