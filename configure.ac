@@ -128,6 +128,19 @@ AC_ARG_WITH([test-resource],
     TEST_RESOURCE="testResc"])
 dnl End test resource
 
+dnl Begin test iRODS password
+TEST_IRODS_PASSWORD=irods
+AC_SUBST([TEST_IRODS_PASSWORD])
+
+AC_ARG_WITH([test-irods-password],
+  [AS_HELP_STRING([--with-test-irods-password],
+    [Specify an iRODS password for testing (default: irods)])],
+   [AC_MSG_NOTICE([using iRODS test password $with_test_irods_password])
+    TEST_IRODS_PASSWORD="$with_test_irods_password"],
+   [AC_MSG_NOTICE([using the default iRODS test password])
+    TEST_IRODS_PASSWORD="irods"])
+dnl End test iRODS password
+
 AX_PTHREAD(, [AC_MSG_ERROR([unable to find libpthread])])
 
 AC_CHECK_LIB([jansson], [json_unpack], [],

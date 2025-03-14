@@ -8,6 +8,8 @@ AM_CFLAGS += -fsanitize=address
 AM_LDFLAGS += -fsanitize=address
 endif
 
+AM_TESTS_ENVIRONMENT = ienv && echo $(TEST_IRODS_PASSWORD) | iinit && ils -l;
+
 TESTS = check_baton
 
 check_PROGRAMS = check_baton
