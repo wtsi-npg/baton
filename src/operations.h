@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021, 2022
- * Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021, 2022,
+ * 2025 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -109,10 +109,9 @@ typedef struct operation_args {
  * @param[in]      env          A populated iRODS environment.
  * @param[in]      conn         An open iRODS connection.
  * @param[in,out]  target       A baton JSON document.
- * @param[in]      flags        Function behaviour options.
- * @param[out]     error        An error report struct.
  * @param[in]      args         Optional arguments, char * zone name,
  *                              size_t transfer buffer size.
+ * @param[out]     error        An error report struct.
  *
  * @return json_t on success, which may be NULL if the operation
  * is void e.g. side-effect only operations.
@@ -120,7 +119,7 @@ typedef struct operation_args {
 typedef json_t *(*baton_json_op) (rodsEnv *env,
                                   rcComm_t *conn,
                                   json_t *target,
-                                  operation_args_t *args,
+                                  const operation_args_t *args,
                                   baton_error_t *error);
 
 /**
@@ -128,10 +127,8 @@ typedef json_t *(*baton_json_op) (rodsEnv *env,
  * function on each one.
  *
  * @param[in]  input        A file handle.
- * @param[fn]  fn           A function.
- * @param[in]  flags        Function behaviour options.
- * @param[in]  zone_name    Zone name, char * (optional).
- * @param[in]  buffer_size  Data transfer buffer, size_t (optional).
+ * @param[fn]  fn           A operation function.
+ * @param[in]  args         Operations arguments.
  *
  * @return 0 on success, error code on failure. The error code is suitable
  * for use as an exit code for the program calling do_operation.
@@ -139,55 +136,55 @@ typedef json_t *(*baton_json_op) (rodsEnv *env,
 int do_operation(FILE *input, baton_json_op fn, operation_args_t *args);
 
 json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn,
-                               json_t *target, operation_args_t *args,
+                               json_t *target, const operation_args_t *args,
                                baton_error_t *error);
 
 json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn,
-                           json_t *target, operation_args_t *args,
+                           json_t *target, const operation_args_t *args,
                            baton_error_t *error);
 
 json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn,
-                            json_t *target, operation_args_t *args,
+                            json_t *target, const operation_args_t *args,
                             baton_error_t *error);
 
 json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn,
-                               json_t *target, operation_args_t *args,
+                               json_t *target, const operation_args_t *args,
                                baton_error_t *error);
 
 json_t *baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn,
-                                json_t *target, operation_args_t *args,
+                                json_t *target, const operation_args_t *args,
                                 baton_error_t *error);
 
 json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn,
-                              json_t *target, operation_args_t *args,
+                              json_t *target, const operation_args_t *args,
                               baton_error_t *error);
 
 json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn,
-                          json_t *target, operation_args_t *args,
+                          json_t *target, const operation_args_t *args,
                           baton_error_t *error);
 
 json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn,
-                          json_t *target, operation_args_t *args,
+                          json_t *target, const operation_args_t *args,
                           baton_error_t *error);
 
 json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn,
-                            json_t *target, operation_args_t *args,
+                            json_t *target, const operation_args_t *args,
                             baton_error_t *error);
 
 json_t *baton_json_move_op(rodsEnv *env, rcComm_t *conn,
-                           json_t *target, operation_args_t *args,
+                           json_t *target, const operation_args_t *args,
                            baton_error_t *error);
 
 json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
-                         json_t *target, operation_args_t *args,
+                         json_t *target, const operation_args_t *args,
                          baton_error_t *error);
 
 json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
-                             json_t *target, operation_args_t *args,
+                             json_t *target, const operation_args_t *args,
                              baton_error_t *error);
 
 json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
-                             json_t *target, operation_args_t *args,
+                             json_t *target, const operation_args_t *args,
                              baton_error_t *error);
 
 int check_str_arg(const char *arg_name, const char *arg_value,

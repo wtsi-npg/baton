@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014, 2015, 2017, 2018, 2019, 2020, 2021 Genome
+ * Copyright (C) 2014, 2015, 2017, 2018, 2019, 2020, 2021, 2025 Genome
  * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ int chksumLocFile( const char *fileName, char *chksumStr, const char* );
 #include "write.h"
 
 int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
-                 char *default_resource, char *checksum, int flags,
+                 char *default_resource, char *checksum, const int flags,
                  baton_error_t *error) {
     char *tmpname  = NULL;
     dataObjInp_t obj_open_in;
@@ -77,7 +77,7 @@ int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
 	    // in the client environment. There's no advantage in our
 	    // passing in a value that we have read from the client
 	    // environment.
-	    char* default_scheme = "";
+	    const char* default_scheme = "";
 	    status = chksumLocFile(tmpname, chksum, default_scheme);
 	    if (status != 0) {
 		char *err_subname;
@@ -138,7 +138,7 @@ error:
 }
 
 size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
-                      size_t buffer_size, int flags, baton_error_t *error) {
+                      const size_t buffer_size, const int flags, baton_error_t *error) {
     data_obj_file_t *obj = NULL;
     char *buffer         = NULL;
     size_t num_read      = 0;
@@ -169,12 +169,12 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
         goto finally;
     }
 
-    size_t nr, nw;
+    size_t nr;
     while ((nr = fread(buffer, 1, buffer_size, in)) > 0) {
         num_read += nr;
         logmsg(DEBUG, "Writing %zu bytes from stream to '%s'", nr, obj->path);
 
-        nw = write_chunk(conn, buffer, obj, nr, error);
+        const size_t nw = write_chunk(conn, buffer, obj, nr, error);
         if (error->code != 0) {
             logmsg(ERROR, "Failed to write to '%s': error %d %s",
                    obj->path, error->code, error->message);
@@ -197,7 +197,7 @@ size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
     }
     set_md5_last_read(obj, digest);
 
-    int status = close_data_obj(conn, obj);
+    const int status = close_data_obj(conn, obj);
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);
@@ -228,8 +228,8 @@ finally:
     return num_written;
 }
 
-size_t write_chunk(rcComm_t *conn, char *buffer, data_obj_file_t *data_obj,
-                   size_t len, baton_error_t *error) {
+size_t write_chunk(rcComm_t *conn, char *buffer, const data_obj_file_t *data_obj,
+                   const size_t len, baton_error_t *error) {
     init_baton_error(error);
 
     data_obj->open_obj->len = len;
@@ -258,7 +258,6 @@ finally:
 int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
                       baton_error_t *error) {
     collInp_t coll_create_in;
-    int status;
 
     init_baton_error(error);
 
@@ -271,7 +270,7 @@ int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
         addKeyVal(&coll_create_in.condInput, RECURSIVE_OPR__KW, "");
     }
 
-    status = rcCollCreate(conn, &coll_create_in);
+    int status = rcCollCreate(conn, &coll_create_in);
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);
@@ -286,7 +285,6 @@ int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
 int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
                        baton_error_t *error) {
     dataObjInp_t obj_rm_in;
-    int status;
     flags = flags;
 
     init_baton_error(error);
@@ -298,7 +296,7 @@ int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
 
     addKeyVal(&obj_rm_in.condInput, FORCE_FLAG_KW, "");
 
-    status = rcDataObjUnlink(conn, &obj_rm_in);
+    const int status = rcDataObjUnlink(conn, &obj_rm_in);
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);
@@ -310,14 +308,11 @@ int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
     return error->code;
 }
 
-int remove_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+int remove_collection(rcComm_t *conn, rodsPath_t *rods_path, const int flags,
                       baton_error_t *error) {
-    collInp_t col_rm_in;
-    int status;
-    int verbose = 0;
-
     init_baton_error(error);
 
+    collInp_t col_rm_in;
     memset(&col_rm_in, 0, sizeof col_rm_in);
 
     logmsg(DEBUG, "Removing collection '%s'", rods_path->outPath);
@@ -332,7 +327,8 @@ int remove_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
         addKeyVal(&col_rm_in.condInput, FORCE_FLAG_KW, "");
     }
 
-    status = rcRmColl(conn, &col_rm_in, verbose);
+    const int verbose = 0;
+    const int status = rcRmColl(conn, &col_rm_in, verbose);
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);

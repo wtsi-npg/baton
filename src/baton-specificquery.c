@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013, 2014, 2015, 2016, 2017, 2021 Genome Research
+ * Copyright (c) 2013, 2014, 2015, 2016, 2017, 2021, 2025 Genome Research
  * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -35,10 +35,10 @@ static int version_flag    = 0;
 
 int do_search_specific(FILE *input, char *zone_name);
 
-int main(int argc, char *argv[]) {
+int main(const int argc, char *argv[]) {
     int exit_status = 0;
     char *zone_name = NULL;
-    char *json_file = NULL;
+    const char *json_file = NULL;
     FILE *input     = NULL;
 
     while (1) {
@@ -56,8 +56,8 @@ int main(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "f:z:", long_options,
-                                 &option_index);
+        const int c = getopt_long_only(argc, argv, "f:z:", long_options,
+                                       &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    int status = do_search_specific(input, zone_name);
+    const int status = do_search_specific(input, zone_name);
     if (status != 0) exit_status = 5;
 
     exit(exit_status);
@@ -137,7 +137,7 @@ int do_search_specific(FILE *input, char *zone_name) {
     if (!conn) goto error;
 
     while (!feof(input)) {
-        size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
+        const size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *target = json_loadf(input, jflags, &load_error);
         if (!target) {

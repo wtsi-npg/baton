@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2019 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2019, 2025 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -48,7 +48,7 @@ size_t parse_size(const char *str);
 
 FILE *maybe_stdin(const char *path);
 
-char *format_timestamp(const char *timestamp, const char *format);
+char *format_timestamp(const char *raw_timestamp, const char *format);
 
 char *parse_timestamp(const char *timestamp, const char *format);
 

@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2019, 2021, 2023 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2019, 2021, 2023, 2025 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
 #include "utilities.h"
 
 static int is_zone_hint(const char *path) {
-    size_t len = strnlen(path, MAX_STR_LEN);
+    const size_t len = strnlen(path, MAX_STR_LEN);
     int is_zone = 1;
 
     if (len < 2) {
@@ -52,9 +52,9 @@ static int is_zone_hint(const char *path) {
     return is_zone;
 }
 
-static size_t parse_attr_value(int column, const char *label,
+static size_t parse_attr_value(const int column, const char *label,
                                const char *input, char *output,
-                               size_t max_len) {
+                               const size_t max_len) {
     size_t size;
 
     if (maybe_utf8(input, max_len)) {
@@ -181,7 +181,7 @@ error:
 }
 
 static const char *resource_hierarchy_leaf(const char *hierarchy) {
-    char *last_delim = strrchr(hierarchy, ';');
+    const char *last_delim = strrchr(hierarchy, ';');
 
     const char *leaf = NULL;
     if (last_delim) {
@@ -195,7 +195,7 @@ static const char *resource_hierarchy_leaf(const char *hierarchy) {
 }
 #endif
 
-void log_json_error(log_level level, json_error_t *error) {
+void log_json_error(const log_level level, json_error_t *error) {
     logmsg(level, "JSON error: %s, line %d, column %d, position %d",
            error->text, error->line, error->column, error->position);
 }
@@ -239,18 +239,17 @@ error:
     return NULL;
 }
 
-json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
+json_t *do_search(rcComm_t *conn, char *zone_name, const json_t *query,
                   query_format_in_t *format,
-                  prepare_avu_search_cb prepare_avu,
-                  prepare_acl_search_cb prepare_acl,
-                  prepare_tps_search_cb prepare_cre,
-                  prepare_tps_search_cb prepare_mod,
+                  const prepare_avu_search_cb prepare_avu,
+                  const prepare_acl_search_cb prepare_acl,
+                  const prepare_tps_search_cb prepare_cre,
+                  const prepare_tps_search_cb prepare_mod,
                   baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     char *zone_hint         = zone_name;
     char *root_path         = NULL;
     json_t *items           = NULL;
-    json_t *avus;
 
     init_baton_error(error);
 
@@ -287,7 +286,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
     }
 
     // AVUs are mandatory for searches
-    avus = get_avus(query, error);
+    const json_t *avus = get_avus(query, error);
     if (error->code != 0) goto error;
 
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
@@ -300,7 +299,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
 
     // ACL is optional
     if (has_acl(query)) {
-        json_t *acl = get_acl(query, error);
+        const json_t *acl = get_acl(query, error);
         if (error->code != 0) goto error;
 
         query_in = prepare_json_acl_search(query_in, acl, prepare_acl, error);
@@ -309,7 +308,7 @@ json_t *do_search(rcComm_t *conn, char *zone_name, json_t *query,
 
     // Timestamp is optional
     if (has_timestamps(query)) {
-        json_t *tps = get_timestamps(query, error);
+        const json_t *tps = get_timestamps(query, error);
         if (error->code != 0) goto error;
 
         query_in = prepare_json_tps_search(query_in, tps, prepare_cre,
@@ -339,19 +338,18 @@ error:
     return NULL;
 }
 
-json_t *do_specific(rcComm_t *conn, char *zone_name, json_t *query,
-                    prepare_specific_query_cb prepare_squery,
-                    prepare_specific_labels_cb prepare_labels,
+json_t *do_specific(rcComm_t *conn, char *zone_name, const json_t *query,
+                    const prepare_specific_query_cb prepare_squery,
+                    const prepare_specific_labels_cb prepare_labels,
                     baton_error_t *error) {
     json_t *items             = NULL;
-    json_t *specific;
     query_format_in_t *format = NULL;
 
     specificQueryInp_t *squery_in = calloc(1, sizeof (specificQueryInp_t));
     if (!squery_in) goto error;
 
     // specific is mandatory for specific query
-    specific = get_specific(query, error);
+    const json_t *specific = get_specific(query, error);
     if (error->code != 0) goto error;
 
     squery_in = prepare_json_specific_query(squery_in, specific,
@@ -493,9 +491,7 @@ json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
     size_t chunk_num  = 0;
     int continue_flag = 0;
 
-    const char *err_name;
     char *err_subname;
-    int status;
 
     json_t *results = json_array();
     if (!results) {
@@ -508,8 +504,7 @@ json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
     while (chunk_num == 0 || continue_flag > 0) {
         logmsg(DEBUG, "Attempting to get chunk %d of query", chunk_num);
 
-        status = rcSpecificQuery(conn, squery_in, &query_out);
-
+        int status = rcSpecificQuery(conn, squery_in, &query_out);
         if (status == 0) {
             logmsg(DEBUG, "Successfully fetched chunk %d of query", chunk_num);
 
@@ -556,7 +551,7 @@ json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
             break;
         }
         else {
-            err_name = rodsErrorName(status, &err_subname);
+            const char *err_name = rodsErrorName(status, &err_subname);
             set_baton_error(error, status,
                             "Failed to fetch query result: in chunk %d "
                             "error %d %s %s",
@@ -585,14 +580,14 @@ error:
     return NULL;
 }
 
-json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
+json_t *make_json_objects(const genQueryOut_t *query_out, const char *labels[]) {
     json_t *array = json_array();
     if (!array) {
         logmsg(ERROR, "Failed to allocate a new JSON array");
         goto error;
     }
 
-    size_t num_rows = (size_t) query_out->rowCnt;
+    const size_t num_rows = query_out->rowCnt;
     logmsg(DEBUG, "Converting %d rows of results to JSON", num_rows);
 
     for (size_t row = 0; row < num_rows; row++) {
@@ -605,9 +600,9 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
             goto error;
         }
 
-        size_t num_attr = query_out->attriCnt;
+        const size_t num_attr = query_out->attriCnt;
         for (size_t i = 0; i < num_attr; i++) {
-            size_t len   = query_out->sqlResult[i].len;
+            const size_t len   = query_out->sqlResult[i].len;
             char *result = query_out->sqlResult[i].value;
             result += row * len;
 
@@ -617,7 +612,7 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
             // Skip any results which return as an empty string
             // (notably units, when they are absent from an AVU).
             if (strnlen(result, len) > 0) {
-                size_t vlen = len * 2 + 1; // +1 includes NUL
+                const size_t vlen = len * 2 + 1; // +1 includes NUL
                 char value[vlen];
                 memset(value, 0, sizeof value);
 
@@ -625,7 +620,7 @@ json_t *make_json_objects(genQueryOut_t *query_out, const char *labels[]) {
                     json_t *jvalue = json_pack("s", value);
                     if (!jvalue) goto error;
 
-                    int set = json_object_set_new(jrow, labels[i], jvalue);
+                    const int set = json_object_set_new(jrow, labels[i], jvalue);
                     if (set != 0) {
                         logmsg(ERROR, "Failed to set column %d '%s' value '%s' ",
                                i, labels[i], value);
@@ -653,10 +648,10 @@ error:
 }
 
 genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
-                                       json_t *mapped_acl,
-                                       prepare_acl_search_cb prepare,
+                                       const json_t *mapped_acl,
+                                       const prepare_acl_search_cb prepare,
                                        baton_error_t *error) {
-    size_t num_clauses = json_array_size(mapped_acl);
+    const size_t num_clauses = json_array_size(mapped_acl);
 
     init_baton_error(error);
 
@@ -696,14 +691,14 @@ error:
 }
 
 genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
-                                       json_t *avus,
-                                       prepare_avu_search_cb prepare,
+                                       const json_t *avus,
+                                       const prepare_avu_search_cb prepare,
                                        baton_error_t *error) {
     json_t *in_opvalue = NULL;
 
     init_baton_error(error);
 
-    size_t num_clauses = json_array_size(avus);
+    const size_t num_clauses = json_array_size(avus);
     size_t i;
     json_t *avu;
     json_array_foreach(avus, i, avu) {
@@ -756,7 +751,7 @@ error:
 }
 
 specificQueryInp_t *prepare_json_specific_query(specificQueryInp_t *squery_in,
-                                                json_t *specific,
+                                                const json_t *specific,
                                                 prepare_specific_query_cb prepare,
                                                 baton_error_t *error) {
     const char *sql = NULL;
@@ -785,8 +780,8 @@ error:
 }
 
 query_format_in_t *prepare_json_specific_labels(rcComm_t *conn,
-                                                json_t *specific,
-                                                prepare_specific_labels_cb prepare,
+                                                const json_t *specific,
+                                                const prepare_specific_labels_cb prepare,
                                                 baton_error_t *error) {
     query_format_in_t *format = NULL;
 
@@ -804,13 +799,13 @@ error:
 }
 
 genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
-                                       json_t *timestamps,
-                                       prepare_tps_search_cb prepare_cre,
-                                       prepare_tps_search_cb prepare_mod,
+                                       const json_t *timestamps,
+                                       const prepare_tps_search_cb prepare_cre,
+                                       const prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error) {
     init_baton_error(error);
 
-    size_t num_clauses = json_array_size(timestamps);
+    const size_t num_clauses = json_array_size(timestamps);
 
     size_t i;
     json_t *tp;
@@ -873,7 +868,6 @@ json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
                                  baton_error_t *error) {
     char *path = NULL;
     rodsPath_t rods_path;
-    json_t *checksum;
 
     init_baton_error(error);
 
@@ -889,7 +883,7 @@ json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
     set_rods_path(conn, &rods_path, path, error);
     if (error->code != 0) goto error;
 
-    checksum = list_checksum(conn, &rods_path, error);
+    json_t *checksum = list_checksum(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
     add_checksum(object, checksum, error);
@@ -934,7 +928,6 @@ json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
                              baton_error_t *error) {
     char *path = NULL;
     rodsPath_t rods_path;
-    json_t *replicates;
 
     init_baton_error(error);
 
@@ -950,7 +943,7 @@ json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
     set_rods_path(conn, &rods_path, path, error);
     if (error->code != 0) goto error;
 
-    replicates = list_replicates(conn, &rods_path, error);
+    json_t *replicates = list_replicates(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
     add_replicates(object, replicates, error);
@@ -1103,7 +1096,6 @@ json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
                              baton_error_t *error) {
     char *path = NULL;
     rodsPath_t rods_path;
-    json_t *avus;
 
     init_baton_error(error);
 
@@ -1119,7 +1111,7 @@ json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
     set_rods_path(conn, &rods_path, path, error);
     if (error->code != 0) goto error;
 
-    avus = list_metadata(conn, &rods_path, NULL, error);
+    json_t *avus = list_metadata(conn, &rods_path, NULL, error);
     if (error->code != 0) goto error;
 
     add_metadata(object, avus, error);
@@ -1164,7 +1156,6 @@ json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
                             baton_error_t *error) {
     char *path = NULL;
     rodsPath_t rods_path;
-    json_t *perms;
 
     init_baton_error(error);
 
@@ -1180,7 +1171,7 @@ json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
     set_rods_path(conn, &rods_path, path, error);
     if (error->code != 0) goto error;
 
-    perms = list_permissions(conn, &rods_path, error);
+    json_t *perms = list_permissions(conn, &rods_path, error);
     if (error->code != 0) goto error;
 
     add_permissions(object, perms, error);
@@ -1227,10 +1218,10 @@ json_t *map_access_args(json_t *query, baton_error_t *error) {
     init_baton_error(error);
 
     if (has_acl(query)) {
-        json_t *acl = get_acl(query, error);
+        const json_t *acl = get_acl(query, error);
         if (error->code != 0) goto error;
 
-        size_t num_elts = json_array_size(acl);
+        const size_t num_elts = json_array_size(acl);
         for (size_t i = 0; i < num_elts; i++) {
             json_t *access = json_array_get(acl, i);
             if (!json_is_object(access)) {
@@ -1265,8 +1256,6 @@ error:
 }
 
 json_t *revmap_access_result(json_t *acl, baton_error_t *error) {
-    size_t num_elts;
-
     init_baton_error(error);
 
     if (!json_is_array(acl)) {
@@ -1275,10 +1264,10 @@ json_t *revmap_access_result(json_t *acl, baton_error_t *error) {
         goto error;
     }
 
-    num_elts = json_array_size(acl);
+    const size_t num_elts = json_array_size(acl);
     for (size_t i = 0; i < num_elts; i++) {
         json_t *access = json_array_get(acl, i);
-        json_t *level = json_object_get(access, JSON_LEVEL_KEY);
+        const json_t *level = json_object_get(access, JSON_LEVEL_KEY);
 
         const char *icat_level = json_string_value(level);
         const char *access_level = revmap_access_level(icat_level);
@@ -1298,13 +1287,13 @@ error:
     return NULL;
 }
 
-json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
+json_t *revmap_replicate_results(rcComm_t *conn, const json_t *results,
                                  baton_error_t *error) {
     json_t *mapped  = json_array();
 
     init_baton_error(error);
 
-    size_t num_elts = json_array_size(results);
+    const size_t num_elts = json_array_size(results);
     for (size_t i = 0; i < num_elts; i++) {
         json_t *result = json_array_get(results, i);
         if (!json_is_object(result)) {
@@ -1347,9 +1336,9 @@ json_t *revmap_replicate_results(rcComm_t *conn, json_t *results,
         const char *location = json_string_value(loc);
 #endif
 
-        json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
-        json_t *num  = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
-        json_t *stat = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
+        const json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
+        const json_t *num  = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
+        const json_t *stat = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
 
         const char *checksum = json_string_value(chk);
         const char *number   = json_string_value(num);

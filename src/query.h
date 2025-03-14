@@ -105,7 +105,7 @@ typedef query_format_in_t *(*prepare_specific_labels_cb) (rcComm_t *conn,
  * @param[in] level     The logging level.
  * @param[in] error     The iRODS error state.
  */
-void log_rods_errstack(log_level level, rError_t *error);
+void log_rods_errstack(log_level level, const rError_t *error);
 
 /**
  * Allocate a new iRODS generic query (see rodsGenQuery.h).

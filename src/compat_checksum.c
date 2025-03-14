@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015, 2023 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2015, 2023, 2025 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,8 +38,8 @@ EVP_MD_CTX* compat_MD5Init(baton_error_t *error) {
     return context;
 }
 
-void compat_MD5Update(EVP_MD_CTX *context, unsigned char *input,
-                      unsigned int len, baton_error_t *error) {
+void compat_MD5Update(EVP_MD_CTX *context, const unsigned char *input,
+                      const unsigned int len, baton_error_t *error) {
     if (!EVP_DigestUpdate(context, input, len)) {
         MD5_FREE(context);
         set_baton_error(error, -1, "Failed to update an MD5 context");

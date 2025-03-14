@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2025 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ void init_baton_error(baton_error_t *error);
  * @param[in] error      The error struct to modify.
  * @param[in] code       The error code.
  * @param[in] format     The error message format string or template.
- * @param[in] arguments  The format arguments.
+ * @param[in] ...        The format arguments.
  *
  * @ref init_baton_error
  */

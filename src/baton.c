@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2020, 2023 Genome Research
- * Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2020, 2023, 2025 Genome
+ * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@
 #include "baton.h"
 #include "signal_handler.h"
 
-static const char *metadata_op_name(metadata_op op) {
+static const char *metadata_op_name(const metadata_op op) {
     const char *name;
 
     switch (op) {
@@ -53,7 +53,7 @@ static const char *metadata_op_name(metadata_op op) {
     return name;
 }
 
-static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in) {
+static void map_mod_args(modAVUMetadataInp_t *out, const mod_metadata_in_t *in) {
     out->arg0 = (char *) metadata_op_name(in->op);
     out->arg1 = in->type_arg;
     out->arg2 = in->rods_path->outPath;
@@ -66,7 +66,7 @@ static void map_mod_args(modAVUMetadataInp_t *out, mod_metadata_in_t *in) {
     out->arg9 = "";
 }
 
-static rcComm_t *rods_connect(rodsEnv *env){
+static rcComm_t *rods_connect(const rodsEnv *env){
     rcComm_t *conn = NULL;
     rErrMsg_t errmsg;
 
@@ -76,7 +76,7 @@ static rcComm_t *rods_connect(rodsEnv *env){
 
     if (!conn) goto finally;
 
-    int sigstatus = apply_signal_handler();
+    const int sigstatus = apply_signal_handler();
     if (sigstatus != 0) {
         exit(1);
     }
@@ -88,9 +88,8 @@ finally:
 int is_irods_available() {
     rcComm_t *conn = NULL;
     rodsEnv env;
-    int status;
 
-    status = getRodsEnv(&env);
+    const int status = getRodsEnv(&env);
     if (status < 0) {
         logmsg(ERROR, "Failed to load your iRODS environment");
         goto error;
@@ -113,9 +112,9 @@ error:
     return status;
 }
 
-int declare_client_name(const char *prog_path) {
+int declare_client_name(const char *name) {
     char client_name[MAX_CLIENT_NAME_LEN];
-    const char *prog_name = parse_base_name(prog_path);
+    const char *prog_name = parse_base_name(name);
 
     snprintf(client_name, MAX_CLIENT_NAME_LEN, "%s:%s:%s",
              PACKAGE_NAME, prog_name, VERSION);
@@ -124,13 +123,13 @@ int declare_client_name(const char *prog_path) {
 }
 
 char* get_client_version() {
-    int ver [3] = { IRODS_VERSION_MAJOR,
-                    IRODS_VERSION_MINOR,
-                    IRODS_VERSION_PATCHLEVEL };
+    const int ver [3] = { IRODS_VERSION_MAJOR,
+                          IRODS_VERSION_MINOR,
+                          IRODS_VERSION_PATCHLEVEL };
 
     int total_chars = 0;
     for (int i = 0; i < 3; i++) {
-        int num_digits = (ver[i] == 0) ? 1 : log10(ver[i]) + 1;
+        const int num_digits = (ver[i] == 0) ? 1 : log10(ver[i]) + 1;
         total_chars += num_digits;
     }
 
@@ -144,27 +143,26 @@ char* get_client_version() {
 
 char* get_server_version(rcComm_t *conn, baton_error_t *error) {
     const char *ver_re_str = "([0-9]+\\.[0-9]+\\.[0-9]+)$";
-    int ver_re_idx = 0;
+    const int ver_re_idx = 0;
     regex_t ver_re;
     regmatch_t ver_match[ver_re_idx + 1];
 
-    int restatus;
-    char remsg[MAX_ERROR_MESSAGE_LEN];
+    char re_msg[MAX_ERROR_MESSAGE_LEN];
 
     miscSvrInfo_t *server_info;
     char *version = NULL;
 
     init_baton_error(error);
 
-    restatus = regcomp(&ver_re, ver_re_str, REG_EXTENDED | REG_ICASE);
-    if (restatus != 0) {
-        regerror(restatus, &ver_re, remsg, MAX_ERROR_MESSAGE_LEN);
-        set_baton_error(error, restatus, "Could not compile regex: '%s': %s",
-                        ver_re_str, remsg);
+    int re_status = regcomp(&ver_re, ver_re_str, REG_EXTENDED | REG_ICASE);
+    if (re_status != 0) {
+        regerror(re_status, &ver_re, re_msg, MAX_ERROR_MESSAGE_LEN);
+        set_baton_error(error, re_status, "Could not compile regex: '%s': %s",
+                        ver_re_str, re_msg);
         goto error;
     }
 
-    int status = rcGetMiscSvrInfo(conn, &server_info);
+    const int status = rcGetMiscSvrInfo(conn, &server_info);
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);
@@ -174,23 +172,23 @@ char* get_server_version(rcComm_t *conn, baton_error_t *error) {
     }
 
     const char *ver = server_info->relVersion;
-    restatus = regexec(&ver_re, ver, 1, ver_match, 0);
-    if (!restatus) {
-        int start = ver_match[ver_re_idx].rm_so;
-        int   end = ver_match[ver_re_idx].rm_eo;
-        int len   = end + 1 - start;
+    re_status = regexec(&ver_re, ver, 1, ver_match, 0);
+    if (!re_status) {
+        const int start = ver_match[ver_re_idx].rm_so;
+        const int   end = ver_match[ver_re_idx].rm_eo;
+        const int len   = end + 1 - start;
         version = calloc(len, sizeof (char));
         strncpy(version, ver + start, len);
     }
-    else if (restatus == REG_NOMATCH) {
-        set_baton_error(error, restatus, "Failed to match server version: '%s'",
+    else if (re_status == REG_NOMATCH) {
+        set_baton_error(error, re_status, "Failed to match server version: '%s'",
                         ver);
         goto error;
     }
     else {
-        regerror(restatus, &ver_re, remsg, MAX_ERROR_MESSAGE_LEN);
-        set_baton_error(error, restatus,
-                        "Failed to match server version: '%s': %s", ver, remsg);
+        regerror(re_status, &ver_re, re_msg, MAX_ERROR_MESSAGE_LEN);
+        set_baton_error(error, re_status,
+                        "Failed to match server version: '%s': %s", ver, re_msg);
         goto error;
     }
 
@@ -204,9 +202,8 @@ error:
 
 rcComm_t *rods_login(rodsEnv *env) {
     rcComm_t *conn = NULL;
-    int status;
 
-    status = getRodsEnv(env);
+    int status = getRodsEnv(env);
     if (status < 0) {
         logmsg(ERROR, "Failed to load your iRODS environment: %d", status);
         goto error;
@@ -246,10 +243,10 @@ error:
     return NULL;
 }
 
-int init_rods_path(rodsPath_t *rods_path, char *inpath) {
+int init_rods_path(rodsPath_t *rods_path, const char *in_path) {
     if (!rods_path) return USER__NULL_INPUT_ERR;
 
-    char *dest = rstrcpy(rods_path->inPath, inpath, MAX_NAME_LEN);
+    char *dest = rstrcpy(rods_path->inPath, in_path, MAX_NAME_LEN);
     if (!dest) return USER_PATH_EXCEEDS_MAX;
 
     rods_path->objType  = UNKNOWN_OBJ_T;
@@ -260,28 +257,28 @@ int init_rods_path(rodsPath_t *rods_path, char *inpath) {
 }
 
 int resolve_rods_path(rcComm_t *conn, rodsEnv *env, rodsPath_t *rods_path,
-                      char *inpath, option_flags flags, baton_error_t *error) {
+                      const char *in_path, const option_flags flags, baton_error_t *error) {
     init_baton_error(error);
 
-    if (!str_starts_with(inpath, "/", 1)) {
+    if (!str_starts_with(in_path, "/", 1)) {
         const char *message = "Found relative collection path '%s'. "
             "Using relative collection paths in iRODS may be "
             "dangerous because the CWD may change unexpectedly. "
             "See https://github.com/irods/irods/issues/2406";
 
         if (flags & UNSAFE_RESOLVE) {
-            logmsg(WARN, message, inpath);
+            logmsg(WARN, message, in_path);
         }
         else {
-            set_baton_error(error, -1, message, inpath);
+            set_baton_error(error, -1, message, in_path);
             goto error;
         }
     }
 
-    int status = init_rods_path(rods_path, inpath);
+    int status = init_rods_path(rods_path, in_path);
     if (status < 0) {
         set_baton_error(error, status,
-                        "Failed to create iRODS path '%s'", inpath);
+                        "Failed to create iRODS path '%s'", in_path);
         goto error;
     }
 
@@ -310,8 +307,6 @@ error:
 
 int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path,
                   baton_error_t *error) {
-    char *dest;
-
     int status = init_rods_path(rods_path, path);
     if (status < 0) {
         set_baton_error(error, status,
@@ -319,7 +314,7 @@ int set_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *path,
         goto error;
     }
 
-    dest = rstrcpy(rods_path->outPath, path, MAX_NAME_LEN);
+    char *dest = rstrcpy(rods_path->outPath, path, MAX_NAME_LEN);
     if (!dest) {
         set_baton_error(error, USER_PATH_EXCEEDS_MAX,
                         "iRODS path '%s' is too long (exceeds %d",
@@ -352,7 +347,6 @@ error:
 int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
                    baton_error_t *error) {
     dataObjCopyInp_t obj_rename_in;
-    int status;
 
     init_baton_error(error);
 
@@ -402,7 +396,7 @@ int move_rods_path(rcComm_t *conn, rodsPath_t *rods_path, char *new_path,
         goto finally;
     }
 
-    status = rcDataObjRename(conn, &obj_rename_in);
+    const int status = rcDataObjRename(conn, &obj_rename_in);
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);
@@ -416,7 +410,7 @@ finally:
 }
 
 int resolve_collection(json_t *object, rcComm_t *conn, rodsEnv *env,
-                       option_flags flags, baton_error_t *error) {
+                       const option_flags flags, baton_error_t *error) {
     char *collection = NULL;
 
     init_baton_error(error);
@@ -462,7 +456,7 @@ finally:
 }
 
 json_t *search_metadata(rcComm_t *conn, json_t *query, char *zone_name,
-                        option_flags flags, baton_error_t *error) {
+                        const option_flags flags, baton_error_t *error) {
     json_t *results      = NULL;
     json_t *collections  = NULL;
     json_t *data_objects = NULL;
@@ -577,7 +571,7 @@ error:
     return NULL;
 }
 
-json_t *search_specific(rcComm_t *conn, json_t *query, char *zone_name,
+json_t *search_specific(rcComm_t *conn, const json_t *query, char *zone_name,
                         baton_error_t *error) {
     json_t *results = NULL;
 
@@ -605,19 +599,18 @@ error:
 }
 
 int modify_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                       recursive_op recurse, char *owner_specifier,
+                       const recursive_op recurse, char *owner_specifier,
                        char *access_level, baton_error_t *error) {
     char user_name[NAME_LEN];
     char zone_name[NAME_LEN];
     modAccessControlInp_t mod_perms_in;
-    int status;
 
     init_baton_error(error);
 
     check_str_arg("owner specifier", owner_specifier, MAX_STR_LEN, error);
     if (error->code != 0) goto error;
 
-    status = parseUserName(owner_specifier, user_name, zone_name);
+    int status = parseUserName(owner_specifier, user_name, zone_name);
     if (status != 0) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,
                         "Failed to chmod '%s' because of an invalid "
@@ -677,18 +670,16 @@ error:
 }
 
 int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                            recursive_op recurse, json_t *access,
+                            const recursive_op recurse, const json_t *acl,
                             baton_error_t *error) {
     char owner_specifier[LONG_NAME_LEN] = { 0 };
     char access_level[LONG_NAME_LEN]    = { 0 };
-    const char *owner;
     const char *zone = NULL;
-    const char *level;
 
     init_baton_error(error);
 
-    zone = get_access_zone(access, error);
-    owner = get_access_owner(access, error);
+    zone = get_access_zone(acl, error);
+    const char *owner = get_access_owner(acl, error);
     if (error->code != 0) goto finally;
 
     if (zone) {
@@ -699,7 +690,7 @@ int modify_json_permissions(rcComm_t *conn, rodsPath_t *rods_path,
         snprintf(owner_specifier, sizeof owner_specifier, "%s", owner);
     }
 
-    level = get_access_level(access, error);
+    const char *level = get_access_level(acl, error);
     snprintf(access_level, sizeof access_level, "%s", level);
     if (error->code != 0) goto finally;
 
@@ -711,7 +702,7 @@ finally:
 }
 
 int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                    metadata_op operation,
+                    const metadata_op op,
                     char *attr_name, char *attr_value, char *attr_units,
                     baton_error_t *error) {
     char *type_arg;
@@ -757,7 +748,7 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     }
 
     mod_metadata_in_t named_args;
-    named_args.op         = operation;
+    named_args.op         = op;
     named_args.type_arg   = type_arg;
     named_args.rods_path  = rods_path;
     named_args.attr_name  = attr_name;
@@ -767,13 +758,13 @@ int modify_metadata(rcComm_t *conn, rodsPath_t *rods_path,
     modAVUMetadataInp_t anon_args = {0};
     map_mod_args(&anon_args, &named_args);
 
-    int status = rcModAVUMetadata(conn, &anon_args);
+    const int status = rcModAVUMetadata(conn, &anon_args);
     if (status < 0) {
         char *err_subname;
         const char *err_name = rodsErrorName(status, &err_subname);
         set_baton_error(error, status,
                         "Failed to %s metadata '%s' -> '%s' on '%s': "
-                        "error %d %s", metadata_op_name(operation),
+                        "error %d %s", metadata_op_name(op),
                         attr_name, attr_value, rods_path->outPath,
                         status, err_name);
         goto error;
@@ -794,15 +785,15 @@ error:
 }
 
 int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                               metadata_op operation,
-                               json_t *candidate_avus, json_t *reference_avus,
+                               const metadata_op op,
+                               const json_t *candidate_avus, const json_t *reference_avus,
                                baton_error_t *error) {
-    const char *op_name = metadata_op_name(operation);
+    const char *op_name = metadata_op_name(op);
 
     init_baton_error(error);
 
     for (size_t i = 0; i < json_array_size(candidate_avus); i++) {
-        json_t *candidate_avu = json_array_get(candidate_avus, i);
+        const json_t *candidate_avu = json_array_get(candidate_avus, i);
         char *str = json_dumps(candidate_avu, JSON_DECODE_ANY);
 
         if (contains_avu(reference_avus, candidate_avu)) {
@@ -810,7 +801,7 @@ int maybe_modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
         }
         else {
             logmsg(TRACE, "Performing '%s' operation on AVU %s", op_name, str);
-            modify_json_metadata(conn, rods_path, operation, candidate_avu,
+            modify_json_metadata(conn, rods_path, op, candidate_avu,
                                  error);
         }
 
@@ -824,7 +815,7 @@ finally:
 }
 
 int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
-                         metadata_op operation, json_t *avu,
+                         const metadata_op op, const json_t *avu,
                          baton_error_t *error) {
     char *attr_tmp  = NULL;
     char *value_tmp = NULL;
@@ -863,7 +854,7 @@ int modify_json_metadata(rcComm_t *conn, rodsPath_t *rods_path,
         goto finally;
     }
 
-    modify_metadata(conn, rods_path, operation,
+    modify_metadata(conn, rods_path, op,
                     attr_tmp, value_tmp, units_tmp, error);
 
 finally:

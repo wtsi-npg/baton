@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014, 2019 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2014, 2019, 2025 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@
 
 static log_level THRESHOLD = WARN;
 
-const char *get_log_level_name(log_level level) {
+const char *get_log_level_name(const log_level level) {
     switch (level) {
         case FATAL:
             return "FATAL";
@@ -54,7 +54,7 @@ log_level get_log_threshold() {
     return THRESHOLD;
 }
 
-log_level set_log_threshold(log_level level) {
+log_level set_log_threshold(const log_level level) {
     logmsg(DEBUG, "Setting log level to %s", get_log_level_name(level));
 
     THRESHOLD = level;
@@ -62,16 +62,16 @@ log_level set_log_threshold(log_level level) {
     return THRESHOLD;
 }
 
-void log_impl(int line, const char *file, char const *function,
-              log_level level, ...) {
+void log_impl(const int line, const char *file, char const *function,
+              const log_level level, ...) {
     if (level <= THRESHOLD) {
         char buffer[32];
 
-        time_t t = time(0);
+        const time_t t = time(0);
         struct tm tm;
         gmtime_r(&t, &tm);
 
-        int status = strftime(buffer, sizeof buffer, RFC3339_FORMAT, &tm);
+        const int status = strftime(buffer, sizeof buffer, RFC3339_FORMAT, &tm);
         if (status == 0) {
             fprintf(stderr, "Failed to format timestamp '%s': error %d %s",
                     buffer, errno, strerror(errno));
