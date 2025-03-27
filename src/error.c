@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2025 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ void init_baton_error(baton_error_t *error) {
     error->size = 1; // Size includes terminating null byte.
 }
 
-void set_baton_error(baton_error_t *error, int code, const char *format, ...) {
+void set_baton_error(baton_error_t *error, const int code, const char *format, ...) {
     va_list args;
     va_start(args, format);
 

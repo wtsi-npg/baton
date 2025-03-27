@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017, 2018, 2019, 2020, 2021, 2022 , 2024 Genome
+ * Copyright (C) 2017, 2018, 2019, 2020, 2021, 2022, 2024, 2025 Genome
  * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @file operation.c
+ * @file operations.c
  * @author Keith James <kdj@sanger.ac.uk>, Rob Davies <rmd@sanger.ac.uk>
  */
 
@@ -65,7 +65,7 @@ void *connection_timeout(void *timeout) {
     return 0;
 }
 
-static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
+static int iterate_json(FILE *input, rodsEnv *env, const baton_json_op fn,
                         operation_args_t *args,
                         int *item_count, int *error_count) {
     int status  = 0;
@@ -87,7 +87,7 @@ static int iterate_json(FILE *input, rodsEnv *env, baton_json_op fn,
     }
 
     while (!exit_flag && !feof(input)) {
-        size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
+        const size_t jflags = JSON_DISABLE_EOF_CHECK | JSON_REJECT_DUPLICATES;
         json_error_t load_error;
         json_t *item = json_loadf(input, jflags, &load_error); // JSON alloc
 
@@ -184,14 +184,14 @@ finally:
     if (thread_status == 0) {
         status = pthread_join(tid, NULL);
         if (status != 0) {
-            logmsg(ERROR, "Timout thread failed to join: %s", strerror(status));
+            logmsg(ERROR, "Timeout thread failed to join: %s", strerror(status));
         }
     }
 
     return status;
 }
 
-int do_operation(FILE *input, baton_json_op fn, operation_args_t *args) {
+int do_operation(FILE *input, const baton_json_op fn, operation_args_t *args) {
     int item_count  = 0;
     int error_count = 0;
     int status      = 0;
@@ -226,7 +226,7 @@ error:
 }
 
 json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
-                               operation_args_t *args, baton_error_t *error) {
+                               const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
 
     operation_args_t args_copy = { .flags       = args->flags,
@@ -246,30 +246,30 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     if (error->code != 0) goto finally;
 
     if (has_operation(envelope)) {
-        json_t *args = get_operation_args(envelope, error);
+        const json_t *jargs = get_operation_args(envelope, error);
         if (error->code != 0)  goto finally;
 
         option_flags flags = args_copy.flags;
-        if (op_acl_p(args))                 flags = flags | PRINT_ACL;
-        if (op_avu_p(args))                 flags = flags | PRINT_AVU;
-        if (op_print_checksum_p(args))      flags = flags | PRINT_CHECKSUM;
-        if (op_calculate_checksum_p(args))  flags = flags | CALCULATE_CHECKSUM | PRINT_CHECKSUM;
-        if (op_verify_checksum_p(args))     flags = flags | VERIFY_CHECKSUM    | PRINT_CHECKSUM;
-        if (op_contents_p(args))            flags = flags | PRINT_CONTENTS;
-        if (op_replicate_p(args))           flags = flags | PRINT_REPLICATE;
-        if (op_size_p(args))                flags = flags | PRINT_SIZE;
-        if (op_timestamp_p(args))           flags = flags | PRINT_TIMESTAMP;
-        if (op_raw_p(args))                 flags = flags | PRINT_RAW;
-        if (op_save_p(args))                flags = flags | SAVE_FILES;
-        if (op_recurse_p(args))             flags = flags | RECURSIVE;
-        if (op_force_p(args))               flags = flags | FORCE;
-        if (op_collection_p(args))          flags = flags | SEARCH_COLLECTIONS;
-        if (op_object_p(args))              flags = flags | SEARCH_OBJECTS;
-        if (op_single_server_p(args))       flags = flags | SINGLE_SERVER;
+        if (op_acl_p(jargs))                 flags = flags | PRINT_ACL;
+        if (op_avu_p(jargs))                 flags = flags | PRINT_AVU;
+        if (op_print_checksum_p(jargs))      flags = flags | PRINT_CHECKSUM;
+        if (op_calculate_checksum_p(jargs))  flags = flags | CALCULATE_CHECKSUM | PRINT_CHECKSUM;
+        if (op_verify_checksum_p(jargs))     flags = flags | VERIFY_CHECKSUM    | PRINT_CHECKSUM;
+        if (op_contents_p(jargs))            flags = flags | PRINT_CONTENTS;
+        if (op_replicate_p(jargs))           flags = flags | PRINT_REPLICATE;
+        if (op_size_p(jargs))                flags = flags | PRINT_SIZE;
+        if (op_timestamp_p(jargs))           flags = flags | PRINT_TIMESTAMP;
+        if (op_raw_p(jargs))                 flags = flags | PRINT_RAW;
+        if (op_save_p(jargs))                flags = flags | SAVE_FILES;
+        if (op_recurse_p(jargs))             flags = flags | RECURSIVE;
+        if (op_force_p(jargs))               flags = flags | FORCE;
+        if (op_collection_p(jargs))          flags = flags | SEARCH_COLLECTIONS;
+        if (op_object_p(jargs))              flags = flags | SEARCH_OBJECTS;
+        if (op_single_server_p(jargs))       flags = flags | SINGLE_SERVER;
         args_copy.flags = flags;
 
-        if (has_operation(args)) {
-            const char *arg = get_operation(args, error);
+        if (has_operation(jargs)) {
+            const char *arg = get_operation(jargs, error);
             if (error->code != 0) goto finally;
 
             logmsg(DEBUG, "Detected operation '%s'", op);
@@ -286,8 +286,8 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
             }
         }
 
-        if (has_op_path(args)) {
-            const char *path = get_op_path(args, error);
+        if (has_op_path(jargs)) {
+            const char *path = get_op_path(jargs, error);
             if (error->code != 0) goto finally;
 
             char *tmp = copy_str(path, MAX_STR_LEN);
@@ -367,14 +367,13 @@ finally:
 }
 
 json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                           operation_args_t *args, baton_error_t *error) {
+                           const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -389,25 +388,24 @@ finally:
 }
 
 json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                            operation_args_t *args, baton_error_t *error) {
+                            const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
-    json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
+    const json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
     if (!json_is_array(perms)) {
         set_baton_error(error, -1, "Permissions data for %s is not in "
                         "a JSON array", path);
         goto finally;
     }
 
-    recursive_op recurse = (args->flags & RECURSIVE) ? RECURSE : NO_RECURSE;
+    const recursive_op recurse = (args->flags & RECURSIVE) ? RECURSE : NO_RECURSE;
 
     for (size_t i = 0; i < json_array_size(perms); i++) {
         json_t *perm = json_array_get(perms, i);
@@ -430,16 +428,15 @@ finally:
 }
 
 json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                               operation_args_t *args, baton_error_t *error) {
+                               const operation_args_t *args, baton_error_t *error) {
     json_t *result    = NULL;
     char  *checksum   = NULL;
     json_t *jchecksum = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -449,7 +446,7 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         goto finally;
     }
 
-    option_flags flags = args->flags;
+    const option_flags flags = args->flags;
     checksum = checksum_data_obj(conn, &rods_path, flags, error);
     if (error->code != 0) goto finally;
 
@@ -478,7 +475,7 @@ finally:
 }
 
 json_t *baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                                operation_args_t *args, baton_error_t *error) {
+                                const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
 
     if (has_collection(target)) {
@@ -496,18 +493,17 @@ finally:
 }
 
 json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                              operation_args_t *args, baton_error_t *error) {
+                              const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
-    json_t *avus = json_object_get(target, JSON_AVUS_KEY);
+    const json_t *avus = json_object_get(target, JSON_AVUS_KEY);
     if (!json_is_array(avus)) {
         set_baton_error(error, -1, "AVU data for %s is not in a JSON array",
                         path);
@@ -528,7 +524,7 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     }
 
     for (size_t i = 0; i < json_array_size(avus); i++) {
-        json_t *avu = json_array_get(avus, i);
+        const json_t *avu = json_array_get(avus, i);
         modify_json_metadata(conn, &rods_path, operation, avu, error);
         if (error->code != 0) goto finally;
     }
@@ -547,22 +543,21 @@ finally:
 }
 
 json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                          operation_args_t *args, baton_error_t *error) {
+                          const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
     char *file     = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     file = json_to_local_path(target, error);
     if (error->code != 0) goto finally;
 
-    size_t bsize = args->buffer_size;
+    const size_t bsize = args->buffer_size;
     logmsg(DEBUG, "Using a 'get' buffer size of %zu bytes", bsize);
 
     if (args->flags & SAVE_FILES) {
@@ -598,15 +593,13 @@ finally:
 }
 
 json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                            operation_args_t *args, baton_error_t *error) {
+                            const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
     char *file     = NULL;
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
-
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -619,7 +612,7 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         goto finally;
     }
 
-    size_t bsize = args->buffer_size;
+    const size_t bsize = args->buffer_size;
     logmsg(DEBUG, "Using a 'write' buffer size of %zu bytes", bsize);
 
     FILE *in = fopen(file, "r");
@@ -631,7 +624,7 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     }
 
     write_data_obj(conn, in, &rods_path, bsize, args->flags, error);
-    int status = fclose(in);
+    const int status = fclose(in);
 
     if (error->code != 0) goto finally;
     if (status != 0) {
@@ -649,17 +642,16 @@ finally:
 }
 
 json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                          operation_args_t *args, baton_error_t *error) {
+                          const operation_args_t *args, baton_error_t *error) {
     json_t *result     = NULL;
     char *file         = NULL;
     char *def_resource = NULL;
     char *checksum     = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -677,8 +669,8 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         logmsg(DEBUG, "Using supplied checksum '%s'", checksum);
     }
 
-    int status = put_data_obj(conn, file, &rods_path, def_resource,
-                              checksum, args->flags, error);
+    const int status = put_data_obj(conn, file, &rods_path, def_resource,
+                                    checksum, args->flags, error);
     if (error->code != 0) goto finally;
     if (status != 0) {
         set_baton_error(error, errno,
@@ -703,14 +695,13 @@ finally:
 }
 
 json_t *baton_json_move_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                           operation_args_t *args, baton_error_t *error) {
+                           const operation_args_t *args, baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -734,15 +725,14 @@ finally:
 }
 
 json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
-                         json_t *target, operation_args_t *args,
+                         json_t *target, const operation_args_t *args,
                          baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -770,15 +760,14 @@ finally:
 }
 
 json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
-                             json_t *target, operation_args_t *args,
+                             json_t *target, const operation_args_t *args,
                              baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_collection_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -806,15 +795,14 @@ finally:
 }
 
 json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
-                             json_t *target, operation_args_t *args,
+                             json_t *target, const operation_args_t *args,
                              baton_error_t *error) {
     json_t *result = NULL;
-    rodsPath_t rods_path;
-    memset(&rods_path, 0, sizeof (rodsPath_t));
 
     char *path = json_to_collection_path(target, error);
     if (error->code != 0) goto finally;
 
+    rodsPath_t rods_path = {0};
     resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
@@ -842,14 +830,14 @@ finally:
 }
 
 int check_str_arg(const char *arg_name, const char *arg_value,
-                  size_t arg_size, baton_error_t *error) {
+                  const size_t arg_size, baton_error_t *error) {
     if (!arg_value) {
         set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was null", arg_name);
         goto finally;
     }
 
-    size_t len = strnlen(arg_value, MAX_STR_LEN);
-    size_t term_len = len + 1;
+    const size_t len = strnlen(arg_value, MAX_STR_LEN);
+    const size_t term_len = len + 1;
 
     if (len == 0) {
         set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was empty", arg_name);
@@ -866,14 +854,14 @@ finally:
 }
 
 int check_str_arg_permit_empty(const char *arg_name, const char *arg_value,
-                  size_t arg_size, baton_error_t *error) {
+                  const size_t arg_size, baton_error_t *error) {
     if (!arg_value) {
         set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was null", arg_name);
         goto finally;
     }
 
-    size_t len = strnlen(arg_value, MAX_STR_LEN);
-    size_t term_len = len + 1;
+    const size_t len = strnlen(arg_value, MAX_STR_LEN);
+    const size_t term_len = len + 1;
 
     if (term_len > arg_size) {
         set_baton_error(error, CAT_INVALID_ARGUMENT,

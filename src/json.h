@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2017, 2019, 2021, 2024 Genome
+ * Copyright (C) 2013, 2014, 2015, 2017, 2019, 2021, 2024, 2025 Genome
  * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -161,161 +161,161 @@ json_t *error_to_json(baton_error_t *error);
  * Return a JSON array representing an ACL from a JSON object
  * representing an iRODS path.
  *
- * @param[in]                A JSON object.
+ * @param[in]  object        A JSON object.
  * @param[out] error         An error report struct.
  *
  * @return A JSON array on success, NULL on error.
  */
-json_t *get_acl(json_t *object, baton_error_t *error);
+json_t *get_acl(const json_t *object, baton_error_t *error);
 
 /**
  * Return a JSON array representing an AVUs from a JSON object
  * representing an iRODS path.
  *
- * @param[in]                A JSON object.
+ * @param[in] object         A JSON object.
  * @param[out] error         An error report struct.
  *
  * @return A JSON array on success, NULL on error.
  */
-json_t *get_avus(json_t *object, baton_error_t *error);
+json_t *get_avus(const json_t *object, baton_error_t *error);
 
 /**
  * Return a JSON object representing a specific query from a
  * JSON object.
  *
- * @param[in]                A JSON object.
+ * @param[in] object         A JSON object.
  * @param[out] error         An error report struct.
  *
  * @return A JSON object on success, NULL on error.
  */
-json_t *get_specific(json_t *object, baton_error_t *error);
+json_t *get_specific(const json_t *object, baton_error_t *error);
 
 /**
  * Return a JSON array representing timestamps from a JSON object
  * representing an iRODS path.
  *
- * @param[in]                A JSON object.
+ * @param[in]  object        A JSON object.
  * @param[out] error         An error report struct.
  *
  * @return A JSON array on success, NULL on error.
  */
-json_t *get_timestamps(json_t *object, baton_error_t *error);
+json_t *get_timestamps(const json_t *object, baton_error_t *error);
 
-const char* get_query_collection(json_t *object, baton_error_t *error);
+const char* get_query_collection(const json_t *object, baton_error_t *error);
 
-const char *get_collection_value(json_t *object, baton_error_t *error);
+const char *get_collection_value(const json_t *object, baton_error_t *error);
 
-const char *get_created_timestamp(json_t *object, baton_error_t *error);
+const char *get_created_timestamp(const json_t *object, baton_error_t *error);
 
-const char *get_modified_timestamp(json_t *object, baton_error_t *error);
+const char *get_modified_timestamp(const json_t *object, baton_error_t *error);
 
-const char *get_checksum(json_t *object, baton_error_t *error);
+const char *get_checksum(const json_t *object, baton_error_t *error);
 
-const char* get_replicate_num(json_t *object, baton_error_t *error);
+const char* get_replicate_num(const json_t *object, baton_error_t *error);
 
-const char *get_avu_attribute(json_t *avu, baton_error_t *error);
+const char *get_avu_attribute(const json_t *avu, baton_error_t *error);
 
-const char *get_avu_value(json_t *avu, baton_error_t *error);
+const char *get_avu_value(const json_t *avu, baton_error_t *error);
 
-const char *get_avu_units(json_t *avu, baton_error_t *error);
+const char *get_avu_units(const json_t *avu, baton_error_t *error);
 
-const char *get_avu_operator(json_t *avu, baton_error_t *error);
+const char *get_avu_operator(const json_t *avu, baton_error_t *error);
 
-const char *get_specific_sql(json_t *sql, baton_error_t *error);
+const char *get_specific_sql(const json_t *sql, baton_error_t *error);
 
 /**
  * Return a JSON array representing arguments from a JSON object
  * representing an iRODS specific query. If there are no
  * arguments, an empty JSON array will be returned.
  *
- * @param[in]                A JSON object.
+ * @param[in]  sql           A JSON object.
  * @param[out] error         An error report struct.
  *
  * @return A JSON array on success, NULL on error. If a JSON
  *         array is returned, the caller must call json_decref
  *         on it when done using it in order to free its memory.
  */
-json_t *get_specific_args(json_t *sql, baton_error_t *error);
+json_t *get_specific_args(const json_t *sql, baton_error_t *error);
 
-const char *get_access_owner(json_t *access, baton_error_t *error);
+const char *get_access_owner(const json_t *access, baton_error_t *error);
 
-const char *get_access_level(json_t *access, baton_error_t *error);
+const char *get_access_level(const json_t *access, baton_error_t *error);
 
-const char *get_access_zone(json_t *access, baton_error_t *error);
+const char *get_access_zone(const json_t *access, baton_error_t *error);
 
-const char *get_timestamp_operator(json_t *timestamp, baton_error_t *error);
+const char *get_timestamp_operator(const json_t *timestamp, baton_error_t *error);
 
-const char *get_operation(json_t *object, baton_error_t *error);
+const char *get_operation(const json_t *envelope, baton_error_t *error);
 
-json_t *get_operation_args(json_t *envelope, baton_error_t *error);
+json_t *get_operation_args(const json_t *envelope, baton_error_t *error);
 
-json_t *get_operation_target(json_t *envelope, baton_error_t *error);
+json_t *get_operation_target(const json_t *envelope, baton_error_t *error);
 
-const char *get_op_path(json_t *operation_args, baton_error_t *error);
+const char *get_op_path(const json_t *operation_args, baton_error_t *error);
 
-int has_operation(json_t *object);
+int has_operation(const json_t *object);
 
-int has_operation_args(json_t *object);
+int has_operation_args(const json_t *object);
 
-int has_operation_target(json_t *envelope);
+int has_operation_target(const json_t *envelope);
 
-int has_op_path(json_t *operation_args);
+int has_op_path(const json_t *operation_args);
 
-int op_acl_p(json_t *operation_args);
+int op_acl_p(const json_t *operation_args);
 
-int op_avu_p(json_t *operation_args);
+int op_avu_p(const json_t *operation_args);
 
-int op_print_checksum_p(json_t *operation_args);
+int op_print_checksum_p(const json_t *operation_args);
 
-int op_calculate_checksum_p(json_t *operation_args);
+int op_calculate_checksum_p(const json_t *operation_args);
 
-int op_verify_checksum_p(json_t *operation_args);
+int op_verify_checksum_p(const json_t *operation_args);
 
-int op_force_p(json_t *operation_args);
+int op_force_p(const json_t *operation_args);
 
-int op_collection_p(json_t *operation_args);
+int op_collection_p(const json_t *operation_args);
 
-int op_contents_p(json_t *operation_args);
+int op_contents_p(const json_t *operation_args);
 
-int op_object_p(json_t *operation_args);
+int op_object_p(const json_t *operation_args);
 
-int op_operation_p(json_t *operation_args);
+int op_operation_p(const json_t *operation_args);
 
-int op_raw_p(json_t *operation_args);
+int op_raw_p(const json_t *operation_args);
 
-int op_recurse_p(json_t *operation_args);
+int op_recurse_p(const json_t *operation_args);
 
-int op_replicate_p(json_t *operation_args);
+int op_replicate_p(const json_t *operation_args);
 
-int op_save_p(json_t *operation_args);
+int op_save_p(const json_t *operation_args);
 
-int op_single_server_p(json_t *operation_args);
+int op_single_server_p(const json_t *operation_args);
 
-int op_size_p(json_t *operation_args);
+int op_size_p(const json_t *operation_args);
 
-int op_timestamp_p(json_t *operation_args);
+int op_timestamp_p(const json_t *operation_args);
 
-int has_checksum(json_t *object);
+int has_checksum(const json_t *object);
 
-int has_collection(json_t *object);
+int has_collection(const json_t *object);
 
-int has_acl(json_t *object);
+int has_acl(const json_t *object);
 
-int has_timestamps(json_t *object);
+int has_timestamps(const json_t *object);
 
-int has_created_timestamp(json_t *object);
+int has_created_timestamp(const json_t *object);
 
-int has_modified_timestamp(json_t *object);
+int has_modified_timestamp(const json_t *object);
 
 int contains_avu(json_t *avus, json_t *avu);
 
-int represents_collection(json_t *object);
+int represents_collection(const json_t *object);
 
-int represents_data_object(json_t *object);
+int represents_data_object(const json_t *object);
 
-int represents_directory(json_t *object);
+int represents_directory(const json_t *object);
 
-int represents_file(json_t *object);
+int represents_file(const json_t *object);
 
 int add_collection(json_t *object, const char *coll_name, baton_error_t *error);
 
@@ -337,8 +337,8 @@ int add_checksum(json_t *object, json_t *checksum, baton_error_t *error);
  * of an operation. The property key will depend on the type of of the
  * value.
  *
- * @param[object]            A JSON object.
- * @param[result]            A JSON object.
+ * @param[in] object         A JSON object.
+ * @param[out] result        A JSON object.
  * @param[out] error         An error report struct.
  *
  * @return A JSON array on success, NULL on error./
@@ -363,18 +363,18 @@ json_t *data_object_path_to_json(const char *path, baton_error_t *error);
 
 json_t *collection_path_to_json(const char *path, baton_error_t *error);
 
-char *json_to_checksum(json_t *object, baton_error_t *error);
+char *json_to_checksum(const json_t *object, baton_error_t *error);
 
-char *json_to_path(json_t *object, baton_error_t *error);
+char *json_to_path(const json_t *object, baton_error_t *error);
 
-char *json_to_collection_path(json_t *object, baton_error_t *error);
+char *json_to_collection_path(const json_t *object, baton_error_t *error);
 
-char *json_to_local_path(json_t *object, baton_error_t *error);
+char *json_to_local_path(const json_t *object, baton_error_t *error);
 
-char *make_in_op_value(json_t *avu, baton_error_t *error);
+char *make_in_op_value(const json_t *avu, baton_error_t *error);
 
-void print_json_stream(json_t *json, FILE *stream);
+void print_json_stream(const json_t *json, FILE *stream);
 
-void print_json(json_t *json);
+void print_json(const json_t *json);
 
 #endif // _BATON_JSON_H

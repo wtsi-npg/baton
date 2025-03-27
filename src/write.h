@@ -57,13 +57,13 @@ int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
  *
  * @param[in]  conn       An open iRODS connection.
  * @param[in]  buffer     A buffer to write from.
- * @param[in]  obj_file   A data object handle.
+ * @param[in]  data_obj   A data object handle.
  * @param[in]  len        The number of bytes to write.
  * @param[out] error      An error report struct.
  *
  * @return The number of bytes actually written, which may be 0.
  */
-size_t write_chunk(rcComm_t *conn, char *buffer, data_obj_file_t *obj_file,
+size_t write_chunk(rcComm_t *conn, char *buffer, const data_obj_file_t *data_obj,
                    size_t len, baton_error_t *error);
 
 /**

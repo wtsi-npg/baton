@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019, 2021, 2023,
- * 2024 Genome Research Ltd. All rights reserved.
+ * Copyright (C) 2013, 2014, 2015, 2016, 2017, 2019, 2021, 2023, 2024,
+ * 2025 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,12 +23,9 @@
 #include "read.h"
 
 static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
-                                option_flags flags, baton_error_t *error) {
+                                const option_flags flags, baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     json_t         *results = NULL;
-    json_t *data_object;
-    json_t *str_size;
-    size_t num_size;
 
     query_format_in_t obj_format_simple =
             { .num_columns = 2,
@@ -38,9 +35,9 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
     query_format_in_t obj_format_size =
             { .num_columns = 3,
               .columns     = { COL_COLL_NAME, COL_DATA_NAME,
-                               COL_DATA_SIZE },
+                                 COL_DATA_SIZE },
               .labels      = { JSON_COLLECTION_KEY, JSON_DATA_OBJECT_KEY,
-                               JSON_SIZE_KEY } };
+                                 JSON_SIZE_KEY } };
 
     query_format_in_t *obj_format;
     if (flags & PRINT_SIZE) {
@@ -66,13 +63,13 @@ static json_t *list_data_object(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
-    data_object = json_incref(json_array_get(results, 0));
+    json_t *data_object = json_incref(json_array_get(results, 0));
     json_array_clear(results);
     json_decref(results);
 
     if (flags & PRINT_SIZE) {
-        str_size = json_object_get(data_object, JSON_SIZE_KEY);
-        num_size = atol(json_string_value(str_size));
+        const json_t *str_size = json_object_get(data_object, JSON_SIZE_KEY);
+        const size_t num_size = atol(json_string_value(str_size));
         json_object_del(data_object, JSON_SIZE_KEY);
         json_object_set_new(data_object, JSON_SIZE_KEY, json_integer(num_size));
     }
@@ -89,10 +86,10 @@ error:
 }
 
 static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
-                               option_flags flags, baton_error_t *error) {
+                               const option_flags flags, baton_error_t *error) {
     json_t *results = NULL;
 
-    int query_flags = DATA_QUERY_FIRST_FG;
+    const int query_flags = DATA_QUERY_FIRST_FG;
     collHandle_t coll_handle;
     collEnt_t coll_entry;
 
@@ -126,7 +123,7 @@ static json_t *list_collection(rcComm_t *conn, rodsPath_t *rods_path,
                 if (error->code != 0) goto query_error;
 
                 if (flags & PRINT_SIZE) {
-                    int size_status =
+                    const int size_status =
                         json_object_set_new(entry, JSON_SIZE_KEY,
                                             json_integer(coll_entry.dataSize));
                     if (size_status != 0) {
@@ -228,7 +225,7 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
         goto error;
     }
 
-    json_t *obj = json_array_get(results, 0);
+    const json_t *obj = json_array_get(results, 0);
     json_t *c = json_object_get(obj, JSON_CHECKSUM_KEY);
     json_t *checksum;
     if (c != NULL) {
@@ -250,7 +247,7 @@ error:
     return NULL;
 }
 
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
+json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, const option_flags flags,
                   baton_error_t *error) {
     json_t *result = NULL;
 
@@ -445,8 +442,7 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
             //                                   &query_out);
             //
             // Instead call lower level rcSpecificQuery directly, avoiding the problem malloc.
-            specificQueryInp_t specificQueryInp;
-            memset(&specificQueryInp, 0, sizeof(specificQueryInp_t));
+            specificQueryInp_t specificQueryInp = {0};
             specificQueryInp.maxRows = MAX_SQL_ROWS;
             specificQueryInp.continueInx = 0;
             specificQueryInp.sql = "ShowCollAcls";
@@ -454,7 +450,7 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
 
             addKeyVal(&specificQueryInp.condInput, ZONE_KW, rods_path->outPath);
             logmsg(DEBUG, "Using zone hint '%s'", rods_path->outPath);
-            int status = rcSpecificQuery(conn, &specificQueryInp, &query_out);
+            const int status = rcSpecificQuery(conn, &specificQueryInp, &query_out);
             if (status < 0) {
                 set_baton_error(error, status,
                                 "Failed to query ACL on '%s': error %d",
@@ -596,7 +592,7 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
                            COL_DATA_REPL_NUM },
           .labels      = { JSON_CREATED_KEY, JSON_MODIFIED_KEY,
                            JSON_REPLICATE_KEY } };
-    query_format_in_t col_format =
+    const query_format_in_t col_format =
         { .num_columns = 2,
           .columns     = { COL_COLL_CREATE_TIME, COL_COLL_MODIFY_TIME },
           .labels      = { JSON_CREATED_KEY, JSON_MODIFIED_KEY } };
@@ -655,7 +651,7 @@ error:
     return NULL;
 }
 
-json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
+json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, const char *attr_name,
                       baton_error_t *error) {
     genQueryInp_t *query_in = NULL;
     json_t *results         = NULL;
@@ -667,7 +663,7 @@ json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, char *attr_name,
           .labels       = { JSON_ATTRIBUTE_KEY, JSON_VALUE_KEY,
                             JSON_UNITS_KEY } };
 
-    query_format_in_t col_format =
+    const query_format_in_t col_format =
         { .num_columns  = 3,
           .columns      = { COL_META_COLL_ATTR_NAME, COL_META_COLL_ATTR_VALUE,
                             COL_META_COLL_ATTR_UNITS },

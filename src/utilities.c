@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2020 Genome Research Ltd. All rights
+ * Copyright (C) 2013, 2014, 2020, 2025 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -33,8 +33,8 @@
 #include "log.h"
 #include "utilities.h"
 
-char *copy_str(const char *str, size_t max_len) {
-    size_t term_len = strnlen(str, max_len) + 1; // +1 for NUL
+char *copy_str(const char *str, const size_t max_len) {
+    const size_t term_len = strnlen(str, max_len) + 1; // +1 for NUL
     char *copy = NULL;
 
     if (term_len > MAX_STR_LEN) {
@@ -61,11 +61,11 @@ error:
     return NULL;
 }
 
-int str_starts_with(const char *str, const char *prefix, size_t max_len) {
+int str_starts_with(const char *str, const char *prefix, const size_t max_len) {
     if (!str || !prefix) return 0;
 
-    size_t len  = strnlen(str,    max_len);
-    size_t plen = strnlen(prefix, max_len);
+    const size_t len  = strnlen(str,    max_len);
+    const size_t plen = strnlen(prefix, max_len);
 
     // A string always starts with the empty string
     if (plen == 0)  return 1;
@@ -74,23 +74,23 @@ int str_starts_with(const char *str, const char *prefix, size_t max_len) {
     return strncmp(str, prefix, plen) == 0;
 }
 
-int str_equals(const char *str1, const char *str2, size_t max_len) {
-    size_t len1 = strnlen(str1, max_len);
-    size_t len2 = strnlen(str2, max_len);
+int str_equals(const char *str1, const char *str2, const size_t max_len) {
+    const size_t len1 = strnlen(str1, max_len);
+    const size_t len2 = strnlen(str2, max_len);
     return len1 == len2 && (strncmp(str1, str2, len2) == 0);
 }
 
-int str_equals_ignore_case(const char *str1, const char *str2, size_t max_len) {
-    size_t len1 = strnlen(str1, max_len);
-    size_t len2 = strnlen(str2, max_len);
+int str_equals_ignore_case(const char *str1, const char *str2, const size_t max_len) {
+    const size_t len1 = strnlen(str1, max_len);
+    const size_t len2 = strnlen(str2, max_len);
     return len1 == len2 && (strncasecmp(str1, str2, max_len) == 0);
 }
 
-int str_ends_with(const char *str, const char *suffix, size_t max_len) {
+int str_ends_with(const char *str, const char *suffix, const size_t max_len) {
     if (!str || !suffix) return 0;
 
-    size_t len  = strnlen(str,    max_len);
-    size_t slen = strnlen(suffix, max_len);
+    const size_t len  = strnlen(str,    max_len);
+    const size_t slen = strnlen(suffix, max_len);
 
     // A string always ends with the empty string
     if (slen == 0)  return 1;
@@ -151,10 +151,10 @@ error:
 
 size_t parse_size(const char *str) {
     char *end;
-    int base = 10;
+    const int base = 10;
 
     errno = 0;
-    unsigned long int value = strtoul(str, &end, base);
+    const unsigned long int value = strtoul(str, &end, base);
 
     if (errno != 0) {
         logmsg(ERROR, "Failed recognise '%s' as a number: error %d %s",
@@ -196,13 +196,12 @@ error:
 }
 
 char *format_timestamp(const char *raw_timestamp, const char *format) {
-    size_t output_len = 32;
+    const size_t output_len = 32;
     char *output = NULL;
-    int base = 10;
+    const int base = 10;
 
     struct tm tm;
     time_t time;
-    int status;
 
     output = calloc(output_len, sizeof (char));
     if (!output) {
@@ -221,7 +220,7 @@ char *format_timestamp(const char *raw_timestamp, const char *format) {
 
     gmtime_r(&time, &tm);
 
-    status = strftime(output, output_len, format, &tm);
+    const int status = strftime(output, output_len, format, &tm);
     if (status == 0) {
         logmsg(ERROR, "Failed to format timestamp '%s' as an ISO date time: "
                "error %d %s", raw_timestamp, errno, strerror(errno));
@@ -239,12 +238,10 @@ error:
 }
 
 char *parse_timestamp(const char *timestamp, const char *format) {
-    size_t output_len = 32;
+    const size_t output_len = 32;
     char *output = NULL;
-    char *rest;
 
     struct tm tm;
-    time_t time;
 
     output = calloc(output_len, sizeof (char));
     if (!output) {
@@ -253,13 +250,13 @@ char *parse_timestamp(const char *timestamp, const char *format) {
         goto error;
     }
 
-    rest = strptime(timestamp, format, &tm);
+    char *rest = strptime(timestamp, format, &tm);
     if (!rest) {
         logmsg(ERROR, "Failed to parse ISO date time '%s'", timestamp);
         goto error;
     }
 
-    time = timegm(&tm);
+    const time_t time = timegm(&tm);
     snprintf(output, output_len, "%ld", time);
 
     logmsg(DEBUG, "Parsed timestamp '%s' to '%ld'", timestamp, time);
@@ -272,8 +269,8 @@ error:
     return NULL;
 }
 
-size_t to_utf8(const char *input, char *output, size_t max_len) {
-    size_t len = strnlen(input, max_len);
+size_t to_utf8(const char *input, char *output, const size_t max_len) {
+    const size_t len = strnlen(input, max_len);
 
     const unsigned char *bytes = (const unsigned char *) input;
     char *op = output;
@@ -296,7 +293,7 @@ size_t to_utf8(const char *input, char *output, size_t max_len) {
     return len;
 }
 
-int maybe_utf8 (const char *str, size_t max_len) {
+int maybe_utf8 (const char *str, const size_t max_len) {
     // http://www.rfc-editor.org/rfc/rfc3629.txt, Section 4. for the syntax
     // of UTF-8 byte sequences.
     //
@@ -304,7 +301,7 @@ int maybe_utf8 (const char *str, size_t max_len) {
     // UTF8-char   = UTF8-1 / UTF8-2 / UTF8-3 / UTF8-4
     // UTF8-tail   = %x80-BF
 
-    size_t len = strnlen(str, max_len);
+    const size_t len = strnlen(str, max_len);
     size_t i   = 0;
 
     const unsigned char *bytes = (const unsigned char *) str;

@@ -42,7 +42,7 @@ static int wlock_flag         = 0;
 static size_t default_buffer_size = 1024 * 64 * 16 * 2;
 static size_t max_buffer_size     = 1024 * 1024 * 1024;
 
-int main(int argc, char *argv[]) {
+int main(const int argc, char *argv[]) {
     option_flags flags = 0;
     int exit_status    = 0;
     char *zone_name = NULL;
@@ -73,8 +73,8 @@ int main(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "c:b:f:",
-                                 long_options, &option_index);
+        const int c = getopt_long_only(argc, argv, "c:b:f:",
+                                       long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
@@ -82,12 +82,12 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'c':
                 errno = 0;
-                char *endptr;
-                unsigned long val = strtoul(optarg, &endptr, 10);
+                char *end_ptr;
+                const unsigned long val = strtoul(optarg, &end_ptr, 10);
 
                 if ((errno == ERANGE && val == ULONG_MAX) ||
                     (errno != 0 && val == 0)              ||
-                    endptr == optarg) {
+                    end_ptr == optarg) {
                     fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
                     exit(1);
                 }

@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2014, 2015, 2017, 2019, 2021 Genome Research Ltd. All
- * rights reserved.
+ * Copyright (C) 2014, 2015, 2017, 2019, 2021, 2025 Genome Research
+ * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -44,10 +44,10 @@ static int version_flag    = 0;
 static size_t default_buffer_size = 1024 * 64 * 16 * 2;
 static size_t max_buffer_size     = 1024 * 1024 * 1024;
 
-int main(int argc, char *argv[]) {
+int main(const int argc, char *argv[]) {
     option_flags flags = 0;
     int exit_status = 0;
-    char *json_file = NULL;
+    const char *json_file = NULL;
     FILE *input     = NULL;
     size_t buffer_size = default_buffer_size;
     unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
@@ -76,8 +76,8 @@ int main(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        int c = getopt_long_only(argc, argv, "c:b:f:",
-                                 long_options, &option_index);
+        const int c = getopt_long_only(argc, argv, "c:b:f:",
+                                       long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) break;
@@ -85,12 +85,12 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'c':
                 errno = 0;
-                char *endptr;
-                unsigned long val = strtoul(optarg, &endptr, 10);
+                char *end_ptr;
+                const unsigned long val = strtoul(optarg, &end_ptr, 10);
 
                 if ((errno == ERANGE && val == ULONG_MAX) ||
                     (errno != 0 && val == 0)              ||
-                    endptr == optarg) {
+                    end_ptr == optarg) {
                     fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
                     exit(1);
                 }
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
                               .buffer_size      = buffer_size,
                               .max_connect_time = max_connect_time };
 
-    int status = do_operation(input, baton_json_get_op, &args);
+    const int status = do_operation(input, baton_json_get_op, &args);
     if (input != stdin) fclose(input);
 
     if (status != 0) exit_status = 5;

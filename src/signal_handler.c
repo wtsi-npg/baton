@@ -1,6 +1,5 @@
 /**
- * Copyright (C) 2021 Genome
- * Research Ltd. All rights reserved.
+ * Copyright (C) 2021, 2025 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +26,7 @@
 int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGUSR1, SIGUSR2, SIGPIPE, 0};
 int exit_flag;
 
-void handle_signal(int signal){
+void handle_signal(const int signal){
   switch (signal) {
   case SIGINT:
     exit_flag = 2;
@@ -54,15 +53,14 @@ void handle_signal(int signal){
 int apply_signal_handler() {
     exit_flag = 0;
 
-    struct sigaction saction;
-    saction.sa_handler = &handle_signal;
-    saction.sa_flags = 0;
-    sigemptyset(&saction.sa_mask);
-    int sigstatus;
+    struct sigaction sig_action;
+    sig_action.sa_handler = &handle_signal;
+    sig_action.sa_flags = 0;
+    sigemptyset(&sig_action.sa_mask);
 
     // Exit gracefully on fatal signals
     for (int i = 0; signals[i] != 0; i++) {
-        sigstatus = sigaction(signals[i], &saction, NULL);
+        const int sigstatus = sigaction(signals[i], &sig_action, NULL);
         if (sigstatus != 0) {
             logmsg(FATAL, "Failed to set the iRODS client handler for signal %s", strsignal(signals[i]));
             return -1;

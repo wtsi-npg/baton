@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014, 2015, 2017, 2018, 2020, 2021 Genome Research
+ * Copyright (C) 2014, 2015, 2017, 2018, 2020, 2021, 2025 Genome Research
  * Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,9 +26,9 @@
 #include "read.h"
 
 static char *do_slurp(rcComm_t *conn, rodsPath_t *rods_path,
-                      size_t buffer_size, baton_error_t *error) {
+                      const size_t buffer_size, baton_error_t *error) {
     data_obj_file_t *obj_file = NULL;
-    int                 flags = 0;
+    const int           flags = 0;
 
     if (buffer_size == 0) {
         set_baton_error(error, -1, "Invalid buffer_size argument %zu",
@@ -42,7 +42,7 @@ static char *do_slurp(rcComm_t *conn, rodsPath_t *rods_path,
     if (error->code != 0) goto error;
 
     char *content = slurp_data_obj(conn, obj_file, buffer_size, error);
-    int status = close_data_obj(conn, obj_file);
+    const int status = close_data_obj(conn, obj_file);
 
     if (error->code != 0) goto error;
     if (status < 0) {
@@ -65,7 +65,7 @@ error:
 }
 
 json_t *ingest_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
-                        option_flags flags, size_t buffer_size,
+                        const option_flags flags, const size_t buffer_size,
                         baton_error_t *error) {
     char *content = NULL;
 
@@ -92,7 +92,7 @@ json_t *ingest_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
     if (error->code != 0) goto error;
 
     if (content) {
-        size_t len = strlen(content);
+        const size_t len = strlen(content);
 
         if (maybe_utf8(content, len)) {
             json_t *packed = json_pack("s", content);
@@ -123,15 +123,14 @@ error:
 }
 
 data_obj_file_t *open_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
-                               int open_flag, int flags,
+                               const int open_flag, const int flags,
                                baton_error_t *error) {
     data_obj_file_t *data_obj = NULL;
-    dataObjInp_t obj_open_in;
+
     int descriptor;
 
     init_baton_error(error);
-
-    memset(&obj_open_in, 0, sizeof obj_open_in);
+    dataObjInp_t obj_open_in = {0};
 
     logmsg(DEBUG, "Opening data object '%s'", rods_path->outPath);
     snprintf(obj_open_in.objPath, MAX_NAME_LEN, "%s", rods_path->outPath);
@@ -196,9 +195,9 @@ error:
     return NULL;
 }
 
-int close_data_obj(rcComm_t *conn, data_obj_file_t *data_obj) {
+int close_data_obj(rcComm_t *conn, const data_obj_file_t *data_obj) {
     logmsg(DEBUG, "Closing '%s'", data_obj->path);
-    int status = rcDataObjClose(conn, data_obj->open_obj);
+    const int status = rcDataObjClose(conn, data_obj->open_obj);
 
     return status;
 }
@@ -213,14 +212,13 @@ void free_data_obj(data_obj_file_t *data_obj) {
     free(data_obj);
 }
 
-size_t read_chunk(rcComm_t *conn, data_obj_file_t *data_obj, char *buffer,
-                  size_t len, baton_error_t *error) {
+size_t read_chunk(rcComm_t *conn, const data_obj_file_t *data_obj, char *buffer,
+                  const size_t len, baton_error_t *error) {
     init_baton_error(error);
 
     data_obj->open_obj->len = len;
 
-    bytesBuf_t obj_read_out;
-    memset(&obj_read_out, 0, sizeof obj_read_out);
+    bytesBuf_t obj_read_out = {0};
     obj_read_out.buf = buffer;
     obj_read_out.len = len;
 
@@ -243,8 +241,8 @@ finally:
     return num_read;
 }
 
-size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
-                     FILE *out, size_t buffer_size, baton_error_t *error) {
+size_t read_data_obj(rcComm_t *conn, const data_obj_file_t *data_obj,
+                     FILE *out, const size_t buffer_size, baton_error_t *error) {
     size_t num_read    = 0;
     size_t num_written = 0;
     char *buffer       = NULL;
@@ -271,19 +269,19 @@ size_t read_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
         goto finally;
     }
     
-    size_t nr, nw;
+    size_t nr;
     while ((nr = read_chunk(conn, data_obj, buffer, buffer_size, error)) > 0) {
         num_read += nr;
         logmsg(DEBUG, "Writing %zu bytes from '%s' to stream",
                nr, data_obj->path);
 
-        int status = fwrite(buffer, 1, nr, out);
+        const int status = fwrite(buffer, 1, nr, out);
         if (status < 0) {
             logmsg(ERROR, "Failed to write to stream: error %d %s",
                    errno, strerror(errno));
             goto finally;
         }
-        nw = nr;
+        const size_t nw = nr;
         num_written += nw;
 
         compat_MD5Update(context, (unsigned char*) buffer, nr, error);
@@ -322,8 +320,8 @@ finally:
     return num_written;
 }
 
-char *slurp_data_obj(rcComm_t *conn, data_obj_file_t *data_obj,
-                     size_t buffer_size, baton_error_t *error) {
+char *slurp_data_obj(rcComm_t *conn, const data_obj_file_t *data_obj,
+                     const size_t buffer_size, baton_error_t *error) {
     char *buffer  = NULL;
     char *content = NULL;
 
@@ -412,7 +410,7 @@ error:
 }
 
 int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
-                      const char *local_path, size_t buffer_size,
+                      const char *local_path, const size_t buffer_size,
                       baton_error_t *error) {
     FILE *stream = NULL;
 
@@ -443,7 +441,7 @@ int get_data_obj_file(rcComm_t *conn, rodsPath_t *rods_path,
     }
 
     get_data_obj_stream(conn, rods_path, stream, buffer_size, error);
-    int status = fclose(stream);
+    const int status = fclose(stream);
 
     if (error->code != 0) goto finally;
     if (status != 0) {
@@ -457,9 +455,9 @@ finally:
 }
 
 int get_data_obj_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
-                        size_t buffer_size, baton_error_t *error) {
+                        const size_t buffer_size, baton_error_t *error) {
     data_obj_file_t *data_obj = NULL;
-    int                 flags = 0;
+    const int           flags = 0;
 
     init_baton_error(error);
 
@@ -481,8 +479,8 @@ int get_data_obj_stream(rcComm_t *conn, rodsPath_t *rods_path, FILE *out,
     data_obj = open_data_obj(conn, rods_path, O_RDONLY, flags, error);
     if (error->code != 0) goto error;
 
-    size_t nr = read_data_obj(conn, data_obj, out, buffer_size, error);
-    int status = close_data_obj(conn, data_obj);
+    const size_t nr = read_data_obj(conn, data_obj, out, buffer_size, error);
+    const int status = close_data_obj(conn, data_obj);
 
     if (error->code != 0) goto error;
     if (status < 0) {
@@ -508,7 +506,6 @@ char *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
                         option_flags flags, baton_error_t *error) {
     char *checksum = NULL;
     dataObjInp_t obj_chk_in;
-    int status;
 
     init_baton_error(error);
 
@@ -576,7 +573,7 @@ char *checksum_data_obj(rcComm_t *conn, rodsPath_t *rods_path,
         }
     }
 
-    status = rcDataObjChksum(conn, &obj_chk_in, &checksum);
+    const int status = rcDataObjChksum(conn, &obj_chk_in, &checksum);
     clearKeyVal(&obj_chk_in.condInput);
 
     if (status < 0) {
@@ -596,16 +593,15 @@ error:
     return NULL;
 }
 
-void set_md5_last_read(data_obj_file_t *data_obj, unsigned char digest[16]) {
+void set_md5_last_read(const data_obj_file_t *data_obj, unsigned char digest[16]) {
     char *md5 = data_obj->md5_last_read;
     for (int i = 0; i < 16; i++) {
         snprintf(md5 + i * 2, 3, "%02x", digest[i]);
     }
 }
 
-int validate_md5_last_read(rcComm_t *conn, data_obj_file_t *data_obj) {
-    dataObjInp_t obj_md5_in;
-    memset(&obj_md5_in, 0, sizeof obj_md5_in);
+int validate_md5_last_read(rcComm_t *conn, const data_obj_file_t *data_obj) {
+    dataObjInp_t obj_md5_in = {0};
 
     snprintf(obj_md5_in.objPath, MAX_NAME_LEN, "%s", data_obj->path);
 

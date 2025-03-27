@@ -1,6 +1,5 @@
 /**
- * Copyright (C) 2021 Genome
- * Research Ltd. All rights reserved.
+ * Copyright (C) 2021, 2025 Genome Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +18,13 @@
  * @author Michael Kubiak <mk35@sanger.ac.uk>
  */
 
+#ifndef _BATON_SIGNAL_HANDLER_H
+#define _BATON_SIGNAL_HANDLER_H
+
 extern int exit_flag;
+
 void handle_signal(int signal);
+
 int apply_signal_handler();
+
+#endif /* _BATON_SIGNAL_HANDLER_H */

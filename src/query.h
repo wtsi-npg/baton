@@ -105,7 +105,7 @@ typedef query_format_in_t *(*prepare_specific_labels_cb) (rcComm_t *conn,
  * @param[in] level     The logging level.
  * @param[in] error     The iRODS error state.
  */
-void log_rods_errstack(log_level level, rError_t *error);
+void log_rods_errstack(log_level level, const rError_t *error);
 
 /**
  * Allocate a new iRODS generic query (see rodsGenQuery.h).
@@ -196,12 +196,12 @@ genQueryInp_t *prepare_resc_list(genQueryInp_t *query_in,
                                  const char *zone_name);
 
 genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
-                                      const char *perm_id);
+                                      const char *user,
+                                      const char *perm);
 
 genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
-                                      const char *user_id,
-                                      const char *access_level);
+                                      const char *user,
+                                      const char *perm);
 
 genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
@@ -248,7 +248,8 @@ query_format_in_t *make_query_format_from_sql(const char *sql);
 const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
                                              const char *alias);
 
-query_format_in_t *prepare_specific_labels(rcComm_t *conn, const char *sql);
+query_format_in_t *prepare_specific_labels(rcComm_t *conn,
+                                           const char *sql_or_alias);
 
 void free_squery_input(specificQueryInp_t *squery_in);
 
