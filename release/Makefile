@@ -96,8 +96,8 @@ ub-22.04-baton-irods-4.3.4.$(TAG): ubuntu/22.04/Dockerfile
 	--label org.opencontainers.image.version=$(TAG) \
 	--label org.opencontainers.image.created=$(NOW) \
 	--label org.opencontainers.image.vendor=npg.sanger.ac.uk \
-	--tag $(DOCKER_PREFIX)/ub-22.04-baton-irods-4.3.3:latest \
-	--tag $(DOCKER_PREFIX)/ub-22.04-baton-irods-4.3.3:$(TAG) --file $< .
+	--tag $(DOCKER_PREFIX)/ub-22.04-baton-irods-4.3.4:latest \
+	--tag $(DOCKER_PREFIX)/ub-22.04-baton-irods-4.3.4:$(TAG) --file $< .
 	touch $@
 
 %.$(TAG).pushed: %.$(TAG)
