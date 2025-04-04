@@ -31,7 +31,7 @@ push: $(remote)
 ub-16.04-baton-irods-4.2.7.$(TAG): ubuntu/16.04/Dockerfile
 	docker buildx build $(DOCKER_ARGS) \
 	--load \
-	--build-context source=.. \
+	--build-context repo_root=.. \
 	--build-arg DOCKER_PREFIX=$(DOCKER_PREFIX) \
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \
@@ -49,7 +49,7 @@ ub-16.04-baton-irods-4.2.7.$(TAG): ubuntu/16.04/Dockerfile
 ub-18.04-baton-irods-4.2.11.$(TAG): ubuntu/18.04/Dockerfile
 	docker buildx build $(DOCKER_ARGS) \
 	--load \
-	--build-context source=.. \
+	--build-context repo_root=.. \
 	--build-arg DOCKER_PREFIX=$(DOCKER_PREFIX) \
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \
@@ -67,7 +67,7 @@ ub-18.04-baton-irods-4.2.11.$(TAG): ubuntu/18.04/Dockerfile
 ub-22.04-baton-irods-4.3.3.$(TAG): ubuntu/22.04/Dockerfile
 	docker buildx build $(DOCKER_ARGS) \
 	--load \
-	--build-context source=.. \
+	--build-context repo_root=.. \
 	--build-arg DOCKER_PREFIX=$(DOCKER_PREFIX) \
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \
@@ -85,7 +85,7 @@ ub-22.04-baton-irods-4.3.3.$(TAG): ubuntu/22.04/Dockerfile
 ub-22.04-baton-irods-4.3.4.$(TAG): ubuntu/22.04/Dockerfile
 	docker buildx build $(DOCKER_ARGS) \
 	--load \
-	--build-context source=.. \
+	--build-context repo_root=.. \
 	--build-arg DOCKER_PREFIX=$(DOCKER_PREFIX) \
 	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
 	--build-arg DOCKER_TAG=$(TAG) \

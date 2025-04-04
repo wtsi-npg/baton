@@ -1,20 +1,36 @@
-FROM ubuntu:18.04
-
-ARG IRODS_VERSION="4.2.11"
+ARG BASE_IMAGE=ubuntu:18.04
+FROM $BASE_IMAGE
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    apt-utils \
-    ca-certificates \
-    curl \
-    dirmngr \
-    gpg \
-    gpg-agent \
-    language-pack-en-base \
-    lsb-release \
-    locales && \
+        apt-utils \
+        autoconf \
+        automake \
+        build-essential \
+        ca-certificates \
+        check \
+        cmake \
+        curl \
+        dirmngr \
+        gdb \
+        gpg \
+        gpg-agent \
+        jq \
+        language-pack-en-base \
+        lcov \
+        less \
+        libjansson-dev \
+        libtool \
+        locales \
+        lsb-release \
+        netcat \
+        pkg-config \
+        python3-sphinx \
+        ssh \
+        unattended-upgrades \
+        valgrind && \
     locale-gen en_GB en_GB.UTF-8 && \
     localedef -i en_GB -c -f UTF-8 -A /usr/share/locale/locale.alias en_GB.UTF-8
 
@@ -27,11 +43,13 @@ RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - &
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
     tee /etc/apt/sources.list.d/renci-irods.list
 
+ARG IRODS_VERSION="4.2.11"
+
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    irods-dev="${IRODS_VERSION}-1~$(lsb_release -sc)" \
-    irods-runtime="${IRODS_VERSION}-1~$(lsb_release -sc)" \
-    irods-icommands="${IRODS_VERSION}-1~$(lsb_release -sc)"
+        irods-dev="${IRODS_VERSION}-1~$(lsb_release -sc)" \
+        irods-runtime="${IRODS_VERSION}-1~$(lsb_release -sc)" \
+        irods-icommands="${IRODS_VERSION}-1~$(lsb_release -sc)"
 
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys "E1DD270288B4E6030699E45FA1715D88E1DF1F24" && \
     echo "deb https://ppa.launchpadcontent.net/git-core/ppa/ubuntu $(lsb_release -sc) main" |\
@@ -39,23 +57,7 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys "E1DD270288B4E60306
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    autoconf \
-    automake \
-    build-essential \
-    check \
-    cmake \
-    gdb \
-    git \
-    jq \
-    lcov \
-    less \
-    libjansson-dev \
-    libtool \
-    pkg-config \
-    python3-sphinx \
-    ssh \
-    valgrind \
-    unattended-upgrades && \
+        git && \
     unattended-upgrade -d -v
 
 ARG APP_USER=appuser

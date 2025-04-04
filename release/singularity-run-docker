@@ -7,4 +7,4 @@ DOCKER_USER=${DOCKER_USER:?required, but not set}
 DOCKER_IMAGE=${DOCKER_IMAGE:?required, but was not set}
 DOCKER_TAG=${DOCKER_TAG:?required, but not set}
 
-singularity run "docker://$DOCKER_REGISTRY/$DOCKER_USER/$DOCKER_IMAGE:$DOCKER_TAG" "$@"
+singularity --silent run "docker://$DOCKER_REGISTRY/$DOCKER_USER/$DOCKER_IMAGE:$DOCKER_TAG" "$@"
