@@ -1,19 +1,36 @@
-FROM ubuntu:22.04
-
-ARG IRODS_VERSION="4.3-nightly"
+ARG BASE_IMAGE=ubuntu:22.04
+FROM $BASE_IMAGE
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    apt-utils \
-    ca-certificates \
-    curl \
-    dirmngr \
-    gpg \
-    gpg-agent \
-    lsb-release \
-    locales && \
+        apt-utils \
+        autoconf \
+        automake \
+        build-essential \
+        ca-certificates \
+        check \
+        cmake \
+        curl \
+        dirmngr \
+        gdb \
+        gpg \
+        gpg-agent \
+        jq \
+        language-pack-en-base \
+        lcov \
+        less \
+        libjansson-dev \
+        libtool \
+        locales \
+        lsb-release \
+        netcat \
+        pkg-config \
+        python3-sphinx \
+        ssh \
+        unattended-upgrades \
+        valgrind && \
     locale-gen en_GB en_GB.UTF-8 && \
     localedef -i en_GB -c -f UTF-8 -A /usr/share/locale/locale.alias en_GB.UTF-8
 
@@ -25,39 +42,16 @@ ENV LANG=en_GB.UTF-8 \
 RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - && \
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
     tee /etc/apt/sources.list.d/renci-irods.list
-    
-RUN apt-get update
 
-ENV NIGHTLY_URL_BASE="https://github.com/wtsi-npg/irods_development_environment/releases/download/nightly/"
-
-WORKDIR /app
-
-RUN curl -sSL \
-    -O ${NIGHTLY_URL_BASE}irods-dev_4.3.0-1.jammy_amd64.deb \
-    -O ${NIGHTLY_URL_BASE}irods-runtime_4.3.0-1.jammy_amd64.deb \
-    -O ${NIGHTLY_URL_BASE}irods-icommands_4.3.0-1.jammy_amd64.deb
-
-RUN ls -l && apt-get install -y ./*.deb && rm -f ./*.deb
+ARG IRODS_VERSION="4.3.4"
 
 RUN apt-get update && \
     apt-get install -q -y --no-install-recommends \
-    autoconf \
-    automake \
-    build-essential \
-    check \
-    cmake \
-    gdb \
-    jq \
-    lcov \
-    less \
-    libjansson-dev \
-    libtool \
-    pkg-config \
-    python3-sphinx \
-    ssh \
-    valgrind \
-    unattended-upgrades && \
-    unattended-upgrade -d -v
+        irods-dev="${IRODS_VERSION}-0~$(lsb_release -sc)" \
+        irods-runtime="${IRODS_VERSION}-0~$(lsb_release -sc)" \
+        irods-icommands="${IRODS_VERSION}-0~$(lsb_release -sc)"
+
+RUN unattended-upgrade -d -v
 
 ARG APP_USER=appuser
 ARG APP_UID=1000
