@@ -8,7 +8,7 @@ Welcome to ``baton``'s documentation
 ====================================
 
 baton \|bəˈtän|
-	*noun, A short stick or staff or something resembling one.*
+   *noun, A short stick or staff or something resembling one.*
 
 Client programs and API for use with `iRODS <http://www.irods.org>`_
 (Integrated Rule-Oriented Data System).
@@ -29,6 +29,8 @@ iRODS:
   modification timestamps and timestamp ranges. The full range of
   iRODS query operators is supported.
 
+* Uploading local files to create data objects.
+
 * Fetching data object content inlined within JSON (text files only)
   or downloading data objects to local files.
 
@@ -38,6 +40,8 @@ iRODS:
 * Simplified API over the iRODS general query API to ease construction
   of new custom queries.
 
+* Automatic release of iRODS connections when idle (see the ``--connect-time``
+  command line option).
 
 .. toctree::
    :maxdepth: 2
@@ -62,12 +66,22 @@ iRODS C API and requires a C compiler to build.
    autoreconf -i
 
 3. Generate the makefiles (see INSTALL for arguments to configure).
-   The path to iRODS must be the root directory of the iRODS installation,
-   which defaults to ``/usr/local/lib/irods``.
+   iRODS may be installed from OS packages or from source.
 
 .. code-block:: sh
 
-   ./configure --with-irods=/path/to/irods
+   ./configure
+
+
+   If you have iRODS headers and libraries installed in a non-standard
+   place, you will need to set the CPPFLAGS and LDFLAGS environmment
+   variables appropriately.
+
+.. code-block:: sh
+
+   CPPFLAGS="-I/path/to/irods/headers" \
+     LDFLAGS="-L/path/to/irods/libraries" ./configure
+
 
 4. Compile
 
@@ -100,7 +114,20 @@ The ``baton`` suite of programs
 
 ``baton`` comprises several command-line programs, all of which accept
 a stream of JSON objects on standard input (or from a file) and emit a
-stream of JSON objects on standard output. The ``baton`` programs are:
+stream of JSON objects on standard output i.e.
+
+.. code-block:: sh
+
+   { object 1 }  { object 2 }  ...  { object n }
+
+
+The JSON stream may be in a single file (the filename given on the
+command line using the ``--file`` option) or in multiple files
+concatenated on ``STDIN``. Any whitespace between the JSON objects is
+ignored.
+
+
+The ``baton`` programs are:
 
 * `baton-chmod`_
 
@@ -110,10 +137,14 @@ stream of JSON objects on standard output. The ``baton`` programs are:
 
   Download data objects as raw files or with metadata, embedded in JSON.
 
+* `baton-put`_
+
+  Upload local files to create data objects.
+
 * `baton-list`_
 
-  Prints the paths, metadata and access control lists and timestamps
-  of collections and data objects.
+  Print the paths, metadata and access control lists and timestamps of
+  collections and data objects.
 
 * `baton-metamod`_
 
@@ -125,10 +156,15 @@ stream of JSON objects on standard output. The ``baton`` programs are:
   Print the paths, metadata and access control lists of collections
   and data objects matching queries on metadata.
 
-* `baton-metasuper`
+* `baton-do`_
 
-  Replace all :term:`AVU` s in the metadata on collections and data
-  objects.
+  Perform a mixture of "list", "chmod", "get", "put", "metamod" and
+  "metaquery" ``baton`` operations specified by arguments supplied as
+  JSON.
+
+  ``baton-do`` supports additional operations currently unavailable in
+  the other programs, namely: "remove" (remove a data object), "mkdir"
+  and "rmdir" (create and remove collections, optionally recursively).
 
 All of the programs are designed to accept a stream of JSON objects,
 one for each operation on a collection or data object. After each
@@ -156,9 +192,17 @@ Options
 ^^^^^^^
 
 .. program:: baton-chmod
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-chmod
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-chmod
@@ -184,7 +228,7 @@ Options
 .. program:: baton-chmod
 .. option:: --unsafe
 
-  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.2.x
 
 .. program:: baton-chmod
 .. option:: --verbose
@@ -214,7 +258,7 @@ Synopsis:
 
 This program accepts JSON objects as described in
 :ref:`representing_paths` and prints results in the same format. The
-target path must represent a data object. It's default mode is to JSON
+target path must represent a data object. Its default mode is to JSON
 encode the file content under the JSON property ``data`` in the output.
 
 Some local path properties may be omitted from the input JSON and will
@@ -245,9 +289,17 @@ Options
   :ref:`representing_path_metadata`.
 
 .. program:: baton-get
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-get
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-get
@@ -296,7 +348,7 @@ Options
 .. program:: baton-get
 .. option:: --unsafe
 
-  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.3.x
 
 .. program:: baton-get
 .. option:: --verbose
@@ -304,6 +356,89 @@ Options
   Print verbose messages to STDERR.
 
 .. program:: baton-get
+.. option:: --version
+
+  Print the version number and exit.
+
+
+baton-put
+---------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{collection: "/unit/home/user/", data_object: "a.txt", \
+             directory: "/data/user/local",  file: "a_copy.txt"}'  | baton-put
+
+This program accepts JSON objects as described in
+:ref:`representing_paths` and prints results in the same format. The
+JSON must dsecribe a local file to upload and a target data object
+path to write. The target path may be an existing object, in which
+case it will overwrite.
+
+``baton-put`` performs an on the-the-fly MD5 checksum of the local
+file content as it is uploaded. It compares this with the eventual MD5
+checksum held in iRODS and will raise an error if they do not
+match.
+
+Options
+^^^^^^^
+
+.. program:: baton-put
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-put
+.. option:: --checksum
+
+   Calculate and register, but don't verify, a checksum on the server
+   side (like the ``-k`` option of ``iput``). This option is
+   incompatible with ``--verify``
+
+.. program:: baton-put
+.. option:: --file <file name>
+
+  A JSON file describing the data objects and collections. Optional,
+  defaults to STDIN.
+
+.. program:: baton-put
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-put
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-put
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-put
+.. option:: --unsafe
+
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.3.x
+
+.. program:: baton-put
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-put
+.. option:: --verify
+
+  Calculate and register a server-side checksum and verify the
+  uploaded data object against a client-side calculated checksum (like
+  the ``-K`` option of ``iput``).
+
+.. program:: baton-put
 .. option:: --version
 
   Print the version number and exit.
@@ -338,6 +473,14 @@ Options
   :ref:`representing_path_permissions`.
 
 .. program:: baton-list
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-list
 .. option:: --avu
 
   Print AVU lists in output, in the format described in
@@ -359,7 +502,7 @@ Options
 .. program:: baton-list
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-list
@@ -398,7 +541,7 @@ Options
 .. program:: baton-list
 .. option:: --unsafe
 
-  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.3.x
 
 .. program:: baton-list
 .. option:: --verbose
@@ -434,9 +577,17 @@ Options
 ^^^^^^^
 
 .. program:: baton-metamod
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-metamod
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-metamod
@@ -462,7 +613,7 @@ Options
 .. program:: baton-metamod
 .. option:: --unsafe
 
-  Permit relative paths, which are unsafe in iRODS 3.x - 4.1.x
+  Permit relative paths, which are unsafe in iRODS 3.x - 4.3.x
 
 .. program:: baton-metamod
 .. option:: --verbose
@@ -517,6 +668,14 @@ Options
   :ref:`representing_path_metadata`.
 
 .. program:: baton-metaquery
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-metaquery
 .. option:: --checksum
 
   Print the current checksums of data objects. This does not recalulate
@@ -530,7 +689,7 @@ Options
 .. program:: baton-metaquery
 .. option:: --file <file name>
 
-  The JSON file describing the data objects and collections. Optional,
+  A JSON file describing the data objects and collections. Optional,
   defaults to STDIN.
 
 .. program:: baton-metaquery
@@ -584,6 +743,93 @@ Options
 .. option:: --zone <zone name>
 
    Query in a specific zone.
+
+
+baton-do
+-------------
+
+Synopsis:
+
+.. code-block:: sh
+
+   $ jq -n '{"operation": "metaquery",
+             "arguments": {
+                 "avu": true,
+                 "acl": true,
+                 "replicate": true,
+                 "object": true
+              },
+              "target": {avus: [{attribute: "x", value: "y"},   \
+                                {attribute: "m", value: "n"}]}' | baton-do
+
+This program accepts JSON objects as described in :ref:`representing_paths`
+that have been wrapped in an additional JSON envelope describing a operation
+to be carried out, along with any parameters for that operation.
+
+The JSON envelope has two mandatory properties; `operation`, whose
+value must be a string naming a ``baton`` operation to be performed
+(one of `checksum`, `chmod`, `get`, `put`, `list`, `metamod`,
+`metaquery`, `move`) and `target` which must be a ``baton``-format
+JSON object. The envelope has one optional property `arguments` which,
+if present, must be a JSON object whose keys and values may be any of
+the command line options permitted for the standard ``baton`` clients
+supporting the previously named operations. Where command line options
+are boolean flags, a JSON `true` value should be used.
+
+Options
+^^^^^^^
+
+.. program:: baton-do
+.. option:: --connect-time <integer>
+
+   The duration in seconds after which a connection to iRODS will be
+   refreshed (closed and reopened between JSON documents) to allow
+   iRODS server resources to be released. Optional, defaults to 10
+   minutes.
+
+.. program:: baton-do
+.. option:: --file <file name>
+
+  A JSON file describing the ``baton`` operations and their parameters.
+  Optional, defaults to STDIN.
+
+.. program:: baton-do
+.. option:: --help
+
+  Prints command line help.
+
+.. program:: baton-do
+.. option:: --silent
+
+   Silence error messages.
+
+.. program:: baton-do
+.. option:: --no-error
+
+   Do not report iRODS errors by exiting with a non-zero error code. In
+   this mode errors are reported only in-band of the JSON messages
+   written to STDOUT.
+
+.. program:: baton-do
+.. option:: --unbuffered
+
+  Flush output after each JSON object is processed.
+
+.. program:: baton-do
+.. option:: --verbose
+
+  Print verbose messages to STDERR.
+
+.. program:: baton-do
+.. option:: --version
+
+  Print the version number and exit.
+
+.. program:: baton-do
+.. option:: --zone <zone name>
+
+   Operate in a specific zone.
+
 
 .. _representing_paths:
 
@@ -868,15 +1114,15 @@ data objects were created and last modified. These are represented for
 both collections and data objects as a JSON array of objects under the
 ``timestamp`` property. Each timestamp within the array must have at
 least a ``created`` or a ``modified`` property. The values associated
-with these properties are `ISO8601 datetime strings
-<https://en.wikipedia.org/wiki/ISO_8601>`_. These properties have
+with these properties are `RFC3339 datetime strings
+<https://www.rfc-editor.org/rfc/rfc3339>`_. These properties have
 shorter synonyms ``c``, ``m``, respectively.
 
 .. code-block:: json
 
    {"collection": "/unit/home/user",
-    "timestamps": [{"created":  "2014-01-01T00:00:00"},
-                   {"modified": "2014-01-01T00:00:00"}]}
+    "timestamps": [{"created":  "2014-01-01T00:00:00Z"},
+                   {"modified": "2014-01-01T00:00:00Z"}]}
 
 Data objects may have replicates in iRODS. Where data object
 timestamps are reported by ``baton``, the values for all replicates are
@@ -887,8 +1133,8 @@ integer.
 
    {"collection": "/unit/home/user",
     "data_object": "foo.txt",
-    "timestamps": [{"created":  "2014-01-01T00:00:00", "replicate": 0},
-                   {"modified": "2014-01-01T00:00:00", "replicate": 0}]}
+    "timestamps": [{"created":  "2014-01-01T00:00:00Z", "replicate": 0},
+                   {"modified": "2014-01-01T00:00:00Z", "replicate": 0}]}
 
 
 .. _representing_query_timestamps:
@@ -916,16 +1162,16 @@ For example, to limit query results to anything created on or after
 
 .. code-block:: json
 
-   {"timestamps": [{"created": "2014-01-01T00:00:00", "operator": "n>="}]}
+   {"timestamps": [{"created": "2014-01-01T00:00:00Z", "operator": "n>="}]}
 
 To limit query results to anything created before 2014-01-01 and
 modified in 2014-03, the syntax would be:
 
 .. code-block:: json
 
-   {"timestamps": [{"created":  "2014-01-01T00:00:00", "operator": "n<"},
-                   {"modified": "2014-03-01T00:00:00", "operator": "n>="},
-                   {"modified": "2014-03-31T00:00:00", "operator": "n<"}]}
+   {"timestamps": [{"created":  "2014-01-01T00:00:00Z", "operator": "n<"},
+                   {"modified": "2014-03-01T00:00:00Z", "operator": "n>="},
+                   {"modified": "2014-03-31T00:00:00Z", "operator": "n<"}]}
 
 .. _representing_permissions:
 
