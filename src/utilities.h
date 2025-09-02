@@ -24,6 +24,8 @@
 
 #include <stdio.h>
 
+#include "error.h"
+
 #define MAX_STR_LEN (1024 * 1024 * 1024)
 
 #define ISO8601_FORMAT "%Y-%m-%dT%H:%M:%S"
@@ -35,24 +37,34 @@ int str_ends_with(const char *str, const char *suffix, size_t max_len);
 
 int str_equals(const char *str1, const char *str2, size_t max_len);
 
-int str_equals_ignore_case(const char *str1, const char *str2,
-                           size_t max_len);
+int str_equals_ignore_case(const char *str1, const char *str2, size_t max_len);
 
-char *copy_str(const char *str, size_t max_len);
+char* copy_str(const char *str, size_t max_len);
 
-const char *parse_base_name(const char *path);
 
-char *parse_zone_name(const char *path);
+int check_str_arg(const char *arg_name,
+                  const char *arg_value,
+                  size_t arg_size,
+                  baton_error_t *error);
+
+int check_str_arg_permit_empty(const char *arg_name,
+                               const char *arg_value,
+                               size_t arg_size,
+                               baton_error_t *error);
+
+const char* parse_base_name(const char *path);
+
+char* parse_zone_name(const char *path);
 
 size_t parse_size(const char *str);
 
-FILE *maybe_stdin(const char *path);
+FILE* maybe_stdin(const char *path);
 
-char *format_timestamp(const char *raw_timestamp, const char *format);
+char* format_timestamp(const char *raw_timestamp, const char *format);
 
-char *parse_timestamp(const char *timestamp, const char *format);
+char* parse_timestamp(const char *timestamp, const char *format);
 
-int maybe_utf8 (const char *str, size_t max_len);
+int maybe_utf8(const char *str, size_t max_len);
 
 size_t to_utf8(const char *input, char *output, size_t max_len);
 

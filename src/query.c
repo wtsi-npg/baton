@@ -47,21 +47,22 @@ void log_rods_errstack(const log_level level, const rError_t *error) {
     }
 }
 
-genQueryInp_t *make_query_input(const size_t max_rows, const size_t num_columns,
+genQueryInp_t* make_query_input(const size_t max_rows,
+                                const size_t num_columns,
                                 const int columns[]) {
     genQueryInp_t *query_in = calloc(1, sizeof (genQueryInp_t));
     if (!query_in) goto error;
 
     logmsg(DEBUG, "Preparing a query to select %d columns", num_columns);
 
-    int *cols_to_select = calloc(num_columns, sizeof (int));
+    int *cols_to_select = calloc(num_columns, sizeof(int));
     if (!cols_to_select) goto error;
 
     for (size_t i = 0; i < num_columns; i++) {
         cols_to_select[i] = columns[i];
     }
 
-    int *special_select_ops = calloc(num_columns, sizeof (int));
+    int *special_select_ops = calloc(num_columns, sizeof(int));
     if (!special_select_ops) goto error;
 
     special_select_ops[0] = 0;
@@ -74,10 +75,10 @@ genQueryInp_t *make_query_input(const size_t max_rows, const size_t num_columns,
     query_in->continueInx   = 0;
     query_in->condInput.len = 0;
 
-    int *query_cond_indices = calloc(MAX_NUM_CONDITIONS, sizeof (int));
+    int *query_cond_indices = calloc(MAX_NUM_CONDITIONS, sizeof(int));
     if (!query_cond_indices) goto error;
 
-    char **query_cond_values = calloc(MAX_NUM_CONDITIONS, sizeof (char *));
+    char **query_cond_values = calloc(MAX_NUM_CONDITIONS, sizeof(char *));
     if (!query_cond_values) goto error;
 
     query_in->sqlCondInp.inx   = query_cond_indices;
@@ -87,8 +88,7 @@ genQueryInp_t *make_query_input(const size_t max_rows, const size_t num_columns,
     return query_in;
 
 error:
-    logmsg(ERROR, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
 
     return NULL;
 }
@@ -136,32 +136,36 @@ void free_query_output(genQueryOut_t *query_out) {
     free(query_out);
 }
 
-genQueryInp_t *add_query_conds(genQueryInp_t *query_in, const size_t num_conds,
+genQueryInp_t* add_query_conds(genQueryInp_t *query_in,
+                               const size_t num_conds,
                                const query_cond_t conds[]) {
     for (size_t i = 0; i < num_conds; i++) {
         char *column = getAttrNameFromAttrId(conds[i].column);
-        const char *operator = conds[i].operator;
-        const char *value    = conds[i].value;
+        const char *operator = conds[i]
+        .
+        operator;
+        const char *value = conds[i].value;
 
-        logmsg(DEBUG, "Adding condition %d of %d: %s %s %s",
-               1, num_conds, column, operator, value);
+        logmsg(DEBUG, "Adding condition %d of %d: %s %s %s", 1, num_conds, column,
+               operator, value);
 
         const int expr_size = strlen(value) + strlen(operator) + 3 + 1;
-        char *expr = calloc(expr_size, sizeof (char));
+        char *expr          = calloc(expr_size, sizeof(char));
         if (!expr) goto error;
 
         if (str_equals_ignore_case(operator, SEARCH_OP_IN, MAX_STR_LEN)) {
             snprintf(expr, expr_size, "%s %s", operator, value);
-        } else {
+        }
+        else {
             snprintf(expr, expr_size, "%s '%s'", operator, value);
         }
 
         logmsg(DEBUG, "Made string %d of %d: op: %s value: %s, len %d, "
-               "total len %d [%s]",
-               i, num_conds, operator, value, strlen(value), expr_size, expr);
+               "total len %d [%s]", i, num_conds, operator, value, strlen(value),
+               expr_size, expr);
 
-        const int current_index = query_in->sqlCondInp.len;
-        query_in->sqlCondInp.inx[current_index] = conds[i].column;
+        const int current_index                   = query_in->sqlCondInp.len;
+        query_in->sqlCondInp.inx[current_index]   = conds[i].column;
         query_in->sqlCondInp.value[current_index] = expr;
         query_in->sqlCondInp.len++;
     }
@@ -169,20 +173,19 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, const size_t num_conds,
     return query_in;
 
 error:
-    logmsg(ERROR, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
 
     return NULL;
 }
 
-genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_list(genQueryInp_t *query_in,
                                 rodsPath_t *rods_path,
                                 const char *attr_name) {
-    char *path = rods_path->outPath;
+    char *path       = rods_path->outPath;
     const size_t len = strlen(path) + 1;
 
-    char *path1 = calloc(len, sizeof (char));
-    char *path2 = calloc(len, sizeof (char));
+    char *path1 = calloc(len, sizeof(char));
+    char *path2 = calloc(len, sizeof(char));
     if (!path1) goto error;
     if (!path2) goto error;
 
@@ -192,23 +195,28 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
     char *coll_name = dirname(path1);
     char *data_name = basename(path2);
 
-    const query_cond_t cn = { .column   = COL_COLL_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = coll_name };
-    const query_cond_t dn = { .column   = COL_DATA_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = data_name };
-    const query_cond_t an = { .column   = COL_META_DATA_ATTR_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = attr_name };
+    const query_cond_t cn = {
+        .column = COL_COLL_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = coll_name
+    };
+    const query_cond_t dn = {
+        .column = COL_DATA_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = data_name
+    };
+    const query_cond_t an = {
+        .column = COL_META_DATA_ATTR_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = attr_name
+    };
 
     const size_t num_conds = 2;
     if (attr_name) {
-        add_query_conds(query_in, num_conds + 1,
-                        (query_cond_t []) { cn, dn, an });
+        add_query_conds(query_in, num_conds + 1, (query_cond_t []){cn, dn, an});
     }
     else {
-        add_query_conds(query_in, num_conds, (query_cond_t []) { cn, dn });
+        add_query_conds(query_in, num_conds, (query_cond_t []){cn, dn});
     }
 
     free(path1);
@@ -217,68 +225,76 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
     return query_in;
 
 error:
-    logmsg(ERROR, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
 
     return NULL;
 }
 
-genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_list(genQueryInp_t *query_in,
                                 rodsPath_t *rods_path,
                                 const char *attr_name) {
-    char *path = rods_path->outPath;
-    const query_cond_t cn = { .column   = COL_COLL_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = path };
-    const query_cond_t an = { .column   = COL_META_COLL_ATTR_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = attr_name };
+    char *path            = rods_path->outPath;
+    const query_cond_t cn = {
+        .column = COL_COLL_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = path
+    };
+    const query_cond_t an = {
+        .column = COL_META_COLL_ATTR_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = attr_name
+    };
 
     const size_t num_conds = 1;
     if (attr_name) {
-        add_query_conds(query_in, num_conds + 1, (query_cond_t []) { cn, an });
+        add_query_conds(query_in, num_conds + 1, (query_cond_t []){cn, an});
     }
     else {
-        add_query_conds(query_in, num_conds, (query_cond_t []) { cn });
+        add_query_conds(query_in, num_conds, (query_cond_t []){cn});
     }
 
     return query_in;
 }
 
-genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path) {
-    char *data_id = rods_path->dataId;
-    const query_cond_t di = { .column   = COL_DATA_ACCESS_DATA_ID,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = data_id };
-    const query_cond_t tn = { .column   = COL_DATA_TOKEN_NAMESPACE,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = ACCESS_NAMESPACE };
+genQueryInp_t* prepare_obj_acl_list(genQueryInp_t *query_in, rodsPath_t *rods_path) {
+    char *data_id         = rods_path->dataId;
+    const query_cond_t di = {
+        .column = COL_DATA_ACCESS_DATA_ID,
+        .operator = SEARCH_OP_EQUALS,
+        .value = data_id
+    };
+    const query_cond_t tn = {
+        .column = COL_DATA_TOKEN_NAMESPACE,
+        .operator = SEARCH_OP_EQUALS,
+        .value = ACCESS_NAMESPACE
+    };
 
     const size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { di, tn });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){di, tn});
 }
 
-genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path) {
-    char *path = rods_path->outPath;
-    const query_cond_t cn = { .column   = COL_COLL_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = path };
-    const query_cond_t tn = { .column   = COL_COLL_TOKEN_NAMESPACE,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = ACCESS_NAMESPACE };
+genQueryInp_t* prepare_col_acl_list(genQueryInp_t *query_in, rodsPath_t *rods_path) {
+    char *path            = rods_path->outPath;
+    const query_cond_t cn = {
+        .column = COL_COLL_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = path
+    };
+    const query_cond_t tn = {
+        .column = COL_COLL_TOKEN_NAMESPACE,
+        .operator = SEARCH_OP_EQUALS,
+        .value = ACCESS_NAMESPACE
+    };
     const size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { cn, tn });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){cn, tn});
 }
 
-genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
-                                     rodsPath_t *rods_path) {
-    char *path = rods_path->outPath;
+genQueryInp_t* prepare_obj_repl_list(genQueryInp_t *query_in, rodsPath_t *rods_path) {
+    char *path       = rods_path->outPath;
     const size_t len = strlen(path) + 1;
 
-    char *path1 = calloc(len, sizeof (char));
-    char *path2 = calloc(len, sizeof (char));
+    char *path1 = calloc(len, sizeof(char));
+    char *path2 = calloc(len, sizeof(char));
     if (!path1) goto error;
     if (!path2) goto error;
 
@@ -288,14 +304,18 @@ genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
     char *coll_name = dirname(path1);
     char *data_name = basename(path2);
 
-    const query_cond_t cn = { .column   = COL_COLL_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = coll_name };
-    const query_cond_t dn = { .column   = COL_DATA_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = data_name };
+    const query_cond_t cn = {
+        .column = COL_COLL_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = coll_name
+    };
+    const query_cond_t dn = {
+        .column = COL_DATA_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = data_name
+    };
     const size_t num_conds = 2;
-    add_query_conds(query_in, num_conds, (query_cond_t []) { cn, dn });
+    add_query_conds(query_in, num_conds, (query_cond_t []){cn, dn});
 
     free(path1);
     free(path2);
@@ -303,69 +323,79 @@ genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
     return query_in;
 
 error:
-    logmsg(ERROR, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
 
     return NULL;
 }
 
-genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path) {
-    char *path = rods_path->outPath;
-    const query_cond_t cn = { .column   = COL_COLL_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = path };
+genQueryInp_t* prepare_col_tps_list(genQueryInp_t *query_in, rodsPath_t *rods_path) {
+    char *path            = rods_path->outPath;
+    const query_cond_t cn = {
+        .column = COL_COLL_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = path
+    };
     const size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { cn });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){cn});
 }
 
-genQueryInp_t *prepare_resc_list(genQueryInp_t *query_in,
+genQueryInp_t* prepare_resc_list(genQueryInp_t *query_in,
                                  const char *resc_name,
                                  const char *zone_name) {
-  const query_cond_t rn = { .column   = COL_R_RESC_NAME,
-                            .operator = SEARCH_OP_EQUALS,
-                            .value    = resc_name };
-  const query_cond_t zn = { .column   = COL_R_ZONE_NAME,
-                            .operator = SEARCH_OP_EQUALS,
-                            .value    = zone_name };
+    const query_cond_t rn = {
+        .column = COL_R_RESC_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = resc_name
+    };
+    const query_cond_t zn = {
+        .column = COL_R_ZONE_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = zone_name
+    };
 
-  const size_t num_conds = 2;
-  return add_query_conds(query_in, num_conds, (query_cond_t []) { rn, zn });
+    const size_t num_conds = 2;
+    return add_query_conds(query_in, num_conds, (query_cond_t []){rn, zn});
 }
 
-genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
                                       const char *operator) {
-    const query_cond_t an = { .column   = COL_META_DATA_ATTR_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = attr_name };
-    const query_cond_t av = { .column   = COL_META_DATA_ATTR_VALUE,
-                              .operator = operator,
-                              .value    = attr_value };
+    const query_cond_t an = {
+        .column = COL_META_DATA_ATTR_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = attr_name
+    };
+    const query_cond_t av = {
+        .column = COL_META_DATA_ATTR_VALUE,
+        .operator = operator,.value = attr_value
+    };
     const size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){an, av});
 }
 
-genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
                                       const char *operator) {
-    const query_cond_t an = { .column   = COL_META_COLL_ATTR_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = attr_name };
-    const query_cond_t av = { .column   = COL_META_COLL_ATTR_VALUE,
-                              .operator = operator,
-                              .value    = attr_value };
+    const query_cond_t an = {
+        .column = COL_META_COLL_ATTR_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = attr_name
+    };
+    const query_cond_t av = {
+        .column = COL_META_COLL_ATTR_VALUE,
+        .operator = operator,.value = attr_value
+    };
     const size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { an, av });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){an, av});
 }
 
-genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in) {
+genQueryInp_t* limit_to_newest_repl(genQueryInp_t *query_in) {
     return limit_to_good_repl(query_in);
 }
 
-genQueryInp_t *limit_to_good_repl(genQueryInp_t *query_in) {
+genQueryInp_t* limit_to_good_repl(genQueryInp_t *query_in) {
     // See https://github.com/irods/irods/issues/5730
     //
     // The #define used in iRODS 4.2.8 and earlier has been replaced
@@ -381,161 +411,176 @@ genQueryInp_t *limit_to_good_repl(genQueryInp_t *query_in) {
     char buf[num_digits + 1];
     snprintf(buf, sizeof buf, "%d", col_selector);
 
-    const query_cond_t rs = { .column   = COL_D_REPL_STATUS,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = buf };
+    const query_cond_t rs = {
+        .column = COL_D_REPL_STATUS,
+        .operator = SEARCH_OP_EQUALS,
+        .value = buf
+    };
     const size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { rs });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){rs});
 }
 
-genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_acl_search(genQueryInp_t *query_in,
                                       const char *user,
                                       const char *perm) {
-    const query_cond_t un = { .column   = COL_USER_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = user };
-    const query_cond_t al = { .column   = COL_DATA_ACCESS_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = perm };
+    const query_cond_t un = {
+        .column = COL_USER_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = user
+    };
+    const query_cond_t al = {
+        .column = COL_DATA_ACCESS_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = perm
+    };
     const size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds,
-                           (query_cond_t []) { un, al });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){un, al});
 }
 
-genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_acl_search(genQueryInp_t *query_in,
                                       const char *user,
                                       const char *perm) {
-    const query_cond_t un = { .column   = COL_USER_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = user };
-    const query_cond_t al = { .column   = COL_COLL_ACCESS_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = perm };
+    const query_cond_t un = {
+        .column = COL_USER_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = user
+    };
+    const query_cond_t al = {
+        .column = COL_COLL_ACCESS_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = perm
+    };
     const size_t num_conds = 2;
-    return add_query_conds(query_in, num_conds,
-                           (query_cond_t []) { un, al });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){un, al});
 }
 
-genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator) {
-    const query_cond_t ts = { .column   = COL_D_CREATE_TIME,
-                              .operator = operator,
-                              .value    = raw_timestamp };
+    const query_cond_t ts = {
+        .column = COL_D_CREATE_TIME,
+        .operator = operator,.value = raw_timestamp
+    };
     const size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){ts});
 }
 
-genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator) {
-    const query_cond_t ts = { .column   = COL_D_MODIFY_TIME,
-                              .operator = operator,
-                              .value    = raw_timestamp };
+    const query_cond_t ts = {
+        .column = COL_D_MODIFY_TIME,
+        .operator = operator,.value = raw_timestamp
+    };
     const size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){ts});
 }
 
-genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator) {
-    const query_cond_t ts = { .column   = COL_COLL_CREATE_TIME,
-                              .operator = operator,
-                              .value    = raw_timestamp };
+    const query_cond_t ts = {
+        .column = COL_COLL_CREATE_TIME,
+        .operator = operator,.value = raw_timestamp
+    };
     const size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){ts});
 }
 
-genQueryInp_t *prepare_col_mod_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator) {
-    const query_cond_t ts = { .column   = COL_COLL_MODIFY_TIME,
-                              .operator = operator,
-                              .value    = raw_timestamp };
+    const query_cond_t ts = {
+        .column = COL_COLL_MODIFY_TIME,
+        .operator = operator,.value = raw_timestamp
+    };
     const size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds, (query_cond_t []) { ts });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){ts});
 }
 
-genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
-                                   const char *root_path) {
+genQueryInp_t* prepare_path_search(genQueryInp_t *query_in, const char *root_path) {
     const size_t len = strnlen(root_path, MAX_STR_LEN);
 
     if (len > 0) {
         char *path;
         // Absolute path
         if (str_starts_with(root_path, "/", 1)) {
-            path = calloc(len + 2, sizeof (char));
+            path = calloc(len + 2, sizeof(char));
             if (!path) goto error;
 
             snprintf(path, len + 2, "%s%%", root_path);
         }
         else {
-            path = calloc(len + 3, sizeof (char));
+            path = calloc(len + 3, sizeof(char));
             if (!path) goto error;
 
             snprintf(path, len + 3, "%%%s%%", root_path);
         }
 
-        const query_cond_t pv = { .column   = COL_COLL_NAME,
-                                  .operator = SEARCH_OP_LIKE,
-                                  .value    = path };
+        const query_cond_t pv = {
+            .column = COL_COLL_NAME,
+            .operator = SEARCH_OP_LIKE,
+            .value = path
+        };
 
         logmsg(DEBUG, "Adding search clause path LIKE '%s'", path);
 
         const size_t num_conds = 1;
-        add_query_conds(query_in, num_conds, (query_cond_t []) { pv });
+        add_query_conds(query_in, num_conds, (query_cond_t []){pv});
         free(path);
     }
 
     return query_in;
 
 error:
-    logmsg(ERROR, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
 
     return NULL;
 }
 
-genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
-                                   const char *user_name) {
-    const query_cond_t un = { .column   = COL_USER_NAME,
-                              .operator = SEARCH_OP_EQUALS,
-                              .value    = user_name };
+genQueryInp_t* prepare_user_search(genQueryInp_t *query_in, const char *user_name) {
+    const query_cond_t un = {
+        .column = COL_USER_NAME,
+        .operator = SEARCH_OP_EQUALS,
+        .value = user_name
+    };
 
     const size_t num_conds = 1;
-    return add_query_conds(query_in, num_conds,  (query_cond_t []) { un });
+    return add_query_conds(query_in, num_conds, (query_cond_t []){un});
 }
 
-specificQueryInp_t *prepare_specific_query(specificQueryInp_t *squery_in,
-                                           const char *sql, json_t *args) {
+specificQueryInp_t* prepare_specific_query(specificQueryInp_t *squery_in,
+                                           const char *sql,
+                                           json_t *args) {
     size_t index;
     json_t *value;
 
-    squery_in->maxRows = SEARCH_MAX_ROWS;
+    squery_in->maxRows     = SEARCH_MAX_ROWS;
     squery_in->continueInx = 0;
-    squery_in->sql = (char *)sql;
+    squery_in->sql         = (char *) sql;
 
-    json_array_foreach(args, index, value) {
-      if (json_is_string(value)) {
-          squery_in->args[index] = strdup(json_string_value(value));
-      } else {
-          goto error;
-      }
+    json_array_foreach(args, index, value)
+    {
+        if (json_is_string(value)) {
+            squery_in->args[index] = strdup(json_string_value(value));
+        }
+        else {
+            goto error;
+        }
     }
 
     return squery_in;
 
 error:
-    logmsg(ERROR, "Failed to parse JSON specific query args: %s",
-           args);
+    logmsg(ERROR, "Failed to parse JSON specific query args: %s", args);
     return squery_in;
 }
 
 void free_squery_input(specificQueryInp_t *squery_in) {
     assert(squery_in);
 
-    for (unsigned int i = 0; i<10; i++) {
-        if(squery_in->args[i] != NULL) {
+    for (unsigned int i = 0; i < 10; i++) {
+        if (squery_in->args[i] != NULL) {
             free(squery_in->args[i]);
         }
     }
@@ -543,25 +588,23 @@ void free_squery_input(specificQueryInp_t *squery_in) {
     free(squery_in);
 }
 
-query_format_in_t *make_query_format_from_sql(const char *sql) {
+query_format_in_t* make_query_format_from_sql(const char *sql) {
     query_format_in_t *format = NULL;
     char remsg[MAX_ERROR_MESSAGE_LEN];
 
-    const char *select_list_capt_re_str =
-      "^.*?select[[:space:]]+"
-      "(distinct|all[[:space:]]+)?(.*?[^[:space:]])[[:space:]]+"
-      "from[[:space:]].*$";
+    const char *select_list_capt_re_str = "^.*?select[[:space:]]+"
+        "(distinct|all[[:space:]]+)?(.*?[^[:space:]])[[:space:]]+" "from[[:space:]].*$";
     enum { select_list_capt_idx = 2 };
     regex_t select_list_capt_re;
-    regmatch_t select_list_pmatch[select_list_capt_idx+1];
+    regmatch_t select_list_pmatch[select_list_capt_idx + 1];
 
     const char *trim_whitespace_capt_re_str =
-      "^[[:space:]]*(.*?[^[:space:]])[[:space:]]*$";
+        "^[[:space:]]*(.*?[^[:space:]])[[:space:]]*$";
     enum { trim_whitespace_capt_idx = 1 };
     regex_t trim_whitespace_capt_re;
 
     const char *as_column_name_capt_re_str =
-      "^.*[[:space:]]+as[[:space:]]+(.*?[^[:space:]])[[:space:]]*$";
+        "^.*[[:space:]]+as[[:space:]]+(.*?[^[:space:]])[[:space:]]*$";
     enum { as_column_name_capt_idx = 1 };
     regex_t as_column_name_capt_re;
 
@@ -573,8 +616,8 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
                                 REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
         regerror(reti, &select_list_capt_re, remsg, MAX_ERROR_MESSAGE_LEN);
-        logmsg(ERROR, "Could not compile regex: '%s': %s",
-               select_list_capt_re_str, remsg);
+        logmsg(ERROR, "Could not compile regex: '%s': %s", select_list_capt_re_str,
+               remsg);
         goto error;
     }
 
@@ -582,8 +625,8 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
                    REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
         regerror(reti, &trim_whitespace_capt_re, remsg, MAX_ERROR_MESSAGE_LEN);
-        logmsg(ERROR, "Could not compile regex: '%s': %s",
-               trim_whitespace_capt_re_str, remsg);
+        logmsg(ERROR, "Could not compile regex: '%s': %s", trim_whitespace_capt_re_str,
+               remsg);
         goto error;
     }
 
@@ -591,8 +634,8 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
                    REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
         regerror(reti, &as_column_name_capt_re, remsg, MAX_ERROR_MESSAGE_LEN);
-        logmsg(ERROR, "Could not compile regex: '%s': %s",
-               as_column_name_capt_re_str, remsg);
+        logmsg(ERROR, "Could not compile regex: '%s': %s", as_column_name_capt_re_str,
+               remsg);
         goto error;
     }
 
@@ -608,16 +651,16 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
                select_list_pmatch[select_list_capt_idx].rm_so,
                select_list_pmatch[select_list_capt_idx].rm_eo);
 
-        select_list =
-          strndup(sql + select_list_pmatch[select_list_capt_idx].rm_so,
-                  select_list_pmatch[select_list_capt_idx].rm_eo -
-                  select_list_pmatch[select_list_capt_idx].rm_so + 1);
+        select_list = strndup(sql + select_list_pmatch[select_list_capt_idx].rm_so,
+                              select_list_pmatch[select_list_capt_idx].rm_eo -
+                              select_list_pmatch[select_list_capt_idx].rm_so + 1);
         logmsg(DEBUG, "Extracted select_list: '%s'", select_list);
-    } else if (reti == REG_NOMATCH) {
-        logmsg(ERROR, "Regex '%s' did not match SQL: '%s'",
-               select_list_capt_re_str, sql);
+    }
+    else if (reti == REG_NOMATCH) {
+        logmsg(ERROR, "Regex '%s' did not match SQL: '%s'", select_list_capt_re_str, sql);
         goto error;
-    } else {
+    }
+    else {
         logmsg(ERROR, "Regex match '%s' failed parsing SQL: '%s'",
                select_list_capt_re_str, sql);
         goto error;
@@ -629,33 +672,31 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
 
     // parse select_list_tokenize column by column
     for (i = 0; select_list_tokenize != NULL; i++) {
-        regmatch_t trim_whitespace_pmatch[trim_whitespace_capt_idx+1];
-        regmatch_t as_column_name_pmatch[as_column_name_capt_idx+1];
+        regmatch_t trim_whitespace_pmatch[trim_whitespace_capt_idx + 1];
+        regmatch_t as_column_name_pmatch[as_column_name_capt_idx + 1];
         // get next column specification from select_list_tokenize
         char *column = strsep(&select_list_tokenize, ",");
         logmsg(DEBUG, "Parsing column %d: strsep found column '%s' "
-               "with remaining select_list_tokenize '%s'",
-               i, column, select_list_tokenize);
+               "with remaining select_list_tokenize '%s'", i, column,
+               select_list_tokenize);
 
         // trim whitespace from column
-        reti = regexec(&trim_whitespace_capt_re, column,
-                       trim_whitespace_capt_idx + 1,
+        reti = regexec(&trim_whitespace_capt_re, column, trim_whitespace_capt_idx + 1,
                        trim_whitespace_pmatch, 0);
         if (reti == 0) {
             // point column_trim at first non-whitespace character
-            column_trim = column +
-              trim_whitespace_pmatch[trim_whitespace_capt_idx].rm_so;
+            column_trim = column + trim_whitespace_pmatch[trim_whitespace_capt_idx].rm_so;
             // truncate at character after last non-whitespace character
-            column_trim[
-                trim_whitespace_pmatch[trim_whitespace_capt_idx].rm_eo -
+            column_trim[trim_whitespace_pmatch[trim_whitespace_capt_idx].rm_eo -
                 trim_whitespace_pmatch[trim_whitespace_capt_idx].rm_so] = '\0';
             logmsg(DEBUG, "Trimmed whitespace from column: '%s'", column_trim);
-        } else if (reti == REG_NOMATCH) {
+        }
+        else if (reti == REG_NOMATCH) {
             logmsg(ERROR, "Attempting to trim whitespace regex '%s' "
-                   "did not match column: '%s'",
-                   trim_whitespace_capt_re_str, column);
+                   "did not match column: '%s'", trim_whitespace_capt_re_str, column);
             goto error_recoverable;
-        } else {
+        }
+        else {
             logmsg(ERROR, "Regex match '%s' failed parsing column: '%s'",
                    trim_whitespace_capt_re_str, column);
             goto error_recoverable;
@@ -663,16 +704,14 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
         assert(column_trim);
 
         // check for 'AS column_name' in column_trim
-        reti = regexec(&as_column_name_capt_re, column_trim,
-                       as_column_name_capt_idx + 1,
+        reti = regexec(&as_column_name_capt_re, column_trim, as_column_name_capt_idx + 1,
                        as_column_name_pmatch, 0);
         if (reti == 0) {
             // have 'AS column_name' - use it as the column_name
-            column_name =
-              strndup(column_trim +
-                      as_column_name_pmatch[as_column_name_capt_idx].rm_so,
-                      as_column_name_pmatch[as_column_name_capt_idx].rm_eo -
-                      as_column_name_pmatch[as_column_name_capt_idx].rm_so + 1);
+            column_name = strndup(
+                column_trim + as_column_name_pmatch[as_column_name_capt_idx].rm_so,
+                as_column_name_pmatch[as_column_name_capt_idx].rm_eo -
+                as_column_name_pmatch[as_column_name_capt_idx].rm_so + 1);
             if (!column_name) {
                 format->num_columns = i;
                 logmsg(ERROR, "Could not allocate memory for column_name "
@@ -680,18 +719,18 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
                 goto error_recoverable;
             }
             logmsg(DEBUG, "Found 'AS <column_name>': '%s'", column_name);
-        } else if (reti == REG_NOMATCH) {
+        }
+        else if (reti == REG_NOMATCH) {
             column_name = strdup(column_trim);
             if (!column_name) {
                 format->num_columns = i;
-                logmsg(ERROR, "Could not allocate memory for column: '%s'",
-                       column_trim);
+                logmsg(ERROR, "Could not allocate memory for column: '%s'", column_trim);
                 goto error_recoverable;
             }
             logmsg(DEBUG, "Did not find 'AS <column_name>', "
-                   "using whole column specifier as column_name: '%s'",
-                   column_name);
-        } else {
+                   "using whole column specifier as column_name: '%s'", column_name);
+        }
+        else {
             logmsg(ERROR, "Regex match '%s' failed parsing column: '%s'",
                    as_column_name_capt_re_str, column);
             goto error_recoverable;
@@ -710,13 +749,13 @@ query_format_in_t *make_query_format_from_sql(const char *sql) {
     return format;
 
 error_recoverable:
-    logmsg(ERROR, "Could not parse select columns from SQL "
-           "into query format: '%s'", sql);
+    logmsg(ERROR, "Could not parse select columns from SQL " "into query format: '%s'",
+           sql);
     // create generic columns labels as a backup plan
     format->num_columns = MAX_NUM_COLUMNS;
-    for (i=0; i<(format->num_columns-1); i++) {
+    for (i = 0; i < (format->num_columns - 1); i++) {
         if (format->labels[i] == NULL) {
-            reti = asprintf((char**)&format->labels[i], "col%d", i);
+            reti = asprintf((char **) &format->labels[i], "col%d", i);
         }
     }
     return format;
@@ -726,8 +765,7 @@ error:
     return NULL;
 }
 
-const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
-                                             const char *alias) {
+const char* irods_get_sql_for_specific_alias(rcComm_t *conn, const char *alias) {
     genQueryOut_t *query_out = NULL;
 
     char *err_subname;
@@ -735,25 +773,24 @@ const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
     specificQueryInp_t *sql_alias_squery_in = calloc(1, sizeof(specificQueryInp_t));
     if (!sql_alias_squery_in) goto error;
 
-    sql_alias_squery_in->maxRows = SEARCH_MAX_ROWS;
+    sql_alias_squery_in->maxRows     = SEARCH_MAX_ROWS;
     sql_alias_squery_in->continueInx = 0;
-    sql_alias_squery_in->sql = "findQueryByAlias";
-    sql_alias_squery_in->args[0] = (char *)alias;
+    sql_alias_squery_in->sql         = "findQueryByAlias";
+    sql_alias_squery_in->args[0]     = (char *) alias;
 
     const int status = rcSpecificQuery(conn, sql_alias_squery_in, &query_out);
     if (status == 0) {
-      logmsg(DEBUG, "Successfully fetched SQL for alias: '%s'", alias);
+        logmsg(DEBUG, "Successfully fetched SQL for alias: '%s'", alias);
     }
     else if (status == CAT_NO_ROWS_FOUND) {
-      logmsg(ERROR, "Query for specific alias '%s' returned no results", alias);
-      goto error;
+        logmsg(ERROR, "Query for specific alias '%s' returned no results", alias);
+        goto error;
     }
     else {
-      const char *err_name = rodsErrorName(status, &err_subname);
-      logmsg(ERROR, "Failed to fetch SQL for specific query alias: '%s' "
-             "error %d %s %s",
-             alias, status, err_name, err_subname);
-      goto error;
+        const char *err_name = rodsErrorName(status, &err_subname);
+        logmsg(ERROR, "Failed to fetch SQL for specific query alias: '%s' "
+               "error %d %s %s", alias, status, err_name, err_subname);
+        goto error;
     }
 
     const size_t num_rows = (size_t) query_out->rowCnt;
@@ -765,8 +802,8 @@ const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
 
     const size_t num_attr = query_out->attriCnt;
     if (num_attr != 2) {
-        logmsg(ERROR, "Unexpectedly found %d attributes querying "
-               "specific alias: '%s'", num_attr, alias);
+        logmsg(ERROR, "Unexpectedly found %d attributes querying " "specific alias: '%s'",
+               num_attr, alias);
         goto error;
     }
 
@@ -786,20 +823,18 @@ error:
     return NULL;
 }
 
-query_format_in_t *prepare_specific_labels(rcComm_t *conn,
-                                           const char *sql_or_alias) {
+query_format_in_t* prepare_specific_labels(rcComm_t *conn, const char *sql_or_alias) {
     regex_t select_s_re;
 
     const char *sql;
-    const char *select_s_re_str ="^select[[:space:]]";
+    const char *select_s_re_str = "^select[[:space:]]";
 
     // does sql_or_alias begin with a SQL SELECT statement?
     unsigned int reti = regcomp(&select_s_re, select_s_re_str, REG_EXTENDED | REG_ICASE);
     if (reti != 0) {
         char re_msg[MAX_ERROR_MESSAGE_LEN];
         regerror(reti, &select_s_re, re_msg, MAX_ERROR_MESSAGE_LEN);
-        logmsg(ERROR, "Could not compile regex: '%s': %s", select_s_re_str,
-               re_msg);
+        logmsg(ERROR, "Could not compile regex: '%s': %s", select_s_re_str, re_msg);
         goto error;
     }
     reti = regexec(&select_s_re, sql_or_alias, 0, NULL, 0);
@@ -807,16 +842,17 @@ query_format_in_t *prepare_specific_labels(rcComm_t *conn,
         // yes, sql_or_alias does contain SELECT - we already have SQL
         sql = sql_or_alias;
         logmsg(DEBUG, "Already have SQL specific query: '%s'", sql);
-    } else if (reti == REG_NOMATCH) {
+    }
+    else if (reti == REG_NOMATCH) {
         // no SELECT found in sql_or_alias we must have an alias (or a
         // bad query, but try to look up the alias anyway)
         sql = irods_get_sql_for_specific_alias(conn, sql_or_alias);
         if (sql == NULL) {
             goto error;
         }
-        logmsg(DEBUG, "Got SQL for specific alias '%s': '%s'",
-               sql_or_alias, sql);
-    } else {
+        logmsg(DEBUG, "Got SQL for specific alias '%s': '%s'", sql_or_alias, sql);
+    }
+    else {
         logmsg(ERROR, "Regex match failed parsing SQL: '%s'", sql_or_alias);
         goto error;
     }
@@ -828,16 +864,15 @@ query_format_in_t *prepare_specific_labels(rcComm_t *conn,
     return format;
 
 error:
-    logmsg(ERROR, "Failed to prepare labels for specific query: '%s'",
-           sql_or_alias);
+    logmsg(ERROR, "Failed to prepare labels for specific query: '%s'", sql_or_alias);
     return NULL;
 }
 
 void free_specific_labels(query_format_in_t *format) {
     assert(format);
 
-    for (unsigned int i = 0; i<(format->num_columns-1); i++) {
-      free((void *)(format->labels[i]));
+    for (unsigned int i = 0; i < (format->num_columns - 1); i++) {
+        free((void *) (format->labels[i]));
     }
     free(format);
 }

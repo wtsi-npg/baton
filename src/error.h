@@ -54,7 +54,6 @@ void init_baton_error(baton_error_t *error);
  *
  * @ref init_baton_error
  */
-void set_baton_error(baton_error_t *error, int code,
-                     const char *format, ...);
+void set_baton_error(baton_error_t *error, int code, const char *format, ...);
 
 #endif // _BATON_ERROR_H

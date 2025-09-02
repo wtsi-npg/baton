@@ -25,10 +25,10 @@
 
 #include <jansson.h>
 
-#include "config.h"
+#include <rodsClient.h>
+
 #include "error.h"
 #include "query.h"
-#include "utilities.h"
 
 /**
  * Log the current JSON error state through the underlying logging
@@ -47,7 +47,7 @@ void log_json_error(log_level level, json_error_t *error);
  *
  * @return A query operator guaranteed to be valid.
  */
-const char *ensure_valid_operator(const char *op, baton_error_t *error);
+const char* ensure_valid_operator(const char *op, baton_error_t *error);
 
 /**
  * Execute a general query and obtain results as a JSON array of objects.
@@ -72,7 +72,9 @@ const char *ensure_valid_operator(const char *op, baton_error_t *error);
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
-json_t *do_search(rcComm_t *conn, char *zone_name, const json_t *query,
+json_t* do_search(rcComm_t *conn,
+                  char *zone_name,
+                  const json_t *query,
                   query_format_in_t *format,
                   prepare_avu_search_cb prepare_avu,
                   prepare_acl_search_cb prepare_acl,
@@ -98,7 +100,9 @@ json_t *do_search(rcComm_t *conn, char *zone_name, const json_t *query,
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
-json_t *do_specific(rcComm_t *conn, char *zone_name, const json_t *query,
+json_t* do_specific(rcComm_t *conn,
+                    char *zone_name,
+                    const json_t *query,
                     prepare_specific_query_cb prepare_squery,
                     prepare_specific_labels_cb prepare_labels,
                     baton_error_t *error);
@@ -117,8 +121,10 @@ json_t *do_specific(rcComm_t *conn, char *zone_name, const json_t *query,
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
-json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
-                 const char *labels[], baton_error_t *error);
+json_t* do_query(rcComm_t *conn,
+                 genQueryInp_t *query_in,
+                 const char *labels[],
+                 baton_error_t *error);
 
 /**
  * Execute a specific query and obtain results as a JSON array of objects.
@@ -134,9 +140,8 @@ json_t *do_query(rcComm_t *conn, genQueryInp_t *query_in,
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
-json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
-                  query_format_in_t *labels,
-                  baton_error_t *error);
+json_t *do_squery(rcComm_t * conn, specificQueryInp_t * squery_in,
+                  query_format_in_t * labels, baton_error_t * error);
 
 /**
  * Construct a JSON array of objects from a query output. Columns in the
@@ -150,7 +155,7 @@ json_t *do_squery(rcComm_t *conn, specificQueryInp_t *squery_in,
  * @return A newly constructed JSON array of objects, one per result row. The
  * caller must free this after use.
  */
-json_t *make_json_objects(const genQueryOut_t *query_out, const char *labels[]);
+json_t* make_json_objects(const genQueryOut_t *query_out, const char *labels[]);
 
 /**
  * Build a query to search by AVU.
@@ -163,7 +168,7 @@ json_t *make_json_objects(const genQueryOut_t *query_out, const char *labels[]);
  *
  * @return A modified query input with AVU-searching clauses added.
  */
-genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_json_avu_search(genQueryInp_t *query_in,
                                        const json_t *avus,
                                        prepare_avu_search_cb prepare,
                                        baton_error_t *error);
@@ -179,7 +184,7 @@ genQueryInp_t *prepare_json_avu_search(genQueryInp_t *query_in,
  *
  * @return A modified query input with specific query clauses added.
  */
-specificQueryInp_t *prepare_json_specific_query(specificQueryInp_t *squery_in,
+specificQueryInp_t* prepare_json_specific_query(specificQueryInp_t *squery_in,
                                                 const json_t *specific,
                                                 prepare_specific_query_cb prepare,
                                                 baton_error_t *error);
@@ -195,7 +200,7 @@ specificQueryInp_t *prepare_json_specific_query(specificQueryInp_t *squery_in,
  *
  * @return A pointer to a format with labels filled out.
  */
-query_format_in_t *prepare_json_specific_labels(rcComm_t *conn,
+query_format_in_t* prepare_json_specific_labels(rcComm_t *conn,
                                                 const json_t *specific,
                                                 prepare_specific_labels_cb prepare,
                                                 baton_error_t *error);
@@ -212,7 +217,7 @@ query_format_in_t *prepare_json_specific_labels(rcComm_t *conn,
  *
  * @return A modified query input with ACL-searching clauses added.
  */
-genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_json_acl_search(genQueryInp_t *query_in,
                                        const json_t *acl,
                                        prepare_acl_search_cb prepare,
                                        baton_error_t *error);
@@ -231,47 +236,38 @@ genQueryInp_t *prepare_json_acl_search(genQueryInp_t *query_in,
  *
  * @return A modified query input with timestamp-searching clauses added.
  */
-genQueryInp_t *prepare_json_tps_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_json_tps_search(genQueryInp_t *query_in,
                                        const json_t *timestamps,
                                        prepare_tps_search_cb prepare_cre,
                                        prepare_tps_search_cb prepare_mod,
                                        baton_error_t *error);
 
-json_t *add_acl_json_array(rcComm_t *conn, json_t *array,
-                           baton_error_t *error);
+json_t *add_acl_json_array(rcComm_t * conn, json_t * array, baton_error_t * error);
 
-json_t *add_acl_json_object(rcComm_t *conn, json_t *object,
-                            baton_error_t *error);
+json_t *add_acl_json_object(rcComm_t * conn, json_t * object, baton_error_t * error);
 
-json_t *add_avus_json_array(rcComm_t *conn, json_t *array,
-                            baton_error_t *error);
+json_t *add_avus_json_array(rcComm_t * conn, json_t * array, baton_error_t * error);
 
-json_t *add_avus_json_object(rcComm_t *conn, json_t *object,
-                             baton_error_t *error);
+json_t *add_avus_json_object(rcComm_t * conn, json_t * object, baton_error_t * error);
 
-json_t *add_repl_json_array(rcComm_t *conn, json_t *array,
-                           baton_error_t *error);
+json_t *add_repl_json_array(rcComm_t * conn, json_t * array, baton_error_t * error);
 
-json_t *add_repl_json_object(rcComm_t *conn, json_t *object,
-                             baton_error_t *error);
+json_t *add_repl_json_object(rcComm_t * conn, json_t * object, baton_error_t * error);
 
-json_t *add_tps_json_array(rcComm_t *conn, json_t *array,
-                           baton_error_t *error);
+json_t *add_tps_json_array(rcComm_t * conn, json_t * array, baton_error_t * error);
 
-json_t *add_tps_json_object(rcComm_t *conn, json_t *object,
-                            baton_error_t *error);
+json_t *add_tps_json_object(rcComm_t * conn, json_t * object, baton_error_t * error);
 
-json_t *add_checksum_json_array(rcComm_t *conn, json_t *array,
-                                baton_error_t *error);
+json_t *add_checksum_json_array(rcComm_t * conn, json_t * array, baton_error_t * error);
 
-json_t *add_checksum_json_object(rcComm_t *conn, json_t *object,
-                                 baton_error_t *error);
+json_t *add_checksum_json_object(rcComm_t * conn, json_t * object, baton_error_t * error);
 
-json_t *map_access_args(json_t *query, baton_error_t *error);
+json_t *map_access_args(json_t * query, baton_error_t * error);
 
-json_t *revmap_access_result(json_t *acl, baton_error_t *error);
+json_t *revmap_access_result(json_t * acl, baton_error_t * error);
 
-json_t *revmap_replicate_results(rcComm_t *conn, const json_t *results,
+json_t* revmap_replicate_results(rcComm_t *conn,
+                                 const json_t *results,
                                  baton_error_t *error);
 
 #endif  // _BATON_JSON_QUERY_H

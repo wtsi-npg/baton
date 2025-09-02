@@ -24,7 +24,6 @@
 
 #include <rodsClient.h>
 
-#include "config.h"
 #include "read.h"
 
 /**
@@ -48,9 +47,13 @@
  *
  * @return The number of bytes copied in total.
  */
-int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
-                 char *default_resource, char *checksum, int flags,
-		 baton_error_t *error);
+int put_data_obj(baton_session_t *session,
+                 const char *local_path,
+                 rodsPath_t *rods_path,
+                 char *default_resource,
+                 char *checksum,
+                 int flags,
+                 baton_error_t *error);
 
 /**
  * Write bytes from a buffer into a data object.
@@ -63,8 +66,11 @@ int put_data_obj(rcComm_t *conn, const char *local_path, rodsPath_t *rods_path,
  *
  * @return The number of bytes actually written, which may be 0.
  */
-size_t write_chunk(rcComm_t *conn, char *buffer, const data_obj_file_t *data_obj,
-                   size_t len, baton_error_t *error);
+size_t write_chunk(rcComm_t *conn,
+                   char *buffer,
+                   const data_obj_file_t *data_obj,
+                   size_t len,
+                   baton_error_t *error);
 
 /**
  * Write to a data object from a stream.
@@ -79,16 +85,26 @@ size_t write_chunk(rcComm_t *conn, char *buffer, const data_obj_file_t *data_obj
  *
  * @return The number of bytes copied in total.
  */
-size_t write_data_obj(rcComm_t *conn, FILE *in, rodsPath_t *rods_path,
-                      size_t buffer_size, int flags, baton_error_t *error);
-
-int remove_data_object(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+size_t write_data_obj(baton_session_t *session,
+                      FILE *in,
+                      rodsPath_t *rods_path,
+                      size_t buffer_size,
+                      int flags,
                       baton_error_t *error);
 
-int create_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+int remove_data_object(rcComm_t *conn,
+                       rodsPath_t *rods_path,
+                       int flags,
+                       baton_error_t *error);
+
+int create_collection(rcComm_t *conn,
+                      rodsPath_t *rods_path,
+                      int flags,
                       baton_error_t *error);
 
-int remove_collection(rcComm_t *conn, rodsPath_t *rods_path, int flags,
+int remove_collection(rcComm_t *conn,
+                      rodsPath_t *rods_path,
+                      int flags,
                       baton_error_t *error);
 
 #endif // _BATON_WRITE_H

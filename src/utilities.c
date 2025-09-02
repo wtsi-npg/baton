@@ -30,24 +30,24 @@
 #include <string.h>
 #include <time.h>
 
+#include <rodsClient.h>
+
 #include "log.h"
 #include "utilities.h"
 
-char *copy_str(const char *str, const size_t max_len) {
+char* copy_str(const char *str, const size_t max_len) {
     const size_t term_len = strnlen(str, max_len) + 1; // +1 for NUL
-    char *copy = NULL;
+    char *copy            = NULL;
 
     if (term_len > MAX_STR_LEN) {
         logmsg(ERROR, "Failed to allocate a string of length %d: "
-               "it exceeded the maximum length of %d characters",
-               term_len, MAX_STR_LEN);
+               "it exceeded the maximum length of %d characters", term_len, MAX_STR_LEN);
         goto error;
     }
 
-    copy = calloc(term_len, sizeof (char));
+    copy = calloc(term_len, sizeof(char));
     if (!copy) {
-        logmsg(ERROR, "Failed to allocate memory: error %d %s",
-               errno, strerror(errno));
+        logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
     }
 
     snprintf(copy, term_len, "%s", str);
@@ -55,8 +55,7 @@ char *copy_str(const char *str, const size_t max_len) {
     return copy;
 
 error:
-    logmsg(ERROR, "Failed to allocate memory: error %d %s",
-           errno, strerror(errno));
+    logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
 
     return NULL;
 }
@@ -64,11 +63,11 @@ error:
 int str_starts_with(const char *str, const char *prefix, const size_t max_len) {
     if (!str || !prefix) return 0;
 
-    const size_t len  = strnlen(str,    max_len);
+    const size_t len  = strnlen(str, max_len);
     const size_t plen = strnlen(prefix, max_len);
 
     // A string always starts with the empty string
-    if (plen == 0)  return 1;
+    if (plen == 0) return 1;
     if (plen > len) return 0;
 
     return strncmp(str, prefix, plen) == 0;
@@ -89,17 +88,66 @@ int str_equals_ignore_case(const char *str1, const char *str2, const size_t max_
 int str_ends_with(const char *str, const char *suffix, const size_t max_len) {
     if (!str || !suffix) return 0;
 
-    const size_t len  = strnlen(str,    max_len);
+    const size_t len  = strnlen(str, max_len);
     const size_t slen = strnlen(suffix, max_len);
 
     // A string always ends with the empty string
-    if (slen == 0)  return 1;
+    if (slen == 0) return 1;
     if (slen > len) return 0;
 
     return strncmp(str + (len - slen), suffix, len) == 0;
 }
 
-const char *parse_base_name(const char *path) {
+int check_str_arg(const char *arg_name,
+                  const char *arg_value,
+                  const size_t arg_size,
+                  baton_error_t *error) {
+    if (!arg_value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was null", arg_name);
+        goto finally;
+    }
+
+    const size_t len      = strnlen(arg_value, MAX_STR_LEN);
+    const size_t term_len = len + 1;
+
+    if (len == 0) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was empty", arg_name);
+        goto finally;
+    }
+    if (term_len > arg_size) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "%s exceeded the maximum length of %d characters", arg_name,
+                        arg_size);
+    }
+
+finally:
+    return error->code;
+}
+
+int check_str_arg_permit_empty(const char *arg_name,
+                               const char *arg_value,
+                               const size_t arg_size,
+                               baton_error_t *error) {
+    if (!arg_value) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was null", arg_name);
+        goto finally;
+    }
+
+    const size_t len      = strnlen(arg_value, MAX_STR_LEN);
+    const size_t term_len = len + 1;
+
+    if (term_len > arg_size) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "%s exceeded the maximum length of %d characters", arg_name,
+                        arg_size);
+    }
+
+finally:
+    return error->code;
+}
+
+
+const char* parse_base_name(const char *path) {
     const char delim = '/';
 
     const char *base_name = strrchr(path, delim);
@@ -115,13 +163,12 @@ const char *parse_base_name(const char *path) {
     return base_name;
 }
 
-char *parse_zone_name(const char *path) {
+char* parse_zone_name(const char *path) {
     const char delim = '/';
 
     const char *first_slash = strchr(path, delim);
     if (first_slash && ((first_slash - path) != 0)) {
-        logmsg(ERROR, "Failed to parse a zone name from relative path '%s'",
-               path);
+        logmsg(ERROR, "Failed to parse a zone name from relative path '%s'", path);
         goto error;
     }
 
@@ -135,10 +182,9 @@ char *parse_zone_name(const char *path) {
         name_len = next_slash - path_tmp;
     }
 
-    char *zone_name = calloc(name_len + 1, sizeof (char));
+    char *zone_name = calloc(name_len + 1, sizeof(char));
     if (!zone_name) {
-        logmsg(ERROR, "Failed to allocate memory: error %d %s",
-               errno, strerror(errno));
+        logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
     }
 
     snprintf(zone_name, name_len + 1, "%s", path_tmp);
@@ -153,12 +199,12 @@ size_t parse_size(const char *str) {
     char *end;
     const int base = 10;
 
-    errno = 0;
+    errno                         = 0;
     const unsigned long int value = strtoul(str, &end, base);
 
     if (errno != 0) {
-        logmsg(ERROR, "Failed recognise '%s' as a number: error %d %s",
-               str, errno, strerror(errno));
+        logmsg(ERROR, "Failed recognise '%s' as a number: error %d %s", str, errno,
+               strerror(errno));
         goto finally;
     }
 
@@ -175,7 +221,7 @@ finally:
     return value;
 }
 
-FILE *maybe_stdin(const char *path) {
+FILE* maybe_stdin(const char *path) {
     FILE *stream;
 
     if (path) {
@@ -189,32 +235,30 @@ FILE *maybe_stdin(const char *path) {
     return stream;
 
 error:
-    logmsg(ERROR, "Failed to open '%s': error %d %s",
-           path, errno, strerror(errno));
+    logmsg(ERROR, "Failed to open '%s': error %d %s", path, errno, strerror(errno));
 
     return NULL;
 }
 
-char *format_timestamp(const char *raw_timestamp, const char *format) {
+char* format_timestamp(const char *raw_timestamp, const char *format) {
     const size_t output_len = 32;
-    char *output = NULL;
-    const int base = 10;
+    char *output            = NULL;
+    const int base          = 10;
 
     struct tm tm;
     time_t time;
 
-    output = calloc(output_len, sizeof (char));
+    output = calloc(output_len, sizeof(char));
     if (!output) {
-        logmsg(ERROR, "Failed to allocate memory: error %d %s",
-               errno, strerror(errno));
+        logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
         goto error;
     }
 
     errno = 0;
-    time = strtoul(raw_timestamp, NULL, base);
+    time  = strtoul(raw_timestamp, NULL, base);
     if (errno != 0) {
-        logmsg(ERROR, "Failed to convert timestamp '%s' to a number: "
-               "error %d %s", raw_timestamp, errno, strerror(errno));
+        logmsg(ERROR, "Failed to convert timestamp '%s' to a number: " "error %d %s",
+               raw_timestamp, errno, strerror(errno));
         goto error;
     }
 
@@ -227,7 +271,7 @@ char *format_timestamp(const char *raw_timestamp, const char *format) {
         goto error;
     }
 
-    logmsg(DEBUG,"Converted timestamp '%s' to '%s'", raw_timestamp, output);
+    logmsg(DEBUG, "Converted timestamp '%s' to '%s'", raw_timestamp, output);
 
     return output;
 
@@ -237,16 +281,15 @@ error:
     return NULL;
 }
 
-char *parse_timestamp(const char *timestamp, const char *format) {
+char* parse_timestamp(const char *timestamp, const char *format) {
     const size_t output_len = 32;
-    char *output = NULL;
+    char *output            = NULL;
 
     struct tm tm;
 
-    output = calloc(output_len, sizeof (char));
+    output = calloc(output_len, sizeof(char));
     if (!output) {
-        logmsg(ERROR, "Failed to allocate memory: error %d %s",
-               errno, strerror(errno));
+        logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
         goto error;
     }
 
@@ -273,7 +316,7 @@ size_t to_utf8(const char *input, char *output, const size_t max_len) {
     const size_t len = strnlen(input, max_len);
 
     const unsigned char *bytes = (const unsigned char *) input;
-    char *op = output;
+    char *op                   = output;
 
     // In Latin-1, the numeric values of the encoding are equal to the
     // first 256 Unicode codepoints
@@ -293,7 +336,7 @@ size_t to_utf8(const char *input, char *output, const size_t max_len) {
     return len;
 }
 
-int maybe_utf8 (const char *str, const size_t max_len) {
+int maybe_utf8(const char *str, const size_t max_len) {
     // http://www.rfc-editor.org/rfc/rfc3629.txt, Section 4. for the syntax
     // of UTF-8 byte sequences.
     //
@@ -302,7 +345,7 @@ int maybe_utf8 (const char *str, const size_t max_len) {
     // UTF8-tail   = %x80-BF
 
     const size_t len = strnlen(str, max_len);
-    size_t i   = 0;
+    size_t i         = 0;
 
     const unsigned char *bytes = (const unsigned char *) str;
 
@@ -315,56 +358,46 @@ int maybe_utf8 (const char *str, const size_t max_len) {
         }
 
         // UTF8-2 = %xC2-DF UTF8-tail
-        if ((bytes[i + 0] >= 0xc2) && (bytes[i + 0] <= 0xdf) &&
-            (bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0xbf)) {
+        if ((bytes[i + 0] >= 0xc2) && (bytes[i + 0] <= 0xdf) && (bytes[i + 1] >= 0x80) &&
+            (bytes[i + 1] <= 0xbf)) {
             i += 2;
             continue;
         }
 
         // UTF8-3 = %xE0 %xA0-BF UTF8-tail / %xE1-EC 2( UTF8-tail ) /
         //          %xED %x80-9F UTF8-tail / %xEE-EF 2( UTF8-tail )
-        if (// %xE0 %xA0-BF UTF8-tail
-            ((bytes[i + 0] == 0xe0)                             &&
-             ((bytes[i + 1] >= 0xa0) && (bytes[i + 1] <= 0xbf)) &&
-             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)))
-            ||
+        if ( // %xE0 %xA0-BF UTF8-tail
+            ((bytes[i + 0] == 0xe0) && ((bytes[i + 1] >= 0xa0) && (bytes[i + 1] <= 0xbf))
+                && ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf))) ||
             // %xE1-EC 2( UTF8-tail )
-            (((bytes[i + 0] >= 0xe1) && (bytes[i + 0] <= 0xec)) &&
-             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0xbf)) &&
-             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)))
-            ||
+            (((bytes[i + 0] >= 0xe1) && (bytes[i + 0] <= 0xec)) && ((bytes[i + 1] >= 0x80)
+                && (bytes[i + 1] <= 0xbf)) && ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <=
+                0xbf))) ||
             // %xED %x80-9F UTF8-tail
-            ((bytes[i + 0] == 0xed)                             &&
-             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0x9f)) &&
-             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)))
-            ||
+            ((bytes[i + 0] == 0xed) && ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0x9f))
+                && ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf))) ||
             // %xEE-EF 2( UTF8-tail )
-            (((bytes[i + 0] >= 0xee) && (bytes[i + 0] <= 0xef)) &&
-             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0xbf)) &&
-             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)))) {
+            (((bytes[i + 0] >= 0xee) && (bytes[i + 0] <= 0xef)) && ((bytes[i + 1] >= 0x80)
+                && (bytes[i + 1] <= 0xbf)) && ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <=
+                0xbf)))) {
             i += 3;
             continue;
-         }
+        }
 
         // UTF8-4 = %xF0 %x90-BF 2( UTF8-tail ) / %xF1-F3 3( UTF8-tail ) /
         //          %xF4 %x80-8F 2( UTF8-tail )
-        if (// %xF0 %x90-BF 2( UTF8-tail )
-            ((bytes[i + 0] == 0xf0)                             &&
-             ((bytes[i + 1] >= 0x90) && (bytes[i + 1] <= 0xbf)) &&
-             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)) &&
-             ((bytes[i + 3] >= 0x80) && (bytes[i + 3] <= 0xbf)))
-            ||
+        if ( // %xF0 %x90-BF 2( UTF8-tail )
+            ((bytes[i + 0] == 0xf0) && ((bytes[i + 1] >= 0x90) && (bytes[i + 1] <= 0xbf))
+                && ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)) && ((bytes[i + 3] >=
+                    0x80) && (bytes[i + 3] <= 0xbf))) ||
             // %xF1-F3 3( UTF8-tail )
-            (((bytes[i + 0] >= 0xf1) && (bytes[i + 0] <= 0xf3)) &&
-             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0xbf)) &&
-             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)) &&
-             ((bytes[i + 3] >= 0x80) && (bytes[i + 3] <= 0xbf)))
-            ||
+            (((bytes[i + 0] >= 0xf1) && (bytes[i + 0] <= 0xf3)) && ((bytes[i + 1] >= 0x80)
+                && (bytes[i + 1] <= 0xbf)) && ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <=
+                0xbf)) && ((bytes[i + 3] >= 0x80) && (bytes[i + 3] <= 0xbf))) ||
             // %xF4 %x80-8F 2( UTF8-tail )
-            ((bytes[i + 0] == 0xf4)                             &&
-             ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0x8f)) &&
-             ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)) &&
-             ((bytes[i + 3] >= 0x80) && (bytes[i + 3] <= 0xbf)))) {
+            ((bytes[i + 0] == 0xf4) && ((bytes[i + 1] >= 0x80) && (bytes[i + 1] <= 0x8f))
+                && ((bytes[i + 2] >= 0x80) && (bytes[i + 2] <= 0xbf)) && ((bytes[i + 3] >=
+                    0x80) && (bytes[i + 3] <= 0xbf)))) {
             i += 4;
             continue;
         }

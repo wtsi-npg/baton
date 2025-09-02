@@ -26,13 +26,17 @@
 
 #include "config.h"
 #include "baton.h"
+#include "operations.h"
+#include "utilities.h"
 
+// clang-format off
 static int acl_flag        = 0;
 static int avu_flag        = 0;
 static int debug_flag      = 0;
 static int help_flag       = 0;
 static int no_clobber_flag = 0;
 static int raw_flag        = 0;
+static int redirect_flag   = 0;
 static int save_flag       = 0;
 static int silent_flag     = 0;
 static int size_flag       = 0;
@@ -52,7 +56,7 @@ int main(const int argc, char *argv[]) {
     const char *json_file = NULL;
     FILE *input     = NULL;
     size_t buffer_size = default_buffer_size;
-    unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
+    long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
 
     while (1) {
         static struct option long_options[] = {
@@ -63,6 +67,7 @@ int main(const int argc, char *argv[]) {
             { "no-clobber", no_argument, &no_clobber_flag, 1},
             {"help",        no_argument, &help_flag,       1},
             {"raw",         no_argument, &raw_flag,        1},
+            {"redirect",    no_argument, &redirect_flag,   1},
             {"save",        no_argument, &save_flag,       1},
             {"silent",      no_argument, &silent_flag,     1},
             {"size",        no_argument, &size_flag,       1},
@@ -90,10 +95,10 @@ int main(const int argc, char *argv[]) {
             case 'c':
                 errno = 0;
                 char *end_ptr;
-                const unsigned long val = strtoul(optarg, &end_ptr, 10);
+                const long val = strtol(optarg, &end_ptr, 10);
 
-                if ((errno == ERANGE && val == ULONG_MAX) ||
-                    (errno != 0 && val == 0)              ||
+                if ((errno == ERANGE && val == LONG_MAX) ||
+                    (errno != 0 && val == 0)             ||
                     end_ptr == optarg) {
                     fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
                     exit(1);
@@ -125,6 +130,7 @@ int main(const int argc, char *argv[]) {
     if (avu_flag)         flags = flags | PRINT_AVU;
     if (!no_clobber_flag) flags = flags | FORCE;
     if (raw_flag)         flags = flags | PRINT_RAW;
+    if (redirect_flag)    flags = flags | REDIRECT_TO_SERVER;
     if (save_flag)        flags = flags | SAVE_FILES;
     if (size_flag)        flags = flags | PRINT_SIZE;
     if (timestamp_flag)   flags = flags | PRINT_TIMESTAMP;
@@ -139,7 +145,7 @@ int main(const int argc, char *argv[]) {
         "Synopsis\n"
         "\n"
         "    baton-get [--acl] [--avu] [--file <JSON file>]\n"
-        "              [--connect-time <n>] [--raw] [--save] [--no-clobber]\n"
+        "              [--connect-time <n>] [--raw] [--redirect] [--save] [--no-clobber]\n"
         "              [--silent] [--size] [--timestamp] [--unbuffered]\n"
         "              [--unsafe] [--verbose] [--verify] [--version]\n"
         "\n"
@@ -161,6 +167,7 @@ int main(const int argc, char *argv[]) {
         "                 rather than overwrite an existing local file.\n"
         "  --raw          Print data object content without any JSON\n"
         "                 wrapping.\n"
+        "  --redirect     Redirect to a resource server for the operation.\n"
         "  --save         Save data object content to individual files,\n"
         "                 without any JSON wrapping i.e. implies --raw.\n"
         "  --silent       Silence error messages.\n"
@@ -232,3 +239,4 @@ int main(const int argc, char *argv[]) {
 
     exit(exit_status);
 }
+// clang-format on

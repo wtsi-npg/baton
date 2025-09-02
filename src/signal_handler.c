@@ -26,28 +26,28 @@
 int signals[] = {SIGINT, SIGQUIT, SIGHUP, SIGTERM, SIGUSR1, SIGUSR2, SIGPIPE, 0};
 int exit_flag;
 
-void handle_signal(const int signal){
-  switch (signal) {
-  case SIGINT:
-    exit_flag = 2;
-    break;
-  case SIGQUIT:
-    exit_flag = 3;
-    break;
-  case SIGHUP:
-    exit_flag = 4;
-    break;
-  case SIGTERM:
-  case SIGUSR1:
-  case SIGUSR2:
-    exit_flag = 5;
-    break;
-  case SIGPIPE:
-    exit_flag = 6;
-    break;
-  default:
-    exit_flag = 1;
-  }
+void handle_signal(const int signal) {
+    switch (signal) {
+        case SIGINT:
+            exit_flag = 2;
+            break;
+        case SIGQUIT:
+            exit_flag = 3;
+            break;
+        case SIGHUP:
+            exit_flag = 4;
+            break;
+        case SIGTERM:
+        case SIGUSR1:
+        case SIGUSR2:
+            exit_flag = 5;
+            break;
+        case SIGPIPE:
+            exit_flag = 6;
+            break;
+        default:
+            exit_flag = 1;
+    }
 }
 
 int apply_signal_handler() {
@@ -55,14 +55,15 @@ int apply_signal_handler() {
 
     struct sigaction sig_action;
     sig_action.sa_handler = &handle_signal;
-    sig_action.sa_flags = 0;
+    sig_action.sa_flags   = 0;
     sigemptyset(&sig_action.sa_mask);
 
     // Exit gracefully on fatal signals
     for (int i = 0; signals[i] != 0; i++) {
         const int sigstatus = sigaction(signals[i], &sig_action, NULL);
         if (sigstatus != 0) {
-            logmsg(FATAL, "Failed to set the iRODS client handler for signal %s", strsignal(signals[i]));
+            logmsg(FATAL, "Failed to set the iRODS client handler for signal %s",
+                   strsignal(signals[i]));
             return -1;
         }
     }

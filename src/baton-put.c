@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017, 2019, 2021 Genome Research Ltd. All rights
+ * Copyright (C) 2017, 2019, 2021, 2025 Genome Research Ltd. All rights
  * reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,11 +26,15 @@
 
 #include "config.h"
 #include "baton.h"
+#include "operations.h"
+#include "utilities.h"
 
+// clang-format off
 static int checksum_flag      = 0;
 static int verify_flag        = 0;
 static int debug_flag         = 0;
 static int help_flag          = 0;
+static int redirect_flag      = 0;
 static int silent_flag        = 0;
 static int single_server_flag = 0;
 static int unbuffered_flag    = 0;
@@ -49,7 +53,7 @@ int main(const int argc, char *argv[]) {
     char *json_file = NULL;
     FILE *input     = NULL;
     size_t buffer_size = default_buffer_size;
-    unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
+    long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
 
     while (1) {
         static struct option long_options[] = {
@@ -57,6 +61,7 @@ int main(const int argc, char *argv[]) {
             {"checksum",      no_argument, &checksum_flag,      1},
             {"debug",         no_argument, &debug_flag,         1},
             {"help",          no_argument, &help_flag,          1},
+            {"redirect",      no_argument, &redirect_flag,      1},
             {"silent",        no_argument, &silent_flag,        1},
             {"single-server", no_argument, &single_server_flag, 1},
             {"unbuffered",    no_argument, &unbuffered_flag,    1},
@@ -83,10 +88,10 @@ int main(const int argc, char *argv[]) {
             case 'c':
                 errno = 0;
                 char *end_ptr;
-                const unsigned long val = strtoul(optarg, &end_ptr, 10);
+                const long val = strtol(optarg, &end_ptr, 10);
 
-                if ((errno == ERANGE && val == ULONG_MAX) ||
-                    (errno != 0 && val == 0)              ||
+                if ((errno == ERANGE && val == LONG_MAX) ||
+                    (errno != 0 && val == 0)             ||
                     end_ptr == optarg) {
                     fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
                     exit(1);
@@ -116,6 +121,7 @@ int main(const int argc, char *argv[]) {
 
     if (checksum_flag)      flags = flags | CALCULATE_CHECKSUM;
     if (verify_flag)        flags = flags | VERIFY_CHECKSUM;
+    if (redirect_flag)      flags = flags | REDIRECT_TO_SERVER;
     if (single_server_flag) flags = flags | SINGLE_SERVER;
     if (unsafe_flag)        flags = flags | UNSAFE_RESOLVE;
     if (unbuffered_flag)    flags = flags | FLUSH;
@@ -145,6 +151,7 @@ int main(const int argc, char *argv[]) {
         "                  30 minutes.\n"
         "  --file          The JSON file describing the data objects.\n"
         "                  Optional, defaults to STDIN.\n"
+        "  --redirect      Redirect to a resource server for the operation.\n"
         "  --silent        Silence error messages.\n"
         "  --single-server Only connect to a single iRODS server\n"
         "  --unbuffered    Flush print operations for each JSON object.\n"
@@ -223,3 +230,4 @@ int main(const int argc, char *argv[]) {
 
     exit(exit_status);
 }
+// clang-format on

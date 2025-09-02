@@ -22,8 +22,6 @@
 #ifndef _BATON_LOG_H
 #define _BATON_LOG_H
 
-#include <stdarg.h>
-
 /**
  *  @enum log_level
  *  @brief Log message levels.
@@ -41,13 +39,12 @@ typedef enum {
 #define logmsg(level, ...) \
     log_impl(__LINE__, __FILE__, __func__, level, __VA_ARGS__);
 
-void log_impl(int line, const char *file, char const *function,
-              log_level level, ...);
+void log_impl(int line, const char *file, char const *function, log_level level, ...);
 
 log_level get_log_threshold();
 
 log_level set_log_threshold(log_level level);
 
-const char *get_log_level_name(log_level level);
+const char* get_log_level_name(log_level level);
 
 #endif  // _BATON_LOG_H

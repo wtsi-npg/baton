@@ -26,9 +26,7 @@
 #include <jansson.h>
 #include <rodsClient.h>
 
-#include "config.h"
 #include "log.h"
-#include "utilities.h"
 
 #define MAX_NUM_COLUMNS     128
 #define MAX_NUM_CONDITIONS   32
@@ -58,7 +56,9 @@
 
 typedef struct query_format_in {
     /** Return data for the latest replicate only */
-    unsigned int latest __attribute((deprecated("this flag is redundant")));
+    unsigned int latest __attribute((deprecated ("this flag is redundant")
+    )
+    );
     /** The number of columns to return */
     unsigned num_columns;
     /** The ICAT columns to return */
@@ -78,25 +78,24 @@ typedef struct query_cond {
     const char *value;
 } query_cond_t;
 
-typedef genQueryInp_t *(*prepare_avu_search_cb) (genQueryInp_t *query_in,
-                                                 const char *attr_name,
-                                                 const char *attr_value,
-                                                 const char *operator);
+typedef genQueryInp_t*(*prepare_avu_search_cb)(genQueryInp_t *query_in,
+                                               const char *attr_name,
+                                               const char *attr_value,
+                                               const char *operator);
 
-typedef genQueryInp_t *(*prepare_acl_search_cb) (genQueryInp_t *query_in,
-                                                 const char *user_id,
-                                                 const char *access_level);
+typedef genQueryInp_t*(*prepare_acl_search_cb)(genQueryInp_t *query_in,
+                                               const char *user_id,
+                                               const char *access_level);
 
-typedef genQueryInp_t *(*prepare_tps_search_cb) (genQueryInp_t *query_in,
-                                                 const char *raw_timestamp,
-                                                 const char *operator);
+typedef genQueryInp_t*(*prepare_tps_search_cb)(genQueryInp_t *query_in,
+                                               const char *raw_timestamp,
+                                               const char *operator);
 
-typedef specificQueryInp_t *(*prepare_specific_query_cb) (specificQueryInp_t *squery_in,
-                                                          const char *sql,
-                                                          json_t *args);
+typedef specificQueryInp_t*(*prepare_specific_query_cb)(specificQueryInp_t *squery_in,
+                                                        const char *sql,
+                                                        json_t *args);
 
-typedef query_format_in_t *(*prepare_specific_labels_cb) (rcComm_t *conn,
-                                                          const char *sql);
+typedef query_format_in_t*(*prepare_specific_labels_cb)(rcComm_t *conn, const char *sql);
 
 /**
  * Log the current iRODS error stack through the underlying logging
@@ -117,8 +116,7 @@ void log_rods_errstack(log_level level, const rError_t *error);
  * @return A pointer to a new genQueryInp_t which must be freed using
  * @ref free_query_input
  */
-genQueryInp_t *make_query_input(size_t max_rows, size_t num_columns,
-                                const int columns[]);
+genQueryInp_t* make_query_input(size_t max_rows, size_t num_columns, const int columns[]);
 /**
  * Free memory used by an iRODS generic query (see rodsGenQuery.h).
  *
@@ -126,7 +124,7 @@ genQueryInp_t *make_query_input(size_t max_rows, size_t num_columns,
  *
  * @ref make_query_input
  */
-void free_query_input(genQueryInp_t *query_in);
+void free_query_input(genQueryInp_t * query_in);
 
 /**
  * Free memory used by an iRODS generic query result (see
@@ -134,7 +132,7 @@ void free_query_input(genQueryInp_t *query_in);
  *
  * @param[in] query_out       The query result to free.
  */
-void free_query_output(genQueryOut_t *query_out);
+void free_query_output(genQueryOut_t * query_out);
 
 /**
  * Append a new array of conditions to an existing query.
@@ -145,7 +143,8 @@ void free_query_output(genQueryOut_t *query_out);
  *
  * @return The modified query.
  */
-genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
+genQueryInp_t* add_query_conds(genQueryInp_t *query_in,
+                               size_t num_conds,
                                const query_cond_t conds[]);
 
 /**
@@ -158,7 +157,7 @@ genQueryInp_t *add_query_conds(genQueryInp_t *query_in, size_t num_conds,
  *
  * @return The modified query.
  */
-genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_list(genQueryInp_t *query_in,
                                 rodsPath_t *rods_path,
                                 const char *attr_name);
 
@@ -172,95 +171,92 @@ genQueryInp_t *prepare_obj_list(genQueryInp_t *query_in,
  *
  * @return The modified query.
  */
-genQueryInp_t *prepare_col_list(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_list(genQueryInp_t *query_in,
                                 rodsPath_t *rods_path,
                                 const char *attr_name);
 
-genQueryInp_t *prepare_obj_acl_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path);
+genQueryInp_t *prepare_obj_acl_list(genQueryInp_t * query_in, rodsPath_t * rods_path);
 
-genQueryInp_t *prepare_col_acl_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path);
+genQueryInp_t *prepare_col_acl_list(genQueryInp_t * query_in, rodsPath_t * rods_path);
 
-genQueryInp_t *prepare_obj_repl_list(genQueryInp_t *query_in,
-                                     rodsPath_t *rods_path);
+genQueryInp_t *prepare_obj_repl_list(genQueryInp_t * query_in, rodsPath_t * rods_path);
 
 //genQueryInp_t *prepare_obj_tps_list(genQueryInp_t *query_in,
 //                                    rodsPath_t *rods_path);
 
-genQueryInp_t *prepare_col_tps_list(genQueryInp_t *query_in,
-                                    rodsPath_t *rods_path);
+genQueryInp_t *prepare_col_tps_list(genQueryInp_t * query_in, rodsPath_t * rods_path);
 
-genQueryInp_t *prepare_resc_list(genQueryInp_t *query_in,
+genQueryInp_t* prepare_resc_list(genQueryInp_t *query_in,
                                  const char *resc_name,
                                  const char *zone_name);
 
-genQueryInp_t *prepare_obj_acl_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_acl_search(genQueryInp_t *query_in,
                                       const char *user,
                                       const char *perm);
 
-genQueryInp_t *prepare_col_acl_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_acl_search(genQueryInp_t *query_in,
                                       const char *user,
                                       const char *perm);
 
-genQueryInp_t *prepare_obj_avu_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
                                       const char *operator);
 
-genQueryInp_t *prepare_obj_avu_search_lim(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_avu_search_lim(genQueryInp_t *query_in,
                                           const char *attr_name,
                                           const char *attr_value,
                                           const char *operator);
 
-genQueryInp_t *prepare_col_avu_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_avu_search(genQueryInp_t *query_in,
                                       const char *attr_name,
                                       const char *attr_value,
                                       const char *operator);
 
-genQueryInp_t *prepare_obj_cre_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
 
-genQueryInp_t *prepare_obj_mod_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_obj_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
 
-genQueryInp_t *prepare_col_cre_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_cre_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
 
-genQueryInp_t *prepare_col_mod_search(genQueryInp_t *query_in,
+genQueryInp_t* prepare_col_mod_search(genQueryInp_t *query_in,
                                       const char *raw_timestamp,
                                       const char *operator);
 
-genQueryInp_t *prepare_path_search(genQueryInp_t *query_in,
-                                   const char *root_path);
+genQueryInp_t* prepare_path_search(genQueryInp_t *query_in, const char *root_path);
 
-genQueryInp_t *prepare_user_search(genQueryInp_t *query_in,
-                                   const char *user_name);
+genQueryInp_t* prepare_user_search(genQueryInp_t *query_in, const char *user_name);
 
-specificQueryInp_t *prepare_specific_query(specificQueryInp_t *squery_in,
-                                           const char *sql, json_t *args);
+specificQueryInp_t* prepare_specific_query(specificQueryInp_t *squery_in,
+                                           const char *sql,
+                                           json_t *args);
 
-query_format_in_t *make_query_format_from_sql(const char *sql);
+query_format_in_t* make_query_format_from_sql(const char *sql);
 
-const char *irods_get_sql_for_specific_alias(rcComm_t *conn,
-                                             const char *alias);
+const char* irods_get_sql_for_specific_alias(rcComm_t *conn, const char *alias);
 
-query_format_in_t *prepare_specific_labels(rcComm_t *conn,
-                                           const char *sql_or_alias);
+query_format_in_t* prepare_specific_labels(rcComm_t *conn, const char *sql_or_alias);
 
-void free_squery_input(specificQueryInp_t *squery_in);
+void free_squery_input(specificQueryInp_t * squery_in);
 
 void free_specific_labels(query_format_in_t *format);
 
-__attribute__((deprecated("use limit_to_good_repl instead")))
-genQueryInp_t *limit_to_newest_repl(genQueryInp_t *query_in);
+__attribute__ ((deprecated
+(
+"use limit_to_good_repl instead"
+)
+)
+)
+genQueryInp_t *limit_to_newest_repl(genQueryInp_t * query_in);
 
-genQueryInp_t *limit_to_good_repl(genQueryInp_t *query_in);
+genQueryInp_t *limit_to_good_repl(genQueryInp_t * query_in);
 
-genQueryInp_t *add_select_modifier(genQueryInp_t *query_in, int column,
-                                   int modifier);
+genQueryInp_t* add_select_modifier(genQueryInp_t *query_in, int column, int modifier);
 
 #endif // _BATON_QUERY_H

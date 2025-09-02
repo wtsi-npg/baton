@@ -26,15 +26,11 @@
 
 #include <rodsClient.h>
 
-#include "config.h"
+#include "baton.h"
 #include "error.h"
-#include "json.h"
-#include "json_query.h"
-#include "operations.h"
-#include "query.h"
 
-json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
-                      baton_error_t *error);
+
+json_t *list_checksum(rcComm_t * conn, rodsPath_t * rods_path, baton_error_t * error);
 
 /**
  * Return a JSON representation of the content of a resolved iRODS
@@ -51,7 +47,9 @@ json_t *list_checksum(rcComm_t *conn, rodsPath_t *rods_path,
  * @return A new struct representing the path content, which must be
  * freed by the caller.
  */
-json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
+json_t* list_path(rcComm_t *conn,
+                  rodsPath_t *rods_path,
+                  option_flags flags,
                   baton_error_t *error);
 
 /**
@@ -65,8 +63,7 @@ json_t *list_path(rcComm_t *conn, rodsPath_t *rods_path, option_flags flags,
  * @return A new struct representing the path access control list,
  * which must be freed by the caller.
  */
-json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
-                         baton_error_t *error);
+json_t *list_permissions(rcComm_t * conn, rodsPath_t * rods_path, baton_error_t * error);
 
 /**
  * Return a JSON representation of the replicates of a resolved iRODS
@@ -79,8 +76,7 @@ json_t *list_permissions(rcComm_t *conn, rodsPath_t *rods_path,
  * @return A new struct representing the path access control list,
  * which must be freed by the caller.
  */
-json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
-                        baton_error_t *error);
+json_t *list_replicates(rcComm_t * conn, rodsPath_t * rods_path, baton_error_t * error);
 
 /**
  * Return a JSON representation of the created and modified timestamps
@@ -93,8 +89,7 @@ json_t *list_replicates(rcComm_t *conn, rodsPath_t *rods_path,
  * @return A new struct representing the timestamps, which must be
  * freed by the caller.
  */
-json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
-                        baton_error_t *error);
+json_t *list_timestamps(rcComm_t * conn, rodsPath_t * rods_path, baton_error_t * error);
 
 /**
  * List metadata of a specified data object or collection.
@@ -107,7 +102,9 @@ json_t *list_timestamps(rcComm_t *conn, rodsPath_t *rods_path,
  *
  * @return A newly constructed JSON array of AVU JSON objects.
  */
-json_t *list_metadata(rcComm_t *conn, rodsPath_t *rods_path, const char *attr_name,
+json_t* list_metadata(rcComm_t *conn,
+                      rodsPath_t *rods_path,
+                      const char *attr_name,
                       baton_error_t *error);
 
 #endif // _BATON_LIST_H

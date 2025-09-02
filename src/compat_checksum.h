@@ -38,12 +38,13 @@
 
 #include <openssl/evp.h>
 
-EVP_MD_CTX *compat_MD5Init(baton_error_t *error);
+EVP_MD_CTX *compat_MD5Init(baton_error_t * error);
 
-void compat_MD5Update(EVP_MD_CTX *context, const unsigned char *input, unsigned int len,
+void compat_MD5Update(EVP_MD_CTX *context,
+                      const unsigned char *input,
+                      unsigned int len,
                       baton_error_t *error);
 
-void compat_MD5Final(unsigned char digest[16], EVP_MD_CTX *context,
-                     baton_error_t *error);
+void compat_MD5Final(unsigned char digest[16], EVP_MD_CTX *context, baton_error_t *error);
 
 #endif // _BATON_COMPAT_CHECKSUM_H

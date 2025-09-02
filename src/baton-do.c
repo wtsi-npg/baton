@@ -26,7 +26,10 @@
 
 #include "config.h"
 #include "baton.h"
+#include "operations.h"
+#include "utilities.h"
 
+// clang-format off
 static int debug_flag          = 0;
 static int help_flag           = 0;
 static int no_error_flag       = 0;
@@ -47,7 +50,7 @@ int main(const int argc, char *argv[]) {
     char *zone_name = NULL;
     const char *json_file = NULL;
     FILE *input     = NULL;
-    unsigned long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
+    long max_connect_time = DEFAULT_MAX_CONNECT_TIME;
 
     while (1) {
         static struct option long_options[] = {
@@ -81,10 +84,10 @@ int main(const int argc, char *argv[]) {
             case 'c':
                 errno = 0;
                 char *end_ptr;
-                const unsigned long val = strtoul(optarg, &end_ptr, 10);
+                const long val = strtol(optarg, &end_ptr, 10);
 
-                if ((errno == ERANGE && val == ULONG_MAX) ||
-                    (errno != 0 && val == 0)              ||
+                if ((errno == ERANGE && val == LONG_MAX) ||
+                    (errno != 0 && val == 0)             ||
                     end_ptr == optarg) {
                     fprintf(stderr, "Invalid --connect-time '%s'\n", optarg);
                     exit(1);
@@ -157,11 +160,19 @@ int main(const int argc, char *argv[]) {
     }
 
     if (server_version_flag) {
-        rodsEnv env;
+        baton_session_t *session = new_baton_session();
+        int status = baton_connect(session);
+        if (status != 0) {
+            logmsg(ERROR, "Failed to get server version");
+            exit(1);
+        }
+
         baton_error_t error;
-        rcComm_t *connection = rods_login(&env);
-        char *server_version = get_server_version(connection, &error);
-        rcDisconnect(connection);
+        char *server_version = get_server_version(session->conn, &error);
+
+        baton_disconnect(session);
+        free_baton_session(session);
+
         if (error.code != 0) {
             logmsg(ERROR, "Failed to get server version");
             exit(1);
@@ -197,3 +208,4 @@ int main(const int argc, char *argv[]) {
 
     exit(exit_status);
 }
+// clang-format on

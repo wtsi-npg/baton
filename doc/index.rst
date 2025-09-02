@@ -208,7 +208,7 @@ Options
 .. program:: baton-chmod
 .. option:: --help
 
-  Prints command line help.
+  Print command line help.
 
 .. program:: baton-chmod
 .. option:: --recurse
@@ -305,7 +305,7 @@ Options
 .. program:: baton-get
 .. option:: --help
 
-  Prints command line help.
+  Print command line help.
 
 .. program:: baton-get
 .. option:: --no-clobber
@@ -316,16 +316,24 @@ Options
 .. program:: baton-get
 .. option:: --raw
 
-  Prints the contents of the data object instead of a JSON response. In this
+  Print the contents of the data object instead of a JSON response. In this
   mode the program acts rather like the Unix program 'cat'. This mode, or the
   --save mode must be used for any file that is not UTF-8 encoded text.
 
 .. program:: baton-get
+.. option:: --redirect
+
+  Redirect to the best resource server for the get operation. This option allows
+  baton-get to connect directly to a resource server chosen by iRODS. This may
+  improve performance. Redirection may occur only for data objects greater than
+  32 MiB in size.
+
+.. program:: baton-get
 .. option:: --save
 
-  Saves the contents of the data object to a local file. The local file
+  Save the contents of the data object to a local file. The local file
   path is defined by the JSON input in the format described in
-  :ref:`representing_local_paths`. Prints a JSON response to STDOUT for
+  :ref:`representing_local_paths`. print a JSON response to STDOUT for
   each file downloaded.
 
 .. program:: baton-get
@@ -420,7 +428,14 @@ Options
 .. program:: baton-put
 .. option:: --help
 
-  Prints command line help.
+  Print command line help.
+
+.. program:: baton-put
+.. option:: --redirect
+
+  Redirect to the best resource server for the get operation. This option allows
+  baton-put to connect directly to a resource server chosen by iRODS. This may improve
+  performance. Redirection may occur only for data objects greater than 32 MiB in size.
 
 .. program:: baton-put
 .. option:: --silent
@@ -519,7 +534,7 @@ Options
 .. program:: baton-list
 .. option:: --help
 
-  Prints command line help.
+  Print command line help.
 
 .. program:: baton-list
 .. option:: --replicate
@@ -604,7 +619,7 @@ Options
 .. program:: baton-metamod
 .. option:: --help
 
-  Prints command line help.
+  Print command line help.
 
 .. program:: baton-metamod
 .. option:: --operation <operation name>
@@ -706,7 +721,7 @@ Options
 .. program:: baton-metaquery
 .. option:: --help
 
-  Prints command line help.
+  Print command line help.
 
 .. program:: baton-metaquery
 .. option:: --obj
@@ -809,7 +824,7 @@ Options
 .. program:: baton-do
 .. option:: --help
 
-  Prints command line help.
+  Print command line help.
 
 .. program:: baton-do
 .. option:: --silent

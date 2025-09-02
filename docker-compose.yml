@@ -13,9 +13,11 @@ services:
     platform: linux/amd64
     build:
       context: .
-      dockerfile: ./Dockerfile.ubuntu-18.04-dev
+      dockerfile: ./Dockerfile.ubuntu-16.04-dev
+      args:
+        APP_UID: 1000  # Your UID here
     volumes:
-      - "${PWD}:/app"
+      - ".:/app"
     environment:
       IRODS_ENVIRONMENT_FILE: "/app/tests/.irods/irods_environment.json"
     depends_on:

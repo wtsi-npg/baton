@@ -23,64 +23,67 @@
 #include "time.h"
 
 #include "baton.h"
+#include "json.h"
 #include "operations.h"
+#include "signal_handler.h"
+#include "write.h"
+#include "utilities.h"
 
-// Mutex protecting the connection and the run_timeout_thread flag
-pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
-// The connection used by iterate_json and connection_timeout
-rcComm_t *connection;
+// Mutex protecting the session and the run_timeout_thread flag
+pthread_mutex_t session_mutex = PTHREAD_MUTEX_INITIALIZER;
 // While true, the client will continue to run the timeout thread
 int run_timeout_thread = 1;
 // Condition variable to exit the timeout thread when work is complete
 pthread_cond_t watchdog_cond = PTHREAD_COND_INITIALIZER;
 
 // Refresh the connection every timeout seconds
-void *connection_timeout(void *timeout) {
-    int tsec = *((int *) timeout);
+void* connection_timeout(void *session) {
+    baton_session_t *sess = session;
 
     struct timespec abs_timeout;
 
-    pthread_mutex_lock(&conn_mutex);
+    pthread_mutex_lock(&session_mutex);
     while (run_timeout_thread) {
         clock_gettime(CLOCK_REALTIME, &abs_timeout);
-        abs_timeout.tv_sec += tsec;
+        abs_timeout.tv_sec += sess->max_connect_time;
 
         int status;
         do {
-            status = pthread_cond_timedwait(&watchdog_cond, &conn_mutex,
-                                            &abs_timeout);
-        } while (status == EINTR);
-        
+            status = pthread_cond_timedwait(&watchdog_cond, &session_mutex, &abs_timeout);
+        }
+        while (status == EINTR);
+
         if (status == ETIMEDOUT) {
-            if (connection) {
-                rcDisconnect(connection);
-                connection = NULL;
-                logmsg(NOTICE, "Closed the iRODS connection after a timeout "
-                       "of %d seconds", tsec);
-            }
+            baton_disconnect(sess);
+            logmsg(NOTICE, "Closed the iRODS connection after a timeout " "of %d seconds",
+                   sess->max_connect_time);
         }
     }
-    pthread_mutex_unlock(&conn_mutex);
+    pthread_mutex_unlock(&session_mutex);
 
     return 0;
 }
 
-static int iterate_json(FILE *input, rodsEnv *env, const baton_json_op fn,
+static int iterate_json(FILE *input,
+                        baton_session_t *session,
+                        const baton_json_op fn,
                         operation_args_t *args,
-                        int *item_count, int *error_count) {
-    int status  = 0;
-    int timeout = args->max_connect_time;
+                        int *item_count,
+                        int *error_count) {
+    int status = 0;
     pthread_t tid;
     int thread_status = -1;
 
+    long timeout = args->max_connect_time;
     if (timeout < 10) {
         logmsg(ERROR, "The connection timeout (--connect-time argument) "
                "must be >=10 seconds");
         status = 1;
         goto finally;
     }
+    session->max_connect_time = timeout;
 
-    thread_status = pthread_create(&tid, NULL, &connection_timeout, &timeout);
+    thread_status = pthread_create(&tid, NULL, &connection_timeout, session);
     if (thread_status != 0) {
         logmsg(ERROR, "Failed to start connection management thread: %d", thread_status);
         goto finally;
@@ -93,8 +96,8 @@ static int iterate_json(FILE *input, rodsEnv *env, const baton_json_op fn,
 
         if (!item) {
             if (!feof(input)) {
-                logmsg(ERROR, "JSON error at line %d, column %d: %s",
-                       load_error.line, load_error.column, load_error.text);
+                logmsg(ERROR, "JSON error at line %d, column %d: %s", load_error.line,
+                       load_error.column, load_error.text);
             }
             continue;
         }
@@ -107,22 +110,21 @@ static int iterate_json(FILE *input, rodsEnv *env, const baton_json_op fn,
             continue;
         }
 
-        pthread_mutex_lock(&conn_mutex); // Lock before connecting and executing a job
-        logmsg(DEBUG, "Work to do, lock obtained");
-        if (!connection) {
+        pthread_mutex_lock(&session_mutex); // Lock before connecting and executing a job
+        logmsg(DEBUG, "Work to do, session lock obtained");
+        if (!session->conn) {
             logmsg(NOTICE, "Opening a new iRODS connection");
-            connection = rods_login(env);
-            if (!connection) {
-                status = 1;
-                pthread_mutex_unlock(&conn_mutex);
+            status = baton_connect(session);
+            if (status < 0) {
+                pthread_mutex_unlock(&session_mutex);
                 goto finally;
             }
         }
 
         baton_error_t error;
-        json_t *result = fn(env, connection, item, args, &error);
-        pthread_mutex_unlock(&conn_mutex); // Unlock before processing the result
-        logmsg(DEBUG, "Work done, lock released");
+        json_t *result = fn(session, item, args, &error);
+        pthread_mutex_unlock(&session_mutex); // Unlock before processing the result
+        logmsg(DEBUG, "Work done, session lock released");
 
         if (error.code != 0) {
             // On error, add an error report to the input JSON as a
@@ -141,8 +143,8 @@ static int iterate_json(FILE *input, rodsEnv *env, const baton_json_op fn,
                 add_result(item, result, &rerror);
                 if (rerror.code != 0) {
                     logmsg(ERROR, "Failed to add error report to item %d "
-                           "in stream. Error code %d: %s", item_count,
-                           rerror.code, rerror.message);
+                           "in stream. Error code %d: %s", item_count, rerror.code,
+                           rerror.message);
                     (*error_count)++;
                 }
                 print_json(item);
@@ -161,25 +163,21 @@ static int iterate_json(FILE *input, rodsEnv *env, const baton_json_op fn,
         (*item_count)++;
 
         json_decref(item); // JSON free
-    } // while
+    }                      // while
 
     if (exit_flag) {
-      status = exit_flag;
-      logmsg(WARN, "Exiting on signal with code %d", exit_flag);
-      goto finally;
+        status = exit_flag;
+        logmsg(WARN, "Exiting on signal with code %d", exit_flag);
     }
 
 finally:
-    pthread_mutex_lock(&conn_mutex);
+    pthread_mutex_lock(&session_mutex);
     run_timeout_thread = 0;
     pthread_cond_signal(&watchdog_cond); // Unblock the thread waiting on cond
 
-    if (connection) {
-        rcDisconnect(connection);
-        connection = NULL;
-        logmsg(NOTICE, "Closed the connection on exit")
-    }
-    pthread_mutex_unlock(&conn_mutex);
+    baton_disconnect(session);
+    logmsg(NOTICE, "Closed the connection on exit")
+    pthread_mutex_unlock(&session_mutex);
 
     if (thread_status == 0) {
         status = pthread_join(tid, NULL);
@@ -195,44 +193,49 @@ int do_operation(FILE *input, const baton_json_op fn, operation_args_t *args) {
     int item_count  = 0;
     int error_count = 0;
     int status      = 0;
-    
-    rodsEnv env;
+
+    baton_session_t *session = new_baton_session();
 
     if (!input) {
-      status = 1;
-      goto error;
+        status = 1;
+        goto error;
     }
 
-    status = iterate_json(input, &env, fn, args, &item_count, &error_count);
+    status = iterate_json(input, session, fn, args, &item_count, &error_count);
     if (status != 0) goto error;
 
     if (error_count > 0) {
-        logmsg(WARN, "Processed %d items with %d errors",
-               item_count, error_count);
-	    status = 1;
+        logmsg(WARN, "Processed %d items with %d errors", item_count, error_count);
+        status = 1;
     }
     else {
-        logmsg(DEBUG, "Processed %d items with %d errors",
-               item_count, error_count);
+        logmsg(DEBUG, "Processed %d items with %d errors", item_count, error_count);
     }
+
+    free_baton_session(session);;
 
     return status;
 
 error:
-    logmsg(ERROR, "Processed %d items with %d errors",
-           item_count, error_count);
+    logmsg(ERROR, "Processed %d items with %d errors", item_count, error_count);
+
+    free_baton_session(session);
 
     return status;
 }
 
-json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
-                               const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_dispatch_op(baton_session_t *session,
+                               json_t *envelope,
+                               const operation_args_t *args,
+                               baton_error_t *error) {
     json_t *result = NULL;
 
-    operation_args_t args_copy = { .flags       = args->flags,
-                                   .buffer_size = args->buffer_size,
-                                   .zone_name   = args->zone_name,
-                                   .path        = NULL };
+    operation_args_t args_copy = {
+        .flags = args->flags,
+        .buffer_size = args->buffer_size,
+        .zone_name = args->zone_name,
+        .path = NULL
+    };
 
     const char *op = get_operation(envelope, error);
     if (error->code != 0) goto finally;
@@ -247,25 +250,27 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
 
     if (has_operation(envelope)) {
         const json_t *jargs = get_operation_args(envelope, error);
-        if (error->code != 0)  goto finally;
+        if (error->code != 0) goto finally;
 
         option_flags flags = args_copy.flags;
-        if (op_acl_p(jargs))                 flags = flags | PRINT_ACL;
-        if (op_avu_p(jargs))                 flags = flags | PRINT_AVU;
-        if (op_print_checksum_p(jargs))      flags = flags | PRINT_CHECKSUM;
-        if (op_calculate_checksum_p(jargs))  flags = flags | CALCULATE_CHECKSUM | PRINT_CHECKSUM;
-        if (op_verify_checksum_p(jargs))     flags = flags | VERIFY_CHECKSUM    | PRINT_CHECKSUM;
-        if (op_contents_p(jargs))            flags = flags | PRINT_CONTENTS;
-        if (op_replicate_p(jargs))           flags = flags | PRINT_REPLICATE;
-        if (op_size_p(jargs))                flags = flags | PRINT_SIZE;
-        if (op_timestamp_p(jargs))           flags = flags | PRINT_TIMESTAMP;
-        if (op_raw_p(jargs))                 flags = flags | PRINT_RAW;
-        if (op_save_p(jargs))                flags = flags | SAVE_FILES;
-        if (op_recurse_p(jargs))             flags = flags | RECURSIVE;
-        if (op_force_p(jargs))               flags = flags | FORCE;
-        if (op_collection_p(jargs))          flags = flags | SEARCH_COLLECTIONS;
-        if (op_object_p(jargs))              flags = flags | SEARCH_OBJECTS;
-        if (op_single_server_p(jargs))       flags = flags | SINGLE_SERVER;
+        if (op_acl_p(jargs)) flags = flags | PRINT_ACL;
+        if (op_avu_p(jargs)) flags = flags | PRINT_AVU;
+        if (op_print_checksum_p(jargs)) flags = flags | PRINT_CHECKSUM;
+        if (op_calculate_checksum_p(jargs)) flags = flags | CALCULATE_CHECKSUM |
+            PRINT_CHECKSUM;
+        if (op_verify_checksum_p(jargs)) flags = flags | VERIFY_CHECKSUM | PRINT_CHECKSUM;
+        if (op_contents_p(jargs)) flags = flags | PRINT_CONTENTS;
+        if (op_replicate_p(jargs)) flags = flags | PRINT_REPLICATE;
+        if (op_redirect_to_server_p(jargs)) flags = flags | REDIRECT_TO_SERVER;
+        if (op_size_p(jargs)) flags = flags | PRINT_SIZE;
+        if (op_timestamp_p(jargs)) flags = flags | PRINT_TIMESTAMP;
+        if (op_raw_p(jargs)) flags = flags | PRINT_RAW;
+        if (op_save_p(jargs)) flags = flags | SAVE_FILES;
+        if (op_recurse_p(jargs)) flags = flags | RECURSIVE;
+        if (op_force_p(jargs)) flags = flags | FORCE;
+        if (op_collection_p(jargs)) flags = flags | SEARCH_COLLECTIONS;
+        if (op_object_p(jargs)) flags = flags | SEARCH_OBJECTS;
+        if (op_single_server_p(jargs)) flags = flags | SINGLE_SERVER;
         args_copy.flags = flags;
 
         if (has_operation(jargs)) {
@@ -280,9 +285,8 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
                 args_copy.flags = flags | REMOVE_AVU;
             }
             else {
-                set_baton_error(error, -1,
-                                "Invalid baton operation argument '%s'", arg);
-              goto finally;
+                set_baton_error(error, -1, "Invalid baton operation argument '%s'", arg);
+                goto finally;
             }
         }
 
@@ -292,8 +296,7 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
 
             char *tmp = copy_str(path, MAX_STR_LEN);
             if (!tmp) {
-                set_baton_error(error, errno, "Failed to copy string '%s'",
-                                path);
+                set_baton_error(error, errno, "Failed to copy string '%s'", path);
                 goto finally;
             }
 
@@ -304,57 +307,56 @@ json_t *baton_json_dispatch_op(rodsEnv *env, rcComm_t *conn, json_t *envelope,
     logmsg(DEBUG, "Dispatching to operation '%s'", op);
 
     if (str_equals(op, JSON_CHMOD_OP, MAX_STR_LEN)) {
-        result = baton_json_chmod_op(env, conn, target, &args_copy, error);
+        result = baton_json_chmod_op(session, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_CHECKSUM_OP, MAX_STR_LEN)) {
-        result = baton_json_checksum_op(env, conn, target, &args_copy, error);
+        result = baton_json_checksum_op(session, target, &args_copy, error);
         if (error->code != 0) goto finally;
 
         if (args_copy.flags & PRINT_CHECKSUM) {
-            result = add_checksum_json_object(conn, result, error);
+            result = add_checksum_json_object(session->conn, result, error);
             if (error->code != 0) goto finally;
         }
     }
     else if (str_equals(op, JSON_LIST_OP, MAX_STR_LEN)) {
-        result = baton_json_list_op(env, conn, target, &args_copy, error);
+        result = baton_json_list_op(session, target, &args_copy, error);
         if (error->code != 0) goto finally;
     }
     else if (str_equals(op, JSON_METAMOD_OP, MAX_STR_LEN)) {
-        result = baton_json_metamod_op(env, conn, target, &args_copy, error);
+        result = baton_json_metamod_op(session, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_METAQUERY_OP, MAX_STR_LEN)) {
-        result = baton_json_metaquery_op(env, conn, target, &args_copy, error);
+        result = baton_json_metaquery_op(session, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_GET_OP, MAX_STR_LEN)) {
-        result = baton_json_get_op(env, conn, target, &args_copy, error);
+        result = baton_json_get_op(session, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_PUT_OP, MAX_STR_LEN)) {
         if (args_copy.flags & SINGLE_SERVER) {
-            logmsg(DEBUG, "Single-server mode, falling back "
-                   "to operation 'write'");
-            result = baton_json_write_op(env, conn, target, &args_copy, error);
+            logmsg(DEBUG, "Single-server mode, falling back " "to operation 'write'");
+            result = baton_json_write_op(session, target, &args_copy, error);
         }
         else {
-            result = baton_json_put_op(env, conn, target, &args_copy, error);
+            result = baton_json_put_op(session, target, &args_copy, error);
         }
         if (error->code != 0) goto finally;
 
         if (args_copy.flags & PRINT_CHECKSUM) {
-            result = add_checksum_json_object(conn, result, error);
+            result = add_checksum_json_object(session->conn, result, error);
             if (error->code != 0) goto finally;
         }
     }
     else if (str_equals(op, JSON_MOVE_OP, MAX_STR_LEN)) {
-        result = baton_json_move_op(env, conn, target, &args_copy, error);
+        result = baton_json_move_op(session, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_RM_OP, MAX_STR_LEN)) {
-        result = baton_json_rm_op(env, conn, target, &args_copy, error);
+        result = baton_json_rm_op(session, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_MKCOLL_OP, MAX_STR_LEN)) {
-        result = baton_json_mkcoll_op(env, conn, target, &args_copy, error);
+        result = baton_json_mkcoll_op(session, target, &args_copy, error);
     }
     else if (str_equals(op, JSON_RMCOLL_OP, MAX_STR_LEN)) {
-        result = baton_json_rmcoll_op(env, conn, target, &args_copy, error);
+        result = baton_json_rmcoll_op(session, target, &args_copy, error);
     }
     else {
         set_baton_error(error, -1, "Invalid baton operation '%s'", op);
@@ -366,18 +368,20 @@ finally:
     return result;
 }
 
-json_t *baton_json_list_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                           const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_list_op(baton_session_t *session,
+                           json_t *target,
+                           const operation_args_t *args,
+                           baton_error_t *error) {
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
-    result = list_path(conn, &rods_path, args->flags, error);
+    result = list_path(session->conn, &rods_path, args->flags, error);
     if (error->code != 0) goto finally;
 
 finally:
@@ -387,21 +391,23 @@ finally:
     return result;
 }
 
-json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                            const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_chmod_op(baton_session_t *session,
+                            json_t *target,
+                            const operation_args_t *args,
+                            baton_error_t *error) {
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     const json_t *perms = json_object_get(target, JSON_ACCESS_KEY);
     if (!json_is_array(perms)) {
-        set_baton_error(error, -1, "Permissions data for %s is not in "
-                        "a JSON array", path);
+        set_baton_error(error, -1, "Permissions data for %s is not in " "a JSON array",
+                        path);
         goto finally;
     }
 
@@ -409,15 +415,15 @@ json_t *baton_json_chmod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
 
     for (size_t i = 0; i < json_array_size(perms); i++) {
         json_t *perm = json_array_get(perms, i);
-        modify_json_permissions(conn, &rods_path, recurse, perm, error);
+        modify_json_permissions(session->conn, &rods_path, recurse, perm, error);
 
         if (error->code != 0) goto finally;
     }
 
     result = json_deep_copy(target);
     if (!result) {
-        set_baton_error(error, -1, "Internal error: failed to deep-copy "
-                        "result for %s", path);
+        set_baton_error(error, -1, "Internal error: failed to deep-copy " "result for %s",
+                        path);
     }
 
 finally:
@@ -427,27 +433,28 @@ finally:
     return result;
 }
 
-json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                               const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_checksum_op(baton_session_t *session,
+                               json_t *target,
+                               const operation_args_t *args,
+                               baton_error_t *error) {
     json_t *result    = NULL;
-    char  *checksum   = NULL;
+    char *checksum    = NULL;
     json_t *jchecksum = NULL;
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     if (!represents_data_object(target)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "cannot checksum a non-data-object");
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "cannot checksum a non-data-object");
         goto finally;
     }
 
     const option_flags flags = args->flags;
-    checksum = checksum_data_obj(conn, &rods_path, flags, error);
+    checksum                 = checksum_data_obj(session->conn, &rods_path, flags, error);
     if (error->code != 0) goto finally;
 
     jchecksum = checksum_to_json(checksum, error);
@@ -462,8 +469,8 @@ json_t *baton_json_checksum_op(rodsEnv *env, rcComm_t *conn, json_t *target,
 
     result = json_deep_copy(target);
     if (!result) {
-        set_baton_error(error, -1, "Internal error: failed to deep-copy "
-                        "result for %s", path);
+        set_baton_error(error, -1, "Internal error: failed to deep-copy " "result for %s",
+                        path);
     }
 
 finally:
@@ -474,39 +481,42 @@ finally:
     return result;
 }
 
-json_t *baton_json_metaquery_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                                const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_metaquery_op(baton_session_t *session,
+                                json_t *target,
+                                const operation_args_t *args,
+                                baton_error_t *error) {
     json_t *result = NULL;
 
     if (has_collection(target)) {
-        resolve_collection(target, conn, env, args->flags, error);
+        resolve_collection(session, target, args->flags, error);
         if (error->code != 0) goto finally;
     }
 
     char *zone_name = args->zone_name;
     logmsg(DEBUG, "Metadata query in zone '%s'", zone_name);
 
-    result = search_metadata(conn, target, zone_name, args->flags, error);
+    result = search_metadata(session->conn, target, zone_name, args->flags, error);
 
 finally:
     return result;
 }
 
-json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                              const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_metamod_op(baton_session_t *session,
+                              json_t *target,
+                              const operation_args_t *args,
+                              baton_error_t *error) {
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     const json_t *avus = json_object_get(target, JSON_AVUS_KEY);
     if (!json_is_array(avus)) {
-        set_baton_error(error, -1, "AVU data for %s is not in a JSON array",
-                        path);
+        set_baton_error(error, -1, "AVU data for %s is not in a JSON array", path);
         goto finally;
     }
 
@@ -518,21 +528,21 @@ json_t *baton_json_metamod_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         operation = META_REM;
     }
     else {
-        set_baton_error(error, -1, "No metadata operation was specified "
-                        " for '%s'", path);
+        set_baton_error(error, -1, "No metadata operation was specified " " for '%s'",
+                        path);
         goto finally;
     }
 
     for (size_t i = 0; i < json_array_size(avus); i++) {
         const json_t *avu = json_array_get(avus, i);
-        modify_json_metadata(conn, &rods_path, operation, avu, error);
+        modify_json_metadata(session->conn, &rods_path, operation, avu, error);
         if (error->code != 0) goto finally;
     }
 
     result = json_deep_copy(target);
     if (!result) {
-        set_baton_error(error, -1, "Internal error: failed to deep-copy "
-                        "result for %s", path);
+        set_baton_error(error, -1, "Internal error: failed to deep-copy " "result for %s",
+                        path);
     }
 
 finally:
@@ -542,8 +552,10 @@ finally:
     return result;
 }
 
-json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                          const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_get_op(baton_session_t *session,
+                          json_t *target,
+                          const operation_args_t *args,
+                          baton_error_t *error) {
     json_t *result = NULL;
     char *file     = NULL;
 
@@ -551,7 +563,7 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     file = json_to_local_path(target, error);
@@ -562,25 +574,24 @@ json_t *baton_json_get_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (args->flags & SAVE_FILES) {
         result = json_deep_copy(target);
         if (!result) {
-            set_baton_error(error, errno,
-                            "Failed to allocate memory for result");
+            set_baton_error(error, errno, "Failed to allocate memory for result");
             goto finally;
         }
-        get_data_obj_file(conn, &rods_path, file, args->flags, error);
+
+        get_data_obj_file(session, &rods_path, file, args->flags, error);
         if (error->code != 0) goto finally;
     }
     else if (args->flags & PRINT_RAW) {
         result = json_deep_copy(target);
         if (!result) {
-            set_baton_error(error, errno,
-                            "Failed to allocate memory for result");
+            set_baton_error(error, errno, "Failed to allocate memory for result");
             goto finally;
         }
-        get_data_obj_stream(conn, &rods_path, stdout, bsize, error);
+        get_data_obj_stream(session, &rods_path, stdout, bsize, error);
         if (error->code != 0) goto finally;
     }
     else {
-        result = ingest_data_obj(conn, &rods_path, args->flags, bsize, error);
+        result = ingest_data_obj(session, &rods_path, args->flags, bsize, error);
     }
 
 finally:
@@ -591,15 +602,16 @@ finally:
     return result;
 }
 
-json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                            const operation_args_t *args, baton_error_t *error) {
-    json_t *result = NULL;
-    char *file     = NULL;
+json_t* baton_json_write_op(baton_session_t *session,
+                            json_t *target,
+                            const operation_args_t *args,
+                            baton_error_t *error) {
+    char *file = NULL;
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     file = json_to_local_path(target, error);
@@ -616,20 +628,18 @@ json_t *baton_json_write_op(rodsEnv *env, rcComm_t *conn, json_t *target,
 
     FILE *in = fopen(file, "r");
     if (!in) {
-        set_baton_error(error, errno,
-                        "Failed to open '%s' for reading: error %d %s",
+        set_baton_error(error, errno, "Failed to open '%s' for reading: error %d %s",
                         file, errno, strerror(errno));
         goto finally;
     }
 
-    write_data_obj(conn, in, &rods_path, bsize, args->flags, error);
+    write_data_obj(session, in, &rods_path, bsize, args->flags, error);
     const int status = fclose(in);
 
     if (error->code != 0) goto finally;
     if (status != 0) {
-        set_baton_error(error, errno,
-                        "Failed to close '%s': error %d %s",
-                        file, errno, strerror(errno));
+        set_baton_error(error, errno, "Failed to close '%s': error %d %s", file, errno,
+                        strerror(errno));
     }
 
 finally:
@@ -637,11 +647,13 @@ finally:
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
     if (file) free(file);
 
-    return result;
+    return target;
 }
 
-json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                          const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_put_op(baton_session_t *session,
+                          json_t *target,
+                          const operation_args_t *args,
+                          baton_error_t *error) {
     json_t *result     = NULL;
     char *file         = NULL;
     char *def_resource = NULL;
@@ -651,14 +663,14 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     file = json_to_local_path(target, error);
     if (error->code != 0) goto finally;
 
-    if (strnlen(env->rodsDefResource, NAME_LEN) > 0) {
-        def_resource = env->rodsDefResource;
+    if (strnlen(session->env->rodsDefResource, NAME_LEN) > 0) {
+        def_resource = session->env->rodsDefResource;
         logmsg(DEBUG, "Using default iRODS resource '%s'", def_resource);
     }
 
@@ -668,20 +680,19 @@ json_t *baton_json_put_op(rodsEnv *env, rcComm_t *conn, json_t *target,
         logmsg(DEBUG, "Using supplied checksum '%s'", checksum);
     }
 
-    const int status = put_data_obj(conn, file, &rods_path, def_resource,
-                                    checksum, args->flags, error);
+    const int status = put_data_obj(session, file, &rods_path, def_resource, checksum,
+                                    args->flags, error);
     if (error->code != 0) goto finally;
     if (status != 0) {
-        set_baton_error(error, errno,
-                        "Failed to close '%s': error %d %s",
-                        file, errno, strerror(errno));
+        set_baton_error(error, errno, "Failed to close '%s': error %d %s", file, errno,
+                        strerror(errno));
         goto finally;
     }
 
     result = json_deep_copy(target);
     if (!result) {
-        set_baton_error(error, -1, "Internal error: failed to deep-copy "
-                        "result for %s", path);
+        set_baton_error(error, -1, "Internal error: failed to deep-copy " "result for %s",
+                        path);
     }
 
 finally:
@@ -693,27 +704,29 @@ finally:
     return result;
 }
 
-json_t *baton_json_move_op(rodsEnv *env, rcComm_t *conn, json_t *target,
-                           const operation_args_t *args, baton_error_t *error) {
+json_t* baton_json_move_op(baton_session_t *session,
+                           json_t *target,
+                           const operation_args_t *args,
+                           baton_error_t *error) {
     json_t *result = NULL;
 
     char *path = json_to_path(target, error);
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     char *new_path = args->path;
     logmsg(DEBUG, "Moving '%s' to '%s'", path, new_path);
 
-    move_rods_path(conn, &rods_path, new_path, error);
+    move_rods_path(session->conn, &rods_path, new_path, error);
     if (error->code != 0) goto finally;
 
     result = json_deep_copy(target);
     if (!result) {
-        set_baton_error(error, -1, "Internal error: failed to deep-copy "
-                        "result for %s", path);
+        set_baton_error(error, -1, "Internal error: failed to deep-copy " "result for %s",
+                        path);
     }
 
 finally:
@@ -723,8 +736,9 @@ finally:
     return result;
 }
 
-json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
-                         json_t *target, const operation_args_t *args,
+json_t* baton_json_rm_op(baton_session_t *session,
+                         json_t *target,
+                         const operation_args_t *args,
                          baton_error_t *error) {
     json_t *result = NULL;
 
@@ -732,23 +746,22 @@ json_t *baton_json_rm_op(rodsEnv *env, rcComm_t *conn,
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     if (!represents_data_object(target)) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "cannot remove a non-data-object");
+        set_baton_error(error, CAT_INVALID_ARGUMENT, "cannot remove a non-data-object");
         goto finally;
     }
 
     logmsg(DEBUG, "Removing data object '%s'", path);
-    remove_data_object(conn, &rods_path, args->flags, error);
+    remove_data_object(session->conn, &rods_path, args->flags, error);
     if (error->code != 0) goto finally;
 
     result = json_deep_copy(target);
     if (!result) {
-        set_baton_error(error, -1, "Internal error: failed to deep-copy "
-                        "result for %s", path);
+        set_baton_error(error, -1, "Internal error: failed to deep-copy " "result for %s",
+                        path);
     }
 
 finally:
@@ -758,8 +771,9 @@ finally:
     return result;
 }
 
-json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
-                             json_t *target, const operation_args_t *args,
+json_t* baton_json_mkcoll_op(baton_session_t *session,
+                             json_t *target,
+                             const operation_args_t *args,
                              baton_error_t *error) {
     json_t *result = NULL;
 
@@ -767,7 +781,7 @@ json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     if (represents_data_object(target)) {
@@ -777,13 +791,13 @@ json_t *baton_json_mkcoll_op(rodsEnv *env, rcComm_t *conn,
     }
 
     logmsg(DEBUG, "Creating collection '%s'", path);
-    create_collection(conn, &rods_path, args->flags, error);
+    create_collection(session->conn, &rods_path, args->flags, error);
     if (error->code != 0) goto finally;
 
     result = json_deep_copy(target);
     if (!result) {
-        set_baton_error(error, -1, "Internal error: failed to deep-copy "
-                        "result for %s", path);
+        set_baton_error(error, -1, "Internal error: failed to deep-copy " "result for %s",
+                        path);
     }
 
 finally:
@@ -793,8 +807,9 @@ finally:
     return result;
 }
 
-json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
-                             json_t *target, const operation_args_t *args,
+json_t* baton_json_rmcoll_op(baton_session_t *session,
+                             json_t *target,
+                             const operation_args_t *args,
                              baton_error_t *error) {
     json_t *result = NULL;
 
@@ -802,7 +817,7 @@ json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
     if (error->code != 0) goto finally;
 
     rodsPath_t rods_path = {0};
-    resolve_rods_path(conn, env, &rods_path, path, args->flags, error);
+    resolve_rods_path(session, &rods_path, path, args->flags, error);
     if (error->code != 0) goto finally;
 
     if (represents_data_object(target)) {
@@ -812,13 +827,13 @@ json_t *baton_json_rmcoll_op(rodsEnv *env, rcComm_t *conn,
     }
 
     logmsg(DEBUG, "Removing collection '%s'", path);
-    remove_collection(conn, &rods_path, args->flags, error);
+    remove_collection(session->conn, &rods_path, args->flags, error);
     if (error->code != 0) goto finally;
 
     result = json_deep_copy(target);
     if (!result) {
-        set_baton_error(error, -1, "Internal error: failed to deep-copy "
-                        "result for %s", path);
+        set_baton_error(error, -1, "Internal error: failed to deep-copy " "result for %s",
+                        path);
     }
 
 finally:
@@ -826,48 +841,4 @@ finally:
     if (rods_path.rodsObjStat) free(rods_path.rodsObjStat);
 
     return result;
-}
-
-int check_str_arg(const char *arg_name, const char *arg_value,
-                  const size_t arg_size, baton_error_t *error) {
-    if (!arg_value) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was null", arg_name);
-        goto finally;
-    }
-
-    const size_t len = strnlen(arg_value, MAX_STR_LEN);
-    const size_t term_len = len + 1;
-
-    if (len == 0) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was empty", arg_name);
-        goto finally;
-    }
-    if (term_len > arg_size) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "%s exceeded the maximum length of %d characters",
-                        arg_name, arg_size);
-    }
-
-finally:
-    return error->code;
-}
-
-int check_str_arg_permit_empty(const char *arg_name, const char *arg_value,
-                  const size_t arg_size, baton_error_t *error) {
-    if (!arg_value) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT, "%s was null", arg_name);
-        goto finally;
-    }
-
-    const size_t len = strnlen(arg_value, MAX_STR_LEN);
-    const size_t term_len = len + 1;
-
-    if (term_len > arg_size) {
-        set_baton_error(error, CAT_INVALID_ARGUMENT,
-                        "%s exceeded the maximum length of %d characters",
-                        arg_name, arg_size);
-    }
-
-finally:
-    return error->code;
 }

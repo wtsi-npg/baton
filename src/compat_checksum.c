@@ -25,8 +25,8 @@ EVP_MD_CTX* compat_MD5Init(baton_error_t *error) {
 
     EVP_MD_CTX *context = MD5_NEW();
     if (context == NULL) {
-         set_baton_error(error, -1, "Failed to create an MD5 context");
-         return NULL;
+        set_baton_error(error, -1, "Failed to create an MD5 context");
+        return NULL;
     }
 
     if (!EVP_DigestInit_ex(context, md, NULL)) {
@@ -38,16 +38,19 @@ EVP_MD_CTX* compat_MD5Init(baton_error_t *error) {
     return context;
 }
 
-void compat_MD5Update(EVP_MD_CTX *context, const unsigned char *input,
-                      const unsigned int len, baton_error_t *error) {
+void compat_MD5Update(EVP_MD_CTX *context,
+                      const unsigned char *input,
+                      const unsigned int len,
+                      baton_error_t *error) {
     if (!EVP_DigestUpdate(context, input, len)) {
         MD5_FREE(context);
         set_baton_error(error, -1, "Failed to update an MD5 context");
     }
 }
 
-void compat_MD5Final(unsigned char digest[16], EVP_MD_CTX *context,
-                    baton_error_t *error) {
+void compat_MD5Final(unsigned char digest[16],
+                     EVP_MD_CTX *context,
+                     baton_error_t *error) {
     uint len = 16;
     if (!EVP_DigestFinal_ex(context, digest, &len)) {
         MD5_FREE(context);

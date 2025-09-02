@@ -29,7 +29,7 @@
 
 static log_level THRESHOLD = WARN;
 
-const char *get_log_level_name(const log_level level) {
+const char* get_log_level_name(const log_level level) {
     switch (level) {
         case FATAL:
             return "FATAL";
@@ -62,8 +62,11 @@ log_level set_log_threshold(const log_level level) {
     return THRESHOLD;
 }
 
-void log_impl(const int line, const char *file, char const *function,
-              const log_level level, ...) {
+void log_impl(const int line,
+              const char *file,
+              char const *function,
+              const log_level level,
+              ...) {
     if (level <= THRESHOLD) {
         char buffer[32];
 
@@ -73,8 +76,8 @@ void log_impl(const int line, const char *file, char const *function,
 
         const int status = strftime(buffer, sizeof buffer, RFC3339_FORMAT, &tm);
         if (status == 0) {
-            fprintf(stderr, "Failed to format timestamp '%s': error %d %s",
-                    buffer, errno, strerror(errno));
+            fprintf(stderr, "Failed to format timestamp '%s': error %d %s", buffer, errno,
+                    strerror(errno));
             goto error;
         }
 
