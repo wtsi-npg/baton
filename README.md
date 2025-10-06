@@ -50,6 +50,7 @@ Compatible with iRODS 4.1.x, 4.2.x, 4.3.x and 5.0.x
   | 3.3.x         | 4.2.7 - 4.2.11            |
   | 4.2.x         | 4.2.7 - 4.3.3             |
   | 5.x.x         | 4.2.7 - 5.0.1             |
+  | 6.x.x.        | 4.2.7 - 5.0.1             |
 
 
 Note that building against iRODS 4.3.0 requires 
