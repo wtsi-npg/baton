@@ -72,7 +72,7 @@ jobs:
           echo 'MASTER_SHA='$(git rev-parse origin/master) >> $GITHUB_ENV
 
       - name: "Download source package"
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: baton-release-tarball
 
