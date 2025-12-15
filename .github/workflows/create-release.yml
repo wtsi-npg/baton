@@ -38,7 +38,7 @@ jobs:
             ./.github/workflows/build-release.sh
 
       - name: "Upload source package"
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: baton-release-tarball
           path: "baton-*.tar.gz*"
