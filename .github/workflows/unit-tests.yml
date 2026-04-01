@@ -16,25 +16,15 @@ jobs:
             build_image: "ghcr.io/wtsi-npg/ub-16.04-irods-clients-dev-4.2.7:latest"
             server_image: "ghcr.io/wtsi-npg/ub-16.04-irods-4.2.7:latest"
             experimental: false
-          # iRODS 4.2.11 clients on Ubuntu 18.04
-          - irods: "4.2.11"
-            build_image: "ghcr.io/wtsi-npg/ub-18.04-irods-clients-dev-4.2.11:latest"
-            server_image: "ghcr.io/wtsi-npg/ub-18.04-irods-4.2.11:latest"
-            experimental: false
-          # iRODS 4.3.1 clients on Ubuntu 22.04
-          - irods: "4.3.3"
-            build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.1:latest"
-            server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.1:latest"
-            experimental: false
-          # iRODS 4.3.3 clients on Ubuntu 22.04
-          - irods: "4.3.3"
-            build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.3:latest"
-            server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.3:latest"
-            experimental: false
           # iRODS 4.3.4 clients on Ubuntu 22.04
           - irods: "4.3.4"
             build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.4:latest"
             server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.4:latest"
+            experimental: false
+          # iRODS 4.3.5 clients on Ubuntu 22.04
+          - irods: "4.3.5"
+            build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.5:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.5:latest"
             experimental: false
 
     services:
