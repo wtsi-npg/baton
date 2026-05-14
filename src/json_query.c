@@ -20,7 +20,9 @@
  * @author Joshua C. Randall <jcrandall@alum.mit.edu>
  */
 
+#include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <jansson.h>
 
@@ -101,6 +103,26 @@ static const char* map_access_level(const char *access_level, baton_error_t *err
                     ACCESS_LEVEL_NULL, ACCESS_LEVEL_OWN, ACCESS_LEVEL_READ,
                     ACCESS_LEVEL_WRITE);
     return NULL;
+}
+
+static void set_query_prepare_error(const char *context, baton_error_t *error) {
+    const int errnum = errno;
+
+    init_baton_error(error);
+
+    if (errnum == EOVERFLOW) {
+        set_baton_error(error, CAT_INVALID_ARGUMENT,
+                        "Query exceeded the maximum of %d conditions while "
+                        "preparing %s constraints", MAX_NUM_CONDITIONS, context);
+    }
+    else if (errnum != 0) {
+        set_baton_error(error, errnum,
+                        "Failed to prepare %s constraints: error %d %s", context, errnum,
+                        strerror(errnum));
+    }
+    else {
+        set_baton_error(error, -1, "Failed to prepare %s constraints", context);
+    }
 }
 
 // Map an iCAT token back to a user-visible access level.
@@ -208,8 +230,8 @@ const char* ensure_valid_operator(const char *op, baton_error_t *error) {
     };
     init_baton_error(error);
 
-    size_t valid_index;
-    int valid = 0;
+    size_t valid_index = 0;
+    int valid          = 0;
     for (size_t i = 0; i < num_operators; i++) {
         if (str_equals_ignore_case(op, operators[i], MAX_STR_LEN)) {
             valid       = 1;
@@ -258,6 +280,10 @@ json_t* do_search(rcComm_t *conn,
     }
 
     query_in = make_query_input(SEARCH_MAX_ROWS, format->num_columns, format->columns);
+    if (!query_in) {
+        set_query_prepare_error("query", error);
+        goto error;
+    }
 
     if (root_path) {
         rodsPath_t rods_path;
@@ -278,6 +304,10 @@ json_t* do_search(rcComm_t *conn,
             else {
                 logmsg(DEBUG, "Limiting search to path '%s'", root_path);
                 query_in = prepare_path_search(query_in, root_path);
+                if (!query_in) {
+                    set_query_prepare_error("path", error);
+                    goto error;
+                }
             }
         }
     }
@@ -287,11 +317,15 @@ json_t* do_search(rcComm_t *conn,
     if (error->code != 0) goto error;
 
     query_in = prepare_json_avu_search(query_in, avus, prepare_avu, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0 || !query_in) goto error;
 
     // Report good replicates only
     if (format->good_repl) {
         query_in = limit_to_good_repl(query_in);
+        if (!query_in) {
+            set_query_prepare_error("replica", error);
+            goto error;
+        }
     }
 
     // ACL is optional
@@ -300,7 +334,7 @@ json_t* do_search(rcComm_t *conn,
         if (error->code != 0) goto error;
 
         query_in = prepare_json_acl_search(query_in, acl, prepare_acl, error);
-        if (error->code != 0) goto error;
+        if (error->code != 0 || !query_in) goto error;
     }
 
     // Timestamp is optional
@@ -310,7 +344,7 @@ json_t* do_search(rcComm_t *conn,
 
         query_in = prepare_json_tps_search(query_in, tps, prepare_cre,
                                            prepare_mod, error);
-        if (error->code != 0) goto error;
+        if (error->code != 0 || !query_in) goto error;
     }
 
     if (zone_hint) {
@@ -681,6 +715,10 @@ genQueryInp_t* prepare_json_acl_search(genQueryInp_t *query_in,
         if (error->code != 0) goto error;
 
         query_in = prepare(query_in, owner_name, access_level);
+        if (!query_in) {
+            set_query_prepare_error("ACL", error);
+            goto error;
+        }
     }
 
     return query_in;
@@ -693,8 +731,6 @@ genQueryInp_t* prepare_json_avu_search(genQueryInp_t *query_in,
                                        const json_t *avus,
                                        const prepare_avu_search_cb prepare,
                                        baton_error_t *error) {
-    json_t *in_opvalue = NULL;
-
     init_baton_error(error);
 
     const size_t num_clauses = json_array_size(avus);
@@ -735,18 +771,16 @@ genQueryInp_t* prepare_json_avu_search(genQueryInp_t *query_in,
         logmsg(DEBUG, "Preparing AVU search a: '%s' v: '%s', op: '%s'", attr_name,
                attr_value, valid_oper);
 
-        prepare(query_in, attr_name, attr_value, valid_oper);
-
-        if (in_opvalue) {
-            json_decref(in_opvalue);
-            in_opvalue = NULL; // Reset for any subsequent IN clause
+        query_in = prepare(query_in, attr_name, attr_value, valid_oper);
+        if (!query_in) {
+            set_query_prepare_error("AVU", error);
+            goto error;
         }
     }
 
     return query_in;
 
 error:
-    if (in_opvalue) json_decref(in_opvalue);
     return query_in;
 }
 
@@ -853,7 +887,12 @@ genQueryInp_t* prepare_json_tps_search(genQueryInp_t *query_in,
             goto error;
         }
 
-        prepare(query_in, raw_timestamp, oper);
+        query_in = prepare(query_in, raw_timestamp, oper);
+        if (!query_in) {
+            free(raw_timestamp);
+            set_query_prepare_error("timestamp", error);
+            goto error;
+        }
         free(raw_timestamp);
     }
 
@@ -1197,8 +1236,6 @@ error:
 }
 
 json_t* map_access_args(json_t *query, baton_error_t *error) {
-    json_t *user_info = NULL;
-
     init_baton_error(error);
 
     if (has_acl(query)) {
@@ -1233,8 +1270,6 @@ json_t* map_access_args(json_t *query, baton_error_t *error) {
     return query;
 
 error:
-    if (user_info) json_decref(user_info);
-
     return NULL;
 }
 

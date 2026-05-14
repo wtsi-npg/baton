@@ -19,6 +19,7 @@
  */
 
 #include <assert.h>
+#include <errno.h>
 #include <limits.h>
 #include <unistd.h>
 
@@ -33,6 +34,7 @@
 #include "../src/compat_checksum.h"
 #include "../src/signal_handler.h"
 #include "../src/operations.h"
+#include "../src/query.h"
 #include "../src/write.h"
 
 int exit_flag;
@@ -730,6 +732,32 @@ START_TEST(test_make_query_input) {
 
     ck_assert_ptr_ne(query_input->sqlCondInp.inx, NULL);
     ck_assert_ptr_ne(query_input->sqlCondInp.value, NULL);
+    ck_assert_int_eq(query_input->sqlCondInp.len, 0);
+
+    free_query_input(query_input);
+}
+END_TEST
+
+START_TEST(test_add_query_conds_rejects_too_many_conditions) {
+    const int max_rows = 10;
+    const int num_columns = 1;
+    const int columns[] = { COL_COLL_NAME };
+    genQueryInp_t *query_input = make_query_input(max_rows, num_columns, columns);
+
+    ck_assert_ptr_ne(query_input, NULL);
+
+    query_cond_t conds[MAX_NUM_CONDITIONS + 1];
+    for (size_t i = 0; i < MAX_NUM_CONDITIONS + 1; i++) {
+        conds[i] = (query_cond_t) {
+            .column = COL_COLL_NAME,
+            .operator = SEARCH_OP_EQUALS,
+            .value = "test"
+        };
+    }
+
+    errno = 0;
+    ck_assert_ptr_eq(add_query_conds(query_input, MAX_NUM_CONDITIONS + 1, conds), NULL);
+    ck_assert_int_eq(errno, EOVERFLOW);
     ck_assert_int_eq(query_input->sqlCondInp.len, 0);
 
     free_query_input(query_input);
@@ -3102,6 +3130,7 @@ Suite *baton_suite(void) {
     tcase_add_test(basic, test_init_rods_path);
     tcase_add_test(basic, test_resolve_rods_path);
     tcase_add_test(basic, test_make_query_input);
+    tcase_add_test(basic, test_add_query_conds_rejects_too_many_conditions);
 
      TCase *path = tcase_create("path");
      tcase_add_unchecked_fixture(path, setup, teardown);

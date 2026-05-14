@@ -50,19 +50,24 @@ void log_rods_errstack(const log_level level, const rError_t *error) {
 genQueryInp_t* make_query_input(const size_t max_rows,
                                 const size_t num_columns,
                                 const int columns[]) {
+    int *cols_to_select = NULL;
+    int *special_select_ops = NULL;
+    int *query_cond_indices = NULL;
+    char **query_cond_values = NULL;
+
     genQueryInp_t *query_in = calloc(1, sizeof (genQueryInp_t));
     if (!query_in) goto error;
 
     logmsg(DEBUG, "Preparing a query to select %d columns", num_columns);
 
-    int *cols_to_select = calloc(num_columns, sizeof(int));
+    cols_to_select = calloc(num_columns, sizeof(int));
     if (!cols_to_select) goto error;
 
     for (size_t i = 0; i < num_columns; i++) {
         cols_to_select[i] = columns[i];
     }
 
-    int *special_select_ops = calloc(num_columns, sizeof(int));
+    special_select_ops = calloc(num_columns, sizeof(int));
     if (!special_select_ops) goto error;
 
     special_select_ops[0] = 0;
@@ -75,10 +80,10 @@ genQueryInp_t* make_query_input(const size_t max_rows,
     query_in->continueInx   = 0;
     query_in->condInput.len = 0;
 
-    int *query_cond_indices = calloc(MAX_NUM_CONDITIONS, sizeof(int));
+    query_cond_indices = calloc(MAX_NUM_CONDITIONS, sizeof(int));
     if (!query_cond_indices) goto error;
 
-    char **query_cond_values = calloc(MAX_NUM_CONDITIONS, sizeof(char *));
+    query_cond_values = calloc(MAX_NUM_CONDITIONS, sizeof(char *));
     if (!query_cond_values) goto error;
 
     query_in->sqlCondInp.inx   = query_cond_indices;
@@ -89,6 +94,10 @@ genQueryInp_t* make_query_input(const size_t max_rows,
 
 error:
     logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
+    if (cols_to_select) free(cols_to_select);
+    if (special_select_ops) free(special_select_ops);
+    if (query_cond_indices) free(query_cond_indices);
+    if (query_cond_values) free(query_cond_values);
 
     return NULL;
 }
@@ -139,6 +148,19 @@ void free_query_output(genQueryOut_t *query_out) {
 genQueryInp_t* add_query_conds(genQueryInp_t *query_in,
                                const size_t num_conds,
                                const query_cond_t conds[]) {
+    if (!query_in) {
+        errno = EINVAL;
+        goto error;
+    }
+
+    if (query_in->sqlCondInp.len + num_conds > MAX_NUM_CONDITIONS) {
+        logmsg(ERROR, "Failed to add %zu query conditions; %d are already present "
+               "and the maximum is %d", num_conds, query_in->sqlCondInp.len,
+               MAX_NUM_CONDITIONS);
+        errno = EOVERFLOW;
+        goto error;
+    }
+
     for (size_t i = 0; i < num_conds; i++) {
         char *column = getAttrNameFromAttrId(conds[i].column);
         const char *operator = conds[i]
@@ -226,6 +248,8 @@ genQueryInp_t* prepare_obj_list(genQueryInp_t *query_in,
 
 error:
     logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
+    if (path1) free(path1);
+    if (path2) free(path2);
 
     return NULL;
 }
@@ -324,6 +348,8 @@ genQueryInp_t* prepare_obj_repl_list(genQueryInp_t *query_in, rodsPath_t *rods_p
 
 error:
     logmsg(ERROR, "Failed to allocate memory: error %d %s", errno, strerror(errno));
+    if (path1) free(path1);
+    if (path2) free(path2);
 
     return NULL;
 }
