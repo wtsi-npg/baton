@@ -2772,6 +2772,87 @@ START_TEST(test_search_specific_with_valid_setup) {
 }
 END_TEST
 
+START_TEST(test_prepare_specific_query_rejects_too_many_args) {
+    specificQueryInp_t *squery_in = calloc(1, sizeof(specificQueryInp_t));
+    ck_assert_ptr_ne(squery_in, NULL);
+
+    json_t *args = json_array();
+    ck_assert_ptr_ne(args, NULL);
+
+    for (size_t i = 0; i < MAX_SPECIFIC_QUERY_ARGS + 1; i++) {
+        const int status = json_array_append_new(args, json_string("arg"));
+        ck_assert_int_eq(status, 0);
+    }
+
+    errno = 0;
+    ck_assert_ptr_eq(prepare_specific_query(squery_in, "select 1", args), NULL);
+    ck_assert_int_eq(errno, EOVERFLOW);
+
+    free_squery_input(squery_in);
+    json_decref(args);
+}
+END_TEST
+
+START_TEST(test_make_query_format_from_sql_rejects_too_many_columns) {
+    char sql[8192];
+    size_t offset = snprintf(sql, sizeof(sql), "SELECT ");
+    ck_assert(offset < sizeof(sql));
+
+    for (size_t i = 0; i < MAX_NUM_COLUMNS + 1; i++) {
+        const char *fmt = (i == MAX_NUM_COLUMNS) ? "col_%zu" : "col_%zu, ";
+        offset += snprintf(sql + offset, sizeof(sql) - offset, fmt, i);
+        ck_assert(offset < sizeof(sql));
+    }
+    offset += snprintf(sql + offset, sizeof(sql) - offset, " FROM t");
+    ck_assert(offset < sizeof(sql));
+
+    errno = 0;
+    const query_format_in_t *format = make_query_format_from_sql(sql);
+    ck_assert_ptr_eq(format, NULL);
+    ck_assert_int_eq(errno, EOVERFLOW);
+}
+END_TEST
+
+
+START_TEST(test_search_specific_rejects_too_many_args) {
+    baton_session_t *session = new_baton_session();
+
+    int status = baton_connect(session);
+    ck_assert_int_eq(status, 0);
+
+    json_t *args = json_array();
+    ck_assert_ptr_ne(args, NULL);
+
+    for (size_t i = 0; i < MAX_SPECIFIC_QUERY_ARGS + 1; i++) {
+        status = json_array_append_new(args, json_string("arg"));
+        ck_assert_int_eq(status, 0);
+    }
+
+    json_t *specific = json_object();
+    ck_assert_ptr_ne(specific, NULL);
+    status = json_object_set_new(specific, JSON_SQL_KEY, json_string("select 1"));
+    ck_assert_int_eq(status, 0);
+    status = json_object_set_new(specific, JSON_ARGS_KEY, args);
+    ck_assert_int_eq(status, 0);
+
+    json_t *query_json = json_object();
+    ck_assert_ptr_ne(query_json, NULL);
+    status = json_object_set_new(query_json, JSON_SPECIFIC_KEY, specific);
+    ck_assert_int_eq(status, 0);
+
+    baton_error_t search_error;
+    json_t *search_results = search_specific(session->conn, query_json, NULL,
+                                             &search_error);
+    ck_assert_ptr_eq(search_results, NULL);
+    ck_assert_int_eq(search_error.code, CAT_INVALID_ARGUMENT);
+
+    json_decref(query_json);
+
+    baton_disconnect(session);
+    free_baton_session(session);
+}
+END_TEST
+
 START_TEST(test_exit_flag_on_sigint) {
     apply_signal_handler();
     raise(SIGINT);
@@ -3209,6 +3290,12 @@ Suite *baton_suite(void) {
                     test_make_query_format_from_sql_with_select_query_using_column_alias);
      tcase_add_test(specific_query,
                     test_make_query_format_from_sql_with_invalid_query);
+     tcase_add_test(specific_query,
+                    test_prepare_specific_query_rejects_too_many_args);
+     tcase_add_test(specific_query,
+                    test_make_query_format_from_sql_rejects_too_many_columns);
+     tcase_add_test(specific_query,
+               test_search_specific_rejects_too_many_args);
      tcase_add_test(specific_query,
                     test_search_specific_with_valid_setup);
 

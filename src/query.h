@@ -30,6 +30,7 @@
 
 #define MAX_NUM_COLUMNS     128
 #define MAX_NUM_CONDITIONS   32
+#define MAX_SPECIFIC_QUERY_ARGS 10
 
 #define SEARCH_MAX_ROWS      10
 

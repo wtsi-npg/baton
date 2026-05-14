@@ -389,7 +389,7 @@ json_t* do_specific(rcComm_t *conn,
     if (error->code != 0) goto error;
 
     format = prepare_json_specific_labels(conn, specific, prepare_labels, error);
-    if (error->code != 0) goto error;
+    if (error->code != 0 || !format) goto error;
 
     if (zone_name) {
         logmsg(TRACE, "Setting zone to '%s'", zone_name);
@@ -542,6 +542,14 @@ json_t* do_squery(rcComm_t *conn,
         int status = rcSpecificQuery(conn, squery_in, &query_out);
         if (status == 0) {
             logmsg(DEBUG, "Successfully fetched chunk %d of query", chunk_num);
+
+            const size_t num_attr = query_out->attriCnt;
+            if (num_attr > MAX_NUM_COLUMNS) {
+                set_baton_error(error, CAT_INVALID_ARGUMENT,
+                                "Specific query result exceeded maximum of %d columns "
+                                "(got %lu)", MAX_NUM_COLUMNS, num_attr);
+                goto error;
+            }
 
             // Allows query_out to be freed
             continue_flag = query_out->continueInx;
@@ -799,7 +807,12 @@ specificQueryInp_t* prepare_json_specific_query(specificQueryInp_t *squery_in,
 
     logmsg(DEBUG, "Preparing specific search s: '%s'", sql);
 
-    prepare(squery_in, sql, args);
+    specificQueryInp_t *prepared = prepare(squery_in, sql, args);
+    if (!prepared) {
+        set_query_prepare_error("specific query", error);
+        goto error;
+    }
+    squery_in = prepared;
 
     if (args) {
         json_decref(args);
@@ -825,6 +838,10 @@ query_format_in_t* prepare_json_specific_labels(rcComm_t *conn,
     logmsg(DEBUG, "Preparing labels for specific search: '%s'", sql);
 
     format = prepare(conn, sql);
+    if (!format) {
+        set_query_prepare_error("specific query labels", error);
+        goto error;
+    }
 
     return format;
 
