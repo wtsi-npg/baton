@@ -585,12 +585,23 @@ specificQueryInp_t* prepare_specific_query(specificQueryInp_t *squery_in,
     squery_in->continueInx = 0;
     squery_in->sql         = (char *) sql;
 
-    json_array_foreach(args, index, value)
-    {
+    json_array_foreach(args, index, value) {
+        if (index >= MAX_SPECIFIC_QUERY_ARGS) {
+            errno = EOVERFLOW;
+            logmsg(ERROR, "Specific query args exceeded maximum of %d entries",
+                   MAX_SPECIFIC_QUERY_ARGS);
+            goto error;
+        }
+
         if (json_is_string(value)) {
             squery_in->args[index] = strdup(json_string_value(value));
+            if (!squery_in->args[index]) {
+                errno = ENOMEM;
+                goto error;
+            }
         }
         else {
+            errno = EINVAL;
             goto error;
         }
     }
@@ -598,14 +609,14 @@ specificQueryInp_t* prepare_specific_query(specificQueryInp_t *squery_in,
     return squery_in;
 
 error:
-    logmsg(ERROR, "Failed to parse JSON specific query args: %s", args);
-    return squery_in;
+    logmsg(ERROR, "Failed to parse JSON specific query args");
+    return NULL;
 }
 
 void free_squery_input(specificQueryInp_t *squery_in) {
     assert(squery_in);
 
-    for (unsigned int i = 0; i < 10; i++) {
+    for (unsigned int i = 0; i < MAX_SPECIFIC_QUERY_ARGS; i++) {
         if (squery_in->args[i] != NULL) {
             free(squery_in->args[i]);
         }
@@ -634,9 +645,13 @@ query_format_in_t* make_query_format_from_sql(const char *sql) {
     enum { as_column_name_capt_idx = 1 };
     regex_t as_column_name_capt_re;
 
-    char *select_list, *select_list_tokenize;
+    char *select_list = NULL, *select_list_tokenize = NULL;
     char *column_trim, *column_name;
     unsigned int i;
+
+    int select_list_capt_re_compiled = 0;
+    int trim_whitespace_capt_re_compiled = 0;
+    int as_column_name_capt_re_compiled = 0;
 
     unsigned int reti = regcomp(&select_list_capt_re, select_list_capt_re_str,
                                 REG_EXTENDED | REG_ICASE);
@@ -646,6 +661,7 @@ query_format_in_t* make_query_format_from_sql(const char *sql) {
                remsg);
         goto error;
     }
+    select_list_capt_re_compiled = 1;
 
     reti = regcomp(&trim_whitespace_capt_re, trim_whitespace_capt_re_str,
                    REG_EXTENDED | REG_ICASE);
@@ -655,6 +671,7 @@ query_format_in_t* make_query_format_from_sql(const char *sql) {
                remsg);
         goto error;
     }
+    trim_whitespace_capt_re_compiled = 1;
 
     reti = regcomp(&as_column_name_capt_re, as_column_name_capt_re_str,
                    REG_EXTENDED | REG_ICASE);
@@ -664,6 +681,7 @@ query_format_in_t* make_query_format_from_sql(const char *sql) {
                remsg);
         goto error;
     }
+    as_column_name_capt_re_compiled = 1;
 
     format = calloc(1, sizeof(query_format_in_t));
     if (!format) goto error;
@@ -698,6 +716,13 @@ query_format_in_t* make_query_format_from_sql(const char *sql) {
 
     // parse select_list_tokenize column by column
     for (i = 0; select_list_tokenize != NULL; i++) {
+        if (i >= MAX_NUM_COLUMNS) {
+            errno = EOVERFLOW;
+            logmsg(ERROR, "Specific query SELECT list exceeded maximum of %d columns",
+                   MAX_NUM_COLUMNS);
+            goto error;
+        }
+
         regmatch_t trim_whitespace_pmatch[trim_whitespace_capt_idx + 1];
         regmatch_t as_column_name_pmatch[as_column_name_capt_idx + 1];
         // get next column specification from select_list_tokenize
@@ -777,17 +802,23 @@ query_format_in_t* make_query_format_from_sql(const char *sql) {
 error_recoverable:
     logmsg(ERROR, "Could not parse select columns from SQL " "into query format: '%s'",
            sql);
-    // create generic columns labels as a backup plan
-    format->num_columns = MAX_NUM_COLUMNS;
-    for (i = 0; i < (format->num_columns - 1); i++) {
-        if (format->labels[i] == NULL) {
-            reti = asprintf((char **) &format->labels[i], "col%d", i);
-        }
-    }
-    return format;
+    goto error;
 
 error:
     logmsg(ERROR, "Could not process SQL: '%s'", sql);
+    if (select_list) free(select_list);
+    if (format) {
+        for (i = 0; i < MAX_NUM_COLUMNS; i++) {
+            // iRODS defines these labels as const char *
+            if (format->labels[i]) free((void *) format->labels[i]);
+        }
+        free(format);
+    }
+
+    if (select_list_capt_re_compiled) regfree(&select_list_capt_re);
+    if (trim_whitespace_capt_re_compiled) regfree(&trim_whitespace_capt_re);
+    if (as_column_name_capt_re_compiled) regfree(&as_column_name_capt_re);
+
     return NULL;
 }
 
