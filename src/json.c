@@ -809,6 +809,7 @@ error:
 
 json_t* make_replicate(const char *resource,
                        const char *location,
+                       const char *phys_path,
                        const char *checksum,
                        const char *replicate,
                        const char *status,
@@ -847,10 +848,13 @@ json_t* make_replicate(const char *resource,
         ck_value = json_null();
     }
 
-    result = json_pack("{s:s, s:s, s:o, s:i, s:o}", JSON_RESOURCE_KEY, resource,
-                       JSON_LOCATION_KEY, location, JSON_CHECKSUM_KEY, ck_value,
-                       JSON_REPLICATE_NUMBER_KEY, repl, JSON_REPLICATE_STATUS_KEY,
-                       is_valid);
+    result = json_pack("{s:s, s:s, s:s, s:o, s:i, s:o}",
+                       JSON_RESOURCE_KEY, resource,
+                       JSON_LOCATION_KEY, location,
+                       JSON_PHYSICAL_PATH_KEY, phys_path,
+                       JSON_CHECKSUM_KEY, ck_value,
+                       JSON_REPLICATE_NUMBER_KEY, repl,
+                       JSON_REPLICATE_STATUS_KEY, is_valid);
 
     if (!result) {
         set_baton_error(error, -1, "Failed to pack replicate object");

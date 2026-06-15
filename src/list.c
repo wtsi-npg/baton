@@ -503,20 +503,22 @@ json_t* list_replicates(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *er
 
 #if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
     query_format_in_t obj_format = {
-        .num_columns = 5,
+        .num_columns = 6,
         .columns = {
             COL_D_REPL_STATUS,
             COL_DATA_REPL_NUM,
             COL_D_DATA_CHECKSUM,
             COL_COLL_NAME,
-            COL_D_RESC_HIER
+            COL_D_RESC_HIER,
+            COL_D_DATA_PATH
         },
         .labels = {
             JSON_REPLICATE_STATUS_KEY,
             JSON_REPLICATE_NUMBER_KEY,
             JSON_CHECKSUM_KEY,
             JSON_COLLECTION_KEY,
-            JSON_RESOURCE_HIER_KEY
+            JSON_RESOURCE_HIER_KEY,
+            JSON_PHYSICAL_PATH_KEY
         }
     };
 #else

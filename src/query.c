@@ -800,7 +800,7 @@ query_format_in_t* make_query_format_from_sql(const char *sql) {
     return format;
 
 error_recoverable:
-    logmsg(ERROR, "Could not parse select columns from SQL " "into query format: '%s'",
+    logmsg(ERROR, "Could not parse select columns from SQL into query format: '%s'",
            sql);
     goto error;
 

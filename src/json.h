@@ -43,6 +43,7 @@
 #define JSON_DATA_OBJECT_KEY       "data_object"
 #define JSON_DATA_OBJECT_SHORT_KEY "obj"
 #define JSON_DATA_KEY              "data"
+#define JSON_PHYSICAL_PATH_KEY     "physical_path"
 
 #define JSON_CONTENTS_KEY          "contents"
 #define JSON_SIZE_KEY              "size"
@@ -365,6 +366,7 @@ json_t* make_collection_timestamp(const char *key,
 
 json_t* make_replicate(const char *resource,
                        const char *location,
+                       const char *phys_path,
                        const char *checksum,
                        const char *replicate,
                        const char *status,
