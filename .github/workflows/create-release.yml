@@ -77,7 +77,7 @@ jobs:
           name: baton-release-tarball
 
       - name: "Create GitHub release"
-        uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
         with:
           name: ${{ env.RELEASE_VERSION }}
           prerelease: ${{ !(github.sha == env.MASTER_SHA) }}
