@@ -982,11 +982,17 @@ START_TEST(test_list_replicates_obj) {
     json_t *result;
     json_array_foreach(results, index, result) {
         ck_assert(json_is_object(result));
+        // We don't know the physical path on the iRODS server
+        ck_assert(json_object_get(result, JSON_PHYSICAL_PATH_KEY));
+        // Remove it once tested so that we can easily check the other values together.
+
+        if (json_object_get(result, JSON_PHYSICAL_PATH_KEY)) {
+            json_object_del(result, JSON_PHYSICAL_PATH_KEY);
+        }
         // We don't know what the location value will be for a test
         // run because it's an iRODS resource server hostname.
         ck_assert(json_object_get(result, JSON_LOCATION_KEY));
-        // Remove it once tested so that we can easily check the other
-        // values together.
+        // Remove it once tested so that we can easily check the other values together.
         if (json_object_get(result, JSON_LOCATION_KEY)) {
             json_object_del(result, JSON_LOCATION_KEY);
         }

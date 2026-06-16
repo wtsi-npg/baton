@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013, 2014, 2015, 2016, 2019, 2021, 2023, 2025 Genome
+ * Copyright (C) 2013, 2014, 2015, 2016, 2019, 2021, 2023, 2025, 2026 Genome
  * Research Ltd. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -1366,16 +1366,21 @@ json_t* revmap_replicate_results(rcComm_t *conn,
             json_string_value(resc); const char *location = json_string_value(loc);
 #endif
 
+        const json_t *path = json_object_get(result, JSON_PHYSICAL_PATH_KEY);
         const json_t *chk  = json_object_get(result, JSON_CHECKSUM_KEY);
         const json_t *num  = json_object_get(result, JSON_REPLICATE_NUMBER_KEY);
         const json_t *stat = json_object_get(result, JSON_REPLICATE_STATUS_KEY);
 
-        const char *checksum = json_string_value(chk);
-        const char *number   = json_string_value(num);
-        const char *status   = json_string_value(stat);
+        const char *phys_path = json_string_value(path);
+        const char *checksum  = json_string_value(chk);
+        const char *number    = json_string_value(num);
+        const char *status    = json_string_value(stat);
 
-        json_t *replicate = make_replicate(resource, location, checksum, number, status,
-                                           error);
+        logmsg(DEBUG, "Mapped replicate %s of '%s' to '%s' at '%s'", number,
+               phys_path, resource, location);
+
+        json_t *replicate = make_replicate(resource, location, phys_path, checksum,
+                                           number, status, error);
 
 #if IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4001008
         if (resource_info) json_decref(resource_info);
