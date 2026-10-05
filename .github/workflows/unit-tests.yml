@@ -15,6 +15,11 @@ jobs:
           - irods: "4.2.7"
             build_image: "ghcr.io/wtsi-npg/ub-16.04-irods-clients-dev-4.2.7:latest"
             server_image: "ghcr.io/wtsi-npg/ub-16.04-irods-4.2.7:latest"
+            experimental: true
+          # iRODS 4.2.7 clients on Ubuntu 16.04 vs. 4.2.7-engineering server
+          - irods: "4.2.7-engineering"
+            build_image: "ghcr.io/wtsi-npg/ub-16.04-irods-clients-dev-4.2.7:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-16.04-irods-4.2.7-engineering:latest"
             experimental: false
           # iRODS 4.3.4 clients on Ubuntu 22.04
           - irods: "4.3.4"
