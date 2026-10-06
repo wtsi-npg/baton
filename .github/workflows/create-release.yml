@@ -125,6 +125,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Build and push Docker image"
+        env:
+          ENG_BUILD_URL: ${{ vars.ENG_BUILD_URL }}
         run: |
           cd release
           make GITHUB_ACTIONS=${GITHUB_ACTIONS} GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
