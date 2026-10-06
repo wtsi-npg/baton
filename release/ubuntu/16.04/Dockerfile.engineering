@@ -56,7 +56,8 @@ RUN apt-get update && apt-get install -y \
 
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys "E1DD270288B4E6030699E45FA1715D88E1DF1F24" && \
     echo "deb https://ppa.launchpadcontent.net/git-core/ppa/ubuntu $(lsb_release -sc) main" |\
-    tee /etc/apt/sources.list.d/git-core.list
+    tee /etc/apt/sources.list.d/git-core.list && \
+    apt-get update
 
 RUN apt-get install -q -y --no-install-recommends \
         git
@@ -105,14 +106,24 @@ ENV LANG=en_GB.UTF-8 \
 
 RUN curl -sSL https://packages.irods.org/irods-signing-key.asc | apt-key add - && \
     echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" |\
-    tee /etc/apt/sources.list.d/renci-irods.list
+    tee /etc/apt/sources.list.d/renci-irods.list && \
+    apt-get update
 
 ARG IRODS_VERSION
 
-RUN apt-get update && \
-    apt-get install -q -y --no-install-recommends \
-        irods-runtime="${IRODS_VERSION}" && \
-    unattended-upgrade -d -v && \
+ARG ENG_BUILD_URL
+
+RUN test -n "$ENG_BUILD_URL" || \
+    { echo "ENG_BUILD_URL build argument is required" >&2; exit 1; }
+
+RUN curl -fsSL -o sanger_engineering_build-irods_4.2.7.tar.gz "$ENG_BUILD_URL" && \
+    tar xvf sanger_engineering_build-irods_4.2.7.tar.gz && \
+    md5sum sanger_engineering_build_4.2.7/*.deb
+
+RUN apt-get update && apt-get install -y \
+    ./sanger_engineering_build_4.2.7/irods-runtime*.deb
+
+RUN unattended-upgrade -d -v && \
     apt-get remove -q -y unattended-upgrades && \
     apt-get autoremove -q -y && \
     apt-get clean -q -y && \
