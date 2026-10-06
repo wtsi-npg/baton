@@ -14,6 +14,7 @@ DOCKER_ARGS ?= --platform linux/amd64 --progress=plain --rm
 .PHONY: clean push
 
 image_names += ub-16.04-baton-irods-4.2.7
+image_names += ub-16.04-baton-irods-4.2.7-engineering
 image_names += ub-18.04-baton-irods-4.2.11
 image_names += ub-22.04-baton-irods-4.3.3
 image_names += ub-22.04-baton-irods-4.3.4
@@ -44,6 +45,25 @@ ub-16.04-baton-irods-4.2.7.$(TAG): ubuntu/16.04/Dockerfile
 	--label org.opencontainers.image.vendor=npg.sanger.ac.uk \
 	--tag $(DOCKER_PREFIX)/ub-16.04-baton-irods-4.2.7:latest \
 	--tag $(DOCKER_PREFIX)/ub-16.04-baton-irods-4.2.7:$(TAG) --file $< .
+	touch $@
+
+ub-16.04-baton-irods-4.2.7-engineering.$(TAG): ubuntu/16.04/Dockerfile.engineering
+	docker buildx build $(DOCKER_ARGS) \
+	--load \
+	--build-context repo_root=.. \
+	--build-arg DOCKER_PREFIX=$(DOCKER_PREFIX) \
+	--build-arg DOCKER_IMAGE=$(subst .$(TAG),,$@) \
+	--build-arg DOCKER_TAG=$(TAG) \
+	--build-arg IRODS_VERSION="4.2.7" \
+	--build-arg ENG_BUILD_URL="$(ENG_BUILD_URL)" \
+	--label org.opencontainers.image.title="iRODS 4.2.7 baton client, Ubuntu 16.04" \
+	--label org.opencontainers.image.source=$(git_url) \
+	--label org.opencontainers.image.revision=$(git_commit) \
+	--label org.opencontainers.image.version=$(TAG) \
+	--label org.opencontainers.image.created=$(NOW) \
+	--label org.opencontainers.image.vendor=npg.sanger.ac.uk \
+	--tag $(DOCKER_PREFIX)/ub-16.04-baton-irods-4.2.7-engineering:latest \
+	--tag $(DOCKER_PREFIX)/ub-16.04-baton-irods-4.2.7-engineering:$(TAG) --file $< .
 	touch $@
 
 ub-18.04-baton-irods-4.2.11.$(TAG): ubuntu/18.04/Dockerfile
