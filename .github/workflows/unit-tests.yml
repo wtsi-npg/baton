@@ -31,6 +31,11 @@ jobs:
             build_image: "ghcr.io/wtsi-npg/ub-22.04-irods-clients-dev-4.3.5:latest"
             server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.5:latest"
             experimental: false
+          # iRODS 4.2.7 client with 4.3.4 server
+          - irods: "4.3.4"
+            build_image: "ghcr.io/wtsi-npg/ub-16.04-irods-clients-dev-4.2.7-engineering:latest"
+            server_image: "ghcr.io/wtsi-npg/ub-22.04-irods-4.3.4:latest"
+            experimental: true
 
     services:
       irods-server:
