@@ -199,7 +199,7 @@ json_t* list_checksum(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *erro
 
     if (rods_path->objState == NOT_EXIST_ST) {
         set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
-                        "Path '%s' does not exist " "(or lacks access permission)",
+                        "Path '%s' does not exist (or lacks access permission)",
                         rods_path->outPath);
         goto error;
     }
@@ -226,11 +226,23 @@ json_t* list_checksum(rcComm_t *conn, rodsPath_t *rods_path, baton_error_t *erro
     if (error->code != 0) goto error;
 
     if (json_array_size(results) != 1) {
+        json_t *checksums = json_array();
+
+        size_t index;
+        json_t *row;
+        json_array_foreach(results, index, row) {
+            json_array_append(checksums, json_object_get(row, JSON_CHECKSUM_KEY));
+        }
+
+        char *values = json_dumps(checksums, JSON_COMPACT);
         set_baton_error(error, -1,
-                        "Expected 1 data object result but "
-                        "found %d. This occurs when the object replicates "
-                        "have different checksum values in the iRODS database",
-                        json_array_size(results));
+            "Multiple (%zu) conflicting checksum values for replicates of '%s': %s",
+            json_array_size(checksums), rods_path->outPath, values ? values :
+            "<unavailable>");
+        free(values);
+
+        json_decref(checksums);
+
         goto error;
     }
 
@@ -266,7 +278,7 @@ json_t* list_path(rcComm_t *conn,
 
     if (rods_path->objState == NOT_EXIST_ST) {
         set_baton_error(error, USER_FILE_DOES_NOT_EXIST,
-                        "Path '%s' does not exist " "(or lacks access permission)",
+                        "Path '%s' does not exist (or lacks access permission)",
                         rods_path->outPath);
         goto error;
     }
